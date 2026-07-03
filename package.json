@@ -118,6 +118,7 @@
 		"verify:solana": "node scripts/verify-solana-parity.mjs",
 		"verify:onchain": "node scripts/verify-onchain-parity.mjs",
 		"verify:x402": "node scripts/build-x402-catalog.mjs --out=/tmp/x402-catalog.json && node scripts/verify-x402-discovery.mjs --file=/tmp/x402-catalog.json",
+		"smoke:x402-facilitator": "node scripts/x402-facilitator-smoke-test.mjs",
 		"smoke:onchain": "node scripts/onchain-smoke.mjs",
 		"smoke:onchain:ci": "node scripts/onchain-smoke.mjs --only=parity",
 		"smoke:agent-wallet": "node scripts/agent-wallet-smoke.mjs",

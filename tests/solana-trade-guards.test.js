@@ -64,9 +64,9 @@ vi.mock('../api/_lib/agent-pumpfun.js', () => ({
 	solanaPublicConnection: vi.fn(() => fakeConn()),
 }));
 
-const quoteState = { buyImpact: 1 };
+const quoteState = { buyImpact: 1, isMayhem: false };
 vi.mock('../api/_lib/solana/sdk-bridge.js', () => ({
-	getBuyQuote: vi.fn(async () => ({ tokens: '1000000', priceImpact: quoteState.buyImpact })),
+	getBuyQuote: vi.fn(async () => ({ tokens: '1000000', priceImpact: quoteState.buyImpact, isMayhemMode: quoteState.isMayhem })),
 	getSellQuote: vi.fn(async () => ({ sol: '50000000', priceImpact: 1 })),
 }));
 
@@ -110,7 +110,24 @@ beforeEach(() => {
 	authState.session = { id: 'owner-1' };
 	connState.balance = 5_000_000_000;
 	quoteState.buyImpact = 1;
+	quoteState.isMayhem = false;
 	setAgent();
+});
+
+describe('solana-trade — mayhem-mode coins are unbuyable', () => {
+	it('422 mayhem_blocked when the bonding curve is mayhem mode (buy)', async () => {
+		quoteState.isMayhem = true;
+		const res = await call({ preview: true, side: 'buy', mint: MINT, sol_amount: 0.1 });
+		expect(res.statusCode).toBe(422);
+		expect(res.json.error).toBe('mayhem_blocked');
+	});
+
+	it('regular coins still price normally (buy)', async () => {
+		quoteState.isMayhem = false;
+		const res = await call({ preview: true, side: 'buy', mint: MINT, sol_amount: 0.1 });
+		expect(res.statusCode).toBe(200);
+		expect(res.json.data.venue).toBe('bonding_curve');
+	});
 });
 
 describe('solana-trade — auth & ownership', () => {
