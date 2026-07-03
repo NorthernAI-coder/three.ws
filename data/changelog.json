@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-07-03",
+			"title": "Fleet Command — run your whole swarm of trading agents from one deck",
+			"summary": "Tuning one sniper bot is easy; commanding thirty of them was not. The new Fleet Command page puts every autonomous agent on a single mission-control deck: pooled wallet balance across the fleet, how many are armed, low-balance warnings, live open positions, and combined realized P&L and win rate at the top. Below that, a sortable, searchable roster — one row per agent with its status, wallet, open/closed trades, win rate and P&L — plus multi-select. Act on the whole fleet at once: Arm all, Disarm all, or one red Emergency Stop that trips every kill switch, each behind a confirmation and reporting honest results (\"Armed 30/33 · 3 failed\"). A live trade feed streams every buy and sell across the swarm as it happens.",
+			"tags": [
+				"feature"
+			],
+			"link": "/dashboard/fleet"
+		},
+		{
+			"date": "2026-07-03",
 			"title": "Shared wallet Trader Cards now unfurl with real stats",
 			"summary": "Sharing a claimed wallet's Trader Card used to preview with the generic site image — only three.ws agents got the rich social card. Now /trader/<wallet>/share bakes a real card for any indexed wallet: smart-money score gauge, win rate, coins traded, realized P&L, and the wallet's archetype, all pulled from the same on-chain reputation ledger the profile shows. The share button on wallet profiles now hands out this link, and a wallet the engine hasn't indexed yet routes to the plain profile instead of shipping an empty preview.",
 			"tags": [

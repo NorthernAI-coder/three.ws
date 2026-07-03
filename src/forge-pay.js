@@ -17,6 +17,7 @@
 // { ok:true, paymentId, refId } on a verified on-chain payment.
 
 import { payWithToken } from './token-pay.js';
+import { ensureRiskAck } from './shared/risk-ack.js';
 
 const ECONOMY_URL = '/three-token';
 const SIGN_IN_URL = '/login';
@@ -155,7 +156,7 @@ function classifyError(err) {
  * @param {string} [params.refPrefix]    client-nonce prefix (action name)
  * @returns {Promise<{ ok: true, paymentId: string, refId: string } | { ok: false, cancelled?: boolean }>}
  */
-export function payForConsumption({
+export async function payForConsumption({
 	usd,
 	unit = 'one generation',
 	confirm = 'One generation, paid in $THREE.',
@@ -163,6 +164,10 @@ export function payForConsumption({
 	successText = 'Payment confirmed — continuing…',
 	refPrefix = 'forge',
 } = {}) {
+	// Real $THREE leaves the wallet — require the risk acknowledgment first.
+	// (payWithToken gates too, but asking before the payment sheet opens is
+	// the honest order; the second check is a no-op once accepted.)
+	if (!(await ensureRiskAck({ context: 'forge-pay' }))) return { ok: false, cancelled: true };
 	injectStyles();
 	return new Promise((resolve) => {
 		const refId = clientNonce(refPrefix);

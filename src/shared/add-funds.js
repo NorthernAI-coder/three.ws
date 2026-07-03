@@ -10,6 +10,8 @@
  *   // newBalance: { usdc: 1.23 } or null if dismissed
  */
 
+import { ensureRiskAck } from './risk-ack.js';
+
 const USDC_MINT_SOLANA = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 const POLL_INTERVAL_MS = 5000;
 // Stop actively polling after this long with no deposit, then surface a manual
@@ -229,7 +231,9 @@ async function fetchOnrampLink(address, amount = 25) {
  * @param {Element} [opts.container]      defaults to document.body
  * @returns {Promise<{usdc: number}|null>}  resolves with new balance or null if dismissed
  */
-export function showAddFunds({ walletAddress, requiredUsdc, container } = {}) {
+export async function showAddFunds({ walletAddress, requiredUsdc, container } = {}) {
+	// Buying USDC is a real-money commitment — require the risk acknowledgment.
+	if (!(await ensureRiskAck({ context: 'onramp' }))) return null;
 	return new Promise((resolve) => {
 		const root = container || document.body;
 
