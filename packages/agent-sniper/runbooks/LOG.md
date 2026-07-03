@@ -104,6 +104,14 @@ idempotent. Swarm 1 ✓, Swarm 2 in progress at log time.
 **Pipeline:** A create → B vanity (UI) → C fund from niChP → D arm (UI) → E run worker + record
 continuously until last buy → F sweep + rotate secrets. Fable layer deferred (API key unfunded).
 
+**Phase E — worker boot VERIFIED (simulate, vs live Neon):** `node workers/agent-sniper/index.js`
+boots clean — `mayhem filter enabled=true`, `feed connected` (live pump.fun), strategies refreshed,
+intel/radar/market-maker armed, live candidate scoring with `has_socials`/`mc_usd` reasons,
+`intel llm:false` (Fable off, as intended). The engine works end-to-end against the real DB.
+Scripts ready: `scripts/fund-swarm.mjs` (DB-driven fund from niChP), funding-verified.
+Note: currently 1 non-Swarm armed strategy in DB (agent 4959a139…) — check its balance before
+live; fund ONLY Swarm so only Swarm trades.
+
 **Open / next (blocking, owner decisions):**
 - Vanity vs random UI wallets? (vanity ⇒ a non-UI import step).
 - Account: register a fresh three.ws account in-UI, or use the owner's login?
