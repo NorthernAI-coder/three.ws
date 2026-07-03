@@ -173,11 +173,12 @@ const ATOMIC_PER_USD = 1_000_000;
  * @param {Set<string>} p.allowed  pre-resolved ringAllowedAddresses()
  * @param {string} p.persona       persona id (attribution / logs)
  * @param {number} [p.remainingCap] atomic cap remaining this tick
+ * @param {typeof payX402} [p.payImpl] injectable payment client (tests); defaults to payX402
  * @returns {Promise<{ status:'paid'|'free'|'refused'|'error'|'skipped', persona:string, agentId:string,
  *   slug:string, kind:string, amountAtomic:number, txSig:string|null, payTo:string|null,
  *   reason:string|null, durationMs:number, responseLiveness:object }>}
  */
-export async function executePurchase({ agent, purchase, solana, allowed, persona, remainingCap = Infinity }) {
+export async function executePurchase({ agent, purchase, solana, allowed, persona, remainingCap = Infinity, payImpl = payX402 }) {
 	const t0 = Date.now();
 	const base = {
 		persona,
@@ -224,7 +225,7 @@ export async function executePurchase({ agent, purchase, solana, allowed, person
 	// returns a structured outcome; a thrown fault is caught below.
 	let result;
 	try {
-		result = await payX402({
+		result = await payImpl({
 			url: purchase.url,
 			method: purchase.method || 'GET',
 			body: purchase.body ?? null,

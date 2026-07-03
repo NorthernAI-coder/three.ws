@@ -3,6 +3,16 @@
   "entries": [
     {
       "date": "2026-07-03",
+      "title": "Lowest fees always: self-pay settlement, a fee ceiling, and a nightly fee audit that reclaims rent",
+      "summary": "The closed-loop agent economy now enforces its cheapest possible settlement everywhere. Payments inside the ring default to self-pay — the paying wallet covers its own one-signature network fee (about 5,000 lamports) instead of a two-signature sponsored payment (about 10,000), so the platform burns half the SOL per settlement. Sponsor mode is still available as a fallback for wallets that hold no SOL, but it is no longer the default. A hard per-payment fee ceiling now guards the floor from both sides: the payment builders are proven never to exceed it, and the payment client refuses at send time to broadcast anything whose fee configuration would cross it. A new nightly audit measures the real network fees the wallets actually paid — read straight from the blockchain, not estimated — and reports two plain numbers: the SOL burned per settlement and the SOL burned per $100 of volume moved. If either drifts above budget it pages operators. The same run reclaims the one-time account-rent deposits the ring locks up over time, safely closing only empty, non-active token accounts and returning the rent to the owner wallet. The live efficiency numbers are exposed on the ring's public net-position report.",
+      "tags": [
+        "improvement",
+        "infra"
+      ],
+      "link": "/api/x402-ring"
+    },
+    {
+      "date": "2026-07-03",
       "title": "Leak-proofing the closed-loop economy: fail-closed spend guards + an on-chain leak scanner",
       "summary": "The rule behind the closed-loop agent economy is simple: no dollar and no SOL ever leaves the wallets the platform controls. Until now the safeguards that enforced it were passive — a couple of configuration switches that, if flipped or forgotten, could quietly re-open spending to the outside world, and nothing actually watched the blockchain to confirm money wasn't leaving. Both gaps are now closed. Before the economy spends anything, it re-checks the three switches that keep the loop sealed — external spending off, no charity split, settlements routed only through the platform's own settlement service — and if any of them is wrong it stops spending entirely and pages operators, naming the switch that changed. Separately, a new monitor reads the chain itself every ten minutes: for each ring wallet it inspects every recent transaction and flags anything that moved value to an address the platform doesn't control — a stablecoin payment to a stranger, any non-stablecoin token leaving, an unexplained SOL debit, or a permission grant that would let someone else move funds later. Any such finding pages operators within minutes with the transaction, the counterparty, the amount, and the exact recovery steps, and is filed on the same financial-integrity board as the rest of the platform's money checks. It also tallies the network fees the wallets actually paid and cross-checks them against the books, so fees paid outside the accounting get caught too. The monitor only ever reads the chain — it never moves funds or touches keys.",
       "tags": [

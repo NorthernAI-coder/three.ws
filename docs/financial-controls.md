@@ -60,12 +60,28 @@ append-only ledger row, and balance+ledger written atomically.
 
 ## 2. Reconciliation coverage
 
-Only two books are automatically verified against the chain, by
-[`revenue-reconciliation.js`](../api/_lib/x402/revenue-reconciliation.js) (daily,
-7-day / 250-row window, driven by the `x402-autonomous-loop` cron):
+Books automatically verified against the chain:
 
-- ✅ `x402_autonomous_log` (outbound autonomous spend)
-- ✅ `agent_payment_intents` (inbound user→agent revenue)
+- ✅ `x402_autonomous_log` (outbound autonomous spend) — by
+  [`revenue-reconciliation.js`](../api/_lib/x402/revenue-reconciliation.js)
+  (daily, 7-day / 250-row window, driven by the `x402-autonomous-loop` cron).
+- ✅ `agent_payment_intents` (inbound user→agent revenue) — same reconciler.
+- ✅ `economy_master_ledger` (funding-wallet SOL movements) — by
+  [`economy-reconcile.js`](../api/cron/economy-reconcile.js) (every 30 min, 72h
+  window): tamper (hash-chain), unrecorded outbound (breach), and
+  ledger-vs-chain integrity.
+- ✅ `x402_self_facilitator_log` + `x402_ring_ledger` (the closed-loop ring's own
+  books) — by [`ring-reconciliation.js`](../api/_lib/x402/ring-reconciliation.js)
+  (every 30 min, 72h window, driven by the `x402-autonomous-loop` cron). Five
+  checks: settle integrity (signature exists + succeeded), amount fidelity
+  (parsed tx pays exactly the logged amount to the logged receiver), sweep
+  integrity (treasury→payer, exact amount), cross-log coherence (a settlement
+  with no buyer record is value leaking through our own facilitator), and fee
+  coherence (logged fees vs the fee-audit rollup). A **zero-volume tripwire**
+  pages when the ring is enabled but silent for 30 min. Verdicts land in
+  `payment_reconciliation` under `ring_*` sources; CRITICAL for
+  missing/failed/mismatch, WARN (daily-throttled) for coherence/fee drift. See
+  [ring reconciliation](./x402-ring-economy.md#reconciliation--proving-every-ring-dollar-on-chain).
 
 **NOT reconciled against the chain:** `x402_audit_log` (the main revenue ledger),
 `club_payouts`, `cosmetic_sales`, `agent_jobs`, `agent_withdrawals`,
@@ -209,6 +225,11 @@ Ranked by accounting/regulatory risk. Each is a tracked remediation item.
 ### Done
 - ✅ **Reconciliation discrepancies now page ops** (`revenue-reconciliation.js`) —
   was detected-but-silent (G1/R1).
+- ✅ **The closed-loop ring's own books are now chain-reconciled**
+  (`ring-reconciliation.js`) — `x402_self_facilitator_log` settlements and
+  `x402_ring_ledger` sweeps were previously trusted but never verified. Five
+  checks (settle/amount/sweep/cross-log/fee) plus a zero-volume tripwire, every
+  30 min, verdicts under `ring_*` sources on the finance-integrity board.
 
 ---
 
