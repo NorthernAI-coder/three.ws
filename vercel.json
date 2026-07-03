@@ -1,7 +1,7 @@
 {
 	"buildCommand": "npm run build:vercel",
 	"outputDirectory": "dist",
-	"installCommand": "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 PUPPETEER_SKIP_DOWNLOAD=1 npm install --prefer-offline --no-audit --no-fund",
+	"installCommand": "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 PUPPETEER_SKIP_DOWNLOAD=1 npm ci --no-audit --no-fund",
 	"env": {
 		"NODE_OPTIONS": "--no-deprecation"
 	},
