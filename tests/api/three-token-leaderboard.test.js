@@ -100,6 +100,10 @@ describe('GET /api/three-token/leaderboard', () => {
 
 	it('degrades to an empty board (200, not 500) when Helius fails', async () => {
 		threeHolderBalances.mockRejectedValueOnce(new Error('helius unconfigured'));
+		// Market data must still return a promise — a bare vi.fn() returns undefined,
+		// and `.catch` on undefined throws a TypeError that would trip the degrade
+		// path for the wrong reason (masking whether the Helius rejection is handled).
+		fetchTokenMarketData.mockResolvedValueOnce(null);
 		const res = makeRes();
 		await handler(makeReq({ url: '/api/three-token/leaderboard' }), res);
 		expect(res.statusCode).toBe(200);
