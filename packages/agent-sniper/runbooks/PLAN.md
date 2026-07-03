@@ -76,24 +76,35 @@ narrative Y + Fable conviction 0.8").
 - Budget: small per wallet; keep ~0.012 SOL/wallet fee headroom + ~0.002 SOL rent/position.
 - Every disbursement tx is recorded on camera (terminal + Solscan).
 
-## 6. Trading via the three.ws UI  ⚠️ key architecture decision
+## 6. Execution via the REAL three.ws UI (owner directive — non-negotiable)
 
-The requirement: *each of the 33 uses the actual three.ws UI to conduct trades, recorded.*
-The sniper engine is **autonomous** (it executes buys itself) — agents don't click "Buy"
-in a form. So "using the three.ws UI" resolves to one of:
+Everything is done by driving a browser (Playwright/Chromium) **as a human on three.ws**,
+recorded. If any step can't be done in the UI, STOP and tell the owner before doing it
+differently. **Confirmed UI click-path (verified in source 2026-07-03):**
 
-- **(A) Autonomous + per-agent Agent-Screen (recommended).** The engine executes each
-  agent's trades; each agent has a live `/agent-screen?agentId=…` that shows a browser
-  doing its work (scanning, deciding, the trade landing) with its 3D avatar cam. We
-  record each agent's screen. This is the real "agent-driven browser" three.ws feature
-  and scales to 33. Trades also surface on `/play/arena`, `/theater`, `/terminal`.
-- **(B) Scripted manual UI trades.** Drive a Playwright browser to literally click through
-  a three.ws trade UI (`/terminal` "sign in to trade") once per agent. Faithful to
-  "clicking the UI" but slow, fragile at 33×, and fights the autonomous design.
+| Step | Route | What the human does | Verdict |
+|---|---|---|---|
+| Sign in / register | `/login`, `/register` | email+password (or Privy OTP / wallet). No email-verify gate. | ✅ UI |
+| Create agent + rigged avatar | `/create-agent` | wizard → pick avatar from **starter gallery / my avatars / upload GLB** → `POST /api/agents` | ✅ UI (⚠️ no Avaturn picker — gallery only) |
+| View the agent's Solana wallet | `/agent/{id}/edit` → Wallet panel | see address, balances, Copy, **Fund (QR deposit)** | ✅ UI (view/deposit only) |
+| Arm the sniper | **`/dashboard/sniper`** | per-agent editor: trigger, per-trade SOL, daily budget, stop-loss (req), TP, trailing, slippage, Jito → **"Arm strategy"** button → `POST /api/sniper/strategy` | ✅ UI (use THIS, not `/oracle/arm`, not agent-edit "Alpha Hunt" which is broken) |
+| Watch it trade | `/agent-screen?agentId=`, `/dashboard/sniper`, `/terminal` | live positions/PnL, 3D avatar, treasury cockpit | ✅ UI |
+| Manual per-coin buy (optional) | `/terminal` | select agent → click a launch → **Buy** (SOL presets, live quote) → `POST /api/agents/:id/solana/trade` | ✅ UI |
 
-**Recommendation: (A)** — it's authentic to how three.ws actually works, scales, and
-still shows every trade happening in the product UI, per agent. **Owner to confirm A vs B
-before Phase 4.**
+**"Sniping" is set up in the UI, executed by the platform.** A human arms the sniper at
+`/dashboard/sniper`; three.ws then buys autonomously. That IS the human-on-three.ws flow.
+(If the owner wants literal per-coin manual clicking instead, `/terminal` supports it —
+but that's a different, slower video.)
+
+### ⚠️ Where the UI can't match the plan (flagged, owner to decide)
+
+- **Vanity wallets — NOT UI-doable.** three.ws auto-generates a *random* wallet per agent;
+  there's no import-keypair button. Vanity requires importing keys outside the UI
+  (breaks "UI-only"). **Decision:** random UI wallets, or allow a non-UI key-import step.
+- **Funding fan-out — NOT a three.ws UI action.** Sending SOL to the 33 addresses is an
+  on-chain transfer from the `niChP` funder (external wallet), not a three.ws click. We
+  record it (terminal + Solscan) but it happens outside the product UI.
+- **Account** — need a three.ws login. Register a fresh account in-UI, or use the owner's.
 
 ## 7. Recording plan (the deliverable)
 
