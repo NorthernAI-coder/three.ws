@@ -28,6 +28,53 @@ export const USDC_MINT = env.X402_ASSET_MINT_SOLANA;
 export const SOLANA_RPC = env.SOLANA_RPC_URL;
 export const FETCH_TIMEOUT_MS = 20_000;
 
+// ── Fee floor ─────────────────────────────────────────────────────────────────
+// The ring's operating rule is "lowest fees always": 1-signature self-pay
+// settlement (5,000 lamports base) with the priority fee pinned at the floor.
+// These constants are the single source of truth for the ring's priority-fee
+// config — buildPaymentTx uses them, and the ceiling guard below reasons about
+// the same numbers, so the builder and the guard can never drift apart.
+
+export const SIGNATURE_FEE_LAMPORTS = 5000;
+export const RING_CU_LIMIT = 60_000;
+
+// Priority fee for a ring payment at batch position `nonce`. Baseline 5
+// µlamports; the nonce perturbation (see buildPaymentTx) tops out at 1001
+// µlamports ≈ 60 lamports over 60k CU — negligible against the 5,000 base.
+export function ringPriorityMicrolamports(nonce = 0) {
+	return 5 + (Number(nonce) % 997);
+}
+
+// Self-pay is the OPERATIVE DEFAULT for ring-internal payments: the buyer pays
+// its own fee → 1 signature = 5,000 lamports, half the 2-signature sponsored
+// base, and the facilitator broadcasts without co-signing. An explicit
+// X402_RING_SELF_PAY=false is still honored (sponsor mode stays available for
+// gasless buyers); anything else — unset included — means self-pay.
+export function ringSelfPayDefault() {
+	return String(process.env.X402_RING_SELF_PAY ?? '').trim().toLowerCase() !== 'false';
+}
+
+// Hard per-transaction fee ceiling for ring payments (lamports). The default
+// 10,000 admits the worst legitimate case (2-signature sponsor mode at the
+// baseline priority fee) and nothing more; the self-pay path runs at ~5,000.
+export function ringMaxFeePerTxLamports() {
+	return Number(process.env.X402_RING_MAX_FEE_PER_TX_LAMPORTS || 10_000);
+}
+
+// Worst-case lamports a payment with this fee config can cost on-chain. Pure —
+// the fee-floor regression tests assert the ring's builders stay under the
+// ceiling for every possible nonce, and payX402 applies the same math at
+// runtime. Priority lamports use integer floor division, mirroring the
+// facilitator's guard math (self-facilitator.js) and the runtime's sub-lamport
+// truncation.
+export function expectedFeeLamports({ selfPay, priorityMicrolamports = 0, cuLimit = RING_CU_LIMIT }) {
+	const signatures = selfPay ? 1 : 2;
+	const priorityLamports = Math.floor(
+		(Number(priorityMicrolamports) * Number(cuLimit)) / 1_000_000,
+	);
+	return SIGNATURE_FEE_LAMPORTS * signatures + priorityLamports;
+}
+
 // Load the autonomous payer keypair. Seed wallet preferred; agent wallet is the
 // documented fallback. In non-prod a local test wallet file is honored so the
 // loop and manual tests can run without env wiring.
@@ -92,8 +139,8 @@ export function buildPaymentTx({ accept, buyer, blockhash, mintInfo, receiverAta
 	// rejected as already-processed. Single-call/inline callers leave nonce at 0
 	// and pay the unchanged baseline of 5 µlamports.
 	const ixs = [
-		ComputeBudgetProgram.setComputeUnitLimit({ units: 60_000 }),
-		ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5 + (Number(nonce) % 997) }),
+		ComputeBudgetProgram.setComputeUnitLimit({ units: RING_CU_LIMIT }),
+		ComputeBudgetProgram.setComputeUnitPrice({ microLamports: ringPriorityMicrolamports(nonce) }),
 	];
 	if (!receiverAtaExists) {
 		ixs.push(createAssociatedTokenAccountIdempotentInstruction(
@@ -145,9 +192,10 @@ export async function payX402({
 	userAgent = 'threews-x402-autonomous/1.0',
 	nonce = 0,
 	// Self-pay: buyer is its own fee payer → 1 signature (5000 lamports) instead
-	// of 2. Half the base fee, no sponsor co-sign. On by default via env for the
-	// closed ring. See buildPaymentTx.
-	selfPay = String(process.env.X402_RING_SELF_PAY || '').toLowerCase() === 'true',
+	// of 2. Half the base fee, no sponsor co-sign. The ring's operative default;
+	// only an explicit X402_RING_SELF_PAY=false selects sponsor mode. See
+	// ringSelfPayDefault() and buildPaymentTx.
+	selfPay = ringSelfPayDefault(),
 }) {
 	const reqInit = {
 		method,
@@ -181,6 +229,24 @@ export async function payX402({
 	const amountAtomic = Number(accept.amount || 0);
 	if (amountAtomic > remainingCap) {
 		return { success: false, paid: false, free: false, skipped: true, amountAtomic, txSig: null, status: 402, responseBody: probe.body, errorMsg: 'cap_would_exceed' };
+	}
+
+	// Fee ceiling — refuse to send a payment whose fee config could exceed
+	// X402_RING_MAX_FEE_PER_TX_LAMPORTS. A structured skip, not a throw: the
+	// caller records it like any other guard rejection. This is the runtime
+	// twin of the fee-floor regression tests over expectedFeeLamports().
+	const worstCaseFeeLamports = expectedFeeLamports({
+		selfPay,
+		priorityMicrolamports: ringPriorityMicrolamports(nonce),
+		cuLimit: RING_CU_LIMIT,
+	});
+	const maxFeeLamports = ringMaxFeePerTxLamports();
+	if (worstCaseFeeLamports > maxFeeLamports) {
+		return {
+			success: false, paid: false, free: false, skipped: true,
+			amountAtomic, txSig: null, status: 402, responseBody: probe.body,
+			errorMsg: `fee_ceiling_exceeded:${worstCaseFeeLamports}>${maxFeeLamports}`,
+		};
 	}
 
 	// Step 2 — does the receiver ATA already exist? (saves an idempotent create ix)

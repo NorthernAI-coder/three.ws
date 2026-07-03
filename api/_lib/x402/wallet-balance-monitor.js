@@ -41,12 +41,39 @@
 
 import { randomUUID } from 'node:crypto';
 
-import { fetchWithTimeout } from './pay.js';
+import { fetchWithTimeout, loadSeedKeypair, USDC_MINT } from './pay.js';
+import { SPONSOR_SOL_FLOOR_LAMPORTS } from './self-facilitator.js';
 import { sql as defaultSql } from '../db.js';
 import { env } from '../env.js';
+import { sendOpsAlert } from '../alerts.js';
+import { solanaConnection } from '../solana/connection.js';
 import { logger } from '../usage.js';
 
 const log = logger('x402-wallet-balance-monitor');
+
+const LAMPORTS_PER_SOL = 1_000_000_000;
+
+// ── Ring-wallet floors ──────────────────────────────────────────────────────
+// The closed-loop ring has three platform-controlled wallets (payer, treasury,
+// sponsor). Each has a role-appropriate floor the monitor watches so the loop
+// never silently halts on a drained fee wallet or an empty USDC float:
+//   • sponsor SOL — the fee wallet. At/below the facilitator's own hard floor
+//     (X402_SPONSOR_SOL_FLOOR_LAMPORTS, default 0.02 SOL) settlement is refused
+//     and the ring pauses. Alert BEFORE that so an operator (or the economy
+//     master's treasury-topup cron) can refill first. Watched at 1.5× the floor.
+//   • payer SOL — in self-pay mode (X402_RING_SELF_PAY) the payer pays its own
+//     1-signature fee, so it needs the same SOL headroom as the sponsor.
+//   • payer USDC — the recirculating float. Below this the daily volume cap can
+//     no longer be funded. New env X402_RING_PAYER_USDC_FLOOR_ATOMIC, default $5.
+//   • treasury — UNBOUNDED. It only receives ring payments and gets swept back
+//     to the payer by the rebalancer, so a low balance is its healthy resting
+//     state, not an alert condition.
+const RING_SOL_FLOOR_LAMPORTS = Math.round(SPONSOR_SOL_FLOOR_LAMPORTS * 1.5);
+const RING_PAYER_USDC_FLOOR_ATOMIC = Number(
+	env.X402_RING_PAYER_USDC_FLOOR_ATOMIC || process.env.X402_RING_PAYER_USDC_FLOOR_ATOMIC || 5_000_000,
+);
+
+const REDIS_RING_KEY = 'x402:ring-wallets:latest';
 
 // Low-balance alert threshold (USDC). Default $5 — below this the autonomous
 // loop's own daily cap ($5) can no longer be fully funded, so it's the natural

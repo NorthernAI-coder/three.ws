@@ -57,6 +57,11 @@ import {
 } from './x402-builder-code.js';
 import { buildOffersExtension } from './x402/offer-receipt-server.js';
 import { offerReceiptDeclaration } from './x402-offer-receipt.js';
+import {
+	resolveSolanaFacilitator,
+	selfFacilitatorEnabled,
+	selfFacilitatorUrl,
+} from './x402/ring-config.js';
 
 export { X402Error };
 // Re-export both gas-sponsoring declarators together so callers building 402
@@ -239,13 +244,24 @@ function getCdpHeadersFactory() {
 	return cdpHeadersFactoryCache;
 }
 
-function facilitatorFor(network) {
+// Exported for the resolution-matrix tests; internal callers (callFacilitator,
+// verifyPayment, settlePayment, probeFacilitators) all route through here, so
+// this is the single seam that decides who settles each network.
+export function facilitatorFor(network) {
 	if (
 		network === NETWORK_SOLANA_MAINNET ||
 		network === NETWORK_SOLANA_DEVNET ||
 		network === 'solana'
-	)
-		return { url: env.X402_FACILITATOR_URL_SOLANA, token: env.X402_FACILITATOR_TOKEN_SOLANA };
+	) {
+		// Solana resolution (see x402/ring-config.js): an explicit
+		// X402_FACILITATOR_URL_SOLANA always wins; otherwise
+		// X402_SELF_FACILITATOR_ENABLED=true defaults to our own
+		// /api/x402-facilitator, and only a disabled self-facilitator falls back
+		// to the external default (PayAI). `self` marks in-house routing for the
+		// status probes.
+		const solana = resolveSolanaFacilitator();
+		return { url: solana.url, token: env.X402_FACILITATOR_TOKEN_SOLANA, self: solana.self };
+	}
 	// BSC settles via on-chain pay() — no facilitator needed. The {direct:true}
 	// marker tells verifyPayment/settlePayment to bypass HTTP entirely and call
 	// the local verifier in x402-bsc-direct.js.
@@ -290,8 +306,9 @@ function facilitatorFor(network) {
 // not found` — so a Base accept was advertised (buyers pick it first), the buyer
 // paid, verification 404'd, and they got a 502. A URL string is not proof the
 // endpoint behind it works; only CDP or a deliberate operator opt-in is. Self-heals
-// the moment either is set. Solana (self-hosted facilitator) is unaffected and stays
-// the always-on settle path.
+// the moment either is set. Solana is unaffected: it settles via whatever
+// facilitatorFor resolves (self-hosted when X402_SELF_FACILITATOR_ENABLED=true,
+// external PayAI otherwise).
 export function baseSettleable() {
 	if (env.CDP_API_KEY_ID && env.CDP_API_KEY_SECRET) return true;
 	return env.X402_ADVERTISE_BASE === true;
@@ -572,12 +589,31 @@ export async function probeFacilitators() {
 		...evmNetworks.map((network) => ({ network, ...facilitatorFor(network) })),
 		{ network: NETWORK_SOLANA_MAINNET, ...facilitatorFor(NETWORK_SOLANA_MAINNET) },
 	];
+	// The self-hosted facilitator is probed whenever its flag is on — even when
+	// an explicit external URL wins the routing — and reported as a distinct
+	// entry, so a mis-enveloped deploy shows the self facilitator's health right
+	// next to wherever settlement actually routes.
+	if (selfFacilitatorEnabled()) {
+		const selfUrl = selfFacilitatorUrl();
+		const alreadyTargeted = targets.some(
+			(t) => t.network === NETWORK_SOLANA_MAINNET && t.url === selfUrl,
+		);
+		if (!alreadyTargeted) {
+			targets.push({
+				network: NETWORK_SOLANA_MAINNET,
+				url: selfUrl,
+				token: env.X402_FACILITATOR_TOKEN_SOLANA,
+				self: true,
+			});
+		}
+	}
 	const seen = new Map();
 	const results = [];
 	for (const t of targets) {
 		if (!t.url) {
 			results.push({
 				network: t.network,
+				self: Boolean(t.self),
 				ok: false,
 				reason: 'no facilitator URL configured',
 			});
@@ -609,6 +645,7 @@ export async function probeFacilitators() {
 		if (data.error) {
 			results.push({
 				network: t.network,
+				self: Boolean(t.self),
 				url: t.url,
 				ok: false,
 				reason: `/supported probe failed: ${data.error}`,
@@ -636,6 +673,7 @@ export async function probeFacilitators() {
 		}
 		results.push({
 			network: t.network,
+			self: Boolean(t.self),
 			url: t.url,
 			ok: supports,
 			reason: supports

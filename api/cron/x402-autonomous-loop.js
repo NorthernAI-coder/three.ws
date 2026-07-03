@@ -49,6 +49,7 @@ import {
 	MAX_PER_TICK,
 	DAILY_CAP_ATOMIC,
 } from '../_lib/x402/autonomous-registry.js';
+import { assertRingSpendInvariants } from '../_lib/x402/ring-allowlist.js';
 
 const log = logger('x402-autonomous-loop');
 
@@ -225,6 +226,21 @@ export default wrapCron(async (req, res) => {
 
 	if (process.env.X402_AUTONOMOUS_ENABLED === 'false') {
 		return json(res, 200, { ok: true, skipped: true, reason: 'X402_AUTONOMOUS_ENABLED=false' });
+	}
+
+	// ── Ring spend invariants — fail CLOSED ───────────────────────────────────
+	// No money moves unless the closed-loop guard env holds (external spending
+	// off, charity split zero, facilitator = self). A flipped or forgotten flag
+	// no-ops the entire spend path and fires one throttled CRITICAL alert naming
+	// the flag — see api/_lib/x402/ring-allowlist.js.
+	const invariants = await assertRingSpendInvariants({ context: 'x402-autonomous-loop' });
+	if (!invariants.ok) {
+		return json(res, 200, {
+			ok: false,
+			skipped: true,
+			reason: 'ring_invariant_violation',
+			violations: invariants.violations.map((v) => v.flag),
+		});
 	}
 
 	const runId = randomUUID();

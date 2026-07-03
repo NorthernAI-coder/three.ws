@@ -19,6 +19,11 @@ import {
 } from './_lib/x402-spec.js';
 import { sql } from './_lib/db.js';
 import { hasEvmVerifier } from './_lib/siwx-server.js';
+import {
+	selfFacilitatorEnabled,
+	selfFacilitatorUrl,
+	validateRingConfig,
+} from './_lib/x402/ring-config.js';
 
 // Read SIWX table counts so operators can confirm at-a-glance whether the
 // SIWX rails are wired and active. The tables may not exist on a brand-new
@@ -55,6 +60,17 @@ export default wrap(async (req, res) => {
 	const facilitators = await probeFacilitators();
 	const siwx = await probeSiwx();
 	const ok = facilitators.every((f) => f.ok);
+
+	// Ring config truth: the resolution behavior + every known misconfiguration.
+	// When the self-facilitator is on, probeFacilitators() already added a
+	// distinct `self: true` entry for /api/x402-facilitator (even if an external
+	// URL wins routing), so operators see the in-house facilitator's health next
+	// to wherever settlement actually routes.
+	const ring = {
+		self_facilitator_enabled: selfFacilitatorEnabled(),
+		self_facilitator_url: selfFacilitatorUrl(),
+		config_warnings: validateRingConfig(),
+	};
 
 	// Surface what we advertise in 402 challenges so operators can confirm at a
 	// glance: which accept entries opt into the Permit2 transfer method, and
@@ -97,6 +113,7 @@ export default wrap(async (req, res) => {
 					facilitatorsSupporting: erc20FacilitatorsSupporting,
 				},
 			},
+			ring,
 			env: {
 				X402_PAY_TO_SOLANA: env.X402_PAY_TO_SOLANA || null,
 				X402_PAY_TO_BASE: env.X402_PAY_TO_BASE || null,
