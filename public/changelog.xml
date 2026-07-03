@@ -95,6 +95,14 @@
 			<description>The closed-loop agent economy now enforces its cheapest possible settlement everywhere. Payments inside the ring default to self-pay — the paying wallet covers its own one-signature network fee (about 5,000 lamports) instead of a two-signature sponsored payment (about 10,000), so the platform burns half the SOL per settlement. Sponsor mode is still available as a fallback for wallets that hold no SOL, but it is no longer the default. A hard per-payment fee ceiling now guards the floor from both sides: the payment builders are proven never to exceed it, and the payment client refuses at send time to broadcast anything whose fee configuration would cross it. A new nightly audit measures the real network fees the wallets actually paid — read straight from the blockchain, not estimated — and reports two plain numbers: the SOL burned per settlement and the SOL burned per $100 of volume moved. If either drifts above budget it pages operators. The same run reclaims the one-time account-rent deposits the ring locks up over time, safely closing only empty, non-active token accounts and returning the rent to the owner wallet. The live efficiency numbers are exposed on the ring's public net-position report.</description>
 		</item>
 		<item>
+			<title>Oracle folds copycat launch spam into one card</title>
+			<link>https://three.ws/oracle</link>
+			<guid isPermaLink="false">2026-07-03:Oracle folds copycat launch spam into one card</guid>
+			<pubDate>Fri, 03 Jul 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>When pump.fun gets flooded with copycat and bundle launches — dozens of distinct mints deployed under the exact same name and ticker, the &quot;deploy 100 more&quot; and &quot;America 250&quot; runs — the Oracle conviction feed used to show every one as its own card, so the same coin appeared to repeat ten or twenty times in a row and the feed read like it was broken. Each of those was genuinely a separate mint with its own conviction row, so nothing was actually duplicated — but the wall of identical cards buried the real, distinct launches. The feed now folds each cluster of same-name, same-ticker mints into a single card showing the highest-conviction one, tagged with a small ×N badge and a tooltip that spells out how many copies share that name. A coin you're tracking on your ★ watchlist is never folded away — it always keeps its own card — so nothing you care about disappears.</description>
+		</item>
+		<item>
 			<title>Paid endpoints never hand you a payment rail they can't complete</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-07-03:Paid endpoints never hand you a payment rail they can't complete</guid>

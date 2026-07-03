@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-07-03",
+			"title": "Oracle folds copycat launch spam into one card",
+			"summary": "When pump.fun gets flooded with copycat and bundle launches — dozens of distinct mints deployed under the exact same name and ticker, the \"deploy 100 more\" and \"America 250\" runs — the Oracle conviction feed used to show every one as its own card, so the same coin appeared to repeat ten or twenty times in a row and the feed read like it was broken. Each of those was genuinely a separate mint with its own conviction row, so nothing was actually duplicated — but the wall of identical cards buried the real, distinct launches. The feed now folds each cluster of same-name, same-ticker mints into a single card showing the highest-conviction one, tagged with a small ×N badge and a tooltip that spells out how many copies share that name. A coin you're tracking on your ★ watchlist is never folded away — it always keeps its own card — so nothing you care about disappears.",
+			"tags": [
+				"improvement",
+				"fix"
+			],
+			"link": "/oracle"
+		},
+		{
+			"date": "2026-07-03",
 			"title": "The leaderboard now shows what each trader made it on",
 			"summary": "Every ranked trader now carries their signature coin — the single token they earned (or lost) the most on, with the realized P&L and ROI to match. It shows up right on the leaderboard row next to the name, on the trader's profile as a \"Made it on\" breakdown of their top three coins (each linking to the coin's on-chain account), and on the shareable PnL card. A new Most Profitable Trader spotlight now crowns the top earner in the selected window at the top of the board — avatar, realized P&L, win rate, and the coin behind the run. Every number is computed from the same on-chain closed-trade ledger the rest of the track record uses, so the coin credited on the leaderboard, the profile, and the card can never disagree — and self-dealt coins a trader launched themselves are excluded from the credit, exactly as they already are from the score.",
 			"tags": [
