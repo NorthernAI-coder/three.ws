@@ -311,6 +311,10 @@ describe('paidEndpoint authHints integration', () => {
 		process.env.X402_PAY_TO_BASE = '0x209693Bc6afc0C5328bA36FaF03C514EF312287C';
 		process.env.X402_ASSET_ADDRESS_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 		process.env.X402_MAX_AMOUNT_REQUIRED = '10000';
+		// Base accepts are gated on baseSettleable() — pay-to + asset alone no longer
+		// advertise the network (see buildRequirements in x402-paid-endpoint.js).
+		// Opt in explicitly, else every request here 500s with no_payto_configured.
+		process.env.X402_ADVERTISE_BASE = 'true';
 		({ paidEndpoint } = await import('../../api/_lib/x402-paid-endpoint.js'));
 		({ mintAccessToken: mintAccessTokenFn } = await import('../../api/_lib/auth.js'));
 	});

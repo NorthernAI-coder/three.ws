@@ -23,8 +23,11 @@ const FORGE_PAID_GLOBAL_HOURLY = Math.max(1, Number(process.env.FORGE_PAID_GLOBA
 // Loud, one-time startup warning when Redis is unconfigured in production. Without
 // Redis every limiter falls back to a PER-INSTANCE in-memory map, which is
 // effectively unbounded across serverless fan-out — fine for dev, dangerous for
-// the money/cost limiters in prod (see failClosedLimiter below).
-if (IS_PRODUCTION && !REDIS_CONFIGURED) {
+// the money/cost limiters in prod (see failClosedLimiter below). Suppressed under
+// vitest: the Vercel build inherits VERCEL_ENV=production while running the test
+// gate, which made this fire as scary-but-meaningless build-log noise. Fail-closed
+// behavior itself is NOT gated on VITEST — tests exercise it deliberately.
+if (IS_PRODUCTION && !REDIS_CONFIGURED && !process.env.VITEST) {
 	console.error(
 		'[rate-limit] FATAL CONFIG: UPSTASH_REDIS_REST_URL/TOKEN are unset in production. ' +
 			'Cost/money-moving limiters will FAIL CLOSED (deny) until Redis is configured; ' +
