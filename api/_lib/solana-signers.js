@@ -169,6 +169,9 @@ export const SOLANA_SIGNERS = [
 		name: 'collection-authority',
 		env: 'SOLANA_AGENT_COLLECTION_AUTHORITY_KEY',
 		minSol: 0.02,
+		// Holds the agent-collection NFTs themselves — a token sweep here would
+		// move the collection, not surplus. Only an explicit drain may touch it.
+		holdsTokens: true,
 		purpose: 'creates/manages the three.ws agent NFT collection',
 		network: 'both',
 	},

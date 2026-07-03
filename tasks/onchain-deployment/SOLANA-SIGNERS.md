@@ -25,7 +25,7 @@ Encodings: `base64` = base64 of the 64 raw secret-key bytes (`…_B64` vars); `b
 | `X402_SEED_SOLANA_SECRET_BASE58` | x402 autonomous/seed spender (probes 402 endpoints, pays USDC) | base58 | — | mainnet |
 | `LABOR_ESCROW_SECRET_BASE58` | Labor market escrow custody + payout release gas | base58 | ~0.05 | mainnet |
 | `VANITY_BOUNTY_PAYOUT_KEY` | Vanity grind-bounty payouts + refunds (strict base58) | base58 | — | mainnet |
-| `CIRCULATION_TREASURY_SECRET` | Circulation engine treasury (agent↔agent tips/pays/trades) | base58 | — | mainnet |
+| `CIRCULATION_TREASURY_SECRET` | Circulation engine treasury (agent↔agent tips/pays/trades); auto-topped-up (floor 0.2, refill to 0.5) | base58 | 0.2 | mainnet |
 | `A2A_PAYER_SOLANA_SECRET` (→ `A2A_PAYER_SOLANA_PRIVATE_KEY`) | Co-signs SPL TransferChecked for a2a mandate settlements | base58 | 0.02 | mainnet |
 | `X402_FEE_PAYER_SECRET_BASE58` | x402 ring **sponsor**: co-signs + pays SOL on every self-hosted-facilitator settle; below floor the ring halts | base58 | 0.03 | mainnet |
 | `X402_SEED_SOLANA_SECRET_BASE58` (→ `X402_AGENT_SOLANA_SECRET_BASE58`) | x402 ring **payer** (self-pay mode): pays its own 1-sig fee per settle; USDC float watched separately | base58 | 0.03 | mainnet |
@@ -34,7 +34,11 @@ Encodings: `base64` = base64 of the 64 raw secret-key bytes (`…_B64` vars); `b
 
 > The x402 ring **treasury** (`X402_PAY_TO_SOLANA` / `X402_TREASURY_SECRET_BASE58`) is deliberately **not** a signer here. It only receives ring payments and gets swept back to the payer by the rebalancer, so a low balance is its healthy resting state — the economy master must never top it up. Only the sponsor (and the payer, which pays its own fee in self-pay mode) hold fee SOL, so only they get auto-topped-up. The payer's USDC float is watched by [`api/_lib/x402/wallet-balance-monitor.js`](../../api/_lib/x402/wallet-balance-monitor.js), not this registry (the master only ever moves SOL).
 
-**Do not** overwrite `SOLANA_AGENT_COLLECTION_AUTHORITY_KEY` with a different wallet — it is the on-chain update authority for the NFT collection; changing it breaks NFT management. It is excluded from master-wallet consolidation by default.
+**Do not** overwrite `SOLANA_AGENT_COLLECTION_AUTHORITY_KEY` with a different wallet — it is the on-chain update authority for the NFT collection; changing it breaks NFT management. It is flagged `holdsTokens` in the registry, so the consolidation sweep never touches its token accounts (the collection NFTs) outside an explicit drain.
+
+## Consolidation (the return leg)
+
+The [`treasury-sweepback`](../../api/cron/treasury-sweepback.js) cron is the topup's mirror: every 6 h it returns each signer's surplus SOL (anything above its `refillTo` float) — and stray token balances from signers not flagged `holdsTokens` — to the economy master, booked onto the same hash-chained ledger. `POST …?mode=drain&confirm=drain` consolidates *everything* (all tokens, closed token-account rent, all SOL minus fee headroom) back to the master for decommission or emergency recovery. The destination is the master address as a code constant, so consolidation can never leak funds to a third party. Slots that resolve to the master's own wallet are skipped, and duplicate pubkeys are swept once. Subsystem doc: [`docs/economy-master.md`](../../docs/economy-master.md).
 
 ## Two funding models
 

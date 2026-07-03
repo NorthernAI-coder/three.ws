@@ -74,6 +74,37 @@ There is **no charity path and no user-payout path** on the master. (The
 per-merchant "charity split" you may see in the x402 checkout code is a *buyer*-
 funded donation on a merchant's own sale — it never touches this wallet.)
 
+## Sweepback: the return leg (consolidating balances to the root)
+
+Topup is the outbound leg; **sweepback**
+([`api/_lib/economy-sweepback.js`](../api/_lib/economy-sweepback.js), cron
+[`/api/cron/treasury-sweepback`](../api/cron/treasury-sweepback.js), every 6 h at
+:41) is the return leg. It walks the same registry and brings surplus back, so
+every lamport cycles master → engines → work → master:
+
+- **Excess mode (the schedule).** Skims only SOL *above* each signer's operating
+  float — the same `refillTo` the topup refills to, so the two crons never
+  oscillate — and consolidates stray token balances from signers that don't
+  operationally hold tokens. Signers flagged `holdsTokens` in the registry
+  (buyback USDC revenue, payout floats, the NFT collection authority) keep their
+  token balances untouched.
+- **Drain mode (on demand).** `POST /api/cron/treasury-sweepback?mode=drain&confirm=drain`
+  is the full-consolidation lever: every token balance transferred, every emptied
+  token account closed (rent refunds land on the master too), then all SOL minus
+  0.001 SOL headroom (the account's rent-exempt minimum plus fees — the runtime
+  rejects a transfer that would leave a wallet below rent exemption). Engines are
+  left unfunded until the next topup — use it to decommission the fleet or
+  recover everything to the root in one call.
+
+The destination lock is the mirror of the topup allowlist: the only recipient in
+the module is the `ECONOMY_MASTER_ADDRESS` constant — not a parameter — so no
+caller, however buggy or hostile, can consolidate funds anywhere but the master.
+Every movement is booked onto the same hash-chained ledger as `inflow` /
+`inflow_token` rows, and a `sweepback` heartbeat row proves the cycle ran even
+when there was nothing to collect. Dust guard: a sweep below
+`ECONOMY_SWEEPBACK_MIN_SOL` (default 0.01 SOL) is skipped so fees never exceed
+the return.
+
 ## Lowest fees
 
 Every transfer routes through `submitProtected` with `tipMode: 'off'` — **no Jito
