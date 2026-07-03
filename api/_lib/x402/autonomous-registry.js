@@ -45,6 +45,7 @@ import { run as tokenIntelPreSnipeGate } from './pipelines/token-intel-gate.js';
 import { run as sniperIntelEnrich } from './pipelines/sniper-intel-enrich.js';
 import { run as volumeBootstrapLoop } from './pipelines/volume-bootstrap-loop.js';
 import { run as ringRebalance } from './pipelines/ring-rebalance.js';
+import { run as feeAudit } from './pipelines/fee-audit.js';
 import { run as liveFeedSeeder } from './pipelines/live-feed-seeder.js';
 import { run as feeCalculationValidator } from './pipelines/fee-calculation-validator.js';
 import { run as crossChainCostComparison } from './pipelines/cross-chain-cost.js';
@@ -2679,6 +2680,34 @@ const SELF_ENDPOINTS = [
 		pipeline: 'volume',
 		enabled: true,
 		run: (ctx) => ringRebalance(ctx),
+	},
+
+	// ── Fee Audit + ATA Rent Reclaim ─────────────────────────────────────────────
+	// Nightly enforcement of the ring's "lowest fees always" rule. Sums the real
+	// chain-read settlement fees for the day (x402_self_facilitator_log +
+	// x402_autonomous_log), derives lamports-per-settlement and SOL-per-$100 of
+	// volume, upserts one row into x402_fee_audit, and raises an ops alert when
+	// per-settlement fee drifts above 1.5× the 1-sig floor (7,500 lamports) or the
+	// daily burn exceeds X402_RING_DAILY_FEE_BUDGET_LAMPORTS (default 0.05 SOL).
+	// The same run reclaims ATA rent: it closes any zero-balance, non-role USDC
+	// ATA owned by a ring wallet (owner-signed, rent → owner, capped 5/run) — the
+	// safety selection is a pure, unit-tested function that never returns a funded
+	// or active role ATA. Audit + reclaim only — returns amountAtomic:0, never a
+	// spend, so it never consumes the daily cap. Value sink: x402_fee_audit
+	// (per-day). Downstream: GET /api/x402-ring exposes the two efficiency metrics.
+	{
+		id: 'fee-audit',
+		name: 'Fee Audit + ATA Rent Reclaim',
+		// path is informational — run() reads the fee logs and closes empty ATAs itself.
+		path: '/api/x402-ring',
+		method: 'GET',
+		body: null,
+		cooldown_s: 86400, // nightly
+		priority: 22,
+		pipeline: 'self',
+		enabled: true,
+		run: (ctx) => feeAudit(ctx),
+		extractSignal: null,
 	},
 
 	// ── Live Payment Feed Seeder (USE-025) ─────────────────────────────────────

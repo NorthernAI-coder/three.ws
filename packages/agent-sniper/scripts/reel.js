@@ -148,10 +148,20 @@ async function main() {
 			await caption(page, scene.caption);
 			if (scene.act) await scene.act(page).catch((e) => console.log('act:', e.message));
 			await page.waitForTimeout(scene.dwellMs ?? 5000);
+			// The scene is captured in the video by this point (the dwell already ran).
+			// The per-scene PNG is a bonus still — never let it fail the scene. Live 3D /
+			// feed pages render continuously, so a default screenshot never reaches a
+			// stable frame; freeze animations, hide the caret, and cap the wait.
 			const shot = path.join(OUT, `${scene.key}.png`);
-			await page.screenshot({ path: shot });
-			console.log(`ok (${((Date.now?.() ?? 0) - t0) / 1000 | 0}s)`);
-			log.push({ key: scene.key, url, ok: true, shot });
+			let shotOk = false;
+			try {
+				await page.screenshot({ path: shot, animations: 'disabled', caret: 'hide', timeout: 15_000 });
+				shotOk = true;
+			} catch (shotErr) {
+				console.log(`\n    (still skipped: ${shotErr.message.split('\n')[0].slice(0, 60)})`);
+			}
+			console.log(`ok (${((Date.now?.() ?? 0) - t0) / 1000 | 0}s)${shotOk ? '' : ' — video only'}`);
+			log.push({ key: scene.key, url, ok: true, shot: shotOk ? shot : null });
 		} catch (e) {
 			console.log(`FAIL ${e.message.slice(0, 80)}`);
 			log.push({ key: scene.key, url, ok: false, error: e.message });
