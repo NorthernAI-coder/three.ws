@@ -5,7 +5,7 @@ The gap list: features that are **shipped** but have **never had an X post** on 
 **Method.** Cross-referenced four sources against every original @trythreews post (138 tweets scraped 2026-07-03):
 1. `data/changelog.json` — 635 `feature`-tagged entries, 2026-04-15 → 2026-07-03
 2. `data/pages.json` — 374 public pages (per `npm run build:pages`)
-3. `STRUCTURE.md` — the full surface map (31 MCP servers, 19 published `@three-ws/*` SDKs)
+3. `STRUCTURE.md` — the full surface map (38 MCP servers (32 npm + 6 hosted), 19 published `@three-ws/*` SDKs)
 4. `docs/` + package READMEs — the documentation each post must link as proof
 
 A feature counts as "announced" only if a tweet actually shows or names it — a passing mention doesn't count. Same honesty rules as the rest of this engine ([README.md](README.md)): every claim needs a proof link, and affiliation-sensitive items (IBM/AWS/NVIDIA/Alibaba) get a language gate.
@@ -221,7 +221,7 @@ Every format show has its own spec in [docs/live-agent-tasks/](../../live-agent-
 
 | Feature | Hook | Live | Docs |
 | --- | --- | --- | --- |
-| **31 MCP servers** (+6 hosted) | Tweets said "two MCP servers." It's 31 on npm + the registry. | registry | [docs/mcp.md](../../mcp.md), [docs/mcp-tools.md](../../mcp-tools.md), per-server READMEs in `packages/*-mcp/` |
+| **38 MCP servers** (32 npm + 6 hosted) | Tweets said "two MCP servers." It's 38 in the official registry. | registry | [docs/mcp.md](../../mcp.md), [docs/mcp-tools.md](../../mcp-tools.md), per-server READMEs in `packages/*-mcp/` |
 | **19 published SDKs** | Zero-dep, pure ESM, 216 green tests | npm | [docs/sdk.md](../../sdk.md), [docs/sdk-launch.md](../../sdk-launch.md), `STRUCTURE.md` SDK table |
 | React component library | 3D AI agents in React | npm | [packages/react/README.md](../../../packages/react/README.md) |
 | Free ChatGPT 3D Studio | No-login 3D Studio for ChatGPT | changelog 2026-06-28 | [docs/mcp-3d-studio.md](../../mcp-3d-studio.md), [docs/store-submissions/04-openai-free-3d-endpoint.md](../../store-submissions/04-openai-free-3d-endpoint.md) |
@@ -279,7 +279,7 @@ Every format show has its own spec in [docs/live-agent-tasks/](../../live-agent-
 
 ## Receipts-and-stats posts (numbers we can prove today)
 
-- **31 MCP servers** in the official registry (tweets have only ever claimed 1–2) — `STRUCTURE.md`
+- **38 MCP servers** in the official registry (tweets have only ever claimed 1–2) — `docs/mcp.md`, `STRUCTURE.md`
 - **19 published zero-dependency SDKs**, 216 green tests — `STRUCTURE.md` SDK table
 - **374 public pages** — `npm run build:pages` output over `data/pages.json`
 - **635 feature entries** shipped since April 15 — `data/changelog.json`

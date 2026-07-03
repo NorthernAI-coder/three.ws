@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-07-03",
+			"title": "Autonomous trader safety gates now fail closed — no more buying what it can't verify",
+			"summary": "We hardened the autonomous pump.fun trader so it refuses any coin it cannot prove is safe and in-band, instead of buying through the doubt. Three real holes are closed: (1) the $10k–$100k market-cap rule is now enforced at the single shared buy checkpoint, so every trigger path obeys it — previously some paths (and a mis-named field on one of them) skipped the ceiling entirely; (2) the rug/honeypot firewall now blocks a buy when the sell-back simulation couldn't run or the token's mint authority is still active (dev can print unlimited supply) — these were treated as soft warnings and bought anyway; (3) the Mayhem-token exclusion and the serial-launcher check now skip when the data can't be read, rather than assuming safe. Net effect: the bot buys fewer coins, but only ones it can actually verify are in the band and sellable. Every change is covered by tests.",
+			"tags": [
+				"fix",
+				"security"
+			]
+		},
+		{
+			"date": "2026-07-03",
 			"title": "The trading stack is now fully documented",
 			"summary": "Two new guides map the whole trading experience. Trading Surfaces covers the five solo pages — Coin Radar, Coin Intelligence, the Live Trade Feed, your Watchlist, and the keyboard-first Mission Control cockpit — including where every number comes from and how the pages chain together. Competitive & Pooled Trading covers the Arena tournaments with real on-chain $THREE payouts, the 3D Sniper Arena floor, the Live Trading Theater with one-click copy trading, backable Vaults, and consensus-driven Trading Swarms. Both are written for someone who has never opened the pages before.",
 			"tags": [

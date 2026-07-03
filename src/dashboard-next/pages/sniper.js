@@ -52,7 +52,9 @@ const STYLE = `<style>
 
 /* overview strip */
 .sn-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; }
-.sn-kpi { background: var(--nxt-panel); border: 1px solid var(--nxt-stroke); border-radius: var(--nxt-radius); padding: 14px 16px; }
+.sn-kpi { background: var(--nxt-panel); border: 1px solid var(--nxt-stroke); border-radius: var(--nxt-radius); padding: 14px 16px; font-family: inherit; color: inherit; text-align: left; display: block; width: 100%; cursor: pointer; transition: border-color .14s, background .14s, transform .14s; }
+.sn-kpi:hover { border-color: var(--nxt-stroke-strong); background: var(--nxt-bg-2); transform: translateY(-1px); }
+.sn-kpi:focus-visible { outline: 2px solid var(--nxt-accent); outline-offset: 2px; }
 .sn-kpi-label { font-size: 11px; color: var(--nxt-ink-faint); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
 .sn-kpi-val { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; }
 
@@ -152,6 +154,16 @@ const STYLE = `<style>
 .sn-ob-score { font: 700 11px/1 var(--nxt-mono, monospace); font-variant-numeric: tabular-nums; }
 .sn-ob-tier { font: 600 8px/1 var(--nxt-mono, monospace); text-transform: uppercase; letter-spacing: .06em; opacity: .8; }
 .sn-empty { color: var(--nxt-ink-faint); font-size: 13px; padding: 24px 16px; text-align: center; }
+/* coin-detail deep link on position/trade symbols */
+.sn-coin-link { color: inherit; text-decoration: none; border-bottom: 1px dotted color-mix(in srgb, var(--nxt-ink-faint) 60%, transparent); transition: color .12s, border-color .12s; }
+.sn-coin-link:hover { color: var(--nxt-accent); border-bottom-color: var(--nxt-accent); }
+.sn-coin-link:focus-visible { outline: 2px solid var(--nxt-accent); outline-offset: 2px; border-radius: 3px; }
+/* per-card live positions block */
+.sn-agent-pos { border: 1px solid var(--nxt-line); border-radius: var(--nxt-radius-sm); margin-bottom: 16px; overflow: hidden; }
+.sn-agent-pos .sn-pos-row { padding: 10px 12px; }
+.sn-agent-pos-empty { color: var(--nxt-ink-faint); font-size: 12.5px; padding: 12px; text-align: center; }
+/* live open-positions chip in the collapsed card head */
+.sn-open-chip { font-variant-numeric: tabular-nums; }
 /* execution readout — MEV route, tip, time-to-land */
 .sn-exec { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 5px; }
 .sn-exec-badge { font: 600 9.5px/1 var(--nxt-mono, monospace); text-transform: uppercase; letter-spacing: .05em; padding: 3px 6px; border-radius: 5px; border: 1px solid var(--nxt-stroke); color: var(--nxt-ink-faint); }
@@ -286,27 +298,20 @@ function overviewStrip() {
 	const winRate = totalClosed > 0 ? Math.round((totalWins / totalClosed) * 100) : null;
 	const armed = _strategies.filter((s) => s.enabled && !s.kill_switch).length;
 
+	// Each KPI is a real button that jumps to the section backing the number —
+	// the strip is navigation, not decoration.
+	const kpi = (jump, label, valHtml, title) => `
+		<button type="button" class="sn-kpi" data-jump="${jump}" title="${esc(title)}" aria-label="${esc(`${label} — ${title}`)}">
+			<div class="sn-kpi-label">${label}</div>
+			<div class="sn-kpi-val">${valHtml}</div>
+		</button>`;
+
 	return `<div class="sn-strip">
-		<div class="sn-kpi">
-			<div class="sn-kpi-label">Armed agents</div>
-			<div class="sn-kpi-val">${armed}</div>
-		</div>
-		<div class="sn-kpi">
-			<div class="sn-kpi-label">Open positions</div>
-			<div class="sn-kpi-val">${totalOpen}</div>
-		</div>
-		<div class="sn-kpi">
-			<div class="sn-kpi-label">Realized PnL</div>
-			<div class="sn-kpi-val ${clr(lamportsToSol(String(totalPnlLam)))}">${fmtLamports(String(totalPnlLam))}</div>
-		</div>
-		<div class="sn-kpi">
-			<div class="sn-kpi-label">Win rate</div>
-			<div class="sn-kpi-val">${winRate != null ? `${winRate}%` : '—'}</div>
-		</div>
-		<div class="sn-kpi">
-			<div class="sn-kpi-label">Closed trades</div>
-			<div class="sn-kpi-val">${totalClosed}</div>
-		</div>
+		${kpi('#sn-cards', 'Armed agents', String(armed), 'Jump to your strategies')}
+		${kpi('#sn-positions', 'Open positions', `<span data-kpi-open>${totalOpen}</span>`, 'Jump to live positions')}
+		${kpi('#sn-hist-mount', 'Realized PnL', `<span class="${clr(lamportsToSol(String(totalPnlLam)))}">${fmtLamports(String(totalPnlLam))}</span>`, 'Jump to trade history')}
+		${kpi('#sn-hist-mount', 'Win rate', winRate != null ? `${winRate}%` : '—', 'Jump to trade history')}
+		${kpi('#sn-hist-mount', 'Closed trades', String(totalClosed), 'Jump to trade history')}
 	</div>`;
 }
 
@@ -334,6 +339,7 @@ function stratCard(s) {
 					<span>${fmtSol(lamportsToSol(s.per_trade_lamports))} / trade</span>
 					<span>Daily budget: ${fmtSol(lamportsToSol(s.daily_budget_lamports))}</span>
 					${walletBal != null ? `<span class="${walletWarn ? 'sn-neg' : ''}">Wallet: ${fmtSol(walletBal)}${walletWarn ? ' ⚠ low' : ''}</span>` : ''}
+					<span class="sn-open-chip" data-open-chip="${esc(s.agent_id)}" hidden></span>
 				</div>
 			</div>
 			<div class="sn-badges">
@@ -379,6 +385,10 @@ function stratCard(s) {
 						<span class="sn-sum-label">Realized PnL</span>
 						<span class="sn-sum-val ${clr(pnlSol)}">${fmtSol(pnlSol)}</span>
 					</div>
+				</div>
+				<div class="sn-section-head" style="margin-top:0">Open positions</div>
+				<div class="sn-agent-pos" data-agent-positions="${esc(s.agent_id)}">
+					<div class="sn-agent-pos-empty">Loading positions…</div>
 				</div>
 				${stratForm(s)}
 			</div>
@@ -652,6 +662,8 @@ function livePositionsSection() {
 				<span class="sn-conn-status" id="sn-conn-status" role="status" aria-live="polite">Connecting…</span>
 			</div>
 			<div class="sn-live-links">
+				<a class="sn-btn ghost" style="${ghostBtn}" href="/dashboard/portfolio" title="Full wallet holdings across chains">Portfolio</a>
+				<a class="sn-btn ghost" style="${ghostBtn}" href="/dashboard/tokens" title="Pump.fun trading desk — watchlists, scanner, charts">Trading desk</a>
 				<a class="sn-btn ghost" style="${ghostBtn}" href="/leaderboard" target="_blank" rel="noopener">Leaderboard ↗</a>
 				<a class="sn-btn ghost" style="${ghostBtn}" href="/play/arena" target="_blank" rel="noopener">Sniper Arena ↗</a>
 			</div>
@@ -670,7 +682,6 @@ function renderPositions(positions) {
 		return;
 	}
 	el.innerHTML = positions.map(posRow).join('');
-	enrichPositionOracle();
 }
 
 function posRow(p) {
@@ -679,9 +690,10 @@ function posRow(p) {
 	const pnlStr = pnlSol != null
 		? `<span class="${clr(pnlSol)}">${pnlSol >= 0 ? '+' : ''}${fmtSol(pnlSol)}${pnlPct != null ? ` · ${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%` : ''}</span>`
 		: '—';
-	const link = p.buy_url
-		? `<a class="sn-pos-link" href="${esc(p.buy_url)}" target="_blank" rel="noopener">Solscan ↗</a>`
-		: p.mint ? `<a class="sn-pos-link" href="${pumpUrl(p.mint)}" target="_blank" rel="noopener">pump.fun ↗</a>` : '';
+	const links = [
+		p.buy_url ? `<a class="sn-pos-link" href="${esc(p.buy_url)}" target="_blank" rel="noopener">Solscan ↗</a>` : '',
+		p.mint ? `<a class="sn-pos-link" href="${pumpUrl(p.mint)}" target="_blank" rel="noopener">pump.fun ↗</a>` : '',
+	].filter(Boolean).join('');
 	const sym = p.symbol || p.mint?.slice(0, 8) || 'this position';
 	// One-tap manual exit: sell the agent's full holding of this mint now, at a
 	// real price, via /api/sniper/close (the same executeSell the worker uses).
@@ -690,22 +702,30 @@ function posRow(p) {
 		? `<button class="sn-pos-sell" data-action="sell-now" data-pos="${esc(p.id)}" data-agent="${esc(p.agent_id || '')}" data-mint="${esc(p.mint || '')}" data-net="${esc(p.network || 'mainnet')}" data-sym="${esc(sym)}" title="Sell this position now from the agent wallet">Sell now</button>`
 		: '';
 	const mintAttr = p.mint ? ` data-oracle-mint="${esc(p.mint)}"` : '';
+	// The symbol itself deep-links to the coin detail page (score, holders, trade
+	// tape) — the Oracle badge only renders for scored coins, so it can't be the
+	// only way in.
+	const symHtml = p.mint
+		? `<a class="sn-coin-link" href="/oracle/coin/${encodeURIComponent(p.mint)}" title="Open coin detail — conviction, holders, live trades">${esc(p.symbol || p.mint.slice(0, 8))}</a>`
+		: esc(p.symbol || '—');
 	return `<div class="sn-pos-row"${mintAttr}>
 		<div class="sn-pos-info">
-			<div class="sn-pos-sym">${esc(p.symbol || p.mint?.slice(0, 8) || '—')}</div>
+			<div class="sn-pos-sym">${symHtml}</div>
 			<div class="sn-pos-sub">${esc(p.agent_name || '')}${p.opened_at ? ` · opened ${relTime(p.opened_at)}` : ''}</div>
 			${execReadout(p)}
 		</div>
 		<div class="sn-pos-pnl">${pnlStr}</div>
 		<span class="sn-pos-oracle"></span>
-		<div class="sn-pos-actions">${sellBtn}${link}</div>
+		<div class="sn-pos-actions">${sellBtn}${links}</div>
 	</div>`;
 }
 
 const SN_TIER_COLOR = { prime: '#c084fc', strong: '#34d399', lean: '#fbbf24', watch: '#94a3b8', avoid: '#f87171' };
 
 async function enrichPositionOracle() {
-	const el = document.getElementById('sn-positions');
+	// Scan the whole page, not just the global list — per-card position blocks
+	// carry data-oracle-mint too. The hasChildNodes guard keeps repeats cheap.
+	const el = document.getElementById('sn-root');
 	if (!el) return;
 	const rows = el.querySelectorAll('[data-oracle-mint]');
 	if (!rows.length) return;
@@ -755,9 +775,12 @@ function histRow(t) {
 		? new Date(t.closed_at).getTime() - new Date(t.opened_at).getTime()
 		: null;
 	const holdStr = holdMs != null ? holdDuration(holdMs) : '—';
+	const symHtml = t.mint
+		? `<a class="sn-coin-link" href="/oracle/coin/${encodeURIComponent(t.mint)}" title="Open coin detail — conviction, holders, live trades">${esc(t.symbol || t.mint.slice(0, 8))}</a>`
+		: esc(t.symbol || '—');
 	return `<tr class="sn-hist-row">
 		<td>
-			<div class="sn-hist-sym">${esc(t.symbol)}</div>
+			<div class="sn-hist-sym">${symHtml}</div>
 			<div class="sn-hist-agent">${esc(t.agent_name || '')}</div>
 		</td>
 		<td class="r">${entrySol}</td>
@@ -955,6 +978,13 @@ function wireEvents(root) {
 		// money-panel clicks (handled by the mounted Money Studio itself) fall through.
 		const subtab = e.target.closest('[data-subtab]');
 		if (subtab) { switchSubtab(subtab); return; }
+
+		// KPI strip → jump to the section backing the number
+		const jump = e.target.closest('[data-jump]');
+		if (jump) {
+			document.querySelector(jump.dataset.jump)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+			return;
+		}
 
 		const retryMoney = e.target.closest('[data-action="retry-money"]');
 		if (retryMoney) {
@@ -1358,6 +1388,38 @@ function renderOwnedPositions() {
 		.filter((p) => owned.has(p.agent_id) && ['opening', 'open'].includes(p.status))
 		.sort((a, b) => new Date(b.opened_at || 0) - new Date(a.opened_at || 0));
 	renderPositions(list);
+	renderAgentCardPositions(list);
+	const kpiOpen = document.querySelector('[data-kpi-open]');
+	if (kpiOpen) kpiOpen.textContent = String(list.length);
+}
+
+// Mirror each agent's slice of the live stream into its strategy card: the
+// "Open positions" block in the expanded pane and the "n open · ±PnL" chip in
+// the collapsed head, so a bot's holdings are visible without leaving the card.
+function renderAgentCardPositions(list) {
+	for (const host of document.querySelectorAll('[data-agent-positions]')) {
+		const agentId = host.dataset.agentPositions;
+		const mine = list.filter((p) => p.agent_id === agentId);
+		const strat = _strategies.find((s) => s.agent_id === agentId);
+		const armed = strat && strat.enabled && !strat.kill_switch;
+		host.innerHTML = mine.length
+			? mine.map(posRow).join('')
+			: `<div class="sn-agent-pos-empty">${armed
+				? 'No open positions — armed and watching for the next trigger.'
+				: 'No open positions. Arm the strategy to start sniping.'}</div>`;
+
+		const chip = document.querySelector(`[data-open-chip="${CSS.escape(agentId)}"]`);
+		if (chip) {
+			if (!mine.length) { chip.hidden = true; chip.textContent = ''; }
+			else {
+				const pnl = mine.reduce((s, p) => s + (p.unrealized_pnl_sol || 0), 0);
+				chip.hidden = false;
+				chip.className = `sn-open-chip ${clr(pnl)}`;
+				chip.textContent = `${mine.length} open · ${pnl >= 0 ? '+' : ''}${fmtSol(pnl)}`;
+			}
+		}
+	}
+	if (list.length) enrichPositionOracle();
 }
 
 async function seedPositions() {
