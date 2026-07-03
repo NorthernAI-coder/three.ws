@@ -31,9 +31,17 @@ simply doesn't run; everything else on the platform keeps working.
 - **Devnet stays friction-free.** Surfaces that know their network only gate
   when it isn't `devnet`. Simulation modes (e.g. Oracle arm's simulate mode)
   are never gated.
-- **Fails closed.** If the gate can't render (no DOM) or the user never
+- **Fails closed on "no", degrades gracefully on breakage.** If the user never
   accepts, `ensureRiskAck()` resolves `false` and the caller must abort the
-  money action.
+  money action. But the gate machinery itself can never brick a feature:
+  `ensureRiskAck()` **never rejects**. If `/risk-ack.js` fails to load (broken
+  deploy, blocked request) or the `<dialog>` can't open (unsupported browser),
+  the gate degrades to a native `confirm()` carrying the same core
+  acknowledgment text — the user is still asked, the feature still works. The
+  x402 embed loads the gate lazily for the same reason: a gate failure must
+  never take the payment modal down with it. A failed `POST` to the recording
+  endpoint never blocks an accepted state. Verified in-browser: blocked module,
+  throwing `showModal`, and a 500ing endpoint all leave every feature usable.
 
 ## Wiring a new money surface
 

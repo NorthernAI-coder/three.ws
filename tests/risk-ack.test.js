@@ -9,6 +9,7 @@ import {
 	isAckCurrent,
 	hasRiskAck,
 	ensureRiskAck,
+	fallbackConfirmAck,
 	RISK_ACK_VERSION,
 	RISK_ACK_STORAGE_KEY,
 } from '../public/risk-ack.js';
@@ -123,5 +124,50 @@ describe('hasRiskAck / ensureRiskAck against storage', () => {
 		globalThis.localStorage = fakeStorage();
 		// Node test env has no document — the gate must fail CLOSED (no ack, no money action).
 		await expect(ensureRiskAck({ context: 'trade' })).resolves.toBe(false);
+	});
+});
+
+describe('fallbackConfirmAck — the degraded path when the dialog cannot render', () => {
+	let originalStorage;
+	let originalConfirm;
+
+	beforeEach(() => {
+		originalStorage = globalThis.localStorage;
+		originalConfirm = globalThis.confirm;
+	});
+
+	afterEach(() => {
+		if (originalStorage === undefined) delete globalThis.localStorage;
+		else globalThis.localStorage = originalStorage;
+		if (originalConfirm === undefined) delete globalThis.confirm;
+		else globalThis.confirm = originalConfirm;
+	});
+
+	it('returns false when confirm() is unavailable — degraded gate still fails closed', () => {
+		delete globalThis.confirm;
+		globalThis.localStorage = fakeStorage();
+		expect(fallbackConfirmAck({ context: 'trade' })).toBe(false);
+	});
+
+	it('accepting via confirm() persists a current, versioned record', () => {
+		globalThis.localStorage = fakeStorage();
+		globalThis.confirm = () => true;
+		expect(fallbackConfirmAck({ context: 'swap' })).toBe(true);
+		const rec = parseAckRecord(globalThis.localStorage.getItem(RISK_ACK_STORAGE_KEY));
+		expect(isAckCurrent(rec)).toBe(true);
+		expect(rec.context).toBe('swap');
+	});
+
+	it('cancelling confirm() returns false and stores nothing', () => {
+		globalThis.localStorage = fakeStorage();
+		globalThis.confirm = () => false;
+		expect(fallbackConfirmAck({ context: 'trade' })).toBe(false);
+		expect(globalThis.localStorage.getItem(RISK_ACK_STORAGE_KEY)).toBeNull();
+	});
+
+	it('a throwing confirm() cannot break the caller', () => {
+		globalThis.localStorage = fakeStorage();
+		globalThis.confirm = () => { throw new Error('blocked'); };
+		expect(fallbackConfirmAck({ context: 'trade' })).toBe(false);
 	});
 });
