@@ -84,13 +84,10 @@ const ALL_REACTION_CLIPS = [...new Set(Object.values(REACTIONS).flat())];
 // GLBs are excluded on purpose: some pass the rest-pose gate but explode once the
 // idle clip drives them (a giant blob), so we don't gamble the floor on them.
 const FALLBACK_RIGS = [
-	'/avatars/cesium-man.glb',      // ~0.4 MB, classic rigged human
-	'/avatars/mannequin.glb',       // ~0.2 MB
-	'/avatars/xbot.glb',            // ~2.9 MB, Mixamo
-	'/avatars/michelle.glb',        // ~3.2 MB, Mixamo
-	'/avatars/realistic-female.glb',// ~5.7 MB, ReadyPlayerMe
-	'/avatars/realistic-male.glb',  // ~9.7 MB, ReadyPlayerMe
-	'/avatars/selfie-girl.glb',     // ~11 MB, ReadyPlayerMe
+	'/avatars/cesium-man.glb', // ~0.4 MB, classic rigged human (Khronos)
+	'/avatars/mannequin.glb',  // ~0.2 MB, the base figure
+	'/avatars/xbot.glb',       // ~2.9 MB, Mixamo robot — visually distinct
+	'/avatars/michelle.glb',   // ~3.2 MB, Mixamo realistic woman
 ];
 
 // The colour a trader's monitor flashes for each event — green on a fill, violet
