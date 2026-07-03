@@ -23,6 +23,7 @@ import { sendOpsAlert } from '../_lib/alerts.js';
 import { SOLANA_SIGNERS, resolveSignerPubkey } from '../_lib/solana-signers.js';
 import { ringAllowedAddresses } from '../_lib/x402/ring-allowlist.js';
 import { classifyWalletDebits } from './x402-ring-leak-scan.js';
+import { runTripwire, lastActivityMs } from '../_lib/financial-tripwire.js';
 
 const SIG_LIMIT = 100;
 const CANONICAL_USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
@@ -206,5 +207,17 @@ export default wrapCron(async (req, res) => {
 		perWallet.push({ name, wallet: pubkey, scanned: r.scannedDelta, leaks: r.leaksDelta, error: !!r.error });
 	}
 
-	return json(res, 200, { ok: true, run_id: runId, wallets: wallets.length, scanned, leaks, rpc_errors: errors, per_wallet: perWallet });
+	// Zero-activity tripwire for the always-active x402 autonomous loop — the same
+	// "enabled but silent" alarm that was missing when the ring quietly died. The
+	// ring's own settle-silence is covered by ring-reconciliation; this covers the
+	// loop that DRIVES it (pipelines + tick), which should never be idle when on.
+	const now = Date.now();
+	const autoConfigured = String(env.X402_AUTONOMOUS_ENABLED ?? '').toLowerCase() !== 'false';
+	const autoLast = await lastActivityMs('x402_autonomous_log', 'created_at');
+	const tripwire = await runTripwire({
+		subsystem: 'x402_autonomous_loop', configured: autoConfigured,
+		lastActivityMs: autoLast, windowMinutes: 60, now, runId,
+	});
+
+	return json(res, 200, { ok: true, run_id: runId, wallets: wallets.length, scanned, leaks, rpc_errors: errors, per_wallet: perWallet, tripwire });
 });

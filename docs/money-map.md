@@ -153,6 +153,26 @@ recurring payout crons that forward the flows above:
 
 ---
 
+## Monitoring coverage
+
+Every wallet that moves money is watched on-chain, and every always-active loop is
+watched for silence. One board rolls it all up.
+
+| Layer | What it watches | Where |
+|---|---|---|
+| **All-wallet leak scan** | Every mainnet `SOLANA_SIGNERS` wallet (masters, all treasuries, ring wallets) — any SOL/token debit to an address outside the controlled set, or an SPL Approve | `api/cron/wallets-leak-scan.js` (`*/15`), verdict source `wallets_onchain` |
+| **Ring leak scan** | The x402 ring role wallets specifically | `api/cron/x402-ring-leak-scan.js` (`*/10`), source `x402_ring_onchain` |
+| **Economy-master breach/tamper** | Unrecorded outbound + hash-chain integrity of the funding root | `api/cron/economy-reconcile.js` (`*/30`) |
+| **Zero-activity tripwire** | Enabled-but-silent money loops (the alarm the ring outage lacked) | `api/_lib/financial-tripwire.js`, wired for `x402_autonomous_loop` in the leak-scan cron |
+| **Reconciliation** | Ring settlements/sweeps + revenue vs chain | `ring-reconciliation.js`, `revenue-reconciliation.js` |
+| **Unified board** | Per-subsystem open critical/warn verdicts + last activity, one call | `GET /api/ops/money-health` (admin) |
+
+Guardrails on outflow: the economy master is funder-only with reserve/per-transfer/
+per-run caps and a registry allowlist; the ring can only settle to allowlisted
+wallets (anti-drain gate); the sniper auto-funder moves money only for strategies
+that set `auto_fund_enabled = true` (default off). See
+[financial-controls.md](financial-controls.md) for the full register.
+
 ## Related
 
 - [Financial controls & audit register](financial-controls.md) — every ledger's integrity, reconciliation, retention, monitoring, and the ranked gap list.
