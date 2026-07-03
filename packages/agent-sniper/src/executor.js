@@ -102,7 +102,14 @@ export async function executeBuy({ cfg, strat, candidate, throttle, ports }) {
 
 			const balance = BigInt(await solana.connection.getBalance(keypair.publicKey, 'confirmed'));
 			const headroom = checkSolHeadroom(balance, perTrade, SOL_FEE_HEADROOM_LAMPORTS);
-			if (headroom) return await fail(store, log, posId, tag, headroom.reason);
+			// In simulate mode nothing is broadcast, so an unfunded wallet must not
+			// abort — otherwise the dry-run path can never be exercised without real
+			// SOL, defeating the point of simulate. Log it and continue. Live mode
+			// still fails closed: never attempt a broadcast we can't afford.
+			if (headroom) {
+				if (cfg.mode === 'live') return await fail(store, log, posId, tag, headroom.reason);
+				log.warn('sim buy: wallet underfunded (continuing dry-run)', { ...tag, reason: headroom.reason });
+			}
 
 			const mintPk = new PublicKey(candidate.mint);
 			const slippagePct = (strat.slippage_bps ?? 500) / 100;

@@ -194,6 +194,18 @@ async function buildSniper(flags, { screen = false } = {}) {
 		};
 	}
 
+	// Rule: never snipe pump.fun Mayhem tokens — only normal launches. Reads each
+	// mint's bonding curve (cached, shared across agents) and skips isMayhemMode
+	// coins at the executeBuy chokepoint, so every face (run/serve/mcp) enforces
+	// it, not just the fleet script. On by default; --allow-mayhem disables it,
+	// --mayhem-strict also skips when the curve can't be read.
+	const mayhemOn = !flags['allow-mayhem'];
+	if (mayhemOn) {
+		const { createMayhemFilter } = await import('../src/mayhem-filter.js');
+		const mayhem = createMayhemFilter({ rpcUrl, strictOnUnknown: Boolean(flags['mayhem-strict']) });
+		hooks.oracleGate = mayhem.oracleGate;
+	}
+
 	// presets.local builds the wallet/solana/executor/feed wiring; we override the
 	// wallet so the resolved default secret is honored without env round-trips.
 	const wallet = createSelfCustodyWallet(keypairSecret ? { defaultSecret: keypairSecret } : {});
@@ -219,6 +231,7 @@ async function buildSniper(flags, { screen = false } = {}) {
 
 async function cmdRun(flags) {
 	const { sniper, wallet, strategies, network, mode } = await buildSniper(flags, { screen: true });
+	const mayhemOn = !flags['allow-mayhem'];
 
 	let walletAddr = null;
 	if (strategies.length === 1 || flags.keypair) {
@@ -233,6 +246,7 @@ async function cmdRun(flags) {
 	line(`  network   ${network}`);
 	line(`  mode      ${mode}${mode === 'live' ? '  \x1b[31m(LIVE — trading REAL funds)\x1b[0m' : '  (simulate — no funds at risk)'}`);
 	line(`  strategies ${strategies.length}`);
+	line(`  mayhem    ${mayhemOn ? (flags['mayhem-strict'] ? 'filtered (strict — skip on unknown)' : 'filtered (skip Mayhem tokens)') : '\x1b[33mALLOWED (--allow-mayhem)\x1b[0m'}`);
 	if (walletAddr) line(`  wallet    ${walletAddr}`);
 	if (mode === 'live') line('  \x1b[33m⚠ live mode: every snipe spends SOL from the agent wallet. Ctrl-C to stop.\x1b[0m');
 	line('');
