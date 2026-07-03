@@ -78,17 +78,36 @@ const ALL_REACTION_CLIPS = [...new Set(Object.values(REACTIONS).flat())];
 // two adjacent desks match. Every entry is a rigged humanoid that drives the
 // canonical clips; anything that fails the rig gate still falls back to the
 // mannequin (rare), it just costs one repeat rather than a T-pose.
-// Only standard, clean rigs whose skeleton retargets the canonical clips without
-// detonating (Mixamo, Khronos CesiumMan, ReadyPlayerMe, our mannequin). Ordered
-// lightest first so the most-visible front desks paint fast. Unknown-provenance
-// GLBs are excluded on purpose: some pass the rest-pose gate but explode once the
-// idle clip drives them (a giant blob), so we don't gamble the floor on them.
+// Distinct Avaturn / Mixamo rigged HUMANS — each a different person, all carrying
+// the canonical (Avaturn) skeleton so they retarget the clip library cleanly and
+// never detonate. Ordered lightest first so the most-visible front desks paint
+// fast. cesium-man's odd 22-bone rig (the earlier "blob") is deliberately out.
 const FALLBACK_RIGS = [
-	'/avatars/cesium-man.glb', // ~0.4 MB, classic rigged human (Khronos)
-	'/avatars/mannequin.glb',  // ~0.2 MB, the base figure
-	'/avatars/xbot.glb',       // ~2.9 MB, Mixamo robot — visually distinct
-	'/avatars/michelle.glb',   // ~3.2 MB, Mixamo realistic woman
+	'/avatars/cz.glb',               // ~0.6 MB, Avaturn
+	'/avatars/default.glb',          // ~0.7 MB, Avaturn (platform default)
+	'/avatars/xbot.glb',             // ~2.9 MB, Mixamo
+	'/avatars/michelle.glb',         // ~3.2 MB, Mixamo
+	'/avatars/realistic-female.glb', // ~5.7 MB, Avaturn
+	'/avatars/realistic-halfbody.glb',// ~5.9 MB, Avaturn (behind a desk = fine)
+	'/avatars/realistic-male.glb',   // ~9.7 MB, Avaturn
+	'/avatars/selfie-girl.glb',      // ~11 MB, Avaturn
 ];
+
+// A distinct, deterministic colour per desk index (golden-angle hue walk) so that
+// even two desks wearing the same fallback rig never look identical — the last
+// line of defence for "no two the same" once the small rig pool repeats.
+function fbHue(i) { return (i * 0.6180339887) % 1; }
+function tintModel(model, hue) {
+	if (hue == null) return;
+	const col = new Color().setHSL(hue, 0.5, 0.56);
+	model.traverse((n) => {
+		if (!n.isMesh || !n.material) return;
+		// Clone before recolouring — the cloned scene shares materials with the
+		// cached template, so mutating in place would tint every other instance too.
+		const one = (m) => { const c = m.clone(); if (c.color) c.color.copy(col); return c; };
+		n.material = Array.isArray(n.material) ? n.material.map(one) : one(n.material);
+	});
+}
 
 // The colour a trader's monitor flashes for each event — green on a fill, violet
 // on a verify/pay, amber when a safety rule refuses a buy. The resting glow is a
@@ -346,20 +365,30 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false, 
 		return { model, anim, drivable: drivable && humanoid };
 	}
 
-	async function addPerformer(agent, index, total, rigUrl = null) {
+	async function addPerformer(agent, index, total, fallbackRig = null, tintHue = null) {
 		if (disposed || performers.has(agent.id)) return;
 		const slot = deskSlot(index, total);
+		const fbRig = fallbackRig || MANNEQUIN_GLB;
 
-		// Rigged avatars only. Try the resolved body first (the agent's own avatar,
-		// or a distinct fallback rig assigned by setRoster); if it isn't a drivable
-		// humanoid, swap in the mannequin rather than staging forge geometry as-is.
-		const url = rigUrl || agentAvatarGlb(agent);
-		let body = await buildBody(url, slot);
+		// The agent's own rigged avatar wins ONLY when it actually drives the clips.
+		// Everything else — an avatar-less agent, or a custom avatar that can't be
+		// rigged (a forge mesh, which is most of them) — becomes this desk's ASSIGNED
+		// fallback rig, tinted a unique colour, so no two desks ever look the same.
+		const realUrl = agentAvatarGlb(agent);
+		let body = realUrl !== MANNEQUIN_GLB ? await buildBody(realUrl, slot) : null;
 		if (disposed || performers.has(agent.id)) { body?.anim?.dispose?.(); return; }
-		if ((!body || !body.drivable) && url !== MANNEQUIN_GLB) {
+		if (!body || !body.drivable) {
 			body?.anim?.dispose?.();
-			body = await buildBody(MANNEQUIN_GLB, slot);
+			body = await buildBody(fbRig, slot);
 			if (disposed || performers.has(agent.id)) { body?.anim?.dispose?.(); return; }
+			if ((!body || !body.drivable) && fbRig !== MANNEQUIN_GLB) {
+				body?.anim?.dispose?.();
+				body = await buildBody(MANNEQUIN_GLB, slot);
+				if (disposed || performers.has(agent.id)) { body?.anim?.dispose?.(); return; }
+				// Only a bare mannequin gets a unique tint (so the rare fallback-of-a-
+				// fallback still reads distinct); the Avaturn humans render as-is.
+				if (body?.model) tintModel(body.model, tintHue);
+			}
 		}
 		if (!body || !body.model) return;
 
@@ -399,7 +428,7 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false, 
 
 		if (drivable && !reducedMotion) anim.play('idle');
 
-		const rec = { agent, group, model, pad, shadow, deskGroup, screenMat, anim, drivable, slot, busy: false, plate: null };
+		const rec = { agent, group, model, pad, shadow, deskGroup, screenMat, anim, drivable, slot, fallbackRig: fbRig, tintHue, busy: false, plate: null };
 		rec.plate = makePlate(rec, index);
 		performers.set(agent.id, rec);
 	}
@@ -438,18 +467,15 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false, 
 		for (const [id, rec] of [...performers]) {
 			if (!keep.has(id)) removePerformer(id, rec);
 		}
-		// Resolve each body, giving avatar-less agents a DISTINCT fallback rig so the
-		// floor isn't a row of clones. A running counter (not the loop index) walks
-		// the pool, so only agents that actually need a fallback consume a slot —
-		// agents with their own avatar never collide with the rotation.
-		let fbN = 0;
+		// Reserve a distinct fallback rig + a unique colour for every desk by index.
+		// A desk uses them only if the agent's own avatar can't be rigged (which, for
+		// forge avatars, is nearly always) — but reserving by index guarantees the
+		// hues never collide, so no two fallback desks are identical.
 		// Add sequentially with a micro-yield so a full room fills progressively
 		// instead of stalling one frame on a dozen GLB clones.
 		for (let i = 0; i < agents.length; i++) {
 			if (disposed) return;
-			const base = agentAvatarGlb(agents[i]);
-			const rigUrl = base !== MANNEQUIN_GLB ? base : FALLBACK_RIGS[fbN++ % FALLBACK_RIGS.length];
-			await addPerformer(agents[i], i, agents.length, rigUrl);
+			await addPerformer(agents[i], i, agents.length, FALLBACK_RIGS[i % FALLBACK_RIGS.length], fbHue(i));
 			if ((i & 3) === 3) await new Promise((r) => setTimeout(r, 0));
 		}
 	}
@@ -463,8 +489,13 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false, 
 		rec.model.visible = false;
 		try { rec.anim?.dispose?.(); } catch {}
 		rec.drivable = false;
+		// Rebuild as the MANNEQUIN (the one rig that never detonates) tinted this
+		// desk's unique colour. Rebuilding as the assigned fallback rig would loop
+		// forever if that rig is itself the exploder; a uniquely-tinted mannequin
+		// still keeps the desk distinct from every neighbour.
 		const body = await buildBody(MANNEQUIN_GLB, rec.slot);
 		if (disposed || !performers.has(rec.agent.id) || !body?.model) { body?.anim?.dispose?.(); return; }
+		tintModel(body.model, rec.tintHue);
 		const old = rec.model;
 		rec.group.remove(old);
 		old.traverse?.((n) => { if (n.isMesh) { n.geometry?.dispose?.(); disposeMaterial(n.material); } });

@@ -29,7 +29,7 @@ const sol = (l) => (l / LAMPORTS_PER_SOL).toFixed(4);
 // pull Swarm addresses from the DB
 process.env.DATABASE_URL = e.DATABASE_URL;
 const { sql } = await import('../../../api/_lib/db.js');
-const rows = await sql`select name, meta->>'solana_address' as addr from agent_identities where name like 'Swarm %' and meta->>'solana_address' is not null order by (regexp_replace(name,'\\D','','g'))::int`;
+const rows = await sql`select name, meta->>'solana_address' as addr from agent_identities where name ~ '^Swarm [0-9]+$' and meta->>'solana_address' is not null order by (regexp_replace(name,'\\D','','g'))::int`;
 console.log(`Swarm agents with wallets: ${rows.length}`);
 if (!rows.length) { console.log('none yet — run after creation/wallets exist'); process.exit(0); }
 

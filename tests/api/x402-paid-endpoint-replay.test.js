@@ -126,6 +126,10 @@ beforeEach(() => {
 	process.env.X402_PAY_TO_BASE = PAY_TO_BASE;
 	process.env.X402_ASSET_ADDRESS_BASE = ASSET_BASE;
 	process.env.X402_MAX_AMOUNT_REQUIRED = '1000';
+	// Opt Base into settleability so buildRequirements advertises the Base accept
+	// this endpoint is built on — without it baseSettleable() drops Base and the
+	// challenge 500s before the replay path under test is ever reached.
+	process.env.X402_ADVERTISE_BASE = 'true';
 	delete process.env.CDP_API_KEY_ID;
 	delete process.env.CDP_API_KEY_SECRET;
 	delete process.env.X402_BUILDER_CODE_APP;

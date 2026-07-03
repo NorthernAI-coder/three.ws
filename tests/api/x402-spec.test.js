@@ -565,6 +565,67 @@ describe('baseSettleable', () => {
 	});
 });
 
+describe('solanaSettleable', () => {
+	// The Solana mirror of baseSettleable(): never advertise a Solana accept the
+	// facilitator will reject AFTER the buyer pays. When settlement routes to our
+	// self-hosted facilitator, sponsor-mode settle co-signs with
+	// X402_FEE_PAYER_SECRET_BASE58 — without it every settle throws
+	// sponsor_key_unconfigured (the 80× prod 502 this gate closes). An external
+	// facilitator co-signs with its own key, so the secret is irrelevant there.
+	beforeEach(() => {
+		delete process.env.X402_SELF_FACILITATOR_ENABLED;
+		delete process.env.X402_FACILITATOR_URL_SOLANA;
+		delete process.env.X402_FACILITATOR_URL;
+		delete process.env.X402_FEE_PAYER_SECRET_BASE58;
+		delete process.env.PUBLIC_APP_ORIGIN;
+	});
+
+	it('is true by default (external PayAI facilitator co-signs with its own key)', async () => {
+		const { solanaSettleable } = await loadSpec();
+		expect(solanaSettleable()).toBe(true);
+	});
+
+	it('is FALSE when self-routing without the co-signing secret (the 502 trap)', async () => {
+		process.env.X402_SELF_FACILITATOR_ENABLED = 'true';
+		const { solanaSettleable } = await loadSpec();
+		expect(solanaSettleable()).toBe(false);
+	});
+
+	it('is true when self-routing WITH the co-signing secret present', async () => {
+		process.env.X402_SELF_FACILITATOR_ENABLED = 'true';
+		process.env.X402_FEE_PAYER_SECRET_BASE58 = 'z'.repeat(88);
+		const { solanaSettleable } = await loadSpec();
+		expect(solanaSettleable()).toBe(true);
+	});
+
+	it('is true when an explicit EXTERNAL URL wins even with the flag on and no secret', async () => {
+		process.env.X402_SELF_FACILITATOR_ENABLED = 'true';
+		process.env.X402_FACILITATOR_URL_SOLANA = 'https://ext.example.test';
+		const { solanaSettleable } = await loadSpec();
+		expect(solanaSettleable()).toBe(true);
+	});
+
+	it('withholds the Solana accept from paymentRequirements when self-routing without the secret', async () => {
+		process.env.X402_SELF_FACILITATOR_ENABLED = 'true';
+		const { paymentRequirements } = await loadSpec();
+		const solana = paymentRequirements('https://three.ws/api/foo').filter((r) =>
+			r.network.startsWith('solana:'),
+		);
+		expect(solana).toEqual([]);
+	});
+
+	it('advertises the Solana accept again once the secret is set (self-heals)', async () => {
+		process.env.X402_SELF_FACILITATOR_ENABLED = 'true';
+		process.env.X402_FEE_PAYER_SECRET_BASE58 = 'z'.repeat(88);
+		const { paymentRequirements } = await loadSpec();
+		const solana = paymentRequirements('https://three.ws/api/foo').filter((r) =>
+			r.network.startsWith('solana:'),
+		);
+		expect(solana.length).toBeGreaterThanOrEqual(1);
+		expect(solana[0].extra.name).toBe('USDC');
+	});
+});
+
 describe('buildExactRequirements', () => {
 	// Shared accept builder for the hand-rolled endpoints (model-check, mint-to-mesh,
 	// vanity, vanity-verifiable, revenue-vision). Solana always leads; Base only rides

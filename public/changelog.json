@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-03T11:31:54.896Z",
+	"generated_at": "2026-07-03T12:00:33.287Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -120,6 +120,17 @@
 			"tags": [
 				"improvement",
 				"infra"
+			]
+		},
+		{
+			"date": "2026-07-03",
+			"type": "update",
+			"title": "Paid endpoints never hand you a payment rail they can't complete",
+			"summary": "We fixed a case where paying for an endpoint on Solana could fail with a server error after you had already built and signed the payment. The platform advertises which networks an endpoint accepts; it was offering the Solana rail based on the sponsor wallet's address alone, without checking that the co-signing key needed to actually complete the payment was in place. If that key was missing, you got a 502 at the last step. Now the Solana rail is only offered when settlement can genuinely complete — the same rule the platform already applied to Base — so you never pick a rail that dead-ends. The live payment challenge and the machine-readable service catalog now agree, and if the co-signing key is missing you get a clear, retryable \"temporarily unavailable\" instead of a hard error. The moment the key is configured, Solana payments resume on their own with no redeploy, and the platform health board now flags this specific gap so operators can fix it fast.",
+			"link": null,
+			"tags": [
+				"fix",
+				"security"
 			]
 		},
 		{
