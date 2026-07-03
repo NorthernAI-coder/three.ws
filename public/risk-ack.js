@@ -270,66 +270,108 @@ export function ensureRiskAck({ context = 'real-funds' } = {}) {
 	if (_inFlight) return _inFlight;
 
 	_inFlight = new Promise((resolve) => {
-		_ensureStyles();
-		const dialog = _buildDialog();
-		document.body.appendChild(dialog);
-
-		const checkbox = dialog.querySelector('[data-risk-ack-check]');
-		const acceptBtn = dialog.querySelector('[data-risk-ack-accept]');
-		const declineBtn = dialog.querySelector('[data-risk-ack-decline]');
-		const prevOverflow = document.body.style.overflow;
-		const trigger = document.activeElement;
-		let settled = false;
-
-		const finish = (accepted) => {
-			if (settled) return;
-			settled = true;
-			dialog.classList.add('risk-ack--closing');
-			setTimeout(() => {
-				if (dialog.open) dialog.close();
-				dialog.remove();
-				document.body.style.overflow = prevOverflow;
-				if (trigger instanceof Element) trigger.focus?.();
-			}, 210);
+		// The gate must never brick a feature: if the dialog can't render or open
+		// (no <dialog> support, detached document, CSP on injected styles), fall
+		// back to the plain-confirm acknowledgment instead of throwing.
+		try {
+			_openDialog({ context, resolve });
+		} catch {
 			_inFlight = null;
-			resolve(accepted);
-		};
-
-		checkbox.addEventListener('change', () => {
-			acceptBtn.disabled = !checkbox.checked;
-		});
-		acceptBtn.addEventListener('click', () => {
-			if (settled || !checkbox.checked) return;
-			const record = {
-				version: RISK_ACK_VERSION,
-				acceptedAt: new Date().toISOString(),
-				context,
-			};
-			_persist(record);
-			_recordServerSide(record);
-			finish(true);
-		});
-		declineBtn.addEventListener('click', () => finish(false));
-		dialog.addEventListener('cancel', (e) => {
-			e.preventDefault();
-			finish(false);
-		});
-		dialog.addEventListener('click', (e) => {
-			// Only a click on the <dialog> element itself can be a ::backdrop click —
-			// clicks on inner content target the inner nodes. Checking coordinates
-			// alone misfires on keyboard/programmatic activations, which report (0,0).
-			if (e.target !== dialog) return;
-			const rect = dialog.getBoundingClientRect();
-			const outside =
-				e.clientX < rect.left || e.clientX > rect.right ||
-				e.clientY < rect.top || e.clientY > rect.bottom;
-			if (outside) finish(false);
-		});
-
-		document.body.style.overflow = 'hidden';
-		dialog.showModal();
-		checkbox.focus();
+			resolve(fallbackConfirmAck({ context }));
+		}
 	});
 
 	return _inFlight;
 }
+
+/**
+ * Last-resort acknowledgment when the dialog cannot render: a native confirm()
+ * carrying the core acceptance text. Accepting persists + records exactly like
+ * the dialog path. Exported so wrappers (src/shared/risk-ack.js, x402.js) can
+ * reuse the same wording if this module itself fails to load.
+ * @param {{context?: string}} [opts]
+ * @returns {boolean}
+ */
+export function fallbackConfirmAck({ context = 'real-funds' } = {}) {
+	try {
+		const ok = globalThis.confirm?.(RISK_ACK_CONFIRM_TEXT) === true;
+		if (ok) {
+			const record = { version: RISK_ACK_VERSION, acceptedAt: new Date().toISOString(), context };
+			_persist(record);
+			_recordServerSide(record);
+		}
+		return ok;
+	} catch {
+		return false;
+	}
+}
+
+export const RISK_ACK_CONFIRM_TEXT =
+	'Real funds — risk acknowledgment\n\n' +
+	'three.ws is experimental software. Losses can be total, fast, and irreversible; ' +
+	'autonomous features can trade and pay on your behalf without asking again; nothing here is financial advice; ' +
+	'and three.ws is not responsible for any losses. Full text: three.ws/legal/risk\n\n' +
+	'Press OK to accept that you use real funds entirely at your own risk, or Cancel to stop.';
+
+function _openDialog({ context, resolve }) {
+	_ensureStyles();
+	const dialog = _buildDialog();
+	document.body.appendChild(dialog);
+
+	const checkbox = dialog.querySelector('[data-risk-ack-check]');
+	const acceptBtn = dialog.querySelector('[data-risk-ack-accept]');
+	const declineBtn = dialog.querySelector('[data-risk-ack-decline]');
+	const prevOverflow = document.body.style.overflow;
+	const trigger = document.activeElement;
+	let settled = false;
+
+	const finish = (accepted) => {
+		if (settled) return;
+		settled = true;
+		dialog.classList.add('risk-ack--closing');
+		setTimeout(() => {
+			if (dialog.open) dialog.close();
+			dialog.remove();
+			document.body.style.overflow = prevOverflow;
+			if (trigger instanceof Element) trigger.focus?.();
+		}, 210);
+		_inFlight = null;
+		resolve(accepted);
+	};
+
+	checkbox.addEventListener('change', () => {
+		acceptBtn.disabled = !checkbox.checked;
+	});
+	acceptBtn.addEventListener('click', () => {
+		if (settled || !checkbox.checked) return;
+		const record = {
+			version: RISK_ACK_VERSION,
+			acceptedAt: new Date().toISOString(),
+			context,
+		};
+		_persist(record);
+		_recordServerSide(record);
+		finish(true);
+	});
+	declineBtn.addEventListener('click', () => finish(false));
+	dialog.addEventListener('cancel', (e) => {
+		e.preventDefault();
+		finish(false);
+	});
+	dialog.addEventListener('click', (e) => {
+		// Only a click on the <dialog> element itself can be a ::backdrop click —
+		// clicks on inner content target the inner nodes. Checking coordinates
+		// alone misfires on keyboard/programmatic activations, which report (0,0).
+		if (e.target !== dialog) return;
+		const rect = dialog.getBoundingClientRect();
+		const outside =
+			e.clientX < rect.left || e.clientX > rect.right ||
+			e.clientY < rect.top || e.clientY > rect.bottom;
+		if (outside) finish(false);
+	});
+
+	document.body.style.overflow = 'hidden';
+	dialog.showModal();
+	checkbox.focus();
+}
+

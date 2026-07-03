@@ -82,6 +82,10 @@ scripts/pump-usdc-race.mjs
 # Wallet / private-key material — NEVER commit
 *.privkey.txt
 *.b58.txt
+*keypair*.json
+solana-wallets-backup.zip
+*wallets-backup*.zip
+*wallet-backup*.zip
 *-pump-wallet.json
 .fresh-pump-wallet.json
 .coin-keypair-*.json
