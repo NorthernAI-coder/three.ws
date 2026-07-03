@@ -62,10 +62,21 @@ Enforced in `executeBuy`, short-circuiting before any transaction:
 5. **Mandatory stop-loss** — DB `CHECK (stop_loss_pct > 0)` + runtime filter.
 6. **Price-impact circuit breaker** — `max_price_impact_pct` checked against a fresh `quoteForBuy`.
 7. **Idempotency** — `INSERT … ON CONFLICT (agent_id, mint, network) DO NOTHING` claims the slot before the tx; one shot per mint per agent.
+8. **Mayhem exclusion (owner rule)** — the first gate: never buy pump.fun "Mayhem"-mode tokens, only regular launches. Reads `isMayhemMode` off the on-chain bonding curve (cached per mint) via `mayhem-gate.js`. Applies to **every** trigger path, since it lives in the `executeBuy` chokepoint. `SNIPER_MAYHEM_FILTER=0` disables; `SNIPER_MAYHEM_STRICT=1` also skips when the curve can't be read.
+9. **Agent scoping** — `SNIPER_AGENT_IDS` restricts the worker to a specific set of agents, so a bounded run against the shared DB can't act on every other armed strategy.
+
+> **Wallet/funds pre-check.** An agent with no wallet or too little SOL is skipped
+> *before* the idempotency claim, so it leaves no `failed` position row — those
+> aborts used to dominate the feed. Only post-broadcast failures persist a row.
 
 > **Single-worker assumption.** Budget/concurrency races are prevented by an
 > in-process per-agent lock. Run exactly ONE instance. Scaling out requires an
 > atomic DB spend reservation instead.
+
+> **Master funding cap.** Set `LAUNCHER_MASTER_DAILY_CAP_SOL` to bound how much SOL
+> can leave the launcher master wallet per UTC day across *all* automated funders
+> (`api/_lib/launcher-funding.js`). This is a hard backstop that a loose per-call
+> cap can't bypass — recommended whenever armed strategies auto-fund from the master.
 
 ## Environment
 
@@ -79,6 +90,10 @@ Enforced in `executeBuy`, short-circuiting before any transaction:
 | `SNIPER_GLOBAL_KILL` | | `0` | `1` halts new buys. |
 | `SNIPER_POLL_MS` | | `5000` | Position re-quote cadence. |
 | `SNIPER_MAX_GLOBAL_BUYS_PER_MIN` | | `10` | Platform-wide buy throttle backstop. |
+| `SNIPER_MAYHEM_FILTER` | | `1` | Enforce the no-Mayhem rule (skip pump.fun Mayhem-mode tokens). `0` disables. |
+| `SNIPER_MAYHEM_STRICT` | | `0` | `1` = skip a buy when the bonding curve can't be read (default allows-on-unknown, logged). |
+| `SNIPER_AGENT_IDS` | | — | Comma/space-separated agent UUID allowlist. Unset = all agents for the network. |
+| `LAUNCHER_MASTER_DAILY_CAP_SOL` | | — | Hard per-UTC-day ceiling on total master-wallet outflow across automated funders. Unset = no cap. |
 | `SNIPER_CONFIRM_TIMEOUT_MS` | | `60000` | Per-trade confirmation wait. |
 | `SNIPER_CLAIM_POLL_MS` | | `30000` | First-claim trigger: fee-claim poll cadence. |
 | `SNIPER_CLAIM_LOOKBACK_S` | | `600` | First-claim trigger: window scanned each poll (must exceed the poll interval). |

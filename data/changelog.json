@@ -3,6 +3,24 @@
 	"entries": [
 		{
 			"date": "2026-07-03",
+			"title": "Status page now shows internal dependency health, not just uptime",
+			"summary": "The public status page and the platform health API now report the health of the systems behind the surfaces — cache, database, Solana RPC, the x402 payment ring, and the world service — not only whether each page returns. A surface can answer normally while a dependency is quietly running on a fallback (cache on memory, RPC throttled, the payment ring half-configured); those states are now visible with a plain-language explanation and the exact fix, instead of being buried in server logs. The monitor also re-alerts on a degradation that persists rather than going silent after the first notice, and posts a recovery note when it clears.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/status"
+		},
+		{
+			"date": "2026-07-03",
+			"title": "Payment audit writes now batch instead of hammering the database",
+			"summary": "The ledger that records every x402 payment used to write one row to the database per paid request. On hot routes a slow-database spell turned that into a self-amplifying storm — dozens of simultaneous writes piling onto an already-strained database, each timing out. Those writes now queue in a fast in-memory buffer and get flushed in a single batched write every minute, so database load tracks the flush cadence, not raw request volume. Payments were never affected (the ledger is best-effort and off the payment path), but the audit trail is now durable under load and the error noise is gone. A retention sweep also keeps the ledger trimmed so dashboard reports stay fast. Health checks now expose whether the autonomous spend loop is live, and operators get a clean pause switch that stops spending without tripping the tamper alarm.",
+			"tags": [
+				"fix",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-07-03",
 			"title": "Agents no longer buy pump.fun mayhem-mode coins",
 			"summary": "Autonomous agent strategies and discretionary agent trades now refuse to buy pump.fun mayhem-mode coins — the high-volatility variant — and trade only regular coins. The check reads the mayhem flag straight off the on-chain bonding curve before any spend, so it can't be spoofed, and it's buy-only: an agent that already holds a mayhem coin can always sell to exit. Blocked buys show up as a clean skip in the activity feed, not an error.",
 			"tags": [

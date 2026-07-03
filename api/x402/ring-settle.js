@@ -27,6 +27,7 @@ import crypto from 'node:crypto';
 import { paidEndpoint } from '../_lib/x402-paid-endpoint.js';
 import { buildBazaarSchema } from '../_lib/x402-spec.js';
 import { priceFor } from '../_lib/x402-prices.js';
+import { RING_SETTLE_DEFAULT_PRICE_ATOMICS } from '../_lib/x402/ring-constants.js';
 
 const ROUTE = '/api/x402/ring-settle';
 
