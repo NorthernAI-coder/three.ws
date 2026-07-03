@@ -113,31 +113,6 @@ function hashPick(arr, key) {
 }
 
 /**
- * Tiered-arc layout: rank 0 dead center & closest to camera, then fan outward
- * and back in widening rows. Returns { x, z, scale } for a given index.
- */
-function arcSlot(index, total) {
-	// Rows of increasing width: 3, 5, 7, … keeps the front row tight and the
-	// crowd receding so the leader reads as center stage.
-	let row = 0;
-	let placed = 0;
-	let rowSize = 3;
-	let idxInRow = index;
-	while (idxInRow >= rowSize) {
-		idxInRow -= rowSize;
-		placed += rowSize;
-		row += 1;
-		rowSize += 2;
-	}
-	const spanHalf = (rowSize - 1) / 2;
-	const spread = 1.55 + row * 0.25; // wider gaps further back
-	const x = (idxInRow - spanHalf) * spread;
-	const z = -row * 2.15;
-	const scale = Math.max(0.86, 1 - row * 0.05); // gentle falloff with depth
-	return { x, z, scale };
-}
-
-/**
  * Dealing-room layout: even rows of workstations facing the camera, like desks in
  * a trading pit. Partial last row is centred. Returns { x, z, scale, row }.
  */
@@ -243,7 +218,37 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false, 
 	let last = performance.now();
 	let autoOrbit = !reducedMotion;
 	let orbitYaw = 0;
+	let swayT = 0;
 	let highlightId = null;
+
+	// Build a workstation (desk + monitor) in front of a performer, toward the
+	// camera, so the trader stands behind a lit terminal. The monitor's emissive
+	// screen is the state light: a resting blue glow, flashing on a real event.
+	function buildWorkstation(slot) {
+		const s = slot.scale;
+		const g = new Group();
+		g.position.set(slot.x, 0, slot.z + 0.95 * s); // desk between the trader and the camera
+		const desk = new Mesh(new BoxGeometry(1.5 * s, 0.72 * s, 0.62 * s), deskMat);
+		desk.position.y = 0.36 * s;
+		g.add(desk);
+		const screenMat = new MeshStandardMaterial({
+			color: 0x05060c, emissive: new Color(SCREEN_IDLE), emissiveIntensity: 0.45, roughness: 0.5, metalness: 0.1,
+		});
+		const monitor = new Mesh(new BoxGeometry(0.94 * s, 0.56 * s, 0.05 * s), screenMat);
+		monitor.position.set(0, 0.98 * s, 0.02 * s);
+		g.add(monitor);
+		cast.add(g);
+		return { deskGroup: g, screenMat };
+	}
+
+	// Flash a performer's monitor for a real event, then it eases back to rest in
+	// the render loop. A no-op under reduced motion (the resting glow stays).
+	function flashScreen(rec, kind) {
+		if (!rec.screenMat || reducedMotion) return;
+		rec.screenMat.emissive.setHex(SCREEN_FLASH[kind] ?? SCREEN_FLASH.buy);
+		rec.screenMat.emissiveIntensity = 1.35;
+		rec.screenFlash = performance.now() + 1300;
+	}
 
 	// ── Avatar templates ────────────────────────────────────────────────────────
 	function template(url) {
@@ -300,7 +305,7 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false, 
 
 	async function addPerformer(agent, index, total) {
 		if (disposed || performers.has(agent.id)) return;
-		const slot = arcSlot(index, total);
+		const slot = deskSlot(index, total);
 
 		// Rigged avatars only. Try the agent's own model first; if it isn't a
 		// drivable humanoid, swap in the rigged mannequin (the platform's designed
@@ -321,9 +326,12 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false, 
 		group.name = `performer:${agent.id}`;
 		group.add(model);
 		group.position.set(slot.x, 0, slot.z);
-		group.rotation.y = (Math.atan2(-group.position.x, 9 - group.position.z) || 0) * 0.35; // toward the audience
+		group.rotation.y = (Math.atan2(-group.position.x, (CAM_BASE_Z + 2) - group.position.z) || 0) * 0.3; // face the camera / pit
 		group.userData.agentId = agent.id;
 		cast.add(group);
+
+		// The trader's workstation — desk + lit monitor in front of them.
+		const { deskGroup, screenMat } = buildWorkstation(slot);
 
 		// A soft contact shadow grounds the figure on the floor — always faintly
 		// present so no performer ever reads as floating (the flat disc used to make
@@ -348,7 +356,7 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false, 
 
 		if (drivable && !reducedMotion) anim.play('idle');
 
-		const rec = { agent, group, model, pad, shadow, anim, drivable, slot, busy: false, plate: null };
+		const rec = { agent, group, model, pad, shadow, deskGroup, screenMat, anim, drivable, slot, busy: false, plate: null };
 		rec.plate = makePlate(rec, index);
 		performers.set(agent.id, rec);
 	}
@@ -403,6 +411,13 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false, 
 		rec.group?.parent?.remove(rec.group);
 		rec.pad?.parent?.remove(rec.pad);
 		if (rec.shadow) { rec.shadow.parent?.remove(rec.shadow); rec.shadow.geometry?.dispose?.(); disposeMaterial(rec.shadow.material); }
+		if (rec.deskGroup) {
+			// Dispose the desk's geometries + this desk's own screen material, but NOT
+			// the shared deskMat (reused across every workstation, freed at teardown).
+			rec.deskGroup.parent?.remove(rec.deskGroup);
+			rec.deskGroup.traverse((n) => { if (n.isMesh) n.geometry?.dispose?.(); });
+			rec.screenMat?.dispose?.();
+		}
 		rec.group?.traverse?.((n) => {
 			if (n.isMesh) { n.geometry?.dispose?.(); disposeMaterial(n.material); }
 		});
@@ -429,6 +444,7 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false, 
 			rec.anim.playOnce(clip, { settleTo: 'idle' });
 		}
 		pulsePad(rec);
+		flashScreen(rec, kind);
 		if (receipt) attachReceiptToPerformer(rec, receipt);
 		return true;
 	}
@@ -524,8 +540,10 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false, 
 		const dt = Math.min(0.05, (now - last) / 1000);
 		last = now;
 
-		if (autoOrbit && !reducedMotion) orbitYaw += dt * 0.06;
-		cast.rotation.y = orbitYaw;
+		// Auto = a gentle room sway around dead-ahead (a full spin reads wrong for a
+		// room); a drag switches to manual look-around via orbitYaw.
+		if (autoOrbit && !reducedMotion) { swayT += dt; cast.rotation.y = Math.sin(swayT * 0.16) * 0.05; }
+		else cast.rotation.y = orbitYaw;
 		ring.rotation.z += dt * 0.05;
 
 		// Camera push-in: sin(0→π) over 0.7s pulls the camera ~1 unit toward the
@@ -545,6 +563,11 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false, 
 					rec.pad.material.opacity += (target - rec.pad.material.opacity) * Math.min(1, dt * 3);
 				} else if (rec.agent.id === highlightId) {
 					rec.pad.material.opacity = 0.32;
+				}
+				// ease a flashed monitor back to its resting glow
+				if (rec.screenMat) {
+					rec.screenMat.emissiveIntensity += (0.45 - rec.screenMat.emissiveIntensity) * Math.min(1, dt * 2.4);
+					if (rec.screenFlash && now > rec.screenFlash) { rec.screenMat.emissive.setHex(SCREEN_IDLE); rec.screenFlash = 0; }
 				}
 			}
 		}
@@ -639,6 +662,9 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false, 
 		for (const r of receipts) r.el.remove();
 		receipts.length = 0;
 		for (const coin of centerpieces) { scene.remove(coin); coin.userData.glow && scene.remove(coin.userData.glow); }
+		// Room shell + shared desk material.
+		for (const m of [board, boardEdge]) { m.geometry?.dispose?.(); disposeMaterial(m.material); }
+		deskMat.dispose();
 		try { disposeGltfLoader(renderer); } catch {}
 		renderer.dispose();
 	}
