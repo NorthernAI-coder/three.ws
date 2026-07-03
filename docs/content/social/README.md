@@ -8,6 +8,7 @@ This is the **content source**, not a posting bot. Nothing here schedules or pub
 
 | File | What it is |
 | --- | --- |
+| [unannounced-backlog.md](unannounced-backlog.md) | The gap list: shipped features that have **never** had an X post, cross-referenced against the @trythreews timeline. The queue for "what do we post next" — feed these into the calendar. |
 | [calendar-4-week.md](calendar-4-week.md) | A 4-week calendar (~3–5 posts/week) rotating the four formats across X, Farcaster, LinkedIn, and YouTube Shorts/TikTok. Each row ties to a real feature or clip and a source link. No metric cells. |
 | [post-templates.md](post-templates.md) | One reusable template per format (build-in-public, feature spotlight, user creation, dev tip) with per-platform variants. |
 | [hooks-library.md](hooks-library.md) | 25–40 reusable opening lines grouped by angle. Honest by construction. |
