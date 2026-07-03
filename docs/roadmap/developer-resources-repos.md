@@ -93,7 +93,7 @@ examples/
 │   ├── two-agents.html
 │   ├── web-component.html
 │   └── widget-rpc.html
-└── tutorials/             # long-form walkthroughs (start: docs/internal/tutorial-build-pai-site.md, adapted)
+└── tutorials/             # long-form walkthroughs
 ```
 
 Repo-level requirements:

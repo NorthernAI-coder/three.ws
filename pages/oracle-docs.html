@@ -439,7 +439,7 @@
 				<details class="dive">
 					<summary><span class="layer deep"><b></b>Deep dive</span> Pedigree — exact rules &amp; constants <span class="chev">›</span></summary>
 					<div class="body">
-						<p>Inputs come from the brain's smart-money slice (a pre-computed 0–100 composite, proven/total buy &amp; sell lamports, a list of notable wallets with labels) and the creator's record (label, prior launches, graduated launches, dump rate). The base is the brain's composite, or the average of notable wallets' scores if the composite is absent.</p>
+						<p>Inputs come from the brain's smart-money slice (a pre-computed 0–100 composite, proven/total buy &amp; sell lamports, a list of notable wallets with labels) and the creator's record (label, prior launches, graduated launches, dump rate). The base is the brain's composite, or the average of notable wallets' scores if the composite is absent. When there is <i>no</i> pedigree observation at all — no composite, no notable wallets, no creator record — the base anchors at a neutral prior of <b>38</b> rather than 0 (unknown is the market norm, not a red flag), and the final fused score is capped at <b>71</b>, one point below Strong: unknown pedigree can read Lean at most; Strong and Prime must be earned with observed evidence.</p>
 						<div class="tbl-wrap"><table>
 							<thead><tr><th>Signal</th><th>Adjustment</th><th>Note</th></tr></thead>
 							<tbody>
@@ -684,7 +684,8 @@ score = clamp(round(score), 0, 100)
 				</figure>
 
 				<h3>What "win" means</h3>
-				<p>A scored coin is a <b>win</b> if it graduated or reached a ≥2× ATH multiple; a <b>loss</b> if it rugged or languished below 1.2×; <b>flat</b> in between. Only resolved coins count toward a win rate — open positions are excluded, so the number can't be inflated by undecided bets.</p>
+				<p>A scored coin is a <b>win</b> if it graduated, or reached a ≥2× ATH multiple <i>without rugging</i>; a <b>loss</b> if it rugged or languished below 1.2×; <b>flat</b> in between. The "without rugging" clause matters: bundled launches routinely spike 2× from first sight before collapsing, and counting those wicks as wins would let pump-and-dumps inflate the very number that's supposed to expose them. Only resolved coins count toward a win rate — open positions are excluded, so the number can't be inflated by undecided bets.</p>
+				<p>Two win rates are published, deliberately kept apart: the <b>call win rate</b> (resolved coins Oracle rated Lean, Strong, or Prime — the tiers it tells you to act on) and the <b>market base rate</b> (every scored launch — what blindly buying everything would return). Until real calls resolve, the call win rate reads "no calls resolved yet"; the base rate is never presented as the engine's skill.</p>
 
 				<h3>The four things the backtest publishes</h3>
 				<div class="cards c2">
@@ -718,8 +719,8 @@ CI = [centre − margin, centre + margin]</pre>
 				<p class="lead-in">Every action an agent takes — simulated or live — is graded against ground truth and lands in its permanent win-rate ledger. This is what makes an agent's track record verifiable instead of asserted.</p>
 				<p>When a coin's outcome resolves, the settle loop grades any open action on it:</p>
 				<ul>
-					<li><b>Win</b> — the coin graduated, or its peak multiple reached ≥2×.</li>
-					<li><b>Loss</b> — the coin rugged, or marked below 0.5× / peaked below 1.2×.</li>
+					<li><b>Win</b> — the coin graduated, or its peak multiple reached ≥2× on a coin that didn't rug and isn't marked below half entry.</li>
+					<li><b>Loss</b> — the coin rugged, or marked below 0.5× / peaked below 1.2×. Loss conditions outrank a peak-based win: a 2× wick on a position now at zero was exit liquidity, not a win.</li>
 					<li><b>Flat</b> — everything in between.</li>
 				</ul>
 				<p>Realized PnL is marked to market as <code class="t">size · (current_mc / entry_mc − 1)</code>, and an agent's summary rolls up total, wins, losses, win rate, realized PnL, and ROI. The same grading powers the public <a class="inl" href="/oracle">agent leaderboard</a> and the platform-wide <a class="inl" href="/activity">activity floor</a>, so every agent competes on a level, outcome-graded field.</p>

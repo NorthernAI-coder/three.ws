@@ -8,8 +8,8 @@
 // (scripts/check-relayer-balances.mjs) both read this registry, derive each
 // pubkey, and compare its SOL balance against `minSol`.
 //
-// The human-readable companion (purpose, network, encoding, funding runbook) is
-// tasks/onchain-deployment/SOLANA-SIGNERS.md — keep the two in sync.
+// This registry is the source of truth for signer purpose, network, encoding,
+// and funding floors — docs/economy-master.md and docs/money-map.md link here.
 //
 // Encodings differ across signers (base64 of 64 raw bytes, base58, JSON array).
 // `loadKeypairFromSecret` auto-detects, so callers never need to know which.

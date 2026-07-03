@@ -157,8 +157,8 @@ then kept in a verified, watched, auto-fundable state:
   ring silently halts" failure. The **treasury is deliberately not a signer** (the
   master must never top up a wallet that only receives and gets swept), and the
   master only ever moves SOL, so the payer's **USDC** float is a manual top-up when
-  the monitor alerts. Funding amounts and verification commands live in
-  [tasks/x402-ring/FUNDING.md](../tasks/x402-ring/FUNDING.md).
+  the monitor alerts. Funding floors are enforced by the signer registry,
+  [api/_lib/solana-signers.js](../api/_lib/solana-signers.js).
 
 ## Components
 
@@ -217,9 +217,9 @@ then kept in a verified, watched, auto-fundable state:
 - **Coverage proof** —
   [scripts/x402-ring-coverage-sweep.js](../scripts/x402-ring-coverage-sweep.js)
   pays every catalog entry once and records the facilitator settle signature +
-  verified business effect into
-  [tasks/x402-ring/COVERAGE.md](../tasks/x402-ring/COVERAGE.md) — the standing
-  guarantee that each endpoint actually settles when paid, not just that it 402s.
+  verified business effect (regenerates `tasks/x402-ring/COVERAGE.md` locally) —
+  the standing guarantee that each endpoint actually settles when paid, not just
+  that it 402s.
 - **Setup script** — [scripts/x402-ring-setup.mjs](../scripts/x402-ring-setup.mjs).
   Generates the role wallets, writes secrets to a gitignored file, prints the env
   block. Never funds anything.
@@ -244,7 +244,7 @@ Five checks, plus a silence alarm:
 | **Amount fidelity** | a sampled subset of confirmed settles pays *exactly* `amount_atomic` of `mint` to `pay_to` (parsed from `pre/postTokenBalances`) | `x402_ring_amount_mismatch` | 🚨 CRITICAL |
 | **Sweep integrity** | every `x402_ring_ledger` `sweep` exists, succeeded, and moved the ledger amount **treasury→payer** (source must be the configured treasury) | `x402_ring_sweep_missing` / `x402_ring_sweep_failed` / `x402_ring_sweep_mismatch` | 🚨 CRITICAL |
 | **Cross-log coherence** | a ring tick lands in BOTH books (buyer side in `x402_autonomous_log`, settle side in `x402_self_facilitator_log`); joined on signature, orphans on either side are flagged | `x402_ring_log_orphan` | ⚠️ WARN (daily-throttled) |
-| **Fee coherence** | yesterday's summed `fee_lamports` vs the [fee-audit rollup](../tasks/x402-ring/05-fee-minimization.md) (`x402_fee_audit`); >20% apart means one book is wrong | `x402_ring_fee_divergence` | ⚠️ WARN (daily-throttled) |
+| **Fee coherence** | yesterday's summed `fee_lamports` vs the fee-audit rollup (`x402_fee_audit`); >20% apart means one book is wrong | `x402_ring_fee_divergence` | ⚠️ WARN (daily-throttled) |
 | **Zero-volume tripwire** | ring enabled (facilitator on + treasury set) but **zero settles in 30 min** → "enabled but silent" | `x402_ring_enabled_but_silent` | ⚠️ WARN |
 
 A **settlement with no buyer record** is the money-relevant case: value moved

@@ -661,10 +661,10 @@
 				<button class="stat" type="button" data-stat-action="strong" title="Coins at Strong tier right now — click to filter the feed">
 					<span>Strong now <span class="stat-arrow">→</span></span><b class="up" id="stStrong">—</b><span class="stat-sub">filter feed</span>
 				</button>
-				<button class="stat" type="button" data-stat-action="edge" title="Share of resolved calls that won — click for the full edge breakdown">
-					<span>Win rate <span class="stat-arrow">→</span></span><b id="stWin">—</b><span class="stat-sub" id="stWinSub"></span>
+				<button class="stat" type="button" data-stat-action="edge" title="Share of resolved Lean/Strong/Prime calls that won (graduated, or ≥2× without rugging) — click for the full edge breakdown">
+					<span>Call win rate <span class="stat-arrow">→</span></span><b id="stWin">—</b><span class="stat-sub" id="stWinSub"></span>
 				</button>
-				<button class="stat" type="button" data-stat-action="proof" title="Best ATH multiple Oracle ever called — click for the proof gallery">
+				<button class="stat" type="button" data-stat-action="proof" title="Best ATH multiple among coins Oracle actually called (Lean tier or above) — click for the proof gallery">
 					<span>Best ATH× <span class="stat-arrow">→</span></span><b class="warm" id="stAth">—</b><span class="stat-sub">view proof</span>
 				</button>
 				<button class="stat" type="button" data-stat-action="agents" title="Distinct agents currently armed on Oracle conviction — click for the leaderboard">
@@ -673,8 +673,8 @@
 				<div class="stat" title="Oracle watch actions currently open — awaiting settlement">
 					<span>Open trades</span><b id="stOpenTrades">—</b><span class="stat-sub">in flight</span>
 				</div>
-				<div class="stat" title="All-time resolved calls scored as wins by the oracle">
-					<span>Total wins</span><b class="up" id="stTotalWins">—</b><span class="stat-sub" id="stTotalWinsSub"></span>
+				<div class="stat" title="Share of ALL scored launches that won — what blindly buying every pump.fun launch would return. This is the baseline Oracle calls must beat; it is not the engine's win rate.">
+					<span>Market base rate</span><b id="stBase">—</b><span class="stat-sub" id="stBaseSub"></span>
 				</div>
 			</div>
 		</header>
@@ -833,10 +833,11 @@
 			<div class="proof-kpis" id="proofKpis" style="display:none"></div>
 			<div class="proof-filters">
 				<div class="seg" id="proofTierSeg">
-					<button data-ptier="" class="on">All tiers</button>
+					<button data-ptier="" class="on" title="Coins Oracle actually called — Lean tier or above">Called (Lean+)</button>
 					<button data-ptier="prime">Prime</button>
 					<button data-ptier="strong">Strong</button>
 					<button data-ptier="lean">Lean</button>
+					<button data-ptier="all" title="Every scored coin, including Watch/Avoid — market context, not proof of edge">All scored</button>
 				</div>
 				<div class="seg" id="proofPeriodSeg">
 					<button data-pperiod="7d">7d</button>
@@ -852,7 +853,7 @@
 		</section>
 
 		<footer class="foot">
-			<b>How conviction is built.</b> Oracle reads the platform's full-coverage pump.fun data — every coin, every wallet, every outcome — and fuses pedigree (34%), structure (30%), narrative (18%) and momentum (18%) into one score, with a hard structural cap so a bundle or a dumping dev can never read "strong." Nothing here is financial advice; conviction is a probability, not a promise. Trade small, especially early.
+			<b>How conviction is built.</b> Oracle reads the platform's full-coverage pump.fun data — every coin, every wallet, every outcome — and fuses pedigree (34%), structure (30%), narrative (18%) and momentum (18%) into one score, with hard caps so a bundle, a dumping dev, or a rug-pattern creator can never read "strong" — and neither can a coin whose buyers Oracle knows nothing about: unknown pedigree tops out at Lean. A win is graduation or a ≥2× run that didn't rug — a spike on the way to zero doesn't count, and the call win rate is reported separately from the market's base rate. Nothing here is financial advice; conviction is a probability, not a promise. Trade small, especially early.
 		</footer>
 	</main>
 

@@ -8,7 +8,7 @@ how long it is retained** — plus the monitoring/breach controls around it and 
 open gaps ranked by accounting/regulatory risk.
 
 It is a companion to the [money map](money-map.md) (who receives what) and the
-[Solana signers runbook](../tasks/onchain-deployment/SOLANA-SIGNERS.md) (the
+[Solana signers runbook](../api/_lib/solana-signers.js) (the
 wallets). Keep it in sync with the code — every row cites its source.
 
 > **Status of this register:** the platform's logging is strong for a few flows
@@ -256,7 +256,7 @@ Ranked by accounting/regulatory risk. Each is a tracked remediation item.
   with the chain — treat as a financial incident until explained.
 - **On a breach/anomaly alert:** freeze the affected wallet(s)
   (`spend_limits.frozen`), and for a signer-key concern rotate the key
-  ([Solana signers runbook](../tasks/onchain-deployment/SOLANA-SIGNERS.md)) and
+  ([Solana signers runbook](../api/_lib/solana-signers.js)) and
   re-run `check-relayer-balances.mjs` to confirm balances.
 - **Before adding a paid flow:** it is not done until it writes an append-only
   ledger row with the on-chain signature and a `UNIQUE` idempotency key, and is
@@ -269,4 +269,4 @@ Ranked by accounting/regulatory risk. Each is a tracked remediation item.
 - [Money map](money-map.md) — who receives each payment.
 - [x402 revenue & receipts](x402-revenue.md) — the x402 recording detail.
 - [x402 endpoints](x402-endpoints.md) — the paid endpoint catalog.
-- [Solana signers runbook](../tasks/onchain-deployment/SOLANA-SIGNERS.md) — the wallets + funding.
+- [Solana signers runbook](../api/_lib/solana-signers.js) — the wallets + funding.

@@ -39,7 +39,7 @@ Every score fuses four independent reads. The weights are public and shipped in 
 
 Reputation earned on chain. Which smart wallets are in this coin, and what is the creator's launch history? Oracle keeps a ledger of wallets that have proven they win, and every early buyer is labeled by its archetype and track record. Creators it has never seen get a cold start prior, honest uncertainty instead of fake confidence. A confirmed serial rugger does not just lower the score, it imposes a hard ceiling on the final number that no other pillar can lift.
 
-The exact adjustments, shipped in the code. Inputs come from the brain's smart-money slice (a pre-computed 0 to 100 composite, proven and total buy/sell lamports, a list of notable wallets with labels) and the creator's record (label, prior launches, graduated launches, dump rate). The base is the brain's composite, or the average of notable wallets' scores if the composite is absent.
+The exact adjustments, shipped in the code. Inputs come from the brain's smart-money slice (a pre-computed 0 to 100 composite, proven and total buy/sell lamports, a list of notable wallets with labels) and the creator's record (label, prior launches, graduated launches, dump rate). The base is the brain's composite, or the average of notable wallets' scores if the composite is absent. When there is no pedigree observation at all — no composite, no notable wallets, no creator record — the base anchors at a neutral prior of **38** rather than 0 (unknown buyers are the market norm, not a red flag; scoring them 0 used to pin every ordinary launch under a hard ~55 fused ceiling), and the final fused score is capped at **71**, one point below Strong. Unknown pedigree can read Lean at most; Strong and Prime must be earned with observed evidence.
 
 - 5 or more proven wallets in: **+14** (+9 at 3 or more, +5 at 1 or more)
 - Proven share of buy volume 40 percent or more: **+8** (+4 at 20 percent or more)
@@ -194,11 +194,11 @@ Every action, simulated or live, streams to the trading floor at three.ws/activi
 
 A score you cannot audit is an opinion. Oracle grades itself in public, and the grading is mechanical.
 
-**Outcome grading.** Once the data brain labels a coin's ground truth (graduated, rugged, ATH multiple), every agent action on that coin is settled: did the conviction call pay off, what was the peak multiple, what was the realized PnL. A scored coin is a win if it graduated or reached a 2 times or greater ATH multiple; a loss if it rugged, marked below 0.5 times, or peaked below 1.2 times; flat in between. Realized PnL is marked to market as `size · (current_mc / entry_mc − 1)`. This turns the action ledger into an honest win-rate record.
+**Outcome grading.** Once the data brain labels a coin's ground truth (graduated, rugged, ATH multiple), every agent action on that coin is settled: did the conviction call pay off, what was the peak multiple, what was the realized PnL. A scored coin is a win if it graduated, or reached a 2 times or greater ATH multiple without rugging and without marking below half of entry; a loss if it rugged, marked below 0.5 times, or peaked below 1.2 times — loss conditions outrank a peak-based win, because a 2× wick on a position that then went to zero was exit liquidity, not a win; flat in between. Realized PnL is marked to market as `size · (current_mc / entry_mc − 1)`. This turns the action ledger into an honest win-rate record.
 
 **The backtest** at `/api/oracle/backtest` joins what the engine scored against what actually happened and returns hit-rate stats per tier. Only coins with a resolved outcome count; open positions are excluded. This is the honest answer to "does it actually work," updated continuously. It publishes four things: win rate by tier with a 95 percent Wilson confidence interval; a calibration ladder bucketing scores 0 to 10, up to 90 to 100 and comparing each bucket's realized win rate to what it predicts; a Brier score (mean squared error of score/100 against the binary outcome, lower is better, 0.25 is a coin flip); and the edge multiple, prime's win rate over the base rate, with a monotonicity check across tiers.
 
-**The wins gallery** at `/api/oracle/wins` shows proven calls filtered by period, tier, and minimum ATH multiple.
+**The wins gallery** at `/api/oracle/wins` shows proven calls filtered by period, tier, and minimum ATH multiple. It defaults to called tiers only (Lean, Strong, Prime) — a Watch or Avoid coin that mooned is market context, not proof of edge; pass `tier=all` to browse everything scored.
 
 **The leaderboard** at `/api/oracle/leaderboard` ranks agents by conviction win rate across their full action ledger, with a minimum resolved-action floor so one-trade wonders cannot dominate.
 
@@ -343,7 +343,7 @@ s(x) = clamp( min( Σ_k w_k · f_k(x),  c(x) ),  0, 100 )
   c(x) = min over triggered structural/pedigree ceilings   // the veto
 ```
 
-The intended semantics is that `s(x)/100 ≈ P(win | x)`, where `win = graduated ∨ ATH ≥ 2×`. Calibration measures the gap between intent and reality.
+The intended semantics is that `s(x)/100 ≈ P(win | x)`, where `win = graduated ∨ (ATH ≥ 2× ∧ ¬rugged)`. Calibration measures the gap between intent and reality.
 
 The calibration objects:
 

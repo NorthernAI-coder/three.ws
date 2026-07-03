@@ -12,6 +12,7 @@ import {
 	narrativeScore,
 	momentumScore,
 	WEIGHTS,
+	PEDIGREE_UNKNOWN_PRIOR,
 	tierTone,
 } from '../../api/_lib/oracle/conviction.js';
 import { archetypeFor, isProven, isFlagged } from '../../api/_lib/oracle/archetype.js';
@@ -80,6 +81,33 @@ describe('pedigreeScore', () => {
 		const dumper = pedigreeScore(sm, { launches: 3, launchWins: 1, dumpRate: 0.7 });
 		expect(dumper.score).toBeLessThan(clean.score);
 		expect(dumper.reasons.join(' ')).toMatch(/dumps/);
+	});
+
+	it('a fully unobserved pedigree anchors at the neutral prior, not zero', () => {
+		// Most launches have no proven buyers and no creator record — that is the
+		// market norm, not a red flag. Scoring it 0 used to pin every ordinary
+		// launch under a ~55 fused ceiling.
+		const out = pedigreeScore({}, {});
+		expect(out.score).toBe(PEDIGREE_UNKNOWN_PRIOR);
+		expect(out.coverage).toBe(0);
+	});
+
+	it('an unobserved pedigree ceilings the final score below strong', () => {
+		const out = pedigreeScore({}, {});
+		expect(out.cap).toBeLessThan(72);
+		expect(out.reasons.some((t) => /pedigree unobserved/.test(t))).toBe(true);
+	});
+
+	it('an explicit zero composite from the brain is respected — observed ≠ unknown', () => {
+		const out = pedigreeScore({ score: 0, totalBuyLamports: 5e9 }, {});
+		expect(out.score).toBeLessThan(PEDIGREE_UNKNOWN_PRIOR);
+	});
+
+	it('a creator record alone lifts the unknown-pedigree ceiling', () => {
+		const blind = pedigreeScore({}, {});
+		const withCreator = pedigreeScore({}, { launches: 4, launchWins: 3 });
+		expect(blind.cap).toBeLessThan(72);
+		expect(withCreator.cap).toBe(100);
 	});
 });
 
@@ -224,6 +252,29 @@ describe('convict (fusion)', () => {
 		expect(empty.confidence).toBeLessThan(45);
 		expect(empty.confidenceLabel).toBe('low');
 		expect(empty.badges).toContain('thin-data');
+	});
+
+	it('an ordinary launch with unobserved pedigree lands mid-watch, not pinned at the floor', () => {
+		// Regression: pedigree=0-for-missing-data used to hard-cap every ordinary
+		// launch around 35 and made lean unreachable without wallet data.
+		const v = convict({
+			structure: { organicScore: 45, uniqueBuyers: 20 },
+			narrative: { category: 'meme', virality: 55, confidence: 0.6 },
+			behavior: { buyCount: 12, sellCount: 5, earlyBuyerCount: 10 },
+		});
+		expect(v.pillars.pedigree).toBe(PEDIGREE_UNKNOWN_PRIOR);
+		expect(v.score).toBeGreaterThan(40);
+	});
+
+	it('unobserved pedigree can reach lean but never strong, however good the rest', () => {
+		const v = convict({
+			structure: { organicScore: 95, uniqueBuyers: 80, topHolderPct: 6, top10Pct: 20 },
+			narrative: { category: 'news', virality: 92, confidence: 0.9 },
+			behavior: { buyCount: 60, sellCount: 2, earlyBuyerCount: 55, devBuySol: 1.0 },
+		});
+		expect(v.score).toBeLessThan(72);
+		expect(['lean', 'watch']).toContain(v.tier);
+		expect(v.reasons.some((r) => r.pillar === 'pedigree' && /unobserved/.test(r.text))).toBe(true);
 	});
 
 	it('a serial-rugger creator adds a pedigree-flag badge (not structure-flag)', () => {

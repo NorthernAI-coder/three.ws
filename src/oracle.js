@@ -891,20 +891,26 @@ async function loadGlobalStats() {
 		set('#stPrime',  data.prime_count != null ? data.prime_count.toLocaleString() : '—');
 		set('#stStrong', data.strong_count != null ? data.strong_count.toLocaleString() : '—');
 
+		// Call win rate: Lean/Strong/Prime calls only. Null until real calls
+		// resolve — show that honestly instead of substituting the market rate.
 		set('#stWin', data.win_rate != null ? data.win_rate + '%' : '—');
 		set('#stWinSub', data.total_resolved
-			? `${(data.total_wins ?? 0).toLocaleString()} / ${data.total_resolved.toLocaleString()} resolved`
+			? `${(data.total_wins ?? 0).toLocaleString()} / ${data.total_resolved.toLocaleString()} calls resolved`
 			: 'no calls resolved yet');
 		const winEl = $('#stWin');
-		if (winEl) winEl.classList.toggle('up', (data.win_rate ?? 0) >= 50);
+		if (winEl) winEl.classList.toggle('up', data.win_rate != null && data.win_rate >= 50);
 
 		set('#stAth', data.best_ath != null ? Number(data.best_ath).toFixed(1) + '×' : '—');
 
 		set('#stArmed', (data.agents_armed ?? 0).toLocaleString());
 		set('#stArmedSub', data.open_actions != null ? `${data.open_actions.toLocaleString()} open positions` : '');
 		set('#stOpenTrades', data.open_actions != null ? data.open_actions.toLocaleString() : '—');
-		set('#stTotalWins', data.total_wins != null ? data.total_wins.toLocaleString() : '—');
-		set('#stTotalWinsSub', data.total_resolved ? `of ${data.total_resolved.toLocaleString()} resolved` : '');
+
+		// Market base rate: every scored launch — the baseline the calls must beat.
+		set('#stBase', data.market_base_rate != null ? data.market_base_rate + '%' : '—');
+		set('#stBaseSub', data.market_resolved
+			? `${(data.market_wins ?? 0).toLocaleString()} / ${data.market_resolved.toLocaleString()} launches`
+			: '');
 	} catch { /* non-fatal — feed-window fallbacks already rendered */ }
 }
 
@@ -1299,6 +1305,14 @@ function renderEdge() {
 
 	// ── verdict hero: does conviction beat blind buying? ──────────────────────
 	let hero = '';
+	if (edge && edge.prime_win_rate == null && edge.baseline_win_rate != null) {
+		// No Prime calls have resolved yet — say so instead of implying an edge.
+		hero = `
+			<div class="edge-hero thin">
+				<p class="edge-hero-claim">No Prime calls have resolved yet — the edge is unproven, and we say so.</p>
+				<p class="edge-hero-sub">Across <b style="color:var(--ink)">${(edge.baseline_n || 0).toLocaleString()}</b> resolved launches, buying everything blind wins <b style="color:var(--ink)">${edge.baseline_win_rate}%</b> of the time (graduated, or ≥2× without rugging). That's the market's base rate, not Oracle's skill. Prime/Strong call win rates appear here the moment real calls resolve — never backfilled, never cherry-picked.</p>
+			</div>`;
+	}
 	if (edge && edge.prime_win_rate != null && edge.baseline_win_rate != null) {
 		const lift = edge.prime_lift;
 		const mult = edge.edge_multiple;
@@ -1323,7 +1337,7 @@ function renderEdge() {
 	const aggLine = agg && agg.total > 0 ? `
 		<div class="edge-agg">
 			<div class="edge-kpi"><span>Total scored</span><b>${agg.total.toLocaleString()}</b></div>
-			<div class="edge-kpi"><span>Win rate</span><b class="${(agg.win_rate||0) >= 50 ? 'up' : 'dn'}">${agg.win_rate != null ? agg.win_rate + '%' : '—'}</b>${agg.ci ? `<span class="ci">95% CI ${agg.ci.lo}–${agg.ci.hi}</span>` : ''}</div>
+			<div class="edge-kpi" title="Across ALL scored tiers, Watch/Avoid included — the market, not the calls"><span>Win rate (all scored)</span><b class="${(agg.win_rate||0) >= 50 ? 'up' : 'dn'}">${agg.win_rate != null ? agg.win_rate + '%' : '—'}</b>${agg.ci ? `<span class="ci">95% CI ${agg.ci.lo}–${agg.ci.hi}</span>` : ''}</div>
 			<div class="edge-kpi"><span>Wins</span><b class="up">${agg.wins}</b></div>
 			<div class="edge-kpi"><span>Losses</span><b class="dn">${agg.losses}</b></div>
 			<div class="edge-kpi"><span>Graduated</span><b>${agg.graduated}</b></div>
@@ -1366,7 +1380,7 @@ function renderEdge() {
 		</div>
 		${calHtml}
 		${topHtml}
-		<p style="font-size:11px;color:var(--faint);margin-top:18px">Win = graduated OR ATH ≥ 2×. Loss = rugged OR ATH &lt; 1.2×. Open positions excluded. Confidence intervals are Wilson 95% — wide bands mean a thin sample, not a weak edge. 30-day window.</p>`;
+		<p style="font-size:11px;color:var(--faint);margin-top:18px">Win = graduated, OR ATH ≥ 2× on a coin that did not rug — a 2× wick on the way to zero doesn't count. Loss = rugged OR ATH &lt; 1.2×. Open positions excluded. Confidence intervals are Wilson 95% — wide bands mean a thin sample, not a weak edge. 30-day window.</p>`;
 }
 
 function edgeRow(r) {
@@ -1576,7 +1590,9 @@ async function loadProof(reset = false) {
 
 	const items = data.items || [];
 	if (reset) {
-		grid.innerHTML = items.length ? items.map(winCardHtml).join('') : `<div class="state" style="grid-column:1/-1"><b>No wins resolved yet in this period.</b><br>Try a longer window or check back as more coins resolve.</div>`;
+		grid.innerHTML = items.length ? items.map(winCardHtml).join('') : `<div class="state" style="grid-column:1/-1"><b>No ${_proofState.tier === 'all' ? '' : 'called '}wins resolved yet in this period.</b><br>${_proofState.tier === 'all'
+			? 'Try a longer window or check back as more coins resolve.'
+			: 'This gallery only counts coins Oracle rated Lean or above — no cherry-picking winners it never called. Try a longer window, or switch to “All scored” to see the whole market.'}</div>`;
 	} else {
 		items.forEach((w, i) => grid.insertAdjacentHTML('beforeend', winCardHtml(w, i)));
 	}

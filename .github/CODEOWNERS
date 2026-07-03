@@ -14,7 +14,6 @@
 # Smart contracts and payment rails — high blast radius.
 /contracts/             @nirholas
 /agent-payments-sdk/    @nirholas
-/x402-buildout/         @nirholas
 
 # Public SDKs — anything published carries an API contract.
 /sdk/                   @nirholas
