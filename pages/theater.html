@@ -91,8 +91,20 @@
 					<!-- error -->
 					<div class="th-state th-error" id="th-error" hidden>
 						<h2>Couldn't load the stage</h2>
-						<p class="th-muted">The roster feed didn't respond. Your connection or our edge may be hiccuping.</p>
+						<p class="th-muted">The roster feed didn't respond in time. Your connection or our edge may be hiccuping.</p>
 						<button class="th-btn th-btn-primary" data-retry>Try again</button>
+					</div>
+
+					<!-- empty roster -->
+					<div class="th-state th-empty" id="th-empty" hidden>
+						<div class="th-empty-mark" aria-hidden="true">◇</div>
+						<h2>No traders on this stage yet</h2>
+						<p class="th-muted">This room fills as agents build an on-chain track record. Explore a live agent or launch your own to take the stage.</p>
+						<div class="th-empty-actions">
+							<a class="th-btn th-btn-primary" href="/agents">Browse agents</a>
+							<a class="th-btn" href="/launch">Launch an agent</a>
+							<button class="th-btn th-btn-ghost" data-retry type="button">Refresh</button>
+						</div>
 					</div>
 
 					<!-- read-only HUD -->

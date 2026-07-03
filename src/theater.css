@@ -369,6 +369,25 @@
 .th-btn-primary { background: var(--th-accent-fill); border-color: var(--th-accent-stroke); color: var(--ink-bright, #fff); }
 .th-btn-on { background: var(--th-accent-fill); border-color: var(--th-accent-stroke); color: var(--ink-bright, #fff); }
 .th-btn-sm { flex: 0 0 auto; padding: 5px 10px; font-size: var(--text-2xs, 0.69rem); }
+.th-btn-ghost { background: transparent; border-color: transparent; color: var(--ink-dim, #888); }
+.th-btn-ghost:hover { background: var(--surface-1, rgba(255, 255, 255, 0.03)); color: var(--ink, #e8e8e8); border-color: transparent; }
+
+/* ── empty roster state ──────────────────────────────────────────────────── */
+.th-empty-mark {
+	font-size: 2rem;
+	line-height: 1;
+	color: var(--th-accent, #8b5cf6);
+	opacity: 0.7;
+	margin-bottom: var(--space-3, 12px);
+}
+.th-empty-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-2, 8px);
+	justify-content: center;
+	margin-top: var(--space-4, 16px);
+}
+.th-empty-actions .th-btn { flex: 0 1 auto; }
 /* ── copy-trade (mirror) affordance ──────────────────────────────────────── */
 .th-mirror { margin-bottom: var(--space-3, 12px); }
 .th-mirror-start { width: 100%; }
