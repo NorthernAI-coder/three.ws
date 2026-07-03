@@ -69,9 +69,32 @@ function warnThrottled(category, msg) {
 // re-discovers the exhausted quota once, then skips for the window.
 const HELIUS_QUOTA_COOLDOWN_MS = 10 * 60_000;
 let heliusCooldownUntil = 0; // epoch ms; 0 = available
+let heliusQuotaTrips = 0; // cumulative since cold start — trend for /healthz
 
 function heliusAvailable(now = Date.now()) {
 	return heliusCooldownUntil <= now;
+}
+
+/**
+ * Point-in-time health of the Helius balance-RPC breaker, for /healthz and the
+ * status page. Pure read of module state. `degraded` means we're currently in a
+ * quota cooldown and serving balances from the public RPC — functional, but the
+ * premium path is throttled. No key configured is reported as `configured:false`,
+ * not a degradation (the public-RPC path is the intended fallback).
+ * @returns {{ configured: boolean, available: boolean, degraded: boolean,
+ *   cooldownRemainingMs: number, quotaTripsSinceStart: number }}
+ */
+export function heliusHealth() {
+	const now = Date.now();
+	const configured = !!heliusRpc();
+	const available = heliusAvailable(now);
+	return {
+		configured,
+		available,
+		degraded: configured && !available,
+		cooldownRemainingMs: available ? 0 : heliusCooldownUntil - now,
+		quotaTripsSinceStart: heliusQuotaTrips,
+	};
 }
 
 // True when an upstream error is a quota/rate-limit signal (vs. a transient blip
@@ -84,6 +107,7 @@ function isQuotaError(err) {
 
 function tripHeliusCooldown(err, category) {
 	heliusCooldownUntil = Date.now() + HELIUS_QUOTA_COOLDOWN_MS;
+	heliusQuotaTrips++;
 	warnThrottled(
 		category,
 		`[balances] helius quota/rate-limited — skipping it for ${Math.round(HELIUS_QUOTA_COOLDOWN_MS / 60_000)}min, using public RPC: ${err?.message}`,
@@ -93,6 +117,7 @@ function tripHeliusCooldown(err, category) {
 /** Test seam: reset the Helius breaker + warn throttle between cases. */
 export function __resetBalancesBreaker() {
 	heliusCooldownUntil = 0;
+	heliusQuotaTrips = 0;
 	_warnedAt.clear();
 }
 

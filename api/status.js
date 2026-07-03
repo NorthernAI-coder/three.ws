@@ -54,13 +54,18 @@ export default wrap(async (req, res) => {
 	const rl = await limits.publicIp(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl);
 
-	const [snapshots, daily] = await Promise.all([
+	const [snapshots, daily, subsystemsSnap] = await Promise.all([
 		cacheGet('uptime:snapshots'),
 		cacheGet('uptime:daily'),
+		// Parked by api/cron/uptime-check.js every 5 min. We read the cron's
+		// snapshot rather than re-gathering live so this public, cacheable endpoint
+		// never fires a DB ping per request. null until the first post-deploy tick.
+		cacheGet('uptime:subsystems'),
 	]);
 	const snaps = Array.isArray(snapshots) ? snapshots : [];
 	const days = Array.isArray(daily) ? daily : [];
 	const latest = snaps[snaps.length - 1] || null;
+	const subsystems = subsystemsSnap && typeof subsystemsSnap === 'object' ? subsystemsSnap : null;
 
 	const services = UPTIME_TARGETS.map((target) => {
 		const current = latest?.results?.[target.id] || null;
@@ -119,7 +124,18 @@ export default wrap(async (req, res) => {
 		fleetUptime90d: u90Nums.length ? round(avg(u90Nums)) : null,
 	};
 
-	const state = warming ? 'warming up' : allOk ? 'operational' : 'degraded';
+	// Subsystem health (internal dependencies) can degrade the platform even when
+	// every public surface is reachable — a half-armed ring or memory-fallback
+	// cache is a real degradation a 200 can't reveal. Fold the worst of the two.
+	const subDown = subsystems?.status === 'down';
+	const subDegraded = subsystems?.status === 'degraded';
+	const state = warming
+		? 'warming up'
+		: subDown
+			? 'degraded' // an internal dependency being down is a platform degradation, not a total outage of public surfaces
+			: allOk && !subDegraded
+				? 'operational'
+				: 'degraded';
 	// A total outage (everything probed is down) flips the badge to its inverted
 	// 'down' treatment so it screams; partial disruption stays 'degraded'.
 	const badgeState = !warming && up.length === 0 ? 'down' : state;
@@ -152,12 +168,29 @@ export default wrap(async (req, res) => {
 		res,
 		200,
 		{
-			ok: warming ? true : allOk,
+			ok: warming ? true : allOk && !subDegraded && !subDown,
 			monitoring: warming ? 'warming-up' : 'active',
 			state,
 			checkedAt: latest?.t ?? null,
 			summary,
 			services,
+			// Internal-dependency health from the latest cron snapshot. Null until
+			// the first post-deploy tick parks it. The page renders each entry with
+			// its status + operator hint so a degradation is actionable, not cryptic.
+			subsystems: subsystems
+				? {
+						status: subsystems.status,
+						checkedAt: subsystems.checkedAt ?? null,
+						degraded: subsystems.degraded ?? [],
+						items: (subsystems.subsystems || []).map((s) => ({
+							name: s.name,
+							label: s.label,
+							status: s.status,
+							detail: s.detail ?? null,
+							hint: s.hint ?? null,
+						})),
+					}
+				: null,
 		},
 		// json() defaults to no-store; status is probed every 5 minutes, so a
 		// short shared cache absorbs page-load bursts without staleness.

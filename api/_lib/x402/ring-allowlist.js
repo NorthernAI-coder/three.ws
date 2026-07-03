@@ -201,6 +201,18 @@ export function checkRingInvariants() {
  * @returns {Promise<{ ok: boolean, violations: Array<{ flag: string, expected: string, actual: string }> }>}
  */
 export async function assertRingSpendInvariants({ context = 'unknown' } = {}) {
+	// Intentional-pause switch. An operator who deliberately halts autonomous
+	// spending sets X402_RING_PAUSED='true'; that must stop spending WITHOUT the
+	// error+CRITICAL-alert treatment reserved for an *unexpected* guard violation.
+	// Checked first so a clean pause is quiet regardless of the other guards, and
+	// so the pause itself forces the fail-closed no-op (ok:false).
+	if (process.env.X402_RING_PAUSED === 'true') {
+		console.log(
+			`[ring-invariants] spend path intentionally paused (X402_RING_PAUSED=true) — ${context} skipped, no spend`,
+		);
+		return { ok: false, paused: true, violations: [] };
+	}
+
 	const result = checkRingInvariants();
 	if (result.ok) return result;
 

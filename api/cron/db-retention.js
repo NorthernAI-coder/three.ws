@@ -148,6 +148,39 @@ async function pruneFirehose(cutoffDays) {
 	return { mints: totalMints, perTable };
 }
 
+// ── B2. x402 payment audit-log retention ──────────────────────────────────────
+// The payment audit ledger (x402_audit_log) grows one row per paid request on hot
+// routes (e.g. /api/x402/dance-tip). Unbounded it both marches toward the storage
+// cap and slows every dashboard aggregate (getPaymentStats full-scans it). Keep a
+// generous window — long enough for revenue reporting — then prune by created_at,
+// which the table's (event_type, created_at) indexes make cheap. Kept far longer
+// than the intel firehose because these are money records, not churn; it tightens
+// to a floor only under storage pressure via the shared valve.
+const AUDIT_BATCH = 5000;
+const AUDIT_MAX_PER_RUN = 100_000;
+
+async function pruneAuditLog(cutoffDays) {
+	if (!(await tableExists('x402_audit_log'))) return { deleted: 0 };
+
+	let deleted = 0;
+	const maxBatches = Math.ceil(AUDIT_MAX_PER_RUN / AUDIT_BATCH);
+	for (let i = 0; i < maxBatches; i++) {
+		// DELETE settles xmax in place (no file extension), so it works even at the
+		// cap. Bounded subselect so a single statement never scans the whole table.
+		const del = await sql`
+			DELETE FROM x402_audit_log
+			WHERE id IN (
+				SELECT id FROM x402_audit_log
+				WHERE created_at < now() - ${cutoffDays} * interval '1 day'
+				LIMIT ${AUDIT_BATCH}
+			) RETURNING id
+		`;
+		deleted += del.length;
+		if (del.length < AUDIT_BATCH) break;
+	}
+	return { deleted };
+}
+
 // ── B. avatar_regen_jobs hygiene ──────────────────────────────────────────────
 async function pruneRegenJobs() {
 	if (!(await tableExists('avatar_regen_jobs'))) return { stripped: 0, deleted: 0 };
@@ -220,6 +253,10 @@ export default wrapCron(async (req, res) => {
 	const retentionDays = clampInt(process.env.PUMP_INTEL_RETENTION_DAYS, 2, 365, 14);
 	const minDays = clampInt(process.env.PUMP_INTEL_MIN_RETENTION_DAYS, 1, retentionDays, 3);
 	const highWaterMb = clampInt(process.env.DB_RETENTION_HIGH_WATER_MB, 128, 100_000, 470);
+	// Audit ledger keeps its own, longer window (money records): default 90 days,
+	// tightening to a 30-day floor while the branch is over the high-water mark.
+	const auditDays = clampInt(process.env.X402_AUDIT_RETENTION_DAYS, 7, 3650, 90);
+	const auditMinDays = clampInt(process.env.X402_AUDIT_MIN_RETENTION_DAYS, 1, auditDays, 30);
 
 	const sizeBeforeMb = await dbSizeMb();
 	const underPressure = sizeBeforeMb >= highWaterMb;
@@ -227,12 +264,15 @@ export default wrapCron(async (req, res) => {
 	// the high-water mark, so the cap is never actually reached; relax to the full
 	// window once GC has returned the freed space and size drops back under it.
 	const cutoffDays = underPressure ? minDays : retentionDays;
+	const auditCutoffDays = underPressure ? auditMinDays : auditDays;
 
 	const firehose = await pruneFirehose(cutoffDays);
+	const audit = await pruneAuditLog(auditCutoffDays);
 	const regen = await pruneRegenJobs();
 
 	// VACUUM only tables we actually deleted from this tick.
 	const touched = Object.keys(firehose.perTable).filter((t) => firehose.perTable[t] > 0);
+	if (audit.deleted > 0) touched.push('x402_audit_log');
 	if (regen.deleted > 0 || regen.stripped > 0) touched.push('avatar_regen_jobs');
 	await vacuumTables(touched);
 
@@ -258,7 +298,10 @@ export default wrapCron(async (req, res) => {
 		under_pressure: underPressure,
 		retention_days: retentionDays,
 		cutoff_days: cutoffDays,
+		audit_retention_days: auditDays,
+		audit_cutoff_days: auditCutoffDays,
 		firehose,
+		audit,
 		regen,
 		vacuumed: touched,
 		took_ms: Date.now() - started,

@@ -56,6 +56,7 @@ export const ALLOWED_TYPES = new Set([
 	'payment',  // skill/service payment confirmed; { usdcAtomic, recipientLabel, txSig, explorerUrl }
 	'mission-complete',  // /play job or co-op heist finished; { mission, gold, coop, coin }
 	'member-join',  // a person signed in to three.ws; { handle } (actor = display name)
+	'agent-guard',  // an autonomous buy was REFUSED by a safety rule; { agentId, mint, reason, label } — trust made visible
 	// Agora — the living agent economy (workers/agora-citizens). Each is a real
 	// on-chain AgenC action projected onto the ticker; see docs/agora.md.
 	'agora-registered',       // a citizen registered on AgenC
@@ -146,6 +147,31 @@ export async function publishFeedEvent(event) {
  * @param {string}  [opts.txSig]        Solana tx signature
  * @param {string}  [opts.explorerUrl]  full Solscan/explorer URL
  */
+/**
+ * Convenience wrapper: publish an 'agent-guard' event when a safety rule refuses
+ * an autonomous buy (a mayhem-mode coin, a rug/honeypot firewall block). Surfacing
+ * these makes the platform's safety work visible in the live tape instead of
+ * silent. Fire-and-forget; unknown/empty input is a safe no-op.
+ *
+ * @param {object} opts
+ * @param {string} opts.actor    the agent's display name
+ * @param {string} [opts.agentId]
+ * @param {string} [opts.mint]   the coin that was refused
+ * @param {string} opts.reason   machine code ('mayhem' | 'firewall_blocked')
+ * @param {string} opts.label    human-readable one-liner for the tape
+ */
+export function pushGuardEvent({ actor, agentId, mint, reason, label } = {}) {
+	if (!reason) return null;
+	return publishFeedEvent({
+		type: 'agent-guard',
+		actor: String(actor || 'Agent').slice(0, 32),
+		agentId: agentId ? String(agentId).slice(0, 64) : undefined,
+		mint: mint ? String(mint).slice(0, 64) : undefined,
+		reason: String(reason).slice(0, 32),
+		label: label ? String(label).slice(0, 80) : undefined,
+	});
+}
+
 export function pushPaymentEvent({ actor, usdcAtomic, recipientLabel, txSig, explorerUrl } = {}) {
 	return publishFeedEvent({
 		type: 'payment',

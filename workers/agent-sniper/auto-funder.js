@@ -41,13 +41,35 @@ const TARGET_SOL = Math.max(MIN_SOL, num('SNIPER_AUTO_FUND_TARGET_SOL', 0.05));
 const PER_TX_CAP_SOL = Math.max(0, num('SNIPER_AUTO_FUND_PER_TX_SOL', 0.1));
 const DAILY_CAP_SOL = Math.max(0, num('SNIPER_AUTO_FUND_DAILY_SOL', 1.0));
 
-/** Unique agent ids across the armed strategy set for this network. */
-function activeAgentIds(network) {
+/**
+ * Agent ids eligible for auto-funding on this network.
+ *
+ * Explicit consent only: a strategy must set `auto_fund_enabled = true` before
+ * its agent's wallet may be topped up from the launcher master. Merely arming a
+ * strategy (enabled=true) moves NO money — that implicit trigger was the
+ * "arming a mainnet strategy silently pushes SOL from a master" footgun. A
+ * missing/false flag (e.g. before the consent migration is applied) is treated
+ * as "do not fund", so the safe default holds even mid-migration.
+ *
+ * Pure over its `strategies` arg so it can be unit-tested without the cache.
+ *
+ * @param {Array<{agent_id?: string, network?: string, auto_fund_enabled?: boolean}>} strategies
+ * @param {string} network
+ * @returns {string[]}
+ */
+export function optedInAgentIds(strategies, network) {
 	const ids = new Set();
-	for (const s of cachedStrategies()) {
-		if (s.agent_id && s.network === network) ids.add(s.agent_id);
+	for (const s of strategies || []) {
+		if (s.agent_id && s.network === network && s.auto_fund_enabled === true) {
+			ids.add(s.agent_id);
+		}
 	}
 	return [...ids];
+}
+
+/** Unique agent ids that have opted into auto-funding for this network. */
+function activeAgentIds(network) {
+	return optedInAgentIds(cachedStrategies(), network);
 }
 
 /** SOL actually moved (live) since the start of the UTC day — the daily-cap base. */
@@ -191,6 +213,8 @@ export function startAutoFunderWatch({ cfg, signal } = {}) {
 	log.info('auto-funder armed', {
 		network: cfg.network, mode: cfg.mode, pollMs: POLL_INTERVAL_MS,
 		minSol: MIN_SOL, targetSol: TARGET_SOL, perTxCapSol: PER_TX_CAP_SOL, dailyCapSol: DAILY_CAP_SOL,
+		// Consent is explicit and per-strategy — this is how many agents can be funded at all.
+		optedInAgents: activeAgentIds(cfg.network).length,
 	});
 
 	// Warn loudly if live funding is armed but the master wallet is unconfigured —

@@ -77,6 +77,59 @@ export async function dailySpentSol(scope, userId = null) {
 	return Number(row?.spent || 0);
 }
 
+// Optional hard ceiling on how much SOL may leave the master wallet PER UTC DAY,
+// summed across every automated funder — enforced inside fundAgentForLaunch
+// regardless of the per-call caps a caller passes. This is the backstop that a
+// caller passing `dailyCapSol: null` (or a runaway loop) can't bypass. Opt-in:
+// unset ⇒ no master cap (legacy behaviour). Set LAUNCHER_MASTER_DAILY_CAP_SOL to
+// bound total master outflow.
+const MASTER_DAILY_CAP_ENV = 'LAUNCHER_MASTER_DAILY_CAP_SOL';
+
+/**
+ * Pure cap check — extracted so the arithmetic is unit-testable. `capSol<=0`
+ * (or non-finite) means "no cap".
+ * @param {number} spentSol   SOL already moved from the master today
+ * @param {number} amountSol  the transfer about to be made
+ * @param {number} capSol     the daily ceiling
+ * @returns {{ ok: boolean, reason?: string }}
+ */
+export function withinMasterDailyCap(spentSol, amountSol, capSol) {
+	if (!Number.isFinite(capSol) || capSol <= 0) return { ok: true };
+	if (spentSol + amountSol > capSol + 1e-9) {
+		return { ok: false, reason: `master_daily_cap: ${spentSol.toFixed(4)}+${amountSol} SOL > ${capSol} SOL/day` };
+	}
+	return { ok: true };
+}
+
+/**
+ * SOL that has left the master wallet today (UTC) via the app's automated
+ * funders. Sums the two known on-chain ledgers — launcher runs and sniper
+ * wallet top-ups — and FAILS OPEN per-source (a missing table in some env
+ * contributes 0 rather than throwing), so this can never break a funding call.
+ * @param {'mainnet'|'devnet'} network
+ * @returns {Promise<number>}
+ */
+export async function masterDailyOutflowSol(network = 'mainnet') {
+	let total = 0;
+	try {
+		const [r] = await sql`
+			select coalesce(sum(sol_spent), 0)::float8 as s from launcher_runs
+			where status in ('funded', 'launched', 'confirmed')
+			  and created_at >= date_trunc('day', now())
+		`;
+		total += Number(r?.s || 0);
+	} catch { /* launcher_runs absent in this env — fail open on this source */ }
+	try {
+		const [r] = await sql`
+			select coalesce(sum(lamports), 0)::float8 / 1e9 as s from sniper_funding_events
+			where mode = 'live' and network = ${network}
+			  and created_at >= date_trunc('day', now())
+		`;
+		total += Number(r?.s || 0);
+	} catch { /* sniper_funding_events absent in this env — fail open on this source */ }
+	return total;
+}
+
 /**
  * @typedef {Object} FundResult
  * @property {boolean} ok
@@ -117,6 +170,15 @@ export async function fundAgentForLaunch({
 	}
 	if (dailyCapSol != null && amount > dailyCapSol) {
 		return { ok: false, reason: `daily SOL cap reached (${dailyCapSol} remaining)` };
+	}
+
+	// Hard master-wide daily outflow ceiling — independent of the caller's caps, so
+	// a null/loose per-call cap can't drain the master. Opt-in via env; no-op unset.
+	const masterCapSol = Number(process.env[MASTER_DAILY_CAP_ENV]);
+	if (Number.isFinite(masterCapSol) && masterCapSol > 0) {
+		const outflow = await masterDailyOutflowSol(network);
+		const capCheck = withinMasterDailyCap(outflow, amount, masterCapSol);
+		if (!capCheck.ok) return { ok: false, reason: capCheck.reason };
 	}
 
 	const master = await loadMasterSigner();

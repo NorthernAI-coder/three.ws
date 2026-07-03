@@ -9,6 +9,7 @@
 
 import { cors, json, method, wrap } from './_lib/http.js';
 import { countRecentPayments } from './_lib/x402/audit-log.js';
+import { gatherSubsystemHealth } from './_lib/ops/subsystem-health.js';
 
 const STARTED_AT = Date.now();
 const VERSION = process.env.VERCEL_GIT_COMMIT_SHA || process.env.npm_package_version || 'dev';
@@ -20,9 +21,14 @@ const RESEND_CACHE_TTL_MS = CACHE_TTL_MS;
 // doesn't flap the status.
 const HEARTBEAT_FRESH_MS = 6 * 60 * 1000;
 const MONITOR_CACHE_TTL_MS = 8 * 1000;
+// Subsystem health is a live read of in-process breaker state + one DB ping.
+// Cache it briefly so a burst of /healthz hits (dashboards poll it) doesn't fire
+// a DB ping each — but keep the TTL short so a breaker tripping shows up fast.
+const SUBSYSTEMS_CACHE_TTL_MS = 5 * 1000;
 let _resendCache = { value: null, expiresAt: 0 };
 let _x402Cache = { value: null, expiresAt: 0 };
 let _monitorCache = { value: null, expiresAt: 0 };
+let _subsystemsCache = { value: null, expiresAt: 0 };
 
 // Exported for tests so each case starts with a cold cache.
 export function _resetResendCache() {
@@ -33,6 +39,25 @@ export function _resetX402Cache() {
 }
 export function _resetMonitorCache() {
 	_monitorCache = { value: null, expiresAt: 0 };
+}
+export function _resetSubsystemsCache() {
+	_subsystemsCache = { value: null, expiresAt: 0 };
+}
+
+// Live subsystem health (cache breaker, Helius breaker, ring invariants, DB
+// ping, world). Cached SUBSYSTEMS_CACHE_TTL_MS. Defensive: gatherSubsystemHealth
+// never throws, but wrap anyway so /healthz stays green even if it did.
+async function probeSubsystems() {
+	const now = Date.now();
+	if (_subsystemsCache.value && _subsystemsCache.expiresAt > now) return _subsystemsCache.value;
+	let value;
+	try {
+		value = await gatherSubsystemHealth();
+	} catch {
+		value = { status: 'unknown', checkedAt: now, counts: {}, degraded: [], subsystems: [] };
+	}
+	_subsystemsCache = { value, expiresAt: now + SUBSYSTEMS_CACHE_TTL_MS };
+	return value;
 }
 
 // Real bot/monitor status, sourced from Postgres:
@@ -198,6 +223,23 @@ async function probeX402() {
 		result.siwx = 'unavailable';
 	}
 
+	// Ring spend status — surface whether the autonomous closed-loop spend path is
+	// live as a dashboard field, so a fail-closed guard (or a deliberate pause) is
+	// visible here instead of only as recurring cron error logs. checkRingInvariants
+	// is a pure env read (no I/O); no key material is exposed, only flag names.
+	try {
+		const { checkRingInvariants } = await import('./_lib/x402/ring-allowlist.js');
+		const inv = checkRingInvariants();
+		const paused = process.env.X402_RING_PAUSED === 'true';
+		result.ring = {
+			spend_enabled: inv.ok && !paused,
+			paused,
+			violations: inv.violations.map((v) => v.flag),
+		};
+	} catch {
+		result.ring = { spend_enabled: false, status: 'unavailable' };
+	}
+
 	_x402Cache = { value: result, expiresAt: now + CACHE_TTL_MS };
 	return result;
 }
@@ -207,12 +249,16 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 
 	const uptimeMs = Date.now() - STARTED_AT;
-	const [resend, x402, monitorBlock] = await Promise.all([
+	const [resend, x402, monitorBlock, subsystems] = await Promise.all([
 		probeResend(),
 		probeX402(),
 		probeMonitor(),
+		probeSubsystems(),
 	]);
 	return json(res, 200, {
+		// Top-level liveness stays 'ok' (this function answering IS liveness); the
+		// `subsystems` block carries the real health verdict so a degraded
+		// dependency is visible without ever making the liveness probe flap.
 		status: 'ok',
 		service: '3d-agent',
 		version: VERSION,
@@ -225,5 +271,9 @@ export default wrap(async (req, res) => {
 		// heartbeat exists or the DB is unreachable.
 		monitor: monitorBlock.monitor,
 		watches: monitorBlock.watches,
+		// Live internal-dependency health: the exact degradation the reachability
+		// probe can't see (Redis on memory-fallback, ring half-armed, Helius
+		// throttled, DB slow, world unprotected). See api/_lib/ops/subsystem-health.js.
+		subsystems,
 	}, { 'cache-control': 'public, max-age=2, s-maxage=2' });
 });

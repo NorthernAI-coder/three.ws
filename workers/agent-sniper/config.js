@@ -35,6 +35,31 @@ function bool(name, def = false) {
 	return /^(1|true|yes|on)$/i.test(String(raw).trim());
 }
 
+// Parse a comma/space/newline-separated allowlist of agent UUIDs. Returns a
+// de-duped array, or null when unset/empty (null = "all agents", the default).
+// Exported for unit testing — the scoping fix that keeps a worker from acting on
+// every armed strategy in the shared DB depends on this being exact.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export function parseAgentIds(raw) {
+	if (raw == null || String(raw).trim() === '') return null;
+	const ids = String(raw)
+		.split(/[\s,]+/)
+		.map((s) => s.trim().toLowerCase())
+		.filter(Boolean)
+		.filter((s) => UUID_RE.test(s));
+	if (!ids.length) return null;
+	return [...new Set(ids)];
+}
+
+// Resolve the RPC endpoint the worker's read paths (e.g. the Mayhem curve read)
+// should use. Prefer an explicit URL, then a Helius key, else empty (callers
+// fall back to a public mainnet endpoint).
+function resolveRpcUrl() {
+	if (process.env.SOLANA_RPC_URL) return process.env.SOLANA_RPC_URL.trim();
+	if (process.env.HELIUS_API_KEY) return `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY.trim()}`;
+	return '';
+}
+
 export function loadConfig() {
 	// DATABASE_URL + JWT_SECRET are consumed transitively by db.js / agent-wallet.js.
 	// We assert them here so the failure points at config, not a cryptic decrypt
@@ -63,6 +88,23 @@ export function loadConfig() {
 	return {
 		network,
 		mode,
+		// Resolved RPC endpoint, shared by the worker's read paths (Mayhem curve read).
+		rpcUrl: resolveRpcUrl(),
+		// ── agent scoping ────────────────────────────────────────────────────────
+		// Optional allowlist of agent UUIDs. When set, the worker acts ONLY on these
+		// agents' strategies — the rest of the shared DB's armed strategies are
+		// ignored. Unset (null) = every enabled strategy for the network, the legacy
+		// behaviour. Set this to run a bounded experiment/fleet against the prod DB
+		// without entangling it with every other armed agent.
+		agentIds: parseAgentIds(process.env.SNIPER_AGENT_IDS),
+		// ── Mayhem exclusion (owner rule) ────────────────────────────────────────
+		// NEVER buy pump.fun "Mayhem"-mode tokens — only regular launches. Reads the
+		// bonding curve's isMayhemMode once per mint (cached). On by default; set
+		// SNIPER_MAYHEM_FILTER=0 to disable. SNIPER_MAYHEM_STRICT=1 skips a buy when
+		// the curve can't be read (default allows-on-unknown so a flaky RPC read
+		// can't silently halt trading).
+		mayhemFilter: bool('SNIPER_MAYHEM_FILTER', true),
+		mayhemStrict: bool('SNIPER_MAYHEM_STRICT', false),
 		// Global emergency stop — set SNIPER_GLOBAL_KILL=1 to halt all new buys
 		// while still letting the position loop manage/exit open positions.
 		globalKill: bool('SNIPER_GLOBAL_KILL', false),

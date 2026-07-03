@@ -18,6 +18,15 @@ import { json, method, wrapCron } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 import { sendOpsAlert } from '../_lib/alerts.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
+import { cacheSet } from '../_lib/cache.js';
+
+// Where this cron parks its last outcome so the platform health gatherer
+// (api/_lib/ops/subsystem-health.js → /healthz + /status) can read it without
+// re-probing the external world service on every page load. The world is a
+// separate Cloud Run deploy, so its health can only be learned by this cron's
+// cross-service probe; the cache is the hand-off.
+export const WORLD_HEALTH_CACHE_KEY = 'world:health';
+const WORLD_HEALTH_TTL_S = 60 * 60; // 1h: 4× the 15-min cadence, so a skipped tick doesn't blank it
 
 const WORLD_STATUS_URL = process.env.WORLD_URL
 	? `${process.env.WORLD_URL.replace(/\/+$/, '')}/status`
@@ -142,6 +151,14 @@ export default wrapCron(async (req, res) => {
 	} else {
 		console.warn(`[world-health] ${outcome} — ${problems.join('; ')}`);
 	}
+
+	// Park the outcome for the platform health gatherer. Best-effort: a cache
+	// write failure here must never fail the monitor itself, so swallow it.
+	await cacheSet(
+		WORLD_HEALTH_CACHE_KEY,
+		{ status: outcome, protected: isProtected, problems, missingCount: missing.length, checkedAt: Date.now() },
+		WORLD_HEALTH_TTL_S,
+	).catch(() => {});
 
 	return json(res, 200, {
 		status: outcome,

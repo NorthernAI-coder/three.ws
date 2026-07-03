@@ -86,6 +86,39 @@
 	100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
 }
 
+/* ── sound toggle ────────────────────────────────────────────────────────── */
+.th-sound {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 34px;
+	height: 34px;
+	flex: 0 0 auto;
+	border-radius: var(--radius-pill, 999px);
+	border: 1px solid var(--stroke, rgba(255, 255, 255, 0.08));
+	background: var(--surface-1, rgba(255, 255, 255, 0.03));
+	color: var(--ink-dim, #888);
+	cursor: pointer;
+	font-size: 14px;
+	line-height: 1;
+	transition: all var(--duration-fast, 140ms) var(--ease-standard, ease);
+}
+.th-sound:hover { border-color: var(--th-accent-stroke); background: var(--surface-2, rgba(255, 255, 255, 0.05)); }
+.th-sound:focus-visible { outline: 2px solid var(--th-accent); outline-offset: 2px; }
+.th-sound.is-on { border-color: var(--th-accent-stroke); background: var(--th-accent-fill); }
+.th-sound-icon { pointer-events: none; }
+
+/* ── receipt coin badge ──────────────────────────────────────────────────── */
+.th-rec-coin {
+	font-family: var(--font-mono, monospace);
+	font-size: 0.6rem;
+	font-weight: var(--weight-bold, 700);
+	color: var(--th-accent);
+	background: var(--th-accent-fill);
+	border-radius: var(--radius-pill, 999px);
+	padding: 1px 6px;
+}
+
 /* ── rooms ───────────────────────────────────────────────────────────────── */
 .th-rooms {
 	display: flex;
@@ -242,6 +275,10 @@
 }
 .th-quiet h2 { font-size: var(--text-md, 0.81rem); }
 .th-quiet > p { font-size: var(--text-xs, 0.7rem); }
+.th-quiet-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.th-quiet-head h2 { margin: 0; }
+.th-quiet-pulse { background: var(--success, #4ade80); color: var(--success, #4ade80); animation: th-pulse 2s infinite; flex: 0 0 auto; }
+.th-quiet-beat { font-variant-numeric: tabular-nums; }
 
 .th-highlights { margin-top: var(--space-4, 16px); display: flex; flex-direction: column; gap: 6px; text-align: left; max-height: 38vh; overflow-y: auto; }
 .th-hl {
@@ -332,6 +369,29 @@
 .th-btn-primary { background: var(--th-accent-fill); border-color: var(--th-accent-stroke); color: var(--ink-bright, #fff); }
 .th-btn-on { background: var(--th-accent-fill); border-color: var(--th-accent-stroke); color: var(--ink-bright, #fff); }
 .th-btn-sm { flex: 0 0 auto; padding: 5px 10px; font-size: var(--text-2xs, 0.69rem); }
+/* ── copy-trade (mirror) affordance ──────────────────────────────────────── */
+.th-mirror { margin-bottom: var(--space-3, 12px); }
+.th-mirror-start { width: 100%; }
+.th-mirror-hint { font-size: var(--text-2xs, 0.69rem); margin: 6px 0 0; line-height: var(--leading-normal, 1.6); }
+.th-mirror-form { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: var(--radius-md, 10px); background: var(--surface-1, rgba(255, 255, 255, 0.03)); border: 1px solid var(--th-accent-stroke); }
+.th-mirror-field { display: flex; flex-direction: column; gap: 4px; font-size: 0.6rem; color: var(--ink-dim, #888); text-transform: uppercase; letter-spacing: 0.04em; }
+.th-mirror-select, .th-mirror-size {
+	padding: 8px 10px;
+	border-radius: var(--radius-sm, 6px);
+	border: 1px solid var(--stroke-strong, rgba(255, 255, 255, 0.14));
+	background: var(--surface-2, rgba(255, 255, 255, 0.05));
+	color: var(--ink-bright, #fff);
+	font-size: var(--text-sm, 0.78rem);
+	font-family: var(--font-body, system-ui);
+}
+.th-mirror-select:focus-visible, .th-mirror-size:focus-visible { outline: 2px solid var(--th-accent); outline-offset: 1px; }
+.th-mirror-actions { display: flex; gap: 8px; margin-top: 2px; }
+.th-mirror-ok { font-size: var(--text-2xs, 0.69rem); color: var(--success, #4ade80); margin: 0; line-height: var(--leading-normal, 1.6); }
+.th-mirror-msg { font-size: var(--text-2xs, 0.69rem); margin: 2px 0 0; }
+.th-mirror-err { color: var(--danger, #f87171); }
+.th-mirror-ok a, .th-mirror-msg a { color: var(--th-accent); text-decoration: none; }
+.th-mirror-ok a:hover, .th-mirror-msg a:hover { text-decoration: underline; }
+
 .th-panel-foot { font-size: var(--text-2xs, 0.69rem); line-height: var(--leading-normal, 1.6); margin: 0 0 var(--space-3, 12px); }
 .th-panel-foot a { color: var(--th-accent); text-decoration: none; }
 .th-panel-foot a:hover { text-decoration: underline; }
@@ -413,7 +473,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.th-spinner, .th-dot-green .th-status-dot, .th-rail-dot { animation: none; }
+	.th-spinner, .th-dot-green .th-status-dot, .th-rail-dot, .th-quiet-pulse { animation: none; }
 	.th-tick { animation: none; }
 	.th-receipt { transition: none; }
 }

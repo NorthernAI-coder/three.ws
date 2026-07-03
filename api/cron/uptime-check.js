@@ -20,6 +20,7 @@ import { env } from '../_lib/env.js';
 import { cacheGet, cacheSet } from '../_lib/cache.js';
 import { sendOpsAlert } from '../_lib/alerts.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
+import { gatherSubsystemHealth } from '../_lib/ops/subsystem-health.js';
 
 // The surfaces that constitute "the platform is up". Each is a cheap public
 // GET — no auth, no side effects, no spend.
@@ -42,6 +43,18 @@ const SNAPSHOTS_KEY = 'uptime:snapshots';
 const DAILY_KEY = 'uptime:daily';
 const SNAPSHOTS_TTL_S = 2 * 24 * 60 * 60;
 const DAILY_TTL_S = 100 * 24 * 60 * 60;
+
+// Internal-dependency health (cache/ring/helius/db/world), gathered here and
+// parked so /api/status can render it without a per-request DB ping.
+const SUBSYSTEMS_KEY = 'uptime:subsystems';
+const SUBSYSTEMS_TTL_S = 60 * 60; // 12× the 5-min cadence — a couple skipped ticks won't blank it
+// Escalation memory: how many consecutive ticks each subsystem has been
+// unhealthy, so a degradation that *persists* re-pages instead of dedup'ing into
+// silence after the first hour. Keyed short; it only needs to survive tick-to-tick.
+const DEGRADE_STREAK_KEY = 'uptime:subsystems:streak';
+const DEGRADE_STREAK_TTL_S = 6 * 60 * 60;
+// Re-page a still-degraded subsystem every this many ticks (5-min cadence → ~1h).
+const RE_ESCALATE_EVERY_TICKS = 12;
 
 async function probe(target, origin) {
 	const controller = new AbortController();
@@ -136,6 +149,64 @@ export default wrapCron(async (req, res) => {
 		}
 	}
 
+	// ── Internal subsystem health ─────────────────────────────────────────────
+	// Reachability (above) says the door opens; this says the rooms behind it are
+	// healthy. Gather, park for /api/status, and drive an escalation digest that
+	// re-pages a *persistent* degradation rather than going quiet after dedup.
+	let subsystems = null;
+	try {
+		subsystems = await gatherSubsystemHealth();
+		await cacheSet(SUBSYSTEMS_KEY, subsystems, SUBSYSTEMS_TTL_S);
+		await escalateSubsystems(subsystems);
+	} catch (err) {
+		console.warn('[uptime-check] subsystem health gather failed:', err?.message || err);
+	}
+
 	const downCount = Object.values(results).filter((r) => !r.ok).length;
-	return json(res, 200, { ok: downCount === 0, down: downCount, results });
+	return json(res, 200, {
+		ok: downCount === 0 && (subsystems ? subsystems.status !== 'down' : true),
+		down: downCount,
+		results,
+		subsystems: subsystems ? { status: subsystems.status, degraded: subsystems.degraded } : null,
+	});
 });
+
+// Config-drift + escalation digest. A subsystem that is degraded/down for the
+// first time pages immediately (deduped 1h by sendOpsAlert). One that *stays*
+// unhealthy re-pages every RE_ESCALATE_EVERY_TICKS so a half-armed ring or an
+// unprotected world can't quietly persist for days behind a single stale alert.
+// A subsystem that recovers pages a one-line "resolved". Streaks live in the
+// cache so this survives across the stateless cron invocations.
+async function escalateSubsystems(health) {
+	const unhealthy = health.subsystems.filter((s) => s.status === 'down' || s.status === 'degraded');
+	const prevStreaks = (await cacheGet(DEGRADE_STREAK_KEY)) || {};
+	const nextStreaks = {};
+
+	for (const s of unhealthy) {
+		const streak = (prevStreaks[s.name] || 0) + 1;
+		nextStreaks[s.name] = streak;
+		// Page on the first tick, then once per RE_ESCALATE_EVERY_TICKS thereafter.
+		const shouldPage = streak === 1 || streak % RE_ESCALATE_EVERY_TICKS === 0;
+		if (!shouldPage) continue;
+		const ageNote = streak === 1 ? 'new' : `degraded for ~${Math.round((streak * 5) / 60 * 10) / 10}h`;
+		sendOpsAlert(
+			`${s.status === 'down' ? 'DOWN' : 'DEGRADED'}: ${s.label}`,
+			`${s.detail || ''}${s.hint ? `\n→ ${s.hint}` : ''}\n(${ageNote})`,
+			// Rotate the signature each re-escalation window so the hourly dedup in
+			// sendOpsAlert doesn't swallow the repeat, but hold it steady within a
+			// window so a 5-min tick storm still collapses to one page.
+			{ signature: `subsystem:${s.status}:${s.name}:${Math.floor(streak / RE_ESCALATE_EVERY_TICKS)}` },
+		);
+	}
+
+	// Recovery notices: anything that was unhealthy last tick and isn't now.
+	for (const name of Object.keys(prevStreaks)) {
+		if (nextStreaks[name]) continue;
+		const rec = health.subsystems.find((s) => s.name === name);
+		sendOpsAlert(`RESOLVED: ${rec?.label || name}`, rec?.detail || 'recovered', {
+			signature: `subsystem:resolved:${name}:${Date.now()}`,
+		});
+	}
+
+	await cacheSet(DEGRADE_STREAK_KEY, nextStreaks, DEGRADE_STREAK_TTL_S);
+}

@@ -15,6 +15,7 @@
 import { error, json, method, wrap } from '../_lib/http.js';
 import { verifyQstashSignature } from '../_lib/qstash.js';
 import { flushUsageBuffer } from '../_lib/usage.js';
+import { flushAuditBuffer } from '../_lib/x402/audit-log.js';
 
 export default wrap(async (req, res) => {
 	if (!method(req, res, ['POST'])) return;
@@ -38,11 +39,17 @@ export default wrap(async (req, res) => {
 		return error(res, 401, 'unauthorized', 'invalid qstash signature');
 	}
 
-	const result = await flushUsageBuffer({ limit: 500 });
+	const [result, audit] = await Promise.all([
+		flushUsageBuffer({ limit: 500 }),
+		flushAuditBuffer({ limit: 1000 }),
+	]);
 
 	if (result.errors > 0) {
 		console.warn('[usage-flush-job] completed with errors', result);
 	}
+	if (audit.errors > 0) {
+		console.warn('[x402-audit-flush-job] completed with errors', audit);
+	}
 
-	return json(res, 200, result);
+	return json(res, 200, { usage: result, audit });
 });

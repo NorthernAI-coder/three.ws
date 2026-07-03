@@ -18,6 +18,22 @@
 
 import { sql } from '../db.js';
 import { withDbRetry } from '../db-retry.js';
+import { getRedis, isRedisAuthError } from '../redis.js';
+
+// ── Redis write buffer ────────────────────────────────────────────────────────
+// The hot paid routes (e.g. /api/x402/dance-tip) queue one audit write PER
+// request. Firing each as its own Neon HTTP fetch turned a slow-DB spell into a
+// self-amplifying storm: dozens of concurrent single-row INSERTs pile onto an
+// already-saturated Neon and every one blows the deadline (the production log
+// export this fixes). So writes are coalesced into a Redis list and drained by a
+// batch flusher (flushAuditBuffer) off the request path — the same buffer→cron
+// pattern the usage-event pipeline already uses (api/_lib/usage.js). One flush
+// does a single multi-row INSERT instead of N fetches, so DB load scales with
+// flush cadence, not request rate. When Redis is absent/down we fall back to the
+// original bounded direct insert so nothing silently stops being logged.
+const BUFFER_KEY = 'x402:audit:buffer';
+const BUFFER_MAX = 20_000;   // safety cap — trim oldest if the flusher falls behind
+const BUFFER_TTL_S = 7200;   // 2h — a row should never sit buffered this long
 
 // This is best-effort telemetry on a fire-and-forget path: the payment has
 // already been decided and the response sent by the time this runs. So a write
@@ -80,35 +96,155 @@ function logAuditFailure(event, err) {
  * @param {object|null} [event.metadata]       — small JSON blob
  */
 export function logPaymentEvent(event) {
+	// Intentionally not awaited by callers; the payment is already decided and the
+	// response sent by the time this runs. Failures are swallowed.
 	queueMicrotask(async () => {
+		const r = getRedis();
+		if (r) {
+			try {
+				const len = await r.rpush(BUFFER_KEY, JSON.stringify(normalizeEvent(event)));
+				// Hard cap: if the flusher is falling behind, shed the oldest rows
+				// rather than let the list grow without bound.
+				if (len > BUFFER_MAX) await r.ltrim(BUFFER_KEY, len - BUFFER_MAX, -1);
+				// Set the TTL once on first push so the key self-cleans if the flusher
+				// dies — the safety-net cron (api/cron/flush-usage-events.js) normally
+				// drains it every minute.
+				if (len === 1) await r.expire(BUFFER_KEY, BUFFER_TTL_S);
+				return;
+			} catch (err) {
+				// The shared Redis breaker already logged an auth/credential failure
+				// once and is fast-failing; a direct insert is the right fallback but
+				// re-warning per event is noise.
+				if (!err?.circuitOpen && !isRedisAuthError(err)) {
+					console.warn('[x402-audit] buffer push failed, falling back to direct insert', err?.message);
+				}
+			}
+		}
+		// Direct-insert fallback when Redis is absent or the push failed. Bounded by
+		// the short audit write timeout so a slow Neon spell can't hold this detached
+		// work open per-event.
 		try {
-			// A transient Neon "fetch failed" must not silently drop a payment
-			// event — retry the connection-level blip (the write never committed).
-			await withDbRetry(() => sql`
-				INSERT INTO x402_audit_log
-					(event_type, route, resource_url, payer, network, amount_atomics,
-					 asset, tx_hash, settlement_status, facilitator_response,
-					 duration_ms, ip_address, user_agent, metadata)
-				VALUES
-					(${event.eventType},
-					 ${event.route},
-					 ${event.resourceUrl ?? null},
-					 ${event.payer ?? null},
-					 ${event.network ?? null},
-					 ${event.amountAtomics ?? null},
-					 ${event.asset ?? null},
-					 ${event.txHash ?? null},
-					 ${event.settlementStatus ?? null},
-					 ${event.facilitatorResponse ? JSON.stringify(event.facilitatorResponse) : null},
-					 ${event.durationMs ?? null},
-					 ${event.ipAddress ?? null},
-					 ${event.userAgent ?? null},
-					 ${event.metadata ? JSON.stringify(event.metadata) : null})
-			`, { timeoutMs: auditWriteTimeoutMs() });
+			await insertAuditRows([event], { timeoutMs: auditWriteTimeoutMs() });
 		} catch (err) {
 			logAuditFailure(event, err);
 		}
 	});
+}
+
+// Canonical column order for the audit table. Kept in one place so the buffered
+// record shape, the multi-row INSERT, and any future migration stay in lockstep.
+const AUDIT_COLUMNS = [
+	'event_type', 'route', 'resource_url', 'payer', 'network', 'amount_atomics',
+	'asset', 'tx_hash', 'settlement_status', 'facilitator_response',
+	'duration_ms', 'ip_address', 'user_agent', 'metadata',
+];
+// 0-based indexes of the JSONB columns, whose placeholders need a `::jsonb` cast.
+const AUDIT_JSONB_COLS = new Set([9, 13]);
+
+// Flatten an event into a positional row matching AUDIT_COLUMNS. JSON columns are
+// pre-stringified here so both the buffer record and the INSERT bind the same
+// value; the `::jsonb` cast on the placeholder does the parse server-side.
+function normalizeEvent(event) {
+	return [
+		event.eventType ?? null,
+		event.route ?? null,
+		event.resourceUrl ?? null,
+		event.payer ?? null,
+		event.network ?? null,
+		event.amountAtomics ?? null,
+		event.asset ?? null,
+		event.txHash ?? null,
+		event.settlementStatus ?? null,
+		event.facilitatorResponse ? JSON.stringify(event.facilitatorResponse) : null,
+		event.durationMs ?? null,
+		event.ipAddress ?? null,
+		event.userAgent ?? null,
+		event.metadata ? JSON.stringify(event.metadata) : null,
+	];
+}
+
+// Accepts either raw event objects (fallback path) or already-normalized rows
+// (buffer path — arrays). Builds ONE multi-row INSERT and runs it under the retry
+// guard so a transient Neon connection blip is retried (the write never committed).
+async function insertAuditRows(events, opts) {
+	const rows = events.map((e) => (Array.isArray(e) ? e : normalizeEvent(e)));
+	if (rows.length === 0) return;
+
+	const cols = AUDIT_COLUMNS.length;
+	const params = [];
+	const tuples = rows.map((row, i) => {
+		const base = i * cols;
+		const placeholders = row.map((val, c) => {
+			params.push(val);
+			return AUDIT_JSONB_COLS.has(c) ? `$${base + c + 1}::jsonb` : `$${base + c + 1}`;
+		});
+		return `(${placeholders.join(', ')})`;
+	});
+
+	const text =
+		`INSERT INTO x402_audit_log (${AUDIT_COLUMNS.join(', ')}) VALUES ${tuples.join(', ')}`;
+	await withDbRetry(() => sql(text, params), opts);
+}
+
+/**
+ * Drain up to `limit` buffered audit rows from Redis and batch-insert them into
+ * Neon, stopping after `deadlineMs` so a slow Neon spell can't push the caller
+ * past its function timeout. Each batch is a single multi-row INSERT. Consumed
+ * entries are trimmed regardless of insert success — re-inserting duplicates on
+ * retry is worse than losing a few best-effort telemetry rows. Called by the
+ * usage-flush cron and QStash job (they drain both telemetry buffers).
+ *
+ * @param {{ limit?: number, deadlineMs?: number }} [opts]
+ * @returns {Promise<{ flushed: number, remaining: number, errors: number, timedOut?: boolean, skipped?: string }>}
+ */
+export async function flushAuditBuffer({ limit = 1000, deadlineMs = 45_000 } = {}) {
+	const r = getRedis();
+	if (!r) return { flushed: 0, remaining: 0, errors: 0, skipped: 'redis_unavailable' };
+
+	const BATCH = 200;
+	let flushed = 0;
+	let errors = 0;
+	let timedOut = false;
+	const startedAt = Date.now();
+
+	while (flushed < limit) {
+		if (Date.now() - startedAt > deadlineMs) { timedOut = true; break; }
+		const take = Math.min(BATCH, limit - flushed);
+
+		let raw;
+		try {
+			raw = await r.lrange(BUFFER_KEY, 0, take - 1);
+		} catch (err) {
+			if (!err?.circuitOpen && !isRedisAuthError(err)) {
+				console.warn('[x402-audit-flush] redis unavailable on lrange:', err?.message);
+			}
+			return { flushed, remaining: -1, errors, skipped: 'redis_unavailable' };
+		}
+		if (!raw || raw.length === 0) break;
+
+		const rows = raw.map((item) => {
+			try { return typeof item === 'string' ? JSON.parse(item) : item; }
+			catch { return null; }
+		}).filter((row) => Array.isArray(row) && row.length === AUDIT_COLUMNS.length);
+
+		if (rows.length > 0) {
+			try {
+				await insertAuditRows(rows);
+			} catch (err) {
+				errors += 1;
+				console.warn(`[x402-audit-flush] batch insert of ${rows.length} rows failed`, err?.message);
+			}
+		}
+
+		// Trim the entries we read, whether or not the insert succeeded.
+		await r.ltrim(BUFFER_KEY, raw.length, -1);
+		flushed += raw.length;
+
+		if (raw.length < take) break; // list exhausted
+	}
+
+	const remaining = await r.llen(BUFFER_KEY).catch(() => -1);
+	return { flushed, remaining, errors, timedOut };
 }
 
 /**

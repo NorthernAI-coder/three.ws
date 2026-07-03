@@ -8,6 +8,7 @@
 import { sql } from '../../api/_lib/db.js';
 import { log } from './log.js';
 import { loadAgentKeypair } from './keys.js';
+import { mayhemGate } from './mayhem-gate.js';
 import { getTradeCtx, signAndSend, submitProtectedTrade } from './trade-client.js';
 import { countOpenPositions, getDailySpend } from './strategy-store.js';
 import { notifyBuy, notifySell } from '../../api/_lib/sniper/notify.js';
@@ -233,6 +234,14 @@ export async function executeBuy({ cfg, strat, mint, throttle }) {
 		const perTrade = BigInt(strat.per_trade_lamports);
 		const tag = { agent: strat.agent_id, mint: mint.mint, symbol: mint.symbol };
 
+		// 0. Mayhem exclusion (owner rule) — NEVER buy pump.fun Mayhem tokens, only
+		//    regular launches. First gate, so a Mayhem mint costs no throttle slot,
+		//    no decrypt, and no position row. This is the chokepoint every trigger
+		//    path (new_mint / intel / alpha / first_claim / radar / swarm) flows
+		//    through, so the rule holds everywhere, not just the standalone fleet.
+		const mayhem = await mayhemGate(mint.mint, cfg);
+		if (!mayhem.pass) return skip(tag, mayhem.reason);
+
 		// 1. global throttle (platform-wide backstop)
 		if (!throttle.tryConsume()) return skip(tag, 'global_throttle');
 
@@ -257,12 +266,35 @@ export async function executeBuy({ cfg, strat, mint, throttle }) {
 		if (policy.blocked) return skip(tag, policy.reason);
 		const spendCapabilityId = policy.capabilityId || null;
 
-		// 4. idempotency lock — claim the (agent,mint,network) slot BEFORE the tx.
+		// 4. wallet + funds PRE-CHECK, before claiming a slot. An agent with no
+		//    wallet or too little SOL can never fill the buy — skip it cleanly rather
+		//    than write a 'failed' position row that only noises up the feeds. (These
+		//    were the dominant 'failed' rows: every unfunded agent evaluating every
+		//    mint left one behind.)
+		let keypair;
+		let address;
+		let ctx;
+		let preBalance;
+		try {
+			const loaded = await loadAgentKeypair(strat.agent_id, strat.user_id, 'sniper_buy');
+			if (!loaded) return skip(tag, 'no_wallet');
+			({ keypair, address } = loaded);
+			ctx = await getTradeCtx(cfg.network);
+			preBalance = BigInt(await ctx.connection.getBalance(keypair.publicKey, 'confirmed'));
+		} catch (err) {
+			log.warn('wallet precheck failed', { ...tag, err: err?.message });
+			return skip(tag, 'wallet_precheck_failed');
+		}
+		const headroom = checkSolHeadroom(preBalance, perTrade, SOL_FEE_HEADROOM_LAMPORTS);
+		if (headroom) return skip(tag, headroom.reason);
+
+		// 5. idempotency lock — claim the (agent,mint,network) slot BEFORE the tx.
+		//    The wallet is known now, so it's written on the claim (no later UPDATE).
 		const claimed = await sql`
 			INSERT INTO agent_sniper_positions
 				(strategy_id, agent_id, user_id, wallet, network, mint, symbol, name, status,
 				 entry_trigger, trigger_ref)
-			VALUES (${strat.id}, ${strat.agent_id}, ${strat.user_id}, ${'pending'}, ${cfg.network},
+			VALUES (${strat.id}, ${strat.agent_id}, ${strat.user_id}, ${address}, ${cfg.network},
 			        ${mint.mint}, ${mint.symbol || null}, ${mint.name || null}, 'opening',
 			        ${mint.entry_trigger || 'new_mint'}, ${mint.trigger_ref || null})
 			ON CONFLICT (agent_id, mint, network) DO NOTHING
@@ -272,17 +304,6 @@ export async function executeBuy({ cfg, strat, mint, throttle }) {
 		const posId = claimed[0].id;
 
 		try {
-			// 5. agent wallet + funds
-			const loaded = await loadAgentKeypair(strat.agent_id, strat.user_id, 'sniper_buy');
-			if (!loaded) return await fail(posId, tag, 'no_wallet');
-			const { keypair, address } = loaded;
-			await sql`UPDATE agent_sniper_positions SET wallet = ${address} WHERE id = ${posId}`;
-
-			const ctx = await getTradeCtx(cfg.network);
-			const lamports = BigInt(await ctx.connection.getBalance(keypair.publicKey, 'confirmed'));
-			const headroom = checkSolHeadroom(lamports, perTrade, SOL_FEE_HEADROOM_LAMPORTS);
-			if (headroom) return await fail(posId, tag, headroom.reason);
-
 			const mintPk = new ctx.web3.PublicKey(mint.mint);
 			const slippagePct = strat.slippage_bps / 100;
 

@@ -22,6 +22,61 @@ import { enterRow } from './ui-juice.js';
 
 const THREE_MINT = 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
 const WATCH_KEY = 'theater:watch:v1';
+const SOUND_KEY = 'theater:sound:v1';
+
+// Fill magnitude (0..1) from a real event's numeric size — drives centerpiece
+// scale and stinger loudness so a whale buy lands harder than a dust trade.
+function fillMagnitude(n) {
+	if (Number.isFinite(n?.sol)) return Math.max(0.25, Math.min(1, n.sol / 3)); // ~3 SOL reads as full
+	if (Number.isFinite(n?.usd)) return Math.max(0.25, Math.min(1, n.usd / 500)); // ~$500 reads as full
+	return 0.4;
+}
+
+// A tasteful, opt-in WebAudio stinger for marquee fills. No asset — a short
+// synthesized two-note arpeggio, envelope-shaped so it never grates. Off by
+// default (a surprise sound is bad UX); the AudioContext is created lazily on a
+// user gesture so it complies with autoplay policy.
+function createStinger() {
+	let ctx = null;
+	let enabled = false;
+	try { enabled = localStorage.getItem(SOUND_KEY) === 'on'; } catch {}
+	const ensureCtx = () => {
+		if (ctx) return ctx;
+		const AC = window.AudioContext || window.webkitAudioContext;
+		if (!AC) return null;
+		try { ctx = new AC(); } catch { ctx = null; }
+		return ctx;
+	};
+	function ding(kind = 'buy', magnitude = 0.4) {
+		if (!enabled) return;
+		const ac = ensureCtx();
+		if (!ac) return;
+		if (ac.state === 'suspended') ac.resume().catch(() => {});
+		const t0 = ac.currentTime;
+		const notes = kind === 'loss' ? [329.63, 246.94] : [659.25, 987.77]; // fall on loss, rise otherwise
+		const peak = 0.03 + Math.min(0.05, magnitude * 0.05);
+		for (let i = 0; i < notes.length; i++) {
+			const osc = ac.createOscillator();
+			const g = ac.createGain();
+			osc.type = 'triangle';
+			osc.frequency.value = notes[i];
+			const start = t0 + i * 0.07;
+			g.gain.setValueAtTime(0.0001, start);
+			g.gain.linearRampToValueAtTime(peak, start + 0.012);
+			g.gain.exponentialRampToValueAtTime(0.0001, start + 0.3);
+			osc.connect(g).connect(ac.destination);
+			osc.start(start);
+			osc.stop(start + 0.32);
+		}
+	}
+	function toggle() {
+		enabled = !enabled;
+		try { localStorage.setItem(SOUND_KEY, enabled ? 'on' : 'off'); } catch {}
+		if (enabled) { ensureCtx()?.resume?.().catch(() => {}); ding('buy', 0.5); } // confirmation blip
+		return enabled;
+	}
+	return { ding, toggle, get enabled() { return enabled; } };
+}
 
 // Stage budget — keep the cast lively but 60fps. Tighter on small screens.
 const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
@@ -67,6 +122,103 @@ async function whoami() {
 		_me = r.ok ? await r.json().catch(() => null) : null;
 	} catch { _me = null; }
 	return _me;
+}
+
+// ── copy-trade (mirror) plumbing ────────────────────────────────────────────────
+// Wires the theater to the real custodial mirror system: one of the caller's own
+// agents (the follower) copies the staged agent's (the leader's) confirmed trades,
+// server-signed and sized/capped by the follower's own spend policy.
+// POST /api/agents/:follower/mirror { leader_agent_id, sizing_mode:'fixed', fixed_sol }.
+
+// A fresh single-use CSRF token for a state-changing POST.
+async function csrfToken() {
+	try {
+		const r = await fetch('/api/csrf-token', { credentials: 'include' });
+		if (!r.ok) return null;
+		const j = await r.json().catch(() => null);
+		return j?.data?.token || j?.token || null;
+	} catch { return null; }
+}
+
+// The caller's own agents that can act as a follower — they need a custodial
+// Solana wallet to trade. Cached for the session.
+let _myAgents;
+async function mirrorableAgents() {
+	if (_myAgents !== undefined) return _myAgents;
+	try {
+		const r = await fetch('/api/agents', { credentials: 'include', headers: { accept: 'application/json' } });
+		const list = r.ok ? (await r.json().catch(() => null))?.agents || [] : [];
+		_myAgents = list.filter((a) => a.solana_address).map((a) => ({ id: a.id, name: a.name || 'Agent' }));
+	} catch { _myAgents = []; }
+	return _myAgents;
+}
+
+async function createMirror({ follower, leader, sizeSol }) {
+	const token = await csrfToken();
+	const r = await fetch(`/api/agents/${encodeURIComponent(follower)}/mirror`, {
+		method: 'POST',
+		credentials: 'include',
+		headers: { 'content-type': 'application/json', ...(token ? { 'x-csrf-token': token } : {}) },
+		body: JSON.stringify({ leader_agent_id: leader, network: 'mainnet', enabled: true, sizing_mode: 'fixed', fixed_sol: sizeSol }),
+	});
+	const d = await r.json().catch(() => ({}));
+	if (!r.ok) throw new Error(d.error_description || d.message || d.error || `mirror failed (${r.status})`);
+	return d.data?.follow || d;
+}
+
+// Inline "copy this trader" affordance for the read-only HUD: a signed-in visitor
+// picks one of their agents + a per-trade SOL size and starts a real mirror.
+function buildMirror(leaderId, leaderName) {
+	const wrap = el('div', { class: 'th-mirror' });
+
+	function collapsed() {
+		wrap.replaceChildren(
+			el('button', { class: 'th-btn th-btn-primary th-mirror-start', onClick: openForm, text: '⧉ Copy this trader' }),
+			el('p', { class: 'th-mirror-hint th-muted', text: 'Your agent buys what this one buys — sized and capped by your own limits.' }),
+		);
+	}
+
+	async function openForm() {
+		wrap.replaceChildren(el('p', { class: 'th-mirror-hint th-muted', text: 'Loading your agents…' }));
+		const mine = await mirrorableAgents();
+		if (!mine.length) {
+			wrap.replaceChildren(el('p', { class: 'th-panel-foot th-muted' }, [
+				'Copying a trader needs one of your own agents with a wallet. ',
+				el('a', { href: '/agent/me', text: 'Create one →' }),
+			]));
+			return;
+		}
+		const select = el('select', { class: 'th-mirror-select', 'aria-label': 'Your agent to mirror with' },
+			mine.map((a) => el('option', { value: a.id, text: a.name })));
+		const size = el('input', { class: 'th-mirror-size', type: 'number', min: '0.001', step: '0.01', value: '0.05', 'aria-label': 'SOL per copied trade' });
+		const submit = el('button', { class: 'th-btn th-btn-primary', text: 'Start mirroring' });
+		const err = el('p', { class: 'th-mirror-msg th-mirror-err', role: 'status' });
+		submit.addEventListener('click', async () => {
+			const follower = select.value;
+			const sizeSol = Math.max(0.001, Number(size.value) || 0.05);
+			submit.disabled = true; submit.textContent = 'Starting…'; err.textContent = '';
+			try {
+				await createMirror({ follower, leader: leaderId, sizeSol });
+				const name = mine.find((a) => a.id === follower)?.name || 'Your agent';
+				wrap.replaceChildren(el('p', { class: 'th-mirror-ok' }, [
+					`✓ ${name} now copies ${leaderName || 'this trader'}. `,
+					el('a', { href: `/agent/${follower}`, text: 'Manage mirror →' }),
+				]));
+			} catch (e) {
+				submit.disabled = false; submit.textContent = 'Start mirroring';
+				err.textContent = e?.message || 'Could not start mirroring.';
+			}
+		});
+		wrap.replaceChildren(el('div', { class: 'th-mirror-form' }, [
+			el('label', { class: 'th-mirror-field' }, ['Mirror with', select]),
+			el('label', { class: 'th-mirror-field' }, ['SOL per trade', size]),
+			el('div', { class: 'th-mirror-actions' }, [submit, el('button', { class: 'th-btn', text: 'Cancel', onClick: collapsed })]),
+			err,
+		]));
+	}
+
+	collapsed();
+	return wrap;
 }
 
 // ── data layer ────────────────────────────────────────────────────────────────
@@ -136,6 +288,7 @@ export function initTheater(root) {
 		stageWrap: root.querySelector('#th-stage'),
 		rooms: root.querySelector('#th-rooms'),
 		status: root.querySelector('#th-status'),
+		sound: root.querySelector('#th-sound'),
 		ticker: root.querySelector('#th-ticker'),
 		replay: root.querySelector('#th-replay'),
 		panel: root.querySelector('#th-panel'),
@@ -153,6 +306,22 @@ export function initTheater(root) {
 		onSelect: (id) => openPanel(id),
 	});
 
+	// Opt-in audio stinger on marquee fills, toggled from the top bar and
+	// remembered per browser. Default off — a page that greets you with sound is
+	// hostile; the toggle is a discoverable invitation, not a surprise.
+	const stinger = createStinger();
+	if (refs.sound) {
+		const paintSound = () => {
+			const on = stinger.enabled;
+			refs.sound.setAttribute('aria-pressed', on ? 'true' : 'false');
+			refs.sound.setAttribute('aria-label', on ? 'Sound on' : 'Sound off');
+			refs.sound.classList.toggle('is-on', on);
+			refs.sound.querySelector('.th-sound-icon').textContent = on ? '🔊' : '🔇';
+		};
+		refs.sound.addEventListener('click', () => { stinger.toggle(); paintSound(); });
+		paintSound();
+	}
+
 	const ro = new ResizeObserver(() => stage.resize());
 	ro.observe(refs.stageWrap);
 	window.addEventListener('resize', () => stage.resize());
@@ -166,6 +335,7 @@ export function initTheater(root) {
 		watch: new Set(loadWatch()),
 		sessionEvents: [], // featured events captured this session (for replay)
 		liveCount: 0,
+		lastMoveTs: null, // ts of the newest real event seen (drives the quiet heartbeat)
 		selected: null,
 	};
 
@@ -263,9 +433,14 @@ export function initTheater(root) {
 		if (!featured) return;
 		if (threeOnly && n.kind === 'buy' && !isThree) return;
 
-		if ((n.kind === 'buy' || n.kind === 'launch') && (state.room.centerpiece || isThree)) {
-			stage.spawnCenterpiece({ tint: isThree ? 0x8b5cf6 : 0x4ade80 });
+		const mag = fillMagnitude(n);
+		const marquee = (n.kind === 'buy' || n.kind === 'launch') && (state.room.centerpiece || isThree);
+		if (marquee) {
+			stage.spawnCenterpiece({ tint: isThree ? 0x8b5cf6 : 0x4ade80, magnitude: mag });
+			stage.punchCamera();
 		}
+		// A stinger on the marquee fills and any win (opt-in; no-op when muted).
+		if (marquee || n.kind === 'win') stinger.ding(n.kind, mag);
 
 		// Attribute to a staged performer when the event names one; otherwise the
 		// receipt rises center-stage (still a real event, just no avatar to own it).
@@ -290,6 +465,7 @@ export function initTheater(root) {
 		const node = el('div', { class: `th-receipt ${tone}` }, [
 			el('span', { class: 'th-rec-title', text: n.title }),
 			n.sub ? el('span', { class: 'th-rec-sub', text: n.sub }) : null,
+			n.symbol ? el('span', { class: 'th-rec-coin', text: `$${n.symbol}` }) : null,
 			n.href ? el('a', { class: 'th-rec-link', href: n.href, target: '_blank', rel: 'noopener', text: 'View ↗' }) : null,
 		]);
 		return node;
@@ -298,6 +474,7 @@ export function initTheater(root) {
 	// ── ticker ───────────────────────────────────────────────────────────────────
 	function pushTicker(n) {
 		state.liveCount++;
+		state.lastMoveTs = n.ts;
 		const row = el('li', { class: `th-tick th-tick-${n.kind}` }, [
 			el('span', { class: 'th-tick-dot' }),
 			el('div', { class: 'th-tick-body' }, [
@@ -407,14 +584,17 @@ export function initTheater(root) {
 			isOwner
 				? el('p', { class: 'th-panel-foot th-muted', text: 'This agent is yours — act from its profile.' })
 				: signedIn
-					? el('p', { class: 'th-panel-foot th-muted' }, [
-						'Fork to own a copy with its own wallet, or follow its alpha from ',
-						el('a', { href: `/agent/${id}`, text: 'its profile' }),
-						'.',
+					? el('div', {}, [
+						buildMirror(id, agent.name),
+						el('p', { class: 'th-panel-foot th-muted' }, [
+							'Or ',
+							el('a', { href: `/agent/${id}`, text: 'open its profile' }),
+							' to fork it to your own wallet.',
+						]),
 					])
 					: el('p', { class: 'th-panel-foot th-muted' }, [
 						el('a', { href: `/login?next=${encodeURIComponent(`/agent/${id}`)}`, text: 'Sign in' }),
-						' to fork this agent to your own wallet or follow its alpha. Watching is always free.',
+						' to copy this agent to your own wallet or follow its alpha. Watching is always free.',
 					]),
 			recentForAgent(id),
 		);
@@ -447,8 +627,23 @@ export function initTheater(root) {
 		if (state.selected === id) renderPanel(id);
 	}
 
-	// ── quiet-market highlights (real recent activity) ───────────────────────────
+	// ── quiet-market heartbeat + highlights (real recent activity) ───────────────
+	// The heartbeat is honest: "last real move Xs ago" from the newest snapshot
+	// event, ticking live — anticipation without a fabricated countdown (we can't
+	// predict the next fill, so we never pretend to).
+	function updateBeat() {
+		const beat = refs.quiet.querySelector('[data-beat]');
+		if (!beat) return;
+		if (Number.isFinite(state.lastMoveTs)) {
+			beat.textContent = `Last on-chain move ${timeAgo(state.lastMoveTs)} ago — the stage lights up the instant the next buy fills.`;
+		} else {
+			beat.textContent = 'The stage lights up the instant the next on-chain buy fills.';
+		}
+	}
+
 	loadSnapshot(40).then((events) => {
+		if (events.length) state.lastMoveTs = Math.max(...events.map((e) => e.ts));
+		updateBeat();
 		const featured = events.filter((e) => ROOMS.some((r) => r.featured.has(e.kind)) && (e.href || e.sub));
 		const host = refs.quiet.querySelector('[data-highlights]');
 		if (!host) return;
@@ -475,6 +670,7 @@ export function initTheater(root) {
 			const dt = Date.parse(t.getAttribute('datetime'));
 			if (Number.isFinite(dt)) t.textContent = timeAgo(dt);
 		});
+		if (!refs.quiet.hidden) updateBeat();
 	}, 15000);
 
 	// reduced-motion live toggle (system pref change)

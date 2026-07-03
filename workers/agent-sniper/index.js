@@ -99,7 +99,9 @@ async function main() {
 	let feedConnected = false;
 	let reconnectCount = 0;
 
-	await refreshStrategies(cfg.network, 0).then(() => logStrategyLoad(cfg.network)).catch((err) =>
+	if (cfg.agentIds) log.info('agent scope active', { agents: cfg.agentIds.length });
+	log.info('mayhem filter', { enabled: cfg.mayhemFilter, strict: cfg.mayhemStrict });
+	await refreshStrategies(cfg.network, 0, cfg.agentIds).then(() => logStrategyLoad(cfg.network)).catch((err) =>
 		log.error('initial strategy load failed', { err: err?.message }),
 	);
 
@@ -263,7 +265,7 @@ async function main() {
 
 	// Strategy cache refresh.
 	const strategyTimer = setInterval(() => {
-		refreshStrategies(cfg.network, cfg.strategyRefreshMs)
+		refreshStrategies(cfg.network, cfg.strategyRefreshMs, cfg.agentIds)
 			.then(() => logStrategyLoad(cfg.network))
 			.catch((err) => log.error('strategy refresh failed', { err: err?.message }));
 	}, cfg.strategyRefreshMs);

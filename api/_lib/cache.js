@@ -141,6 +141,15 @@ const SET_SUPPRESS_MS = 60_000;
 let setFailures = 0;
 let setSuppressedUntil = 0; // epoch ms; 0 = writing normally
 
+// Cumulative counters since this instance came up. Gauges (circuitOpen,
+// setSuppressed) say "is it degraded right now"; these totals give the health
+// snapshot in api/cron/uptime-check.js a trend to graph and let /healthz report
+// "how bad has it been this instance's lifetime" — the texture a single point-in-
+// time read can't show. Reset only on cold start, which is honest: a serverless
+// instance's counter IS its lifetime.
+let totalSetFailures = 0;
+let totalCircuitOpens = 0;
+
 // Thrown when the circuit is open. Callers treat it as a normal cache miss but
 // skip the per-request warning, since the open/close transitions log once each.
 class CircuitOpenError extends Error {
@@ -176,6 +185,7 @@ function circuitRecordFailure() {
 	circuitFailures++;
 	if (circuitFailures >= CIRCUIT_FAIL_THRESHOLD) {
 		circuitOpenUntil = Date.now() + CIRCUIT_COOLDOWN_MS;
+		totalCircuitOpens++;
 		warnThrottled(
 			'circuit',
 			`[cache] redis degraded — circuit opened for ${CIRCUIT_COOLDOWN_MS / 1000}s after ${circuitFailures} consecutive failures; serving from memory`,
@@ -304,6 +314,7 @@ export async function cacheSet(key, value, ttlSeconds = 60) {
 			return;
 		}
 		setFailures++;
+		totalSetFailures++;
 		if (setFailures >= SET_FAIL_THRESHOLD) {
 			setSuppressedUntil = now + SET_SUPPRESS_MS;
 			warnThrottled(
@@ -328,6 +339,37 @@ export async function cacheDel(key) {
 
 export function cacheBackend() {
 	return redisConfigured() ? 'upstash' : 'memory';
+}
+
+/**
+ * Point-in-time health of the cache adapter, for /healthz and the status page.
+ * Pure read of module state — no I/O. `degraded` is true whenever Redis is
+ * configured but we're currently short-circuiting to memory (breaker open or
+ * SET-suppression active), which is the exact production condition the log
+ * export surfaced. When no Redis is configured we report the in-memory backend
+ * as healthy (that's the intended dev/test posture, not a degradation).
+ * @returns {{ backend: string, configured: boolean, degraded: boolean,
+ *   circuitOpen: boolean, circuitReopensInMs: number, setSuppressed: boolean,
+ *   consecutiveFailures: number, consecutiveSetFailures: number,
+ *   totalSetFailures: number, totalCircuitOpens: number }}
+ */
+export function cacheHealth() {
+	const now = Date.now();
+	const configured = redisConfigured();
+	const circuitOpen = circuitOpenUntil !== 0 && now < circuitOpenUntil;
+	const setSuppressed = setSuppressedUntil !== 0 && now < setSuppressedUntil;
+	return {
+		backend: cacheBackend(),
+		configured,
+		degraded: configured && (circuitOpen || setSuppressed),
+		circuitOpen,
+		circuitReopensInMs: circuitOpen ? circuitOpenUntil - now : 0,
+		setSuppressed,
+		consecutiveFailures: circuitFailures,
+		consecutiveSetFailures: setFailures,
+		totalSetFailures,
+		totalCircuitOpens,
+	};
 }
 
 /**

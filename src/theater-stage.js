@@ -134,8 +134,9 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false }
 	const scene = new Scene();
 	scene.fog = new Fog(0x05050a, 14, 38);
 
+	const CAM_BASE_Z = 9.4;
 	const camera = new PerspectiveCamera(42, 1, 0.1, 200);
-	camera.position.set(0, 2.35, 9.4);
+	camera.position.set(0, 2.35, CAM_BASE_Z);
 	camera.lookAt(0, 1.25, -2);
 
 	// Lighting — a cool key from above the audience plus a warm rim so avatars
@@ -265,6 +266,18 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false }
 		group.userData.agentId = agent.id;
 		cast.add(group);
 
+		// A soft contact shadow grounds the figure on the floor — always faintly
+		// present so no performer ever reads as floating (the flat disc used to make
+		// bodies look like they hovered). Sits just under the highlight pad.
+		const shadow = new Mesh(
+			new CircleGeometry(0.62, 40),
+			new MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.34, side: DoubleSide, depthWrite: false }),
+		);
+		shadow.rotation.x = -Math.PI / 2;
+		shadow.position.set(slot.x, 0.012, slot.z);
+		shadow.renderOrder = -1;
+		cast.add(shadow);
+
 		// A soft pedestal glow under each performer; brightens when highlighted.
 		const pad = new Mesh(
 			new CircleGeometry(0.78, 40),
@@ -276,7 +289,7 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false }
 
 		if (drivable && !reducedMotion) anim.play('idle');
 
-		const rec = { agent, group, model, pad, anim, drivable, slot, busy: false, plate: null };
+		const rec = { agent, group, model, pad, shadow, anim, drivable, slot, busy: false, plate: null };
 		rec.plate = makePlate(rec, index);
 		performers.set(agent.id, rec);
 	}
@@ -330,6 +343,7 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false }
 		rec.plate?.remove();
 		rec.group?.parent?.remove(rec.group);
 		rec.pad?.parent?.remove(rec.pad);
+		if (rec.shadow) { rec.shadow.parent?.remove(rec.shadow); rec.shadow.geometry?.dispose?.(); disposeMaterial(rec.shadow.material); }
 		rec.group?.traverse?.((n) => {
 			if (n.isMesh) { n.geometry?.dispose?.(); disposeMaterial(n.material); }
 		});
@@ -382,21 +396,30 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false }
 	 * coin rises from the stage floor, holds, then sinks and is removed. Driven
 	 * only by a real coin-buy/launch event.
 	 */
-	function spawnCenterpiece({ tint = 0x8b5cf6 } = {}) {
+	function spawnCenterpiece({ tint = 0x8b5cf6, magnitude = 0.4 } = {}) {
+		// The coin's size and glow scale with the real fill magnitude (0..1), so a
+		// whale buy visibly dwarfs a small one — the drama tracks the money.
+		const mag = Math.max(0, Math.min(1, magnitude));
+		const radius = 0.5 + mag * 0.5;
 		const coin = new Mesh(
-			new CylinderGeometry(0.62, 0.62, 0.12, 40),
-			new MeshStandardMaterial({ color: tint, emissive: new Color(tint), emissiveIntensity: 0.9, metalness: 0.7, roughness: 0.25 }),
+			new CylinderGeometry(radius, radius, 0.12, 40),
+			new MeshStandardMaterial({ color: tint, emissive: new Color(tint), emissiveIntensity: 0.75 + mag * 0.5, metalness: 0.7, roughness: 0.25 }),
 		);
 		coin.rotation.x = Math.PI / 2;
 		coin.position.set(0, 0.2, -1);
 		coin.userData.born = performance.now();
 		scene.add(coin);
-		const glow = new PointLight(tint, 2.4, 9, 2);
+		const glow = new PointLight(tint, 1.8 + mag * 2.2, 9 + mag * 3, 2);
 		glow.position.set(0, 1.6, -1);
 		scene.add(glow);
 		coin.userData.glow = glow;
 		centerpieces.push(coin);
 	}
+
+	// A brief camera dolly toward the stage on a marquee moment (a center-stage
+	// buy/launch). Eases in and back out over ~0.7s; a no-op under reduced motion.
+	let punchStart = -1;
+	function punchCamera() { if (!reducedMotion) punchStart = performance.now(); }
 	const centerpieces = [];
 
 	// ── Selection (raycast) ──────────────────────────────────────────────────────
@@ -445,6 +468,14 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false }
 		if (autoOrbit && !reducedMotion) orbitYaw += dt * 0.06;
 		cast.rotation.y = orbitYaw;
 		ring.rotation.z += dt * 0.05;
+
+		// Camera push-in: sin(0→π) over 0.7s pulls the camera ~1 unit toward the
+		// stage and eases back, punctuating a marquee fill without disorienting.
+		if (punchStart >= 0) {
+			const t = (now - punchStart) / 700;
+			if (t >= 1) { punchStart = -1; camera.position.z = CAM_BASE_Z; }
+			else camera.position.z = CAM_BASE_Z - Math.sin(t * Math.PI) * 1.0;
+		}
 
 		if (!reducedMotion) {
 			for (const rec of performers.values()) {
@@ -560,6 +591,7 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false }
 		setRoster,
 		perform,
 		spawnCenterpiece,
+		punchCamera,
 		highlight,
 		resize,
 		setReducedMotion,
