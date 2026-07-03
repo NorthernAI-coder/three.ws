@@ -63,8 +63,34 @@ what was recorded, and what's next. Pairs with [PLAN.md](PLAN.md).
   Driver: `scripts/ui-create-agent.mjs` (5-step walk: basics → body → skills → persona →
   review → Create). Note for batch: success screen stays on `/create-agent`; capture the
   agent id via the "Open agent" button, not a URL change.
-- Next: read Scout 01's agent id + Solana wallet → arm its sniper at `/dashboard/sniper`
-  in **simulate** → watch at `/agent-screen`. Then batch the other 32, fund, go live.
+- Scout 01: id `0c7cdd77-a357-4f57-94aa-f4f50ef0432a`, wallet
+  `EZm1jcG52zwW3uGoZB1ZanfbXyaD2NFvaKS4SH37Gnew`. Driver: `scripts/ui-agent-info.mjs`.
+- **Correction (owner told me to flag deviations):** vanity wallets ARE UI-doable — the
+  dashboard Agents list has a **"+ Vanity"** button per agent. My earlier "vanity not in
+  the UI" was wrong (I'd only checked the agent-edit wallet panel). Vanity can be pure-UI.
+- **Mayhem enforcement re-verified:** the PROD worker `workers/agent-sniper/executor.js`
+  runs `mayhemGate` (gate 0, `SNIPER_MAYHEM_FILTER=1`) — the UI-armed path IS protected.
+  Corrected the stale `no-mayhem-pumpfun-tokens` memory + MEMORY.md.
+- **Execution reality (`/api/sniper/status`):** prod worker **DOWN** (~2.75h stale beat),
+  mode live/mainnet, **34 strategies already armed**, 0 open positions, 0 funded today.
+  → Arming Scout 01 now is **inert/safe** (no live worker + empty wallet). To trade, I'll
+  run the platform worker myself: `SNIPER_MAYHEM_FILTER=1`, **auto-fund OFF**, fund only
+  Scout wallets from `niChP` (tiny), one instance, recorded. The 34 pre-existing armed
+  strategies stay unfunded/idle.
+- ✅ **Scout 01 sniper strategy configured via the real UI** ("Arm an agent +" modal):
+  new_mint trigger, **0.002 ◎/trade, 0.020 ◎ daily**, oracle-conviction min 55 (wires the
+  oracle intelligence). Driver: `scripts/ui-arm-sniper.mjs`. Card shows **Disarmed** —
+  platform gates arming on an unfunded wallet ("⚠ low"). Zero spent.
+- Balances (read-only): **niChP funder 2.9457 SOL** (ready), Scout 01 0 SOL.
+- **Single-agent setup is fully proven via the real UI, recorded, up to the money line.**
+
+**MONEY-LINE CHECKPOINT — needs owner go + an execution decision:**
+- First real spend = fund Scout 01 (~0.05 SOL) from niChP → arm → one live buy, recorded.
+- Execution topology: the prod sniper worker is DOWN; running `workers/agent-sniper` is the
+  GLOBAL platform sniper (processes all 34 armed strategies, others unfunded→idle). Local
+  `node_modules` is unstable (shared worktree) — running the full worker here is not yet
+  verified. Options: (a) run the platform worker (auto-fund OFF, fund only Scouts), or
+  (b) scoped execution. Resolve before trading.
 
 **Open / next (blocking, owner decisions):**
 - Vanity vs random UI wallets? (vanity ⇒ a non-UI import step).
