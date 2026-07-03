@@ -87,7 +87,7 @@
     border:1px solid var(--stroke, #2a2a2a);border-radius:var(--radius-pill, 999px);
     padding:6px 12px;background:var(--surface-1, rgba(255,255,255,.03));
   }
-  .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--success, #4ade80);box-shadow:0 0 8px var(--success, #4ade80)}
+  .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--success, var(--success));box-shadow:0 0 8px var(--success, var(--success))}
   h1{
     font-family:var(--font-display, 'Space Grotesk', sans-serif);
     font-size:clamp(2.1rem,5vw,3.4rem);line-height:1.05;font-weight:var(--weight-bold, 700);
@@ -163,8 +163,8 @@
   }
   .rsvp input[type=email]:focus{outline:none;border-color:var(--stroke-strong, #3e3e3e)}
   .rsvp .msg{margin-top:var(--space-md, 16px);font-size:var(--text-ui, 14px);min-height:1.2em}
-  .rsvp .msg.is-success{color:var(--success, #4ade80)}
-  .rsvp .msg.is-error{color:var(--danger, #f87171)}
+  .rsvp .msg.is-success{color:var(--success, var(--success))}
+  .rsvp .msg.is-error{color:var(--danger, var(--danger))}
   .rsvp .fine{margin-top:var(--space-sm, 12px);font-size:var(--text-2xs, 11px);color:var(--ink-faint, #5c5c66)}
 
   /* ── reveal ── */

@@ -30,7 +30,7 @@
 			.intg-shell { max-width: 880px; margin: 0 auto; padding: clamp(20px, 5vw, 44px) 18px 80px; }
 			.intg-hero { margin-bottom: 26px; }
 			.intg-kicker { display: inline-flex; align-items: center; gap: 8px; font-size: .72rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim, #888); margin: 0 0 10px; }
-			.intg-kicker::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--success, #4ade80); box-shadow: 0 0 8px color-mix(in srgb, var(--success,#4ade80) 60%, transparent); }
+			.intg-kicker::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--success, var(--success)); box-shadow: 0 0 8px color-mix(in srgb, var(--success,var(--success)) 60%, transparent); }
 			.intg-title { font-family: var(--font-display, system-ui); font-size: clamp(1.8rem, 5vw, 2.6rem); font-weight: 700; color: var(--ink-bright, #fff); margin: 0 0 10px; line-height: 1.08; }
 			.intg-sub { color: var(--ink-dim, #888); font-size: 1rem; line-height: 1.6; margin: 0; max-width: 64ch; }
 			.intg-sub a { color: var(--ink, #e8e8e8); }
@@ -38,9 +38,9 @@
 			.intg-status { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 			.intg-seal { width: 52px; height: 52px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: 24px; background: var(--surface-3, rgba(255,255,255,.08)); }
 			.intg-status.is-verified { }
-			.intg-status.is-verified .intg-seal { background: color-mix(in srgb, var(--success,#4ade80) 18%, transparent); color: var(--success, #4ade80); }
-			.intg-status.is-failed .intg-seal { background: color-mix(in srgb, var(--danger,#f87171) 18%, transparent); color: var(--danger, #f87171); }
-			.intg-status.is-pending .intg-seal { background: color-mix(in srgb, var(--warn,#fbbf24) 18%, transparent); color: var(--warn, #fbbf24); }
+			.intg-status.is-verified .intg-seal { background: color-mix(in srgb, var(--success,var(--success)) 18%, transparent); color: var(--success, var(--success)); }
+			.intg-status.is-failed .intg-seal { background: color-mix(in srgb, var(--danger,var(--danger)) 18%, transparent); color: var(--danger, var(--danger)); }
+			.intg-status.is-pending .intg-seal { background: color-mix(in srgb, var(--warn,var(--warn)) 18%, transparent); color: var(--warn, var(--warn)); }
 			.intg-status-main { min-width: 0; flex: 1; }
 			.intg-status-title { font-size: 1.2rem; font-weight: 700; color: var(--ink-bright, #fff); font-family: var(--font-display, system-ui); line-height: 1.15; }
 			.intg-status-sub { font-size: .85rem; color: var(--ink-dim, #888); margin-top: 4px; line-height: 1.5; }
@@ -50,7 +50,7 @@
 			.intg-stat-k { font-size: .68rem; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-dim, #888); }
 			.intg-stat-v { font-family: var(--font-mono, ui-monospace, monospace); font-size: 1.05rem; color: var(--ink-bright, #fff); margin-top: 5px; word-break: break-all; }
 			.intg-stat-v a { color: inherit; }
-			.intg-spin { width: 20px; height: 20px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--warn,#fbbf24) 30%, transparent); border-top-color: var(--warn,#fbbf24); animation: intg-spin 0.7s linear infinite; }
+			.intg-spin { width: 20px; height: 20px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--warn,var(--warn)) 30%, transparent); border-top-color: var(--warn,var(--warn)); animation: intg-spin 0.7s linear infinite; }
 			@keyframes intg-spin { to { transform: rotate(360deg); } }
 			@media (prefers-reduced-motion: reduce) { .intg-spin { animation: none; } }
 			.intg-h2 { font-family: var(--font-display, system-ui); font-size: 1.1rem; font-weight: 600; color: var(--ink-bright, #fff); margin: 0 0 4px; }
@@ -63,9 +63,9 @@
 			.intg-table tr:last-child td { border-bottom: none; }
 			.intg-table a { color: var(--ink, #c8c8c8); }
 			.intg-pill { display: inline-block; font-size: .66rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
-			.intg-pill.anchored { color: var(--success, #4ade80); background: color-mix(in srgb, var(--success,#4ade80) 12%, transparent); }
-			.intg-pill.pending { color: var(--warn, #fbbf24); background: color-mix(in srgb, var(--warn,#fbbf24) 12%, transparent); }
-			.intg-pill.failed { color: var(--danger, #f87171); background: color-mix(in srgb, var(--danger,#f87171) 12%, transparent); }
+			.intg-pill.anchored { color: var(--success, var(--success)); background: color-mix(in srgb, var(--success,var(--success)) 12%, transparent); }
+			.intg-pill.pending { color: var(--warn, var(--warn)); background: color-mix(in srgb, var(--warn,var(--warn)) 12%, transparent); }
+			.intg-pill.failed { color: var(--danger, var(--danger)); background: color-mix(in srgb, var(--danger,var(--danger)) 12%, transparent); }
 			.intg-btn { appearance: none; font: inherit; font-size: .85rem; font-weight: 600; cursor: pointer; color: var(--ink, #e8e8e8); background: transparent; border: 1px solid var(--stroke, rgba(255,255,255,.14)); border-radius: var(--radius-md, 10px); padding: 9px 16px; text-decoration: none; display: inline-flex; align-items: center; gap: 7px; transition: background var(--duration-fast,140ms); }
 			.intg-btn:hover { background: var(--surface-2, rgba(255,255,255,.05)); }
 			.intg-btn:focus-visible { outline: 2px solid var(--focus-ring-color, #fff); outline-offset: 2px; }
@@ -74,7 +74,7 @@
 			@media (prefers-reduced-motion: reduce) { .intg-skel span { animation: none; } }
 			.intg-explain { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-top: 6px; }
 			.intg-step { padding: 14px; border: 1px solid var(--stroke, rgba(255,255,255,.08)); border-radius: var(--radius-md, 10px); background: var(--surface-1, rgba(255,255,255,.03)); }
-			.intg-step-n { font-family: var(--font-mono, ui-monospace, monospace); font-size: .7rem; color: var(--success, #4ade80); }
+			.intg-step-n { font-family: var(--font-mono, ui-monospace, monospace); font-size: .7rem; color: var(--success, var(--success)); }
 			.intg-step-t { color: var(--ink-bright, #fff); font-weight: 600; font-size: .9rem; margin: 4px 0; }
 			.intg-step-d { color: var(--ink-dim, #888); font-size: .82rem; line-height: 1.5; }
 		</style>

@@ -1612,6 +1612,12 @@ URL: https://three.ws/legal/tos
 
 Terms of service for three.ws.
 
+### Risk Disclosure
+
+URL: https://three.ws/legal/risk
+
+Risk disclosure for real-funds features: experimental software, total-loss risk, autonomous agents, no liability.
+
 ## Machine-readable
 
 Indexes and well-known files for crawlers and AI agents.

@@ -449,7 +449,6 @@ function refreshBar() {
 	tmp.innerHTML = actionBar();
 	bar.replaceWith(tmp.firstElementChild);
 	// re-wire the fresh bar
-	const root = document.getElementById('fc-root');
 	const nb = document.querySelector('.fc-bar');
 	nb.querySelector('[data-act="arm-all"]')?.addEventListener('click', () => bulkAction('arm'));
 	nb.querySelector('[data-act="disarm-all"]')?.addEventListener('click', () => bulkAction('disarm'));
@@ -457,7 +456,6 @@ function refreshBar() {
 	nb.querySelectorAll('[data-chip]').forEach((c) => c.addEventListener('click', () => { _filter.status = c.dataset.chip; refreshTable(); refreshBar(); }));
 	const q = nb.querySelector('#fc-q');
 	if (q) { q.addEventListener('input', (e) => { _filter.q = e.target.value; refreshTable(); refreshBar(); }); q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
-	void root;
 }
 
 // The agents a bulk action targets: the current selection, or every filtered row

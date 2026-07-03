@@ -359,11 +359,18 @@ FLAGS
   --db <path>                  Same as --sqlite with an explicit DB path.
   --port <n>                   HTTP port for 'serve'.     (default 8787)
   --url <url>                  Remote base URL for 'status'.
+  --allow-mayhem               Permit pump.fun Mayhem-mode tokens. Off by
+                               default: Mayhem coins are skipped fleet-wide.
+  --mayhem-strict              Also skip a mint when its bonding curve can't be
+                               read (fail closed). Default allows-on-unknown.
 
 SAFETY
   Default mode is SIMULATE — no funds are ever moved. Pass '--mode live' to
   trade REAL SOL from the agent wallet. There is no confirmation prompt; live
   means live. A mandatory stop_loss_pct is enforced on every armed strategy.
+  Pump.fun Mayhem-mode tokens are filtered out by default (--allow-mayhem to
+  opt in). Set SNIPER_MIN_MC_FLOOR_USD / SNIPER_MAX_MC_CEIL_USD to enforce a
+  market-cap band so a bare strategy can't buy freshly-launched dust.
 
 WALLETS
   Single agent:  --keypair <secret>  (or SOLANA_SECRET_KEY).

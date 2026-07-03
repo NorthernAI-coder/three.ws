@@ -14,7 +14,13 @@
  */
 
 function _mod() {
-	return import(/* @vite-ignore */ '/risk-ack.js');
+	// Resolve at runtime from the origin (public/risk-ack.js). Rollup resolves a
+	// string LITERAL even with @vite-ignore and fails the build ("failed to
+	// resolve import /risk-ack.js"); routing the specifier through a variable
+	// keeps the import non-analyzable, so it's left as a runtime import — exactly
+	// the browser-side deferral this wrapper is documented to provide.
+	const spec = '/risk-ack.js';
+	return import(/* @vite-ignore */ spec);
 }
 
 /**

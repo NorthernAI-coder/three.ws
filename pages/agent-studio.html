@@ -99,8 +99,8 @@
 				width: 7px;
 				height: 7px;
 				border-radius: 50%;
-				background: var(--success, #4ade80);
-				box-shadow: 0 0 8px var(--success, #4ade80);
+				background: var(--success, var(--success));
+				box-shadow: 0 0 8px var(--success, var(--success));
 				animation: studio-pulse 2s ease-in-out infinite;
 			}
 			@keyframes studio-pulse {
@@ -177,9 +177,9 @@
 				transition: color var(--duration-fast) var(--ease-standard);
 				white-space: nowrap;
 			}
-			.studio-save[data-state='pending'] { color: var(--warn, #fbbf24); }
-			.studio-save[data-state='saved'] { color: var(--success, #4ade80); }
-			.studio-save[data-state='error'] { color: var(--danger, #f87171); }
+			.studio-save[data-state='pending'] { color: var(--warn, var(--warn)); }
+			.studio-save[data-state='saved'] { color: var(--success, var(--success)); }
+			.studio-save[data-state='error'] { color: var(--danger, var(--danger)); }
 
 			/* Tabs */
 			.studio-tabs {

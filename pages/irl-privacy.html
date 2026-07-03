@@ -110,8 +110,8 @@
 			color: #7ec8e3;
 		}
 		.ip-card .ip-ic svg { width: 21px; height: 21px; }
-		.ip-card.is-deny .ip-ic { background: rgba(248, 113, 113, 0.10); color: #f87171; }
-		.ip-card.is-allow .ip-ic { background: rgba(74, 222, 128, 0.10); color: #4ade80; }
+		.ip-card.is-deny .ip-ic { background: rgba(248, 113, 113, 0.10); color: var(--danger); }
+		.ip-card.is-allow .ip-ic { background: rgba(74, 222, 128, 0.10); color: var(--success); }
 		.ip-card h3 {
 			font-size: 15px; font-weight: var(--weight-semibold);
 			color: var(--ink, #eef1f7); margin: 1px 0 4px;
@@ -136,8 +136,8 @@
 			letter-spacing: 0.04em; text-transform: uppercase;
 			margin: 0 0 12px;
 		}
-		.ip-col.is-yes h3 { color: #4ade80; }
-		.ip-col.is-no h3 { color: #f87171; }
+		.ip-col.is-yes h3 { color: var(--success); }
+		.ip-col.is-no h3 { color: var(--danger); }
 		.ip-col ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 		.ip-col li {
 			font-size: var(--text-md); line-height: 1.5;
@@ -148,8 +148,8 @@
 			position: absolute; left: 0; top: 0;
 			font-weight: 700;
 		}
-		.ip-col.is-yes li::before { content: "✓"; color: #4ade80; }
-		.ip-col.is-no li::before { content: "✕"; color: #f87171; }
+		.ip-col.is-yes li::before { content: "✓"; color: var(--success); }
+		.ip-col.is-no li::before { content: "✕"; color: var(--danger); }
 
 		/* ── Sensor rows ── */
 		.ip-sensors { display: flex; flex-direction: column; gap: 12px; }
@@ -174,7 +174,7 @@
 			display: inline-block; margin-top: 8px;
 			font: var(--weight-medium) 11px/1 var(--font-body);
 			letter-spacing: 0.04em;
-			color: #4ade80;
+			color: var(--success);
 			background: rgba(74, 222, 128, 0.10);
 			border: 1px solid rgba(74, 222, 128, 0.22);
 			border-radius: var(--radius-pill);

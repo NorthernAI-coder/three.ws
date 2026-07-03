@@ -3,6 +3,42 @@
 	"entries": [
 		{
 			"date": "2026-07-03",
+			"title": "Real funds now require a one-time risk acknowledgment",
+			"summary": "Before any feature that moves real money — trading, sniping, withdrawals, swaps, token launches, x402 payments, or buying USDC — three.ws now asks you to read and accept a plain-language risk acknowledgment: this is experimental software, losses can be total, autonomous agents act without asking again, and you use real funds entirely at your own risk. You accept it once per browser; if the disclosure ever changes materially, you'll be asked again before your next real-funds action. The full text lives at the new Risk Disclosure page, and devnet/simulation flows stay friction-free — the gate only guards real money.",
+			"tags": [
+				"feature",
+				"security"
+			],
+			"link": "/legal/risk"
+		},
+		{
+			"date": "2026-07-03",
+			"title": "Trading agents now stop themselves after a losing day — and the funder stops chasing them",
+			"summary": "A per-trade rulebook can't catch a fleet that bleeds one bad entry at a time: every single buy passes its checks, yet the wallet still grinds down. Two new portfolio-level guardrails close that gap. First, a realized-loss circuit breaker: once an agent's net realized loss over the last 24 hours crosses a configurable cap, it stops opening new positions for the rest of the window — a profitable or break-even day never trips it, and an unpriceable coin fails closed rather than sneaking through. Second, the auto-funder is now loss-aware and per-agent capped: it will not keep topping up a wallet that has hit its loss cap, and no single agent can draw more than its daily refill ceiling from the treasury — so one wallet that only loses can't quietly drain the master or starve the healthy agents. Both ship with conservative defaults and are tunable per fleet.",
+			"tags": [
+				"security",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-03",
+			"title": "Leaderboard rows now show each trader's P&L trend at a glance",
+			"summary": "Two traders can post the same realized P&L and have gotten there completely differently — one grinding steadily up, the other spiking once and giving it back. The Trader Leaderboard now draws a tiny cumulative-P&L sparkline on every row so you can read the shape of the run, not just the final number: green when they're up over the window, red when down, with a live pulse on the latest trade. The endpoint of the line always matches the row's headline P&L, so it can't tell a prettier story than the on-chain record. Win rate now carries a green/red distribution bar under it too. The sparkline is drawn from the same verified closed-position history the profile's equity curve uses — no new data, no estimates.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/leaderboard"
+		},
+		{
+			"date": "2026-07-03",
+			"title": "Fixed a Jito tip mis-route that could waste a slice of every batch of trades",
+			"summary": "When our trading agents send transactions through Jito for MEV protection, they attach a tip to one of Jito's eight published tip accounts. Three of our code paths had a mistyped address in that list — so roughly one in eight of the affected trades paid its tip to a dead address instead of Jito, losing that tip and getting no MEV protection or priority for that transaction. We verified the correct eight addresses against Jito's own live endpoint, corrected all three, and added a test that checks every tip-account list in the codebase against the canonical set so a typo can never slip in again. No user action needed; trades now land protected as intended.",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-07-03",
 			"title": "Fleet Command — run your whole swarm of trading agents from one deck",
 			"summary": "Tuning one sniper bot is easy; commanding thirty of them was not. The new Fleet Command page puts every autonomous agent on a single mission-control deck: pooled wallet balance across the fleet, how many are armed, low-balance warnings, live open positions, and combined realized P&L and win rate at the top. Below that, a sortable, searchable roster — one row per agent with its status, wallet, open/closed trades, win rate and P&L — plus multi-select. Act on the whole fleet at once: Arm all, Disarm all, or one red Emergency Stop that trips every kill switch, each behind a confirmation and reporting honest results (\"Armed 30/33 · 3 failed\"). A live trade feed streams every buy and sell across the swarm as it happens.",
 			"tags": [

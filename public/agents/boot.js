@@ -63,11 +63,34 @@ function updateUrl() {
 }
 
 /**
+ * Skeleton cards that mirror the real card layout (avatar + name/id + three
+ * description lines) so the grid keeps its shape while data loads instead of
+ * collapsing to a spinner.
+ */
+function skeletonCards(n = 8) {
+	return Array.from({ length: n }, () => `
+		<div class="agent-skel" aria-hidden="true">
+			<div class="skel-head">
+				<div class="skel skel-avatar"></div>
+				<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:0.35rem">
+					<div class="skel skel-line" style="width:70%"></div>
+					<div class="skel skel-line" style="width:35%;height:0.6rem"></div>
+				</div>
+			</div>
+			<div class="skel skel-line" style="width:100%"></div>
+			<div class="skel skel-line" style="width:85%"></div>
+			<div class="skel skel-line" style="width:55%"></div>
+		</div>`).join('');
+}
+
+/**
  * Load and render agents.
  */
 async function render() {
 	loadingEl.style.display = 'block';
-	agentsContainer.innerHTML = '';
+	agentsContainer.innerHTML = skeletonCards();
+	agentsContainer.setAttribute('aria-busy', 'true');
+	agentsContainer.style.display = 'grid';
 	emptyState.style.display = 'none';
 	paginationEl.style.display = 'none';
 
@@ -80,7 +103,9 @@ async function render() {
 		});
 
 		hideRetry();
+		agentsContainer.removeAttribute('aria-busy');
 		if (result.agents.length === 0) {
+			agentsContainer.innerHTML = '';
 			emptyState.querySelector('h2').textContent = emptyDefaults.title;
 			emptyState.querySelector('p').textContent = emptyDefaults.body;
 			emptyState.style.display = 'block';
@@ -104,6 +129,8 @@ async function render() {
 	} catch (err) {
 		console.error('Failed to load agents:', err);
 		loadingEl.style.display = 'none';
+		agentsContainer.removeAttribute('aria-busy');
+		agentsContainer.innerHTML = '';
 		emptyState.style.display = 'block';
 		emptyState.querySelector('h2').textContent = 'Error loading agents';
 		emptyState.querySelector('p').textContent = err.message || 'Please try again later.';

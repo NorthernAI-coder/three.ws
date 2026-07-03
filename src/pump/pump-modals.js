@@ -12,6 +12,7 @@
 
 import { grindVanity } from '../solana/vanity/grinder.js';
 import { THREE_WS_VANITY } from '../solana/vanity/brand.js';
+import { ensureRiskAck } from '../shared/risk-ack.js';
 
 const M_STYLES = `
 .pmodal-back {
@@ -328,6 +329,7 @@ function openPay({ mint, network }) {
 			err.textContent = 'No Solana wallet detected. Install Phantom.';
 			return;
 		}
+		if (network !== 'devnet' && !(await ensureRiskAck({ context: 'x402-pay' }))) return;
 		btn.disabled = true;
 		btn.textContent = 'Connecting…';
 		try {

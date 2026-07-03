@@ -268,16 +268,16 @@
 		}
 		.gem-status[data-state="live"] {
 			background: rgba(74,222,128,.1);
-			color: var(--success, #4ade80);
+			color: var(--success, var(--success));
 			border: 1px solid rgba(74,222,128,.2);
 		}
-		.gem-status[data-state="live"]::before { background: var(--success, #4ade80); }
+		.gem-status[data-state="live"]::before { background: var(--success, var(--success)); }
 		.gem-status[data-state="offline"] {
 			background: rgba(248,113,113,.1);
-			color: var(--danger, #f87171);
+			color: var(--danger, var(--danger));
 			border: 1px solid rgba(248,113,113,.2);
 		}
-		.gem-status[data-state="offline"]::before { background: var(--danger, #f87171); }
+		.gem-status[data-state="offline"]::before { background: var(--danger, var(--danger)); }
 		.gem-status[data-state="checking"] {
 			background: var(--surface-2, rgba(255,255,255,.05));
 			color: var(--ink-dim, #888);
