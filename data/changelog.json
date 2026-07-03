@@ -3,6 +3,25 @@
 	"entries": [
 		{
 			"date": "2026-07-03",
+			"title": "Live Trading Theater loads more gracefully — no more endless \"Assembling the cast\"",
+			"summary": "The Theater used to sit on its loading spinner indefinitely if the roster feed was slow to answer, and a room with no traders yet showed an unlit, empty stage with no explanation. Both are fixed. Every roster and agent-detail request is now time-bounded, so a slow or unreachable edge falls through to a clear \"couldn't load\" state with a Try-again button instead of hanging. And when a room genuinely has no traders yet, you get a designed empty state that tells you why and points you to browse agents or launch your own — never a blank void.",
+			"tags": [
+				"improvement",
+				"fix"
+			],
+			"link": "/theater"
+		},
+		{
+			"date": "2026-07-03",
+			"title": "One green, one vocabulary — design-token cleanup across the site",
+			"summary": "The platform's status colors now come from a single source of truth. Four different \"success\" greens (home, changelog, trade terminal, agent commerce) are unified into one, ~140 hardcoded color values across 40+ pages now reference the shared design tokens (so they follow your light/dark theme correctly), the changelog page adopts the site's brand typography and theme switching, and the agents directory shows skeleton cards instead of a spinner while loading. A new build check keeps hardcoded colors from creeping back in.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/changelog"
+		},
+		{
+			"date": "2026-07-03",
 			"title": "Real funds now require a one-time risk acknowledgment",
 			"summary": "Before any feature that moves real money — trading, sniping, withdrawals, swaps, token launches, x402 payments, or buying USDC — three.ws now asks you to read and accept a plain-language risk acknowledgment: this is experimental software, losses can be total, autonomous agents act without asking again, and you use real funds entirely at your own risk. You accept it once per browser; if the disclosure ever changes materially, you'll be asked again before your next real-funds action. The full text lives at the new Risk Disclosure page, and devnet/simulation flows stay friction-free — the gate only guards real money.",
 			"tags": [
