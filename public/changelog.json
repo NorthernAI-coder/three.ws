@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-03T10:41:02.675Z",
+	"generated_at": "2026-07-03T11:00:11.257Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -29,6 +29,16 @@
 		{
 			"date": "2026-07-03",
 			"type": "update",
+			"title": "Autonomous trading experiment — take initials, hold a moon bag, never dump the whole bag",
+			"summary": "You can now give one agent a real budget and let it trade newer pump.fun launches under a disciplined, documented risk policy. It only buys projects between $10k and $100k market cap, never buys pump.fun Mayhem tokens, and — the important part — it never sells 100% of a winner on the way up. When a position hits 2x it sells just enough to recover the initial stake, then holds the rest as a moon bag that rides on a trailing stop, with a hard stop-loss underneath. Every buy and every sell is written to a trade journal with its reasoning, so you can actually learn what works. Funding is manual from the agent wallet UI; nothing auto-funds, and it runs in simulate mode until you deliberately go live.",
+			"link": "/docs/trading-experiment",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-07-03",
+			"type": "update",
 			"title": "Copy a trader straight from the Live Trading Theater",
 			"summary": "Tap any agent on the 3D stage and you can now set one of your own agents to mirror it — it buys what the leader buys, server-signed and sized by a per-trade SOL amount you choose, always capped by your own spend limits. Watching a good trader on stage now leads directly to copying it, no page-hopping. Sells are mirrored too, and you can manage or stop the mirror from your agent's profile at any time.",
 			"link": "/theater",
@@ -45,6 +55,17 @@
 			"tags": [
 				"feature",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-03",
+			"type": "update",
+			"title": "Every platform wallet is now watched for leaks — and arming a sniper no longer moves money",
+			"summary": "Two safety upgrades to how the platform handles money. First, a new on-chain leak scanner watches every wallet the platform controls — the funding masters, all treasuries, the x402 ring wallets — not just a subset, and pages ops within minutes if a single lamport or token ever leaves one of them to an address outside the controlled set. Second, we closed an implicit-funding footgun: previously, simply arming an autonomous trading strategy could cause a master wallet to start pushing real SOL to that agent on a schedule. Now that only happens if the strategy explicitly opts in, and it is off by default, so arming a strategy never moves money on its own.",
+			"link": null,
+			"tags": [
+				"security",
+				"infra"
 			]
 		},
 		{
@@ -159,6 +180,16 @@
 			"type": "update",
 			"title": "The Live Trading Theater got more alive — and shows its guardrails",
 			"summary": "A pass of polish across the 3D stage: performers now cast contact shadows so no one floats, the camera pushes in on a marquee fill, the celebration coin scales with the real size of the buy, and receipts show the coin ticker. A new quiet-state heartbeat tells you exactly how long since the last on-chain move instead of a generic 'market is quiet'. There's an opt-in sound toggle that plays a subtle chime on big fills (off by default). And the live tape now surfaces safety refusals — when an agent declines a pump.fun mayhem coin or a rug/honeypot firewall blocks a buy, you see it happen, so the platform's guardrails are visible instead of silent.",
+			"link": "/theater",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-03",
+			"type": "update",
+			"title": "The Live Trading Theater is now a dealing room, not a stage",
+			"summary": "The 3D theater has been rebuilt from an abstract stage into a trading dealing room: every agent now stands at its own workstation — a desk with a lit monitor — arranged in staggered rows like a trading pit. The monitor is a live status light: a resting glow when idle, a green flash when a real buy fills, and an amber flash when a safety rule refuses a bad trade, so you can read the room at a glance. The camera settles into the pit instead of spinning, and you can drop in your own environment (an office/floor backdrop) via a URL parameter without any code change. The point of the redesign: the setting now explains what the agents are doing — trading — instead of leaving you to guess why characters were celebrating on a stage.",
 			"link": "/theater",
 			"tags": [
 				"improvement"

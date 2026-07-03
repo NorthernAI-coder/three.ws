@@ -75,7 +75,8 @@ const ALL_REACTION_CLIPS = [...new Set(Object.values(REACTIONS).flat())];
 // The colour a trader's monitor flashes for each event — green on a fill, violet
 // on a verify/pay, amber when a safety rule refuses a buy. The resting glow is a
 // dim blue so a room of idle desks still reads as "screens on, market open".
-const SCREEN_IDLE = 0x2a3550;
+const SCREEN_IDLE = 0x38507f;
+const SCREEN_REST = 0.75; // resting emissive so a room of idle desks reads as "screens on"
 const SCREEN_FLASH = {
 	buy: 0x22c55e, win: 0x22c55e, launch: 0x22c55e,
 	verify: 0x8b5cf6, pay: 0x8b5cf6,
@@ -117,13 +118,17 @@ function hashPick(arr, key) {
  * a trading pit. Partial last row is centred. Returns { x, z, scale, row }.
  */
 function deskSlot(index, total) {
-	const perRow = total <= 6 ? 3 : total <= 12 ? 4 : 5;
+	const perRow = total <= 6 ? 3 : total <= 10 ? 4 : 5;
 	const row = Math.floor(index / perRow);
 	const inRow = index % perRow;
 	const rowItems = Math.min(perRow, total - row * perRow);
-	const x = (inRow - (rowItems - 1) / 2) * 2.9;
-	const z = -1 - row * 3.0; // rows recede from the camera
-	const scale = Math.max(0.9, 1 - row * 0.03);
+	// Stagger alternating rows by half a column so back desks peek between the
+	// front ones (an auditorium pit) instead of hiding directly behind them — this
+	// also stops the projected nameplates from colliding.
+	const stagger = (row % 2) * 1.5;
+	const x = (inRow - (rowItems - 1) / 2) * 3.0 + stagger;
+	const z = -1.5 - row * 2.6; // rows recede from the camera
+	const scale = Math.max(0.9, 1 - row * 0.035);
 	return { x, z, scale, row };
 }
 
@@ -139,10 +144,10 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false, 
 
 	// A dealing-room vantage: raised and pulled back so several rows of desks read
 	// as a room, not a line-up. Looks slightly down into the pit.
-	const CAM_BASE_Z = 11.6;
+	const CAM_BASE_Z = 10.4;
 	const camera = new PerspectiveCamera(42, 1, 0.1, 200);
-	camera.position.set(0, 3.1, CAM_BASE_Z);
-	camera.lookAt(0, 1.05, -4);
+	camera.position.set(0, 2.5, CAM_BASE_Z);
+	camera.lookAt(0, 1.05, -3.4);
 
 	// Lighting — a cool key from above the audience plus a warm rim so avatars
 	// read against the near-black backdrop. Violet accent matches the finance tokens.
@@ -201,7 +206,7 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false, 
 
 	// Shared desk material — one instance across every workstation (never disposed
 	// per-performer, only at teardown).
-	const deskMat = new MeshStandardMaterial({ color: 0x14141f, roughness: 0.72, metalness: 0.3 });
+	const deskMat = new MeshStandardMaterial({ color: 0x20202e, roughness: 0.6, metalness: 0.4 });
 
 	// Group that holds all performers + their desks so a gentle sway moves the room
 	// as one (a full spin would look wrong for a room; this is a subtle drift).
@@ -227,16 +232,31 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false, 
 	function buildWorkstation(slot) {
 		const s = slot.scale;
 		const g = new Group();
-		g.position.set(slot.x, 0, slot.z + 0.95 * s); // desk between the trader and the camera
-		const desk = new Mesh(new BoxGeometry(1.5 * s, 0.72 * s, 0.62 * s), deskMat);
-		desk.position.y = 0.36 * s;
-		g.add(desk);
+		g.position.set(slot.x, 0, slot.z + 1.02 * s); // desk between the trader and the camera
+		// A slim desktop on a thin plinth reads as a trading desk, not a coffin.
+		const top = new Mesh(new BoxGeometry(1.5 * s, 0.08 * s, 0.62 * s), deskMat);
+		top.position.y = 0.74 * s;
+		g.add(top);
+		const plinth = new Mesh(new BoxGeometry(1.28 * s, 0.7 * s, 0.42 * s), deskMat);
+		plinth.position.y = 0.37 * s;
+		g.add(plinth);
+		// The monitor: a dark bezel framing a bright emissive screen on a thin stalk,
+		// tilted up toward the camera so the state colour is the readable thing. Kept
+		// low enough that the trader's head and shoulders read above it.
+		const bezel = new Mesh(new BoxGeometry(0.96 * s, 0.56 * s, 0.05 * s), deskMat);
+		bezel.position.set(0, 1.0 * s, -0.05 * s);
+		bezel.rotation.x = -0.12;
+		g.add(bezel);
 		const screenMat = new MeshStandardMaterial({
-			color: 0x05060c, emissive: new Color(SCREEN_IDLE), emissiveIntensity: 0.45, roughness: 0.5, metalness: 0.1,
+			color: 0x0a1120, emissive: new Color(SCREEN_IDLE), emissiveIntensity: SCREEN_REST, roughness: 0.4, metalness: 0.05,
 		});
-		const monitor = new Mesh(new BoxGeometry(0.94 * s, 0.56 * s, 0.05 * s), screenMat);
-		monitor.position.set(0, 0.98 * s, 0.02 * s);
+		const monitor = new Mesh(new BoxGeometry(0.84 * s, 0.44 * s, 0.05 * s), screenMat);
+		monitor.position.set(0, 1.0 * s, -0.02 * s);
+		monitor.rotation.x = -0.12;
 		g.add(monitor);
+		const stalk = new Mesh(new BoxGeometry(0.06 * s, 0.2 * s, 0.06 * s), deskMat);
+		stalk.position.set(0, 0.78 * s, -0.05 * s);
+		g.add(stalk);
 		cast.add(g);
 		return { deskGroup: g, screenMat };
 	}
@@ -566,7 +586,7 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false, 
 				}
 				// ease a flashed monitor back to its resting glow
 				if (rec.screenMat) {
-					rec.screenMat.emissiveIntensity += (0.45 - rec.screenMat.emissiveIntensity) * Math.min(1, dt * 2.4);
+					rec.screenMat.emissiveIntensity += (SCREEN_REST - rec.screenMat.emissiveIntensity) * Math.min(1, dt * 2.4);
 					if (rec.screenFlash && now > rec.screenFlash) { rec.screenMat.emissive.setHex(SCREEN_IDLE); rec.screenFlash = 0; }
 				}
 			}

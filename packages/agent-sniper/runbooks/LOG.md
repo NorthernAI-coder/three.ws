@@ -84,13 +84,25 @@ what was recorded, and what's next. Pairs with [PLAN.md](PLAN.md).
 - Balances (read-only): **niChP funder 2.9457 SOL** (ready), Scout 01 0 SOL.
 - **Single-agent setup is fully proven via the real UI, recorded, up to the money line.**
 
-**MONEY-LINE CHECKPOINT — needs owner go + an execution decision:**
-- First real spend = fund Scout 01 (~0.05 SOL) from niChP → arm → one live buy, recorded.
-- Execution topology: the prod sniper worker is DOWN; running `workers/agent-sniper` is the
-  GLOBAL platform sniper (processes all 34 armed strategies, others unfunded→idle). Local
-  `node_modules` is unstable (shared worktree) — running the full worker here is not yet
-  verified. Options: (a) run the platform worker (auto-fund OFF, fund only Scouts), or
-  (b) scoped execution. Resolve before trading.
+**GO — owner authorized full end-to-end, no questions ("make me proud"). THE SWARM.**
+Requirements ledger: 33 agents "Swarm 1..33", rigged avatars, vanity wallets, real-UI only
+(flag deviations), pump.fun sniping 0.002/0.02 SOL, NO Mayhem, oracle+intel (Fable held till
+API key funded), fund from niChP, record ALL continuously until last buy, $THREE promoted.
+
+**Phase A — creation (RUNNING):** `scripts/ui-create-swarm.mjs` batch-creating Swarm 1..33 via
+the real 5-step wizard (rotating starter avatars, market-intel skill on), one continuous video,
+idempotent. Swarm 1 ✓, Swarm 2 in progress at log time.
+
+**Phase E infra — VERIFIED runnable (the make-or-break):**
+- DB reachable (Neon) — 2,687 agent_identities; Swarm agents landing.
+- **WALLET_ENCRYPTION_KEY confirmed correct** — decrypted Scout 01, derived pubkey == stored
+  (EZm1…Gnew). The worker can decrypt Swarm wallets and sign trades.
+- Worker dep chain resolves (`@neondatabase/serverless`, `@nirholas/pump-sdk`, config.js import OK).
+- Plan: run `workers/agent-sniper` locally vs Neon, `SNIPER_MODE=live`, `SNIPER_MAYHEM_FILTER=1`,
+  `SNIPER_AUTO_FUND=0`, one instance; fund ONLY Swarm wallets → only they trade (others idle).
+
+**Pipeline:** A create → B vanity (UI) → C fund from niChP → D arm (UI) → E run worker + record
+continuously until last buy → F sweep + rotate secrets. Fable layer deferred (API key unfunded).
 
 **Open / next (blocking, owner decisions):**
 - Vanity vs random UI wallets? (vanity ⇒ a non-UI import step).
