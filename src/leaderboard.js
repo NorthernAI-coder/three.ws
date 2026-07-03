@@ -106,7 +106,7 @@ function rowMarkup(r) {
 				<img class="lb-avatar" src="${escapeHtml(img)}" alt="" loading="lazy" onerror="this.src='${identicon(r.agent_id || r.wallet || '?')}'" />
 				<span class="lb-trader-meta">
 					<span class="lb-trader-name"><span class="lb-trader-nm">${escapeHtml(r.agent_name || 'Unnamed agent')}</span>${verifiedBadge(r.verified)}</span>
-					<span class="lb-trader-sub">${r.wallet ? walletChipHTML(r, { isOwner: false, showPending: false, link: false }) : escapeHtml(shortAddr(r.wallet))} · ${r.unique_coins} coins${r.copiers ? ` · <span class="lb-copiers">${r.copiers} copying</span>` : ''}${r.top_coin ? ` · ${signatureCoin(r.top_coin, { compact: true })}` : ''}</span>
+					<span class="lb-trader-sub">${r.wallet ? walletChipHTML(r, { isOwner: false, showPending: false, link: false }) : escapeHtml(shortAddr(r.wallet))} · ${r.unique_coins} coins${r.top_coin ? ` · ${signatureCoin(r.top_coin, { compact: true })}` : ''}${r.copiers ? ` · <span class="lb-copiers">${r.copiers} copying</span>` : ''}</span>
 				</span>
 			</span>
 			<span class="lb-num">
@@ -282,7 +282,7 @@ function renderSpotlight(data) {
 	const name = escapeHtml(top.agent_name || 'Unnamed agent');
 	const usd = top.realized_pnl_usd != null ? ` · ${fmtUsd(top.realized_pnl_usd)}` : '';
 	const coin = top.top_coin
-		? `<div class="lb-spot-coin"><span class="lb-spot-coin-lead">Made it on</span> ${signatureCoin(top.top_coin)}</div>`
+		? `<div class="lb-spot-coin"><span class="lb-spot-coin-lead">${top.top_coin.pnl_sol >= 0 ? 'Made it on' : 'Biggest hit'}</span> ${signatureCoin(top.top_coin, { compact: true })}</div>`
 		: '';
 	const label = `Most profitable trader: ${top.agent_name || 'agent'}, ${fmtSol(top.realized_pnl_sol)} realized${top.top_coin && top.top_coin.symbol ? `, made on ${top.top_coin.symbol}` : ''}`;
 	el.innerHTML = `

@@ -132,6 +132,45 @@ function metricsGrid(m) {
 	`;
 }
 
+// --- "Made it on" — top-coin breakdown ---------------------------------------
+// The coins this trader actually made (or lost) their money on. `top_coin` is the
+// single biggest realized-P&L contributor; `top_coins` is the top-3 breakdown.
+// Each links to the coin's on-chain account, so "what they made it on" is provable.
+function madeOnBlock(m) {
+	const top = m.top_coin;
+	if (!top) return '';
+	const solAcct = (mint) => ctx.network === 'devnet'
+		? `https://solscan.io/account/${mint}?cluster=devnet`
+		: `https://solscan.io/account/${mint}`;
+	const label = escapeHtml(top.symbol || top.name || shortAddr(top.mint, 4, 4));
+	const roi = top.roi_pct != null
+		? `<span class="${pnlClass(top.roi_pct)}">${fmtPct(top.roi_pct, { sign: true })} ROI</span>` : '';
+	const usd = top.pnl_usd != null ? ` · ${fmtUsd(top.pnl_usd)}` : '';
+	const wl = `${top.wins}/${top.trades} win${top.trades === 1 ? '' : 's'}`;
+	// The remaining top coins (2nd, 3rd) as compact chips beside the headline.
+	const rest = (m.top_coins || []).slice(1).map((c) => {
+		const nm = escapeHtml(c.symbol || c.name || shortAddr(c.mint, 4, 4));
+		return `<a class="tp-madeon-chip" href="${solAcct(c.mint)}" target="_blank" rel="noopener" title="${nm} · ${escapeHtml(fmtSol(c.pnl_sol))} realized${c.roi_pct != null ? ` · ${c.roi_pct > 0 ? '+' : ''}${c.roi_pct}% ROI` : ''}">
+			<span class="tp-madeon-chip-sym">${nm}</span>
+			<span class="${pnlClass(c.pnl_sol)}">${escapeHtml(fmtSol(c.pnl_sol))}</span>
+		</a>`;
+	}).join('');
+	const verb = top.pnl_sol >= 0 ? 'Made it on' : 'Biggest hit';
+	return `
+		<div class="tp-madeon">
+			<div class="tp-madeon-head">
+				<span class="tp-madeon-label">${verb}</span>
+				${m.unique_coins > 1 ? `<span class="tp-madeon-count">${m.unique_coins} coins traded</span>` : ''}
+			</div>
+			<a class="tp-madeon-top" href="${solAcct(top.mint)}" target="_blank" rel="noopener">
+				<span class="tp-madeon-sym">${label}</span>
+				<span class="tp-madeon-pnl ${pnlClass(top.pnl_sol)}">${escapeHtml(fmtSol(top.pnl_sol))}</span>
+				<span class="tp-madeon-meta">${usd ? escapeHtml(usd.replace(/^ · /, '')) + ' · ' : ''}${roi}${roi ? ' · ' : ''}${wl} · on-chain ↗</span>
+			</a>
+			${rest ? `<div class="tp-madeon-rest">${rest}</div>` : ''}
+		</div>`;
+}
+
 // --- Oracle conviction block -------------------------------------------------
 function oracleBlock(oracle) {
 	const pnlStr = oracle.realized_pnl_sol != null
@@ -310,6 +349,8 @@ function render(data) {
 
 		<div class="tp-metrics">${metricsGrid(m)}</div>
 
+		${madeOnBlock(m)}
+
 		${data.projection ? projectionBlock(data.projection) : ''}
 
 		${data.oracle ? oracleBlock(data.oracle) : ''}
@@ -482,6 +523,24 @@ function downloadCard() {
 	c.fillStyle = 'rgba(255,255,255,0.6)';
 	c.font = '500 28px Inter, sans-serif';
 	c.fillText(`${WINDOW_LABEL[ctx.window]} realized P&L${m.realized_pnl_usd != null ? '  ·  ' + fmtUsd(m.realized_pnl_usd) : ''}`, 64, 408);
+
+	// "Made it on" — the signature coin, so the card says both how much and on what.
+	if (m.top_coin && (m.top_coin.symbol || m.top_coin.name)) {
+		const tc = m.top_coin;
+		const sym = String(tc.symbol || tc.name).slice(0, 16);
+		const lead = tc.pnl_sol >= 0 ? 'MADE IT ON  ' : 'BIGGEST HIT  ';
+		c.fillStyle = 'rgba(255,255,255,0.45)';
+		c.font = '600 22px Inter, sans-serif';
+		c.fillText(lead, 64, 444);
+		const leadW = c.measureText(lead).width;
+		c.fillStyle = '#fff';
+		c.font = '700 22px "Space Grotesk", Inter, sans-serif';
+		c.fillText(sym, 64 + leadW, 444);
+		const symW = c.measureText(sym).width;
+		c.fillStyle = tc.pnl_sol >= 0 ? '#4ade80' : '#f87171';
+		c.font = '600 22px Inter, sans-serif';
+		c.fillText(`  ${fmtSol(tc.pnl_sol)}`, 64 + leadW + symW, 444);
+	}
 
 	// Stat strip
 	const stats = [
