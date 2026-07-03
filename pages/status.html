@@ -79,6 +79,12 @@
 			.st-banner[data-state='ok'] {
 				border-color: var(--ink);
 			}
+			/* Degraded: a dependency is on a fallback but surfaces are up. Dim ink,
+			   not red — red stays reserved for a genuine surface outage. */
+			.st-banner[data-state='degraded'] {
+				border-color: var(--ink-dim);
+				border-style: dashed;
+			}
 			.st-banner[data-state='down'] {
 				border-color: var(--danger);
 			}
@@ -256,6 +262,78 @@
 				}
 			}
 
+			/* Internal-dependency health list */
+			.st-subhead {
+				font-family: var(--font-display);
+				font-size: 1.1rem;
+				margin: calc(var(--space-md) * 2) 0 0.4rem;
+			}
+			.st-subnote {
+				color: var(--ink-dim);
+				font: var(--text-sm) var(--font-body);
+				margin: 0 0 var(--space-md);
+				max-width: 60ch;
+			}
+			.st-sublist {
+				border: 1px solid var(--stroke);
+				border-radius: var(--radius-lg);
+				overflow: hidden;
+				background: var(--surface-1);
+			}
+			.st-sub {
+				display: grid;
+				grid-template-columns: auto 1fr auto;
+				align-items: baseline;
+				gap: 0.6rem 0.75rem;
+				padding: 0.85rem 1.1rem;
+				border-top: 1px solid var(--stroke);
+			}
+			.st-sub:first-child {
+				border-top: none;
+			}
+			.st-sub .st-dot {
+				align-self: center;
+			}
+			/* degraded = dim ink (functional-but-throttled); paused/unknown = hollow;
+			   down = the single reserved red. Matches the monochrome status language. */
+			.st-dot[data-state='degraded'] {
+				background: var(--ink);
+				opacity: 0.4;
+			}
+			.st-dot[data-state='paused'],
+			.st-dot[data-state='unknown'] {
+				background: transparent;
+				box-shadow: inset 0 0 0 1.5px var(--ink-dim);
+			}
+			.st-sub-name {
+				font-family: var(--font-display);
+				font-size: 0.95rem;
+				color: var(--ink);
+			}
+			.st-sub-state {
+				font: var(--text-sm) var(--font-mono, monospace);
+				color: var(--ink-dim);
+				text-transform: uppercase;
+				letter-spacing: 0.04em;
+				white-space: nowrap;
+			}
+			.st-sub[data-state='down'] .st-sub-state {
+				color: var(--danger);
+			}
+			.st-sub-detail {
+				grid-column: 2 / -1;
+				color: var(--ink-dim);
+				font: var(--text-sm) var(--font-body);
+			}
+			.st-sub-hint {
+				grid-column: 2 / -1;
+				color: var(--ink);
+				font: var(--text-sm) var(--font-body);
+				margin-top: 0.15rem;
+				padding-left: 0.75rem;
+				border-left: 2px solid var(--stroke-strong);
+			}
+
 			.st-note {
 				border: 1px solid var(--stroke);
 				border-radius: var(--radius-lg);
@@ -329,6 +407,18 @@
 					<div class="st-bar"></div>
 				</article>
 			</section>
+
+			<!-- Internal dependency health — hidden until the API returns a
+			     subsystems block (older deploys / warming-up omit it). -->
+			<section id="st-subsystems" aria-label="Internal dependency health" hidden>
+				<h2 class="st-subhead">Internal dependencies</h2>
+				<p class="st-subnote">
+					Health of the systems behind the public surfaces — cache, database,
+					payment ring, RPC. A green surface can still hide a degraded
+					dependency; this is where it shows.
+				</p>
+				<div class="st-sublist" id="st-sublist"></div>
+			</section>
 		</main>
 
 		<script type="module">
@@ -337,6 +427,8 @@
 			const bannerText = document.getElementById('st-banner-text');
 			const meta = document.getElementById('st-meta');
 			const list = document.getElementById('st-services');
+			const subsWrap = document.getElementById('st-subsystems');
+			const subsList = document.getElementById('st-sublist');
 			const summaryEl = document.getElementById('st-summary');
 			const kpiUptime = document.getElementById('st-kpi-uptime');
 			const kpiServices = document.getElementById('st-kpi-services');
@@ -372,22 +464,70 @@
 				kpiLatency.textContent = s.avgLatencyMs == null ? '—' : `${s.avgLatencyMs}ms`;
 			}
 
+			// Human labels for the subsystem status vocabulary from the API.
+			const SUB_STATE_WORD = {
+				ok: 'operational',
+				degraded: 'degraded',
+				down: 'down',
+				paused: 'paused',
+				unknown: 'no data',
+			};
+			const esc = (s) =>
+				String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+			function renderSubsystems(subs) {
+				// Older API shapes / warming-up omit the block — keep it hidden then.
+				if (!subs || !Array.isArray(subs.items) || subs.items.length === 0) {
+					subsWrap.hidden = true;
+					return;
+				}
+				subsWrap.hidden = false;
+				subsList.innerHTML = subs.items
+					.map((it) => {
+						const state = it.status || 'unknown';
+						const word = SUB_STATE_WORD[state] || state;
+						// Hint only earns screen space when there's an action to take.
+						const showHint = it.hint && (state === 'degraded' || state === 'down');
+						return `<div class="st-sub" data-state="${esc(state)}">
+							<span class="st-dot" data-state="${esc(state)}" aria-hidden="true"></span>
+							<span class="st-sub-name">${esc(it.label || it.name)}</span>
+							<span class="st-sub-state">${esc(word)}</span>
+							${it.detail ? `<span class="st-sub-detail">${esc(it.detail)}</span>` : ''}
+							${showHint ? `<span class="st-sub-hint">${esc(it.hint)}</span>` : ''}
+						</div>`;
+					})
+					.join('');
+			}
+
 			function render(data) {
 				renderSummary(data);
+				renderSubsystems(data.subsystems);
 				const probed = data.services.filter((s) => s.operational !== null);
 				const down = probed.filter((s) => !s.operational);
+				// Degraded internal dependencies (from the subsystems block) that the
+				// public-surface probes can't see — surfaced so the banner is honest.
+				const subItems = data.subsystems?.items || [];
+				const subBad = subItems.filter((s) => s.status === 'degraded' || s.status === 'down');
 				if (data.monitoring === 'warming-up') {
 					bannerText.textContent = 'Monitoring is warming up — first probes land within minutes.';
-				} else if (down.length === 0) {
+				} else if (down.length === 0 && subBad.length === 0) {
 					banner.dataset.state = 'ok';
 					bannerDot.dataset.state = 'ok';
 					bannerText.textContent = 'All systems operational';
+				} else if (down.length === 0) {
+					// Surfaces are all up, but a dependency is degraded — honest amber.
+					banner.dataset.state = 'degraded';
+					bannerDot.dataset.state = 'degraded';
+					bannerText.textContent = `Operational with ${subBad.length} degraded ${
+						subBad.length === 1 ? 'dependency' : 'dependencies'
+					}: ${subBad.map((s) => s.label).join(', ')}`;
 				} else {
 					banner.dataset.state = 'down';
 					bannerDot.dataset.state = 'down';
+					const extra = subBad.length ? ` · ${subBad.length} degraded dependency(ies)` : '';
 					bannerText.textContent = `${down.length} of ${probed.length} services disrupted: ${down
 						.map((s) => s.label)
-						.join(', ')}`;
+						.join(', ')}${extra}`;
 				}
 				if (data.checkedAt) {
 					const ago = Math.max(0, Math.round((Date.now() - data.checkedAt) / 60000));

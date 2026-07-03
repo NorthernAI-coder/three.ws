@@ -47,6 +47,11 @@ export function normalizeEvent(e) {
 		agentId: null,
 		mint: null,
 		href: null,
+		// Numeric magnitudes (when the event carries them) so the stage can size the
+		// spectacle to the real fill and the receipt can show the money.
+		sol: Number.isFinite(Number(e.sol)) ? Number(e.sol) : null,
+		usd: null,
+		symbol: typeof e.symbol === 'string' ? e.symbol : null,
 	};
 	switch (e.type) {
 		case 'coin-buy':
@@ -56,7 +61,7 @@ export function normalizeEvent(e) {
 		case 'agent-onchain':
 			return { ...base, kind: 'verify', agentId: e.agentId || null, title: 'Verified on-chain', sub: e.name || base.actor, href: e.agentId ? `/agent/${e.agentId}` : null };
 		case 'payment':
-			return { ...base, kind: 'pay', title: 'Payment', sub: fmtUsdc(e.usdcAtomic) || e.recipientLabel || base.actor, href: e.explorerUrl || null };
+			return { ...base, kind: 'pay', title: 'Payment', usd: Number.isFinite(Number(e.usdcAtomic)) ? Number(e.usdcAtomic) / 1e6 : null, sub: fmtUsdc(e.usdcAtomic) || e.recipientLabel || base.actor, href: e.explorerUrl || null };
 		case 'jackpot':
 			return { ...base, kind: 'win', title: 'Jackpot', sub: e.reward ? `${e.reward}` : base.actor, href: null };
 		case 'agora-registered':

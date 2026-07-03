@@ -12,8 +12,14 @@ let _loadedAt = 0;
  * the mandatory-SL guarantee (the DB constraint is the other half) — a strategy
  * that somehow has a null/zero SL is dropped here rather than trusted.
  */
-export async function refreshStrategies(network, maxAgeMs) {
+export async function refreshStrategies(network, maxAgeMs, agentIds = null) {
 	if (Date.now() - _loadedAt < maxAgeMs && _strategies.length) return _strategies;
+	// Optional agent-scoping: when an allowlist is supplied the worker acts ONLY on
+	// those agents' strategies. This is the guard that lets a worker run against the
+	// shared prod DB without touching every other armed agent's strategy — the
+	// entanglement that otherwise makes an experiment spend on, and trade for, coins
+	// it never provisioned.
+	const scope = Array.isArray(agentIds) && agentIds.length ? sql`AND agent_id = ANY(${agentIds})` : sql``;
 	const rows = await sql`
 		SELECT * FROM agent_sniper_strategies
 		WHERE network = ${network}
@@ -22,6 +28,7 @@ export async function refreshStrategies(network, maxAgeMs) {
 		  AND daily_budget_lamports > 0
 		  AND per_trade_lamports > 0
 		  AND stop_loss_pct > 0
+		  ${scope}
 	`;
 	_strategies = rows;
 	_loadedAt = Date.now();

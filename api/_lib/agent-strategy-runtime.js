@@ -31,6 +31,7 @@ import { assessTradeSafety, recordFirewallDecision } from './trade-firewall.js';
 import { logAudit } from './audit.js';
 import { cacheSet } from './cache.js';
 import { WSOL_MINT } from './pump-trade-args.js';
+import { pushGuardEvent } from './feed.js';
 import {
 	getSpendLimits, getTradeLimits, enforceSpendLimit, SpendLimitError, lamportsToUsd,
 	getDailySpendLamports, updateCustodyEvent,
@@ -359,6 +360,16 @@ async function evaluateEntries({ equip, agent, launches, nowMs, maxEntries = 3 }
 		}
 
 		results.push({ mint: launch.mint, action: 'entry', ...result, reasons: verdict.reasons });
+
+		// Surface a SAFETY refusal (mayhem coin, rug/honeypot firewall) on the
+		// public live tape — the platform declining a bad buy is a trust signal
+		// worth showing, not hiding. Routine skips (cooldown, cap) stay quiet.
+		if (result.status === 'skipped' && (result.code === 'mayhem' || result.code === 'firewall_blocked')) {
+			pushGuardEvent({
+				actor: agent.name, agentId: agent.id, mint: launch.mint, reason: result.code,
+				label: result.code === 'mayhem' ? 'skipped a pump.fun mayhem coin' : 'blocked a buy at the rug/honeypot firewall',
+			});
+		}
 
 		if (result.status === 'executed' || result.status === 'unconfirmed') {
 			const entryLamports = result.quote ? result.quote.inAtomics : null;

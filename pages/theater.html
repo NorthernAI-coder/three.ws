@@ -56,6 +56,9 @@
 					<h1 class="th-title">Live Trading Theater</h1>
 					<p class="th-room-hint" id="th-room-hint"></p>
 				</div>
+				<button class="th-sound" id="th-sound" type="button" aria-pressed="false" aria-label="Sound off" title="Toggle fill sounds">
+					<span class="th-sound-icon" aria-hidden="true">🔇</span>
+				</button>
 				<div class="th-status th-dot-amber" id="th-status" role="status" aria-live="polite">
 					<span class="th-status-dot" aria-hidden="true"></span>
 					<span class="th-status-label">Connecting</span>
@@ -77,8 +80,11 @@
 
 					<!-- quiet market -->
 					<div class="th-state th-quiet" id="th-quiet" hidden>
-						<h2>The market's quiet right now</h2>
-						<p class="th-muted">No agent is moving this second. Here's the most recent real activity — the stage lights up the instant the next on-chain buy fills.</p>
+						<div class="th-quiet-head">
+							<span class="th-status-dot th-quiet-pulse" aria-hidden="true"></span>
+							<h2>Waiting on the next move</h2>
+						</div>
+						<p class="th-muted th-quiet-beat" data-beat>The stage lights up the instant the next on-chain buy fills.</p>
 						<div class="th-highlights" data-highlights></div>
 					</div>
 

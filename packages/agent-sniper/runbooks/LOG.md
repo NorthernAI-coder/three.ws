@@ -43,6 +43,29 @@ what was recorded, and what's next. Pairs with [PLAN.md](PLAN.md).
   wallets, no key import; (2) **funding fan-out is external** (on-chain transfer from the
   funder, not a three.ws click); (3) **Avaturn not in normal UI** (gallery/upload only).
 
+**Phase 1 — real-UI execution begins.**
+- Owner provided the three.ws account login (`three-ws`) → stored in `~/.three-ws-fleet/env`.
+- Owner rule reaffirmed (4×): do EVERYTHING via the real three.ws UI; flag any deviation.
+- Vanity default set to **random UI wallets** (pure-UI) unless owner opts into the one
+  non-UI import step.
+- **Signed in via the real `/login` UI** (Playwright, recorded): filled form → landed on
+  `https://three.ws/dashboard` as `three-ws`. Video + screenshots captured.
+  Driver: `scripts/ui-login.mjs`.
+- Hardened login (wait for the field before filling; `waitForURL` for success) after a
+  timing-race failure (blank page). **Session persisted** to `~/.three-ws-fleet/state.json`
+  (chmod 600) — reused by all later steps so we log in once. Driver: `scripts/ui-session.mjs`.
+- **Captured the real `/create-agent` wizard** signed in: 5-step flow. Selectors:
+  `#magic-input`+`#magic-go` (describe→Generate), `#f-name`, `#f-description`,
+  `#f-tags-input`, `#btn-next`; avatar step + review follow. $THREE CA present in footer.
+- ✅ **Agent #1 "Scout 01" CREATED via the real 5-step UI wizard, recorded.** Rigged
+  **Saga** avatar (starter gallery), Pump.fun market-intel skill enabled, published.
+  Platform confirmed "Scout 01 is ready — its own wallet and on-chain identity."
+  Driver: `scripts/ui-create-agent.mjs` (5-step walk: basics → body → skills → persona →
+  review → Create). Note for batch: success screen stays on `/create-agent`; capture the
+  agent id via the "Open agent" button, not a URL change.
+- Next: read Scout 01's agent id + Solana wallet → arm its sniper at `/dashboard/sniper`
+  in **simulate** → watch at `/agent-screen`. Then batch the other 32, fund, go live.
+
 **Open / next (blocking, owner decisions):**
 - Vanity vs random UI wallets? (vanity ⇒ a non-UI import step).
 - Account: register a fresh three.ws account in-UI, or use the owner's login?

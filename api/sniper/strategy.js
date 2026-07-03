@@ -341,6 +341,10 @@ async function upsertStrategy(req, res, userId) {
 		alpha_max_mcap_usd: 'alpha_max_mcap_usd' in p ? (p.alpha_max_mcap_usd == null ? null : Math.max(0, Number(p.alpha_max_mcap_usd))) : (cur.alpha_max_mcap_usd != null ? Number(cur.alpha_max_mcap_usd) : null),
 		alpha_narrative_keywords: 'alpha_narrative_keywords' in p ? (Array.isArray(p.alpha_narrative_keywords) ? p.alpha_narrative_keywords.filter(Boolean).slice(0, 10) : null) : (cur.alpha_narrative_keywords || null),
 		alpha_min_quality_score: 'alpha_min_quality_score' in p ? (p.alpha_min_quality_score == null ? null : Math.min(100, Math.max(0, Math.round(Number(p.alpha_min_quality_score))))) : (cur.alpha_min_quality_score != null ? Number(cur.alpha_min_quality_score) : null),
+		// Explicit, off-by-default consent for the auto-funder to top this agent's
+		// wallet up from the launcher master. Arming a strategy never moves money
+		// on its own — this must be turned on deliberately.
+		auto_fund_enabled: 'auto_fund_enabled' in p ? Boolean(p.auto_fund_enabled) : (cur.auto_fund_enabled ?? false),
 	};
 
 	// Mandatory stop-loss — never let the DB constraint be the first line of defense.
@@ -373,7 +377,7 @@ async function upsertStrategy(req, res, userId) {
 			 min_quality_score, max_bundle_score, max_concentration_top1,
 			 avoid_dev_dump, allowed_categories, telegram_chat_id,
 			 alpha_min_smart_money, alpha_min_organic_score, alpha_max_mcap_usd,
-			 alpha_narrative_keywords, alpha_min_quality_score, updated_at)
+			 alpha_narrative_keywords, alpha_min_quality_score, auto_fund_enabled, updated_at)
 		values
 			(${p.agent_id}, ${userId}, ${p.network}, ${next.enabled}, ${next.kill_switch},
 			 ${next.trigger}, ${next.buy_delay_ms}, ${next.min_claim_lamports}, ${next.max_claim_lamports}, ${next.first_claim_max_age_seconds},
@@ -387,7 +391,7 @@ async function upsertStrategy(req, res, userId) {
 			 ${next.min_quality_score}, ${next.max_bundle_score}, ${next.max_concentration_top1},
 			 ${next.avoid_dev_dump}, ${next.allowed_categories}, ${next.telegram_chat_id},
 			 ${next.alpha_min_smart_money}, ${next.alpha_min_organic_score}, ${next.alpha_max_mcap_usd},
-			 ${next.alpha_narrative_keywords}, ${next.alpha_min_quality_score}, now())
+			 ${next.alpha_narrative_keywords}, ${next.alpha_min_quality_score}, ${next.auto_fund_enabled}, now())
 		on conflict (agent_id, network) do update set
 			enabled                  = excluded.enabled,
 			kill_switch              = excluded.kill_switch,
@@ -428,6 +432,7 @@ async function upsertStrategy(req, res, userId) {
 			alpha_max_mcap_usd       = excluded.alpha_max_mcap_usd,
 			alpha_narrative_keywords = excluded.alpha_narrative_keywords,
 			alpha_min_quality_score  = excluded.alpha_min_quality_score,
+			auto_fund_enabled        = excluded.auto_fund_enabled,
 			updated_at               = now()
 		returning *
 	`;
@@ -476,6 +481,7 @@ async function upsertStrategy(req, res, userId) {
 			alpha_max_mcap_usd: row.alpha_max_mcap_usd != null ? Number(row.alpha_max_mcap_usd) : null,
 			alpha_narrative_keywords: row.alpha_narrative_keywords || null,
 			alpha_min_quality_score: row.alpha_min_quality_score != null ? Number(row.alpha_min_quality_score) : null,
+			auto_fund_enabled: row.auto_fund_enabled ?? false,
 		},
 	});
 }

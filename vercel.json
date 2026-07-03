@@ -2,6 +2,7 @@
 	"buildCommand": "npm run build:vercel",
 	"outputDirectory": "dist",
 	"installCommand": "npm ci --no-audit --no-fund",
+	"ignoreCommand": "bash scripts/vercel-ignore-build.sh",
 	"env": {
 		"NODE_OPTIONS": "--no-deprecation"
 	},
