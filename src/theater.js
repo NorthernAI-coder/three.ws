@@ -299,10 +299,15 @@ export function initTheater(root) {
 	};
 
 	const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+	// Optional dealing-room backdrop GLB: `?env=<url>` or data-env on #th-root, so a
+	// supplied environment (e.g. a Sketchfab office) drops in with no code change.
+	// Same-origin or a full URL the CDN allows; the desks are always rendered by us.
+	const envUrl = new URLSearchParams(location.search).get('env') || root.dataset.env || null;
 	const stage = createStage({
 		canvas: refs.canvas,
 		overlay: refs.overlay,
 		reducedMotion: reduced,
+		environmentUrl: envUrl,
 		onSelect: (id) => openPanel(id),
 	});
 
@@ -426,6 +431,15 @@ export function initTheater(root) {
 
 	function routeEvent(n) {
 		pushTicker(n);
+
+		// Safety refusals play as an at-desk "wave it off" on the actor's monitor
+		// (amber flash) — the guardrail made visible — but never a celebration.
+		if (n.kind === 'guard') {
+			const gid = n.agentId && stage.hasPerformer(n.agentId) ? n.agentId : matchByActor(n.actor);
+			if (gid) stage.perform(gid, { kind: 'guard' });
+			return;
+		}
+
 		const featured = state.room.featured.has(n.kind);
 		// $THREE room only celebrates $THREE buys; other rooms celebrate any buy.
 		const threeOnly = state.room.id === 'three';
