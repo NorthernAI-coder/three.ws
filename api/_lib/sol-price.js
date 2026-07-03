@@ -6,24 +6,50 @@
 // the dollar value as of the transfer instant, not as of report time. This is the
 // one shared implementation — see api/_lib/pump-alert-runner.js / pump-launch-feed.js
 // for the older inline copies this consolidates.
+//
+// Four independent free sources, tried in order (failover-fetch cools a failing
+// source for 60s so a CoinGecko rate-limit doesn't tax every valuation with a
+// timeout). All four quote the same asset; any disagreement is sub-1% noise.
+
+import { fetchFirst } from '../../src/shared/failover-fetch.js';
 
 const TTL_MS = 60_000;
-const ENDPOINT = 'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd';
+const WSOL = 'So11111111111111111111111111111111111111112';
+
+const asPrice = (v) => {
+	const n = Number(v);
+	return Number.isFinite(n) && n > 0 ? n : null;
+};
+
+const PROVIDERS = [
+	{
+		name: 'coingecko',
+		url: 'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd',
+		parse: async (r) => asPrice((await r.json())?.solana?.usd),
+	},
+	{
+		name: 'jupiter',
+		url: `https://lite-api.jup.ag/price/v3?ids=${WSOL}`,
+		// v3 shape: { [mint]: { usdPrice } }; v2 shape: { data: { [mint]: { price } } }
+		parse: async (r) => {
+			const d = await r.json();
+			return asPrice(d?.[WSOL]?.usdPrice ?? d?.data?.[WSOL]?.price);
+		},
+	},
+	{
+		name: 'binance',
+		url: 'https://api.binance.com/api/v3/ticker/price?symbol=SOLUSDT',
+		parse: async (r) => asPrice((await r.json())?.price),
+	},
+	{
+		name: 'coinbase',
+		url: 'https://api.coinbase.com/v2/prices/SOL-USD/spot',
+		parse: async (r) => asPrice((await r.json())?.data?.amount),
+	},
+];
 
 let _price = 0;
 let _at = 0;
-
-async function fetchJsonWithTimeout(url, ms) {
-	const ctrl = new AbortController();
-	const timer = setTimeout(() => ctrl.abort(), ms);
-	try {
-		const r = await fetch(url, { signal: ctrl.signal, headers: { accept: 'application/json' } });
-		if (!r.ok) throw new Error(`http_${r.status}`);
-		return await r.json();
-	} finally {
-		clearTimeout(timer);
-	}
-}
 
 /**
  * Current SOL price in USD (spot), cached for 60s. Returns the last good value on
@@ -35,12 +61,9 @@ async function fetchJsonWithTimeout(url, ms) {
 export async function solPriceUsd(now = Date.now()) {
 	if (now - _at < TTL_MS && _price > 0) return _price;
 	try {
-		const d = await fetchJsonWithTimeout(ENDPOINT, 3000);
-		const p = d?.solana?.usd;
-		if (typeof p === 'number' && p > 0) {
-			_price = p;
-			_at = now;
-		}
+		const { value } = await fetchFirst(PROVIDERS, { timeoutMs: 3000, label: 'sol-price' });
+		_price = value;
+		_at = now;
 	} catch {
 		/* keep last good value; 0 until first success */
 	}

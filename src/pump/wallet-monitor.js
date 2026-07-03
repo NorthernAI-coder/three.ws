@@ -10,9 +10,19 @@
 const PUMP_PROGRAM = '6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P';
 const PUMP_AMM_PROGRAM = 'pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA';
 
+// Ordered free WS endpoints per network. A connection that dies before its
+// logsSubscribe is confirmed rotates to the next endpoint, so one blocked or
+// rate-limited host can't take the monitor down.
 const WS_URLS = {
-	mainnet: 'wss://api.mainnet-beta.solana.com',
-	devnet: 'wss://api.devnet.solana.com',
+	mainnet: [
+		'wss://api.mainnet-beta.solana.com',
+		'wss://solana-rpc.publicnode.com',
+		'wss://solana.drpc.org',
+	],
+	devnet: [
+		'wss://api.devnet.solana.com',
+		'wss://solana-devnet-rpc.publicnode.com',
+	],
 };
 
 // Parse pump.fun structured log line: "Program log: {...json...}"
@@ -54,7 +64,9 @@ export class WalletMonitor extends EventTarget {
 	constructor(wallet, { network = 'mainnet', wsUrl } = {}) {
 		super();
 		this.wallet = wallet;
-		this._wsUrl = wsUrl ?? WS_URLS[network] ?? WS_URLS.mainnet;
+		// An explicit wsUrl pins to that single endpoint; otherwise rotate the free list.
+		this._wsUrls = wsUrl ? [wsUrl] : (WS_URLS[network] ?? WS_URLS.mainnet);
+		this._urlIdx = 0;
 		this._ws = null;
 		this._subId = null;
 		this._msgId = 0;
@@ -76,8 +88,9 @@ export class WalletMonitor extends EventTarget {
 	_connect() {
 		if (this._closed) return;
 
-		const ws = new WebSocket(this._wsUrl);
+		const ws = new WebSocket(this._wsUrls[this._urlIdx % this._wsUrls.length]);
 		this._ws = ws;
+		let subscribed = false;
 
 		ws.onopen = () => {
 			this._reconnectMs = 1000;
@@ -99,6 +112,7 @@ export class WalletMonitor extends EventTarget {
 			// Subscription confirmation
 			if (msg.id != null && typeof msg.result === 'number') {
 				this._subId = msg.result;
+				subscribed = true;
 				return;
 			}
 
@@ -120,8 +134,12 @@ export class WalletMonitor extends EventTarget {
 
 		ws.onclose = () => {
 			this._ws = null;
+			// Never got a confirmed subscription on this endpoint — try the next
+			// one immediately rather than backing off against a dead host.
+			if (!subscribed) this._urlIdx++;
 			if (!this._closed) {
-				setTimeout(() => this._connect(), this._reconnectMs);
+				const delay = subscribed ? this._reconnectMs : Math.min(this._reconnectMs, 1000);
+				setTimeout(() => this._connect(), delay);
 				this._reconnectMs = Math.min(this._reconnectMs * 2, 30_000);
 			}
 		};

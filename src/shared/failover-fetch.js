@@ -1,0 +1,97 @@
+// Shared multi-provider failover fetch. Isomorphic: imported by browser code
+// (src/*) and Vercel functions (api/_lib/*) alike.
+//
+// The platform rule is that no external data source is a single point of
+// failure: every category of fetch (RPC, prices, token metadata, geocoding)
+// runs against an ordered list of free providers, and a failure moves on to
+// the next provider immediately instead of surfacing an error. Solana RPC
+// (api/_lib/solana/connection.js), EVM RPC (api/_lib/evm/rpc.js), token
+// market data (api/_lib/market/token-market.js) and IPFS gateways
+// (src/ipfs.js) already implement this per-category; this module is the
+// generic version for everything else, so new call sites don't grow their own
+// bespoke retry loops.
+//
+// Semantics:
+// - Providers are tried in order with a short per-attempt timeout, so the
+//   worst case is bounded (~timeoutMs × providers) and the common case — the
+//   first healthy provider — costs nothing extra.
+// - A provider that errors (network failure, timeout, non-2xx) goes into a
+//   per-process cooldown and is skipped on subsequent calls until it expires,
+//   so one dead host doesn't tax every future request with its timeout.
+// - A provider whose `parse` returns null/undefined is a MISS, not a failure:
+//   "this source doesn't know this token" shouldn't cool the source down for
+//   callers asking about other tokens. The chain just moves on.
+// - If every provider is cooling down, they're all tried anyway (a full chain
+//   of dead providers must still probe for recovery rather than fail cold).
+
+const _cooldowns = new Map(); // provider name -> epoch ms until which it is skipped
+
+/**
+ * @typedef {object} Provider
+ * @property {string} name                       Stable id; keys the cooldown map.
+ * @property {string} url                        Request URL.
+ * @property {RequestInit} [init]                Extra fetch options (headers, method…).
+ * @property {(res: Response) => Promise<any>} [parse]
+ *   Extract the value from a 2xx response. Defaults to `res.json()`. Return
+ *   null/undefined to signal "no data here, try the next provider" without
+ *   penalising this provider. Throw to penalise it.
+ */
+
+/**
+ * Try each provider in order until one yields a value.
+ *
+ * @param {Provider[]} providers   Ordered preference list.
+ * @param {object} [opts]
+ * @param {number} [opts.timeoutMs=4000]    Per-provider attempt timeout.
+ * @param {number} [opts.cooldownMs=60000]  Skip window after a provider errors.
+ * @param {string} [opts.label]             Prefix for the aggregate error message.
+ * @returns {Promise<{value: any, source: string}>}
+ * @throws when every provider fails or misses.
+ */
+export async function fetchFirst(providers, { timeoutMs = 4000, cooldownMs = 60_000, label = 'fetchFirst' } = {}) {
+	const now = Date.now();
+	const hot = providers.filter((p) => (_cooldowns.get(p.name) || 0) <= now);
+	const order = hot.length ? hot : providers;
+
+	let lastErr;
+	for (const p of order) {
+		const ctrl = new AbortController();
+		const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+		try {
+			const res = await fetch(p.url, {
+				headers: { accept: 'application/json' },
+				...p.init,
+				signal: ctrl.signal,
+			});
+			if (!res.ok) throw new Error(`http_${res.status}`);
+			const value = await (p.parse ? p.parse(res) : res.json());
+			if (value != null) return { value, source: p.name };
+			// Miss: provider is healthy but has no data for this query.
+			lastErr = new Error(`${p.name}: no_data`);
+		} catch (err) {
+			lastErr = err instanceof Error ? err : new Error(String(err));
+			_cooldowns.set(p.name, Date.now() + cooldownMs);
+		} finally {
+			clearTimeout(timer);
+		}
+	}
+	throw new Error(`${label}: all ${order.length} providers failed (${lastErr?.message || 'unknown'})`);
+}
+
+/**
+ * Like fetchFirst but resolves to `fallback` (default null) instead of
+ * throwing — for best-effort call sites where missing data is a designed
+ * state (metadata enrichment, place labels) rather than an error.
+ *
+ * @param {Provider[]} providers
+ * @param {object} [opts]  Same options as fetchFirst, plus `fallback`.
+ * @returns {Promise<any>} The first provider's parsed value, or `fallback`.
+ */
+export async function fetchFirstOrNull(providers, opts = {}) {
+	const { fallback = null, ...rest } = opts;
+	try {
+		return (await fetchFirst(providers, rest)).value;
+	} catch {
+		return fallback;
+	}
+}

@@ -9,17 +9,55 @@
 // Disabled cleanly when ZAUTH_API_KEY is unset — `instrument()` becomes a
 // no-op so unrelated environments don't pay any cost.
 //
-// Import from the main entry — `zauthProvider` is re-exported there. The
-// docs use `@zauthx402/sdk/middleware`, but Vercel's @vercel/nft fails to
-// bundle that subpath (conditional exports import/require split), so the
-// dist/middleware/index.js is missing in /var/task at runtime. The main
-// entry traces correctly.
+// The SDK is loaded lazily via a specifier neither esbuild nor @vercel/nft
+// can see (base64, same trick as scripts/fix-zauth-sdk-solana-esm.mjs).
+// Reason: this module sits on the _lib/http.js path, which every one of the
+// ~800 API routes inlines — a static `import '@zauthx402/sdk'` embedded the
+// SDK's viem/ox dependency tree (~2.7 MB of JS) into every route bundle,
+// which pushed Vercel's per-function packaging past the 45-minute build
+// timeout (deploys three-jo2b1vnto / three-bmb0n9nvt, 2026-07-03). With the
+// specifier hidden, the SDK ships in a lambda only if some other code there
+// pulls it in; when it is absent (or ZAUTH_API_KEY is unset) instrument()
+// stays a no-op — telemetry off, requests unaffected.
+//
+// When the SDK does load, import the main entry — `zauthProvider` is
+// re-exported there. The docs use `@zauthx402/sdk/middleware`, but that
+// subpath's conditional exports (import/require split) don't survive
+// bundling, so the main entry is the reliable one.
 
-import { zauthProvider, ZauthClient } from '@zauthx402/sdk';
 import { env } from './env.js';
 
 let cached;
 let _bootLogged = false;
+let _initPromise;
+
+// '@zauthx402/sdk' — kept out of source as a literal so static analyzers
+// (esbuild inlining, NFT tracing) cannot follow it.
+const SDK_SPECIFIER = atob('QHphdXRoeDQwMi9zZGs=');
+
+function initMiddleware() {
+	if (!_initPromise) {
+		_initPromise = (async () => {
+			let sdk = null;
+			try {
+				sdk = await import(SDK_SPECIFIER);
+			} catch (err) {
+				console.warn('[zauth] SDK not present in this deployment — telemetry disabled:', err?.message);
+			}
+			cached = sdk ? buildMiddleware(sdk) : null;
+		})();
+	}
+	return _initPromise;
+}
+
+/**
+ * Await the lazy SDK init (no-op resolve when ZAUTH_API_KEY is unset).
+ * For tests and warmup paths that need `instrument()` active immediately;
+ * production callers never need this — instrument() self-initializes.
+ */
+export function ensureReady() {
+	return env.ZAUTH_API_KEY ? initMiddleware() : Promise.resolve();
+}
 
 // The SDK submits telemetry with a fire-and-forget `fetch` it never hands back
 // a promise for, so on Vercel the function can freeze mid-POST and silently
@@ -84,7 +122,7 @@ function noteCollectorFailure(err) {
 const _clients = new Set();
 let _clientHooked = false;
 
-function trackZauthClients() {
+function trackZauthClients(ZauthClient) {
 	if (_clientHooked || typeof ZauthClient?.prototype?.queueEvent !== 'function') return;
 	_clientHooked = true;
 	const origQueueEvent = ZauthClient.prototype.queueEvent;
@@ -131,7 +169,7 @@ function resolveEnvironment() {
 	return env.VERCEL_ENV || 'development';
 }
 
-function buildMiddleware() {
+function buildMiddleware(sdk) {
 	const apiKey = env.ZAUTH_API_KEY;
 	if (!apiKey) {
 		if (env.ZAUTH_DEBUG === '1' && !_bootLogged) {
@@ -151,8 +189,8 @@ function buildMiddleware() {
 		const solKey = env.ZAUTH_SOLANA_PRIVATE_KEY || undefined;
 		const refundEnabled = Boolean(evmKey || solKey);
 
-		trackZauthClients();
-		const mw = zauthProvider(apiKey, {
+		trackZauthClients(sdk.ZauthClient);
+		const mw = sdk.zauthProvider(apiKey, {
 			environment: resolveEnvironment(),
 			shouldMonitor: shouldMonitorReq,
 			debug: env.ZAUTH_DEBUG === '1',
@@ -261,20 +299,17 @@ function shouldMonitorReq(req) {
 	return MONITORED_AGENTS.test(p);
 }
 
-function getMiddleware() {
-	if (cached === undefined) cached = buildMiddleware();
-	return cached;
-}
-
 /**
  * Diagnostic snapshot — does not invoke the middleware. Returns whether the
  * SDK initialized successfully and a key prefix safe to surface in responses.
+ * Kicks off the lazy SDK init so a status probe (or first request) warms it;
+ * `initialized` reads false until that async init settles.
  */
 export function status() {
 	const apiKey = env.ZAUTH_API_KEY;
-	const initialized = getMiddleware() != null;
+	if (apiKey && cached === undefined) void initMiddleware();
 	return {
-		initialized,
+		initialized: cached != null,
 		hasKey: Boolean(apiKey),
 		keyPrefix: apiKey ? apiKey.slice(0, 14) : null,
 		environment: resolveEnvironment(),
@@ -344,7 +379,17 @@ function shimRequest(req) {
  * @returns {boolean}
  */
 export function instrument(req, res) {
-	const mw = getMiddleware();
+	// Fast path: no key, no SDK load, no monitoring — the common case in every
+	// environment where zauth isn't configured.
+	if (!env.ZAUTH_API_KEY) return false;
+	// First keyed request kicks off the async SDK load; monitoring starts once
+	// it settles (requests during init go unmonitored, which telemetry can
+	// tolerate — request handling never waits on the import).
+	if (cached === undefined) {
+		void initMiddleware();
+		return false;
+	}
+	const mw = cached;
 	if (!mw) return false;
 	// Collector circuit breaker tripped: skip monitoring entirely (no POST, no
 	// drain await) until the cooldown elapses. Returning false means the caller
