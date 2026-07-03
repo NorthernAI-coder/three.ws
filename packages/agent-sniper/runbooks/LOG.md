@@ -33,9 +33,19 @@ what was recorded, and what's next. Pairs with [PLAN.md](PLAN.md).
 - 33 throwaway wallets generated (funder `GiE8Rv…`) — **pre-vanity**; will be replaced by
   vanity keypairs in Phase 2.
 
-**Open / next:**
-- ⚠️ Owner decision: trading-UI approach A (autonomous + agent-screen) vs B (scripted
-  manual UI). Recommended A. Blocks funding/trading phases.
-- Need a three.ws API key / session (`agents:write`) to import wallets / drive agent-screen.
-- Verify `WALLET_ENCRYPTION_KEY` decrypts a known agent before provisioning.
-- Then: Phase 1 avatars → Phase 2 vanity wallets → Phase 3 provision.
+**UI recon (owner directive: do EVERYTHING via the real three.ws UI, recorded).**
+- Traced the full human click-path in source — all core steps are UI-doable:
+  `/register` → `/create-agent` (avatar from gallery) → `/agent/{id}/edit` Wallet panel →
+  **arm at `/dashboard/sniper`** (full fields + stop-loss + Arm button; NOT `/oracle/arm`,
+  NOT the broken agent-edit "Alpha Hunt") → watch at `/agent-screen`/`/terminal` →
+  optional manual buy at `/terminal`.
+- **Honest gaps flagged to owner:** (1) **vanity wallets not UI-doable** — UI makes random
+  wallets, no key import; (2) **funding fan-out is external** (on-chain transfer from the
+  funder, not a three.ws click); (3) **Avaturn not in normal UI** (gallery/upload only).
+
+**Open / next (blocking, owner decisions):**
+- Vanity vs random UI wallets? (vanity ⇒ a non-UI import step).
+- Account: register a fresh three.ws account in-UI, or use the owner's login?
+- Then execution shifts to a **recorded single-agent UI dry-run** (register → create →
+  arm → watch) to prove the human-UI + continuous-recording flow before scaling to 33.
+- Retire the CLI-first framing of runbooks 01–03; keep as fallback only (owner-flagged).
