@@ -1,11 +1,51 @@
 {
-	"generated_at": "2026-07-03T16:30:47.376Z",
+	"generated_at": "2026-07-03T17:24:58.906Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-07-03",
+			"type": "launch",
+			"title": "Docs · Claim Your Wallet & Trader Card",
+			"summary": "Paste any Solana wallet for its on-chain pump.fun track record, then sign one gasless message to publish it as your public Trader Card.",
+			"link": "/docs/trader-card",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-07-03",
+			"type": "launch",
+			"title": "Docs · Competitive & Pooled Trading",
+			"summary": "Arena tournaments with on-chain $THREE payouts, the 3D Sniper Arena, the Live Trading Theater and its one-click mirror, backable Vaults, and consensus-driven Trading Swarms.",
+			"link": "/docs/trading-arenas",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-07-03",
+			"type": "launch",
+			"title": "Docs · Custody You Can Verify",
+			"summary": "Spend limits, the freeze switch, Merkle proof-of-custody with in-browser verification, and social recovery & inheritance for agent wallets.",
+			"link": "/docs/custody",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-07-03",
+			"type": "launch",
+			"title": "Docs · The Trading Surfaces",
+			"summary": "The five-page solo trading stack — Coin Radar, Coin Intelligence, Live Trade Feed, Watchlist, and the Mission Control cockpit — where the numbers come from and how the surfaces chain together.",
+			"link": "/docs/trading-surfaces",
+			"tags": [
+				"launch"
+			]
+		},
 		{
 			"date": "2026-07-03",
 			"type": "update",
@@ -44,6 +84,16 @@
 			"link": "/theater",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-07-03",
+			"type": "update",
+			"title": "Custody and the Trader Card, explained end to end",
+			"summary": "Two more guides for the trust layer. Custody You Can Verify walks through the four guarantees on every agent wallet — spend caps enforced before signing, a freeze switch that never blocks your own withdrawal, the six-hourly Merkle proof-of-custody you can re-verify in your own browser, and social recovery with a dead-man’s-switch inheritance flow. Claim Your Wallet explains how any Solana wallet’s pump.fun track record is computed from on-chain aggregates and how one gasless signature publishes it as your shareable Trader Card.",
+			"link": "/docs/custody",
+			"tags": [
+				"docs"
 			]
 		},
 		{
@@ -226,6 +276,16 @@
 			"link": "/theater",
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-03",
+			"type": "update",
+			"title": "The trading stack is now fully documented",
+			"summary": "Two new guides map the whole trading experience. Trading Surfaces covers the five solo pages — Coin Radar, Coin Intelligence, the Live Trade Feed, your Watchlist, and the keyboard-first Mission Control cockpit — including where every number comes from and how the pages chain together. Competitive & Pooled Trading covers the Arena tournaments with real on-chain $THREE payouts, the 3D Sniper Arena floor, the Live Trading Theater with one-click copy trading, backable Vaults, and consensus-driven Trading Swarms. Both are written for someone who has never opened the pages before.",
+			"link": "/docs/trading-surfaces",
+			"tags": [
+				"docs"
 			]
 		},
 		{

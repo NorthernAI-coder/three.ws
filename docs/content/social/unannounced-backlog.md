@@ -4,7 +4,7 @@ The gap list: features that are **shipped** but have **never had an X post** on 
 
 **Method.** Cross-referenced four sources against every original @trythreews post (138 tweets scraped 2026-07-03):
 1. `data/changelog.json` — 635 `feature`-tagged entries, 2026-04-15 → 2026-07-03
-2. `data/pages.json` — 263 public pages
+2. `data/pages.json` — 374 public pages (per `npm run build:pages`)
 3. `STRUCTURE.md` — the full surface map (31 MCP servers, 19 published `@three-ws/*` SDKs)
 4. `docs/` + package READMEs — the documentation each post must link as proof
 
@@ -35,27 +35,27 @@ A feature counts as "announced" only if a tweet actually shows or names it — a
 | Copy Trading (non-custodial) | Mirror proven traders on your own guardrails; Oracle gate; Telegram alerts | `/leaderboard` | [packages/copy-mcp/README.md](../../../packages/copy-mcp/README.md), [packages/strategies/README.md](../../../packages/strategies/README.md) |
 | Trader Leaderboard | Verified track records — self-dealing excluded | `/leaderboard` | — |
 | Smart Money Radar | Follow the wallets that actually win on pump.fun | `/smart-money` | [packages/intel/README.md](../../../packages/intel/README.md) |
-| Coin Radar | Every launch watched, scored, classified live | `/radar` | — |
-| Mission Control | Real-time pump.fun trading terminal, live candlesticks | `/terminal` | — |
-| Trades Terminal | Candlesticks, funder bubblemap, live tape per launch | coin pages | — |
-| Live Trade Feed | Every notable pump.fun win, one public stream | `/trades` | — |
-| Watchlist | Save any coin; live Oracle scores; tier-upgrade alerts | `/watchlist` | — |
-| Coin Intelligence | Per-signal win-rates explain every oracle call | `/coin-intel` | [docs/roadmap/coin-intelligence-engine.md](../../roadmap/coin-intelligence-engine.md) |
+| Coin Radar | Every launch watched, scored, classified live | `/radar` | [docs/trading-surfaces.md](../../trading-surfaces.md) |
+| Mission Control | Keyboard-first pump.fun cockpit — j/k/b/s, express mode, guarded execution | `/terminal` | [docs/trading-surfaces.md](../../trading-surfaces.md) |
+| Trades deep-dive | Candlesticks, funder bubblemap, live tape per coin (inside /trades) | `/trades` | [docs/trading-surfaces.md](../../trading-surfaces.md) |
+| Live Trade Feed | Every notable pump.fun win, one public stream | `/trades` | [docs/trading-surfaces.md](../../trading-surfaces.md) |
+| Watchlist | Save any coin; live Oracle scores; tier-upgrade alerts; shareable ?add= URL | `/watchlist` | [docs/trading-surfaces.md](../../trading-surfaces.md) |
+| Coin Intelligence | The engine's notebook — verdicts, learned weights, funder bubble maps | `/coin-intel` | [docs/trading-surfaces.md](../../trading-surfaces.md) |
 | Signal Marketplace | Traders sell paid alpha; agents pay per signal, auto-mirror | `/signals` | [packages/signals-mcp/README.md](../../../packages/signals-mcp/README.md) |
-| The Arena — PvP tournaments | Live trading tournaments, $THREE prizes | `/arena` | — |
-| Sniper Arena (3D) | Watch AI agents trade pump.fun on a 3D floor | `/play/arena` | — |
-| Trading Swarms | Pool capital with other agents, split profits | changelog 2026-06-26 | — |
-| Back-an-Agent Vaults | Copy-trade a verified agent you can watch | `/vaults` | — |
+| The Arena — PvP tournaments | Tournaments with real $THREE payouts and an on-chain attested podium | `/arena` | [docs/trading-arenas.md](../../trading-arenas.md) |
+| Sniper Arena (3D) | Walk a 3D floor of autonomous agents trading live | `/play/arena` | [docs/trading-arenas.md](../../trading-arenas.md) |
+| Trading Swarms | Reputation-weighted consensus trades pooled SOL | `/swarms` | [docs/trading-arenas.md](../../trading-arenas.md) |
+| Back-an-Agent Vaults | Back a verified trader with USDC — own vault wallet, fee on gains only | `/vaults` | [docs/trading-arenas.md](../../trading-arenas.md) |
 | Strategy Lab | Backtest Oracle strategies before deploying | `/strategy-lab` | — |
 | Strategy Objects | Ownable, forkable strategies you equip | `/strategies` | [packages/strategies/README.md](../../../packages/strategies/README.md) |
 | Programmable orders | Limit, stop, trailing, DCA, TWAP, conditional | changelog 2026-06-23 | [packages/strategies/README.md](../../../packages/strategies/README.md) |
 | Pre-Launch Radar | Pre-arm a snipe at block-zero, on signal | changelog 2026-06-23 | — |
 | Portfolio Command | Net worth, cost basis, P&L attribution, risk | changelog 2026-06-23 | [packages/portfolio-mcp/README.md](../../../packages/portfolio-mcp/README.md) |
 | Conversational Trading Copilot | Talk to your agent and it trades | changelog 2026-06-23 | — |
-| Live Trading Theater + copy-a-trader | Watch traders live, copy one from the theater; "made it on" breakdown | `/theater` | — |
+| Live Trading Theater + copy-a-trader | Avatars perform their real on-chain fills; one-click custodial mirror | `/theater` | [docs/trading-arenas.md](../../trading-arenas.md) |
 | Autonomous trading experiment | ~10 SOL, take-initials-at-2×, always keeps a moon bag; every decision journaled | homepage widget | [docs/trading-experiment.md](../../trading-experiment.md) |
 | Alpha Co-pilot | Agent reads a launch in character, speaks its verdict | `/alpha-copilot` | — |
-| Claim Your Wallet / Trader Card | Verified pump.fun track record in seconds; shareable card | `/claim-wallet` | — |
+| Claim Your Wallet / Trader Card | Paste a wallet → on-chain track record; sign once (gasless) → public card | `/claim-wallet` | [docs/trader-card.md](../../trader-card.md) |
 | GMGN smart-money integration | Smart-money directory feeds copy trading | `/gmgn` | — |
 | AIXBT market intelligence | Agent-readable market intel | changelog 2026-06-07 | — |
 | Market Maker capability | Watch a market-maker defend a coin's floor | `/dashboard/capabilities` | [docs/live-agent-tasks/16-market-maker-floor-defense.md](../../live-agent-tasks/16-market-maker-floor-defense.md) |
@@ -109,9 +109,9 @@ A feature counts as "announced" only if a tweet actually shows or names it — a
 | Feature | Hook | Live | Docs |
 | --- | --- | --- | --- |
 | Plain-English spend rules / Wallet Intents | Tell the wallet what to do — in plain language | changelog 2026-06-23 | [packages/agent-guards/README.md](../../../packages/agent-guards/README.md), [docs/financial-controls.md](../../financial-controls.md) |
-| Self-defending wallet + freeze | Defends itself in real time; freeze in one tap | changelog 2026-06-23 | [docs/financial-controls.md](../../financial-controls.md) |
-| Proof-of-Custody + Custody Integrity | Verify custody on-chain yourself; audit trail; withdraw any time | `/proof`, `/integrity` | — (public doc; internal exists) |
-| Social recovery & inheritance | A funded agent that never dies with its owner | `/guardian` | — |
+| Self-defending wallet + freeze | Defends itself in real time; freeze never blocks owner withdrawal | changelog 2026-06-23 | [docs/financial-controls.md](../../financial-controls.md), [docs/custody.md](../../custody.md) |
+| Proof-of-Custody + Custody Integrity | Merkle attestation every 6h, anchored on-chain, re-verified in your browser | `/proof`, `/integrity` | [docs/custody.md](../../custody.md) |
+| Social recovery & inheritance | Guardians, 48h time-lock, dead-man's switch — keys never move | `/guardian` | [docs/custody.md](../../custody.md) |
 | Embodied Finance | Avatars wear their wallet — nameplate, regalia, wealth-tier level-ups | changelog 2026-06-23/24 | — |
 | Vanity economy | Grind-bounty market, proof-of-grind gallery, provably-trustless grinding, EVM too | `/vanity/bounties`, `/vanity/gallery`, `/evm-wallet` | [docs/PROTOCOL-vanity.md](../../PROTOCOL-vanity.md), [tutorials/mine-vanity-address.md](../../tutorials/mine-vanity-address.md), [packages/vanity-mcp/README.md](../../../packages/vanity-mcp/README.md) |
 | Gasless checkout | Buy skills and assets with no SOL | changelog 2026-06-18 | — |
@@ -281,7 +281,7 @@ Every format show has its own spec in [docs/live-agent-tasks/](../../live-agent-
 
 - **31 MCP servers** in the official registry (tweets have only ever claimed 1–2) — `STRUCTURE.md`
 - **19 published zero-dependency SDKs**, 216 green tests — `STRUCTURE.md` SDK table
-- **263 public pages** — `data/pages.json`
+- **374 public pages** — `npm run build:pages` output over `data/pages.json`
 - **635 feature entries** shipped since April 15 — `data/changelog.json`
 - **40+ tutorials** — `docs/tutorials/`
 - **60 real x402 payments per minute** — changelog 2026-06-27 (`[SOURCE: re-verify live at /agent-economy-volume before posting]`)
@@ -292,11 +292,11 @@ Every format show has its own spec in [docs/live-agent-tasks/](../../live-agent-
 
 Per CLAUDE.md, a feature isn't done (or announceable — our posts must link proof a stranger can land on) without a doc. Rows marked **—** above. Highest-priority given the posting order:
 
-1. **Mission Control / Trades Terminal / Coin Radar / Live Trade Feed / Watchlist** — the whole trading-surface cluster shares zero reader-facing docs; one `docs/trading-surfaces.md` could cover all five.
-2. **Arena + Sniper Arena + Theater + Vaults + Swarms** — competitive/social trading cluster; same treatment.
-3. **Claim Your Wallet / Trader Card** — needed for the copy-trading post.
+1. ~~Mission Control / Coin Radar / Live Trade Feed / Watchlist / Coin Intelligence~~ — **done**: [docs/trading-surfaces.md](../../trading-surfaces.md).
+2. ~~Arena + Sniper Arena + Theater + Vaults + Swarms~~ — **done**: [docs/trading-arenas.md](../../trading-arenas.md).
+3. ~~Claim Your Wallet / Trader Card~~ — **done**: [docs/trader-card.md](../../trader-card.md).
 4. **Instant Agent Genesis, Agent Genome, World Lines** — each is a headline feature with no doc at all.
-5. **Proof-of-Custody / Guardian recovery / Embodied Finance** — custody story needs a public doc (internal `AGENT-WALLET-CUSTODY.md` exists but isn't linkable).
+5. ~~Proof-of-Custody / Guardian recovery~~ — **done**: [docs/custody.md](../../custody.md). **Embodied Finance** still needs its doc.
 6. **Pump Visualizer, Memetic Launcher, Coin Autopilot** — launch-stack gaps.
 7. **Gaussian splats, Scene Capture, Talking Avatar Video, Cinematic FX, Game-Ready export** — creation-pipeline gaps (Game-Ready has only an improvement plan).
 8. **Status page, Solana Blinks, Copy-to-AI docs, Credits, Gasless checkout** — small, fast wins.

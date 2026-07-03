@@ -597,7 +597,7 @@ function ctaHtml(wallet, data) {
 		return `<div class="cw-cta claimed">
 			<div class="cw-cta-body">
 				<h3>Your Trader Card is live</h3>
-				<p>This wallet is verified and linked to your account. Share your record — followers can copy your entries from their own wallet, and you earn a performance fee when they profit.</p>
+				<p>This wallet is verified and linked to your account. Share your record — every number on it traces to an on-chain trade, so anyone you send it to can verify it themselves.</p>
 			</div>
 			<div class="cw-cta-actions">
 				<a class="cw-action primary" href="${esc(traderUrl)}">View Trader Card →</a>
@@ -606,8 +606,8 @@ function ctaHtml(wallet, data) {
 		</div>`;
 	}
 	const lead = STATE.signedIn
-		? `<h3>This is your record — claim it</h3><p>Sign a free, gasless message with this wallet to prove you control it and publish it as your official three.ws Trader Card. Provable, shareable, and open for followers to copy.</p>`
-		: `<h3>Own this track record</h3><p>Sign in, then prove control of this wallet to publish it as your official three.ws Trader Card. Followers can copy your entries — and you earn a performance fee on their profits.</p>`;
+		? `<h3>This is your record — claim it</h3><p>Sign a free, gasless message with this wallet to prove you control it and publish it as your official three.ws Trader Card. Provable, shareable, and verifiable on-chain by anyone.</p>`
+		: `<h3>Own this track record</h3><p>Sign in, then prove control of this wallet to publish it as your official three.ws Trader Card — a public, on-chain-verifiable record anyone can check.</p>`;
 	const action = STATE.signedIn
 		? `<button type="button" class="cw-action primary" id="cwClaim2">Claim this wallet →</button>`
 		: `<a class="cw-action primary" href="/login?next=${encodeURIComponent(`/claim-wallet?wallet=${wallet}`)}">Sign in to claim →</a>`;

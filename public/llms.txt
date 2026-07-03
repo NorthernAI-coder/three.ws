@@ -252,6 +252,10 @@ Docs, tutorials, and reference.
 - [Glossary](https://three.ws/glossary): Plain-English definitions for the crypto and agent terms used across three.ws — no jargon required to get started.
 - [Support](https://three.ws/support): Get help with three.ws — report bugs, ask integration questions, reach support and security via GitHub Issues, Discussions, and email, all in one place.
 - [Building 3D AI Agents Live](https://three.ws/events/build-3d-agents-live): A live build session: from a single prompt to an interactive 3D AI agent embedded in any app, in minutes — then a live Q&A. Hosted by three.ws, in partnership with IBM.
+- [Docs · The Trading Surfaces](https://three.ws/docs/trading-surfaces): The five-page solo trading stack — Coin Radar, Coin Intelligence, Live Trade Feed, Watchlist, and the Mission Control cockpit — where the numbers come from and how the surfaces chain together.
+- [Docs · Competitive & Pooled Trading](https://three.ws/docs/trading-arenas): Arena tournaments with on-chain $THREE payouts, the 3D Sniper Arena, the Live Trading Theater and its one-click mirror, backable Vaults, and consensus-driven Trading Swarms.
+- [Docs · Custody You Can Verify](https://three.ws/docs/custody): Spend limits, the freeze switch, Merkle proof-of-custody with in-browser verification, and social recovery & inheritance for agent wallets.
+- [Docs · Claim Your Wallet & Trader Card](https://three.ws/docs/trader-card): Paste any Solana wallet for its on-chain pump.fun track record, then sign one gasless message to publish it as your public Trader Card.
 
 ## Blog
 

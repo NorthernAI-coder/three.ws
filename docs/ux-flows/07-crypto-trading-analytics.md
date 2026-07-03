@@ -142,7 +142,7 @@ coin-intel, pump-visualizer and pump-live — adding a coin on any surface shows
   4. System: detects tier upgrades vs `wl_last_tiers` and surfaces changes.
   5. (optional) Toggle alerts (`#wl-alerts`, `wl_alerts_on`).
   6. (optional) Clear list (`#wl-clear`).
-  7. (optional) Click a card → full coin profile (`/launches/<mint>`).
+  7. (optional) Click a card → the coin's Oracle page (`/oracle/coin/<mint>`).
 - **Decision points / branches:** empty list vs populated; tier-upgrade highlighting; alerts on/off; cross-tab storage sync.
 - **External calls / dependencies:** `GET /api/pump/coin` (one per watched coin, via coin-status-card).
 - **Success state:** private tracked-coin board with live status cards, tier-change detection, deep links back to profiles.
