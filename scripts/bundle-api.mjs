@@ -170,7 +170,15 @@ function esbuildArgs(files) {
 		`--outbase=${API_DIR}`,
 		'--allow-overwrite',
 		'--tree-shaking=true',
-		'--minify=false',
+		// Whitespace+syntax minify cuts total function output from 2.33 GB to
+		// 1.55 GB (-33%, measured on all 803 routes) — that volume is what Vercel's
+		// post-build packaging phase chews on, and it's what pushed cold builds past
+		// the 45-min BUILD_EXCEEDED_MAXIMUM_TIME ceiling on the new team (2026-07-03,
+		// every production deploy dead, site down). Identifiers are deliberately NOT
+		// minified: stack traces stay readable and code relying on function/class
+		// names keeps working.
+		'--minify-whitespace',
+		'--minify-syntax',
 		'--log-level=warning',
 		'--log-override:unsupported-dynamic-import=silent',
 		'--log-override:duplicate-object-key=silent',
