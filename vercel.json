@@ -4940,6 +4940,10 @@
 		{
 			"path": "/api/cron/x402-ring-leak-scan",
 			"schedule": "*/10 * * * *"
+		},
+		{
+			"path": "/api/cron/wallets-leak-scan",
+			"schedule": "*/15 * * * *"
 		}
 	]
 }

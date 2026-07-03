@@ -40,6 +40,8 @@ import {
 	CircleGeometry,
 	RingGeometry,
 	CylinderGeometry,
+	BoxGeometry,
+	PlaneGeometry,
 	MeshStandardMaterial,
 	MeshBasicMaterial,
 	Mesh,
@@ -66,8 +68,19 @@ const REACTIONS = {
 	pay:    ['av-cheering', 'wave'],
 	loss:   ['defeated', 'reaction'],
 	taunt:  ['taunt', 'reaction'],
+	guard:  ['reaction', 'defeated'], // a safety refusal — the trader waves the bad trade off
 };
 const ALL_REACTION_CLIPS = [...new Set(Object.values(REACTIONS).flat())];
+
+// The colour a trader's monitor flashes for each event — green on a fill, violet
+// on a verify/pay, amber when a safety rule refuses a buy. The resting glow is a
+// dim blue so a room of idle desks still reads as "screens on, market open".
+const SCREEN_IDLE = 0x2a3550;
+const SCREEN_FLASH = {
+	buy: 0x22c55e, win: 0x22c55e, launch: 0x22c55e,
+	verify: 0x8b5cf6, pay: 0x8b5cf6,
+	loss: 0xf59e0b, guard: 0xf59e0b,
+};
 
 // Clips every performer registers. `idle` loops as the resting state; the rest
 // are one-shots loaded lazily on first reaction so startup only fetches idle.
@@ -124,7 +137,22 @@ function arcSlot(index, total) {
 	return { x, z, scale };
 }
 
-export function createStage({ canvas, overlay, onSelect, reducedMotion = false }) {
+/**
+ * Dealing-room layout: even rows of workstations facing the camera, like desks in
+ * a trading pit. Partial last row is centred. Returns { x, z, scale, row }.
+ */
+function deskSlot(index, total) {
+	const perRow = total <= 6 ? 3 : total <= 12 ? 4 : 5;
+	const row = Math.floor(index / perRow);
+	const inRow = index % perRow;
+	const rowItems = Math.min(perRow, total - row * perRow);
+	const x = (inRow - (rowItems - 1) / 2) * 2.9;
+	const z = -1 - row * 3.0; // rows recede from the camera
+	const scale = Math.max(0.9, 1 - row * 0.03);
+	return { x, z, scale, row };
+}
+
+export function createStage({ canvas, overlay, onSelect, reducedMotion = false, environmentUrl = null }) {
 	const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
 	renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 	renderer.outputColorSpace = SRGBColorSpace;
@@ -132,12 +160,14 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false }
 	renderer.toneMappingExposure = 1.12;
 
 	const scene = new Scene();
-	scene.fog = new Fog(0x05050a, 14, 38);
+	scene.fog = new Fog(0x05050a, 16, 46);
 
-	const CAM_BASE_Z = 9.4;
+	// A dealing-room vantage: raised and pulled back so several rows of desks read
+	// as a room, not a line-up. Looks slightly down into the pit.
+	const CAM_BASE_Z = 11.6;
 	const camera = new PerspectiveCamera(42, 1, 0.1, 200);
-	camera.position.set(0, 2.35, CAM_BASE_Z);
-	camera.lookAt(0, 1.25, -2);
+	camera.position.set(0, 3.1, CAM_BASE_Z);
+	camera.lookAt(0, 1.05, -4);
 
 	// Lighting — a cool key from above the audience plus a warm rim so avatars
 	// read against the near-black backdrop. Violet accent matches the finance tokens.
@@ -170,7 +200,36 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false }
 	ring.position.y = 0.01;
 	scene.add(ring);
 
-	// Group that holds all performers so we can gently auto-orbit the whole cast.
+	// Procedural dealing-room shell — a big back-wall board and side glow so the
+	// desks sit in a room, not a void. A supplied `environmentUrl` GLB drops in
+	// behind the desks as a richer backdrop; the desks themselves are always ours
+	// so every workstation lands at a known, data-driven spot.
+	const board = new Mesh(
+		new PlaneGeometry(22, 6),
+		new MeshStandardMaterial({ color: 0x07070e, emissive: new Color(0x160f2e), emissiveIntensity: 0.7, roughness: 0.9, metalness: 0.1 }),
+	);
+	board.position.set(0, 3.4, -16);
+	scene.add(board);
+	const boardEdge = new Mesh(
+		new PlaneGeometry(22, 0.08),
+		new MeshBasicMaterial({ color: 0x8b5cf6, transparent: true, opacity: 0.5 }),
+	);
+	boardEdge.position.set(0, 0.9, -15.98);
+	scene.add(boardEdge);
+
+	if (environmentUrl) {
+		gltfLoader(renderer)
+			.loadAsync(environmentUrl)
+			.then((gltf) => { if (!disposed) { gltf.scene.position.set(0, 0, 0); scene.add(gltf.scene); } })
+			.catch((err) => log.warn('[theater] environment load failed', environmentUrl, err?.message));
+	}
+
+	// Shared desk material — one instance across every workstation (never disposed
+	// per-performer, only at teardown).
+	const deskMat = new MeshStandardMaterial({ color: 0x14141f, roughness: 0.72, metalness: 0.3 });
+
+	// Group that holds all performers + their desks so a gentle sway moves the room
+	// as one (a full spin would look wrong for a room; this is a subtle drift).
 	const cast = new Group();
 	scene.add(cast);
 

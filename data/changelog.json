@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-07-03",
+			"title": "Every platform wallet is now watched for leaks — and arming a sniper no longer moves money",
+			"summary": "Two safety upgrades to how the platform handles money. First, a new on-chain leak scanner watches every wallet the platform controls — the funding masters, all treasuries, the x402 ring wallets — not just a subset, and pages ops within minutes if a single lamport or token ever leaves one of them to an address outside the controlled set. Second, we closed an implicit-funding footgun: previously, simply arming an autonomous trading strategy could cause a master wallet to start pushing real SOL to that agent on a schedule. Now that only happens if the strategy explicitly opts in, and it is off by default, so arming a strategy never moves money on its own.",
+			"tags": [
+				"security",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-07-03",
 			"title": "Autonomous trading experiment — take initials, hold a moon bag, never dump the whole bag",
 			"summary": "You can now give one agent a real budget and let it trade newer pump.fun launches under a disciplined, documented risk policy. It only buys projects between $10k and $100k market cap, never buys pump.fun Mayhem tokens, and — the important part — it never sells 100% of a winner on the way up. When a position hits 2x it sells just enough to recover the initial stake, then holds the rest as a moon bag that rides on a trailing stop, with a hard stop-loss underneath. Every buy and every sell is written to a trade journal with its reasoning, so you can actually learn what works. Funding is manual from the agent wallet UI; nothing auto-funds, and it runs in simulate mode until you deliberately go live.",
 			"tags": [
