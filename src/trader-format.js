@@ -113,4 +113,21 @@ export function verifiedBadge(verified, label = 'Verified track record') {
 	return `<span class="lb-verified" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${CHECK_SVG}</span>`;
 }
 
+/**
+ * Signature-coin chip — the token a trader made (or lost) the most on. `coin` is a
+ * `top_coin` object from the trader-stats truth layer ({ mint, symbol, name,
+ * pnl_sol, roi_pct, … }). Renders the ticker + signed realized P&L, tinted by
+ * direction. Returns '' when there is nothing to show, so callers can drop it in
+ * unconditionally. `compact:true` omits the "made on" lead-in for tight rows.
+ */
+export function signatureCoin(coin, { compact = false } = {}) {
+	if (!coin || (!coin.symbol && !coin.name && !coin.mint)) return '';
+	const label = escapeHtml(coin.symbol || coin.name || shortAddr(coin.mint, 4, 4));
+	const cls = pnlClass(coin.pnl_sol);
+	const pnl = fmtSol(coin.pnl_sol);
+	const lead = compact ? '' : '<span class="sig-coin-lead">made on</span>';
+	const verb = coin.pnl_sol >= 0 ? 'best coin' : 'biggest hit';
+	return `<span class="sig-coin ${cls}" title="${verb}: ${label} · ${escapeHtml(pnl)} realized${coin.roi_pct != null ? ` · ${coin.roi_pct > 0 ? '+' : ''}${coin.roi_pct}% ROI` : ''}">${lead}<span class="sig-coin-sym">${label}</span><span class="sig-coin-pnl">${escapeHtml(pnl)}</span></span>`;
+}
+
 export { SOL };

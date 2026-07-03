@@ -9,7 +9,7 @@
 
 import {
 	escapeHtml, fmtSol, fmtUsd, fmtPct, pnlClass, shortAddr, holdTime, relTime,
-	identicon, verifiedBadge,
+	identicon, verifiedBadge, signatureCoin,
 } from './trader-format.js';
 import { walletChipHTML, wireWalletChips } from './shared/agent-wallet-chip.js';
 import { updateValue, flipReorder, setLiveDot } from './ui-juice.js';
@@ -106,7 +106,7 @@ function rowMarkup(r) {
 				<img class="lb-avatar" src="${escapeHtml(img)}" alt="" loading="lazy" onerror="this.src='${identicon(r.agent_id || r.wallet || '?')}'" />
 				<span class="lb-trader-meta">
 					<span class="lb-trader-name"><span class="lb-trader-nm">${escapeHtml(r.agent_name || 'Unnamed agent')}</span>${verifiedBadge(r.verified)}</span>
-					<span class="lb-trader-sub">${r.wallet ? walletChipHTML(r, { isOwner: false, showPending: false, link: false }) : escapeHtml(shortAddr(r.wallet))} · ${r.unique_coins} coins${r.copiers ? ` · <span class="lb-copiers">${r.copiers} copying</span>` : ''}</span>
+					<span class="lb-trader-sub">${r.wallet ? walletChipHTML(r, { isOwner: false, showPending: false, link: false }) : escapeHtml(shortAddr(r.wallet))} · ${r.unique_coins} coins${r.copiers ? ` · <span class="lb-copiers">${r.copiers} copying</span>` : ''}${r.top_coin ? ` · ${signatureCoin(r.top_coin, { compact: true })}` : ''}</span>
 				</span>
 			</span>
 			<span class="lb-num">
@@ -261,6 +261,49 @@ function renderSummary(data) {
 	setSummaryNum($('#lb-sum-top'), top ? top.realized_pnl_sol : null, fmtSol);
 }
 
+// --- Most Profitable Trader spotlight ----------------------------------------
+// A hero card for the single most profitable provable agent in the window —
+// avatar, realized P&L, and the coin they made it on. Only shown for real agent
+// records with a positive realized P&L; hidden in the live-fallback mode (those
+// external wallets have no three.ws profile to spotlight) and when nobody is up.
+const WINDOW_LABEL = { '24h': '24h', '7d': '7d', '30d': '30d', all: 'all-time' };
+
+function renderSpotlight(data) {
+	const el = document.getElementById('lb-spotlight');
+	if (!el) return;
+	const agents = data.leaderboard || [];
+	const top = [...agents]
+		.filter((a) => a.realized_pnl_sol > 0)
+		.sort((a, b) => b.realized_pnl_sol - a.realized_pnl_sol)[0];
+	if (!top) { el.hidden = true; el.innerHTML = ''; return; }
+
+	const img = top.image || identicon(top.agent_id || top.wallet || top.agent_name || '?');
+	const href = `/trader/${encodeURIComponent(top.agent_id)}`;
+	const name = escapeHtml(top.agent_name || 'Unnamed agent');
+	const usd = top.realized_pnl_usd != null ? ` · ${fmtUsd(top.realized_pnl_usd)}` : '';
+	const coin = top.top_coin
+		? `<div class="lb-spot-coin"><span class="lb-spot-coin-lead">Made it on</span> ${signatureCoin(top.top_coin)}</div>`
+		: '';
+	const label = `Most profitable trader: ${top.agent_name || 'agent'}, ${fmtSol(top.realized_pnl_sol)} realized${top.top_coin && top.top_coin.symbol ? `, made on ${top.top_coin.symbol}` : ''}`;
+	el.innerHTML = `
+		<a class="lb-spot-card" href="${href}" aria-label="${escapeHtml(label)}">
+			<div class="lb-spot-tag"><span class="lb-spot-crown" aria-hidden="true">♛</span> Most profitable trader · ${escapeHtml(WINDOW_LABEL[state.window] || state.window)}</div>
+			<div class="lb-spot-body">
+				<img class="lb-spot-av" src="${escapeHtml(img)}" alt="" loading="lazy" onerror="this.src='${identicon(top.agent_id || '?')}'" />
+				<div class="lb-spot-main">
+					<div class="lb-spot-name">${name}${verifiedBadge(top.verified)}</div>
+					${coin}
+				</div>
+				<div class="lb-spot-pnl">
+					<div class="lb-spot-pnl-val ${pnlClass(top.realized_pnl_sol)}">${fmtSol(top.realized_pnl_sol)}</div>
+					<div class="lb-spot-pnl-sub">${fmtPct(top.win_rate * 100)} win rate${usd}</div>
+				</div>
+				<span class="lb-spot-cta">Track record →</span>
+			</div>
+		</a>`;
+	el.hidden = false;
+}
+
 function renderTicker(trades) {
 	const el = $('#lb-ticker');
 	// No internal closes (e.g. while the live fallback board is showing) — hide the
@@ -353,6 +396,7 @@ async function load() {
 		if (!res.ok) throw new Error(`HTTP ${res.status}`);
 		const data = await res.json();
 		renderSummary(data);
+		renderSpotlight(data);
 		renderBoard(data);
 		renderTicker(data.trades);
 		firstLoad = false;
