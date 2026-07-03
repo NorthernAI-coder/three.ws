@@ -227,14 +227,17 @@ async function probeX402() {
 	// live as a dashboard field, so a fail-closed guard (or a deliberate pause) is
 	// visible here instead of only as recurring cron error logs. checkRingInvariants
 	// is a pure env read (no I/O); no key material is exposed, only flag names.
+	// `paused` reflects the existing kill switch (X402_AUTONOMOUS_ENABLED=false),
+	// which the loop honors before the guard check — a deliberate pause reads as
+	// paused here, not as a violation.
 	try {
 		const { checkRingInvariants } = await import('./_lib/x402/ring-allowlist.js');
 		const inv = checkRingInvariants();
-		const paused = process.env.X402_RING_PAUSED === 'true';
+		const paused = process.env.X402_AUTONOMOUS_ENABLED === 'false';
 		result.ring = {
 			spend_enabled: inv.ok && !paused,
 			paused,
-			violations: inv.violations.map((v) => v.flag),
+			violations: paused ? [] : inv.violations.map((v) => v.flag),
 		};
 	} catch {
 		result.ring = { spend_enabled: false, status: 'unavailable' };

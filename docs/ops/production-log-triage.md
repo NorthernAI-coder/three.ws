@@ -84,17 +84,29 @@ guard env violated:
 ## 🟡 `[x402-audit] insert failed … db query exceeded 3000ms deadline`
 
 - **Source:** [api/_lib/x402/audit-log.js](../../api/_lib/x402/audit-log.js) `logPaymentEvent`.
-- **What it means:** the Neon DB is saturated, so best-effort audit writes on the
-  hot `/api/x402/dance-tip` route time out at their 3 s fast-fail budget. This is
-  **fire-and-forget** — the payment was already decided and the response already
-  sent (the accompanying `402` is the normal x402 challenge, not a failure). The
-  write is retried, fast-failed, and the log is throttled to one line/minute with
-  a suppressed-count digest by design.
-- **Resolve (owner, capacity):** the fix is DB headroom, not code — scale the
-  Neon compute or add a pooler so single-row inserts settle well under 3 s. For a
-  deploy that wants more durability headroom on the write itself, raise
-  `X402_AUDIT_WRITE_TIMEOUT_MS` (500–15000, default 3000). Losing these rows loses
-  only telemetry, never a payment.
+- **What it means:** the Neon DB is saturated, so a best-effort audit write timed
+  out at its 3 s fast-fail budget. This is **fire-and-forget** — the payment was
+  already decided and the response already sent (the accompanying `402` is the
+  normal x402 challenge, not a failure). The log is throttled to one line/minute
+  with a suppressed-count digest by design.
+- **Amplification is now fixed in code.** Audit writes no longer fire one Neon
+  insert per request. `logPaymentEvent` buffers each event to a Redis list and a
+  once-a-minute batch flusher (`flushAuditBuffer`, drained by
+  [api/cron/flush-usage-events.js](../../api/cron/flush-usage-events.js) and the
+  QStash job) drains them as **one multi-row INSERT** — the same buffer→flush path
+  usage events use. So a slow-DB spell no longer self-amplifies into a storm of
+  concurrent single-row writes; this line now appears only if the batched flush
+  itself hits a genuinely down Neon, and only when Redis is also absent does it
+  fall back to the old bounded direct insert. A retention sweep in
+  [api/cron/db-retention.js](../../api/cron/db-retention.js) also keeps the ledger
+  trimmed (`X402_AUDIT_RETENTION_DAYS`, default 90) so the dashboard aggregates
+  that scan it stay fast.
+- **Resolve (owner, capacity):** the root cause is still DB headroom — scale the
+  Neon compute or add a pooler so writes settle quickly. For more durability
+  headroom on the direct-insert fallback, raise `X402_AUDIT_WRITE_TIMEOUT_MS`
+  (500–15000, default 3000). Losing these rows loses only telemetry, never a
+  payment. Ring spend status (live / paused / guard violations) is now also
+  visible in `/api/healthz` under `x402.ring`.
 
 ---
 

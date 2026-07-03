@@ -24,7 +24,6 @@ const RING_VARS = [
 	'X402_FACILITATOR_URL_SOLANA', 'X402_FACILITATOR_URL', 'PUBLIC_APP_ORIGIN',
 	'X402_SEED_SOLANA_SECRET_BASE58', 'X402_AGENT_SOLANA_SECRET_BASE58',
 	'X402_PAY_TO_SOLANA', 'X402_FEE_PAYER_SOLANA', 'X402_SELF_FACILITATOR_PAYTO_ALLOWLIST',
-	'X402_RING_PAUSED',
 ];
 
 function healthyEnv() {
@@ -117,25 +116,6 @@ describe('assertRingSpendInvariants — fail closed + one throttled alert', () =
 		expect(body).toMatch(/X402_EXTERNAL_ENABLED/);
 		// dedup signature keys on the sorted flag set so repeated ticks don't flood.
 		expect(opts.signature).toContain('ring-invariant:');
-	});
-
-	it('X402_RING_PAUSED=true stops spending quietly (fail-closed, no alert)', async () => {
-		healthyEnv(); // guards all hold — the pause, not a violation, is what stops it
-		process.env.X402_RING_PAUSED = 'true';
-		const r = await assertRingSpendInvariants({ context: 'x402-autonomous-loop' });
-		expect(r.ok).toBe(false);
-		expect(r.paused).toBe(true);
-		expect(r.violations).toHaveLength(0);
-		expect(sendOpsAlert).not.toHaveBeenCalled();
-	});
-
-	it('pause is checked before guard violations — a deliberate pause never alerts', async () => {
-		process.env.X402_RING_PAUSED = 'true';
-		process.env.X402_EXTERNAL_ENABLED = 'true'; // a real violation is also present
-		const r = await assertRingSpendInvariants({ context: 'x402-ring-tick' });
-		expect(r.ok).toBe(false);
-		expect(r.paused).toBe(true);
-		expect(sendOpsAlert).not.toHaveBeenCalled();
 	});
 });
 

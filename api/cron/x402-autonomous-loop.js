@@ -238,7 +238,7 @@ export default wrapCron(async (req, res) => {
 		return json(res, 200, {
 			ok: false,
 			skipped: true,
-			reason: invariants.paused ? 'ring_paused' : 'ring_invariant_violation',
+			reason: 'ring_invariant_violation',
 			violations: invariants.violations.map((v) => v.flag),
 		});
 	}

@@ -19,29 +19,21 @@ const page = await ctx.newPage();
 const shot = (n) => page.screenshot({ path: path.join(OUT, `${n}.png`) }).catch(() => {});
 
 try {
-	await page.goto(`${BASE}/agents`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
-	await page.waitForTimeout(3500);
+	await page.goto(`${BASE}/dashboard/agents`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+	await page.waitForTimeout(4000);
 	await shot('agents-list');
 
-	// find the agent link whose card text includes NAME, capture its id from href
+	// find the card whose heading is NAME, then any uuid in that card's links/attrs
 	const info = await page.evaluate((name) => {
-		const links = [...document.querySelectorAll('a[href]')];
-		for (const a of links) {
-			const txt = (a.innerText || '').trim();
-			const href = a.getAttribute('href') || '';
-			if (txt.includes(name)) {
-				const m = href.match(/([0-9a-f-]{36})/i);
-				if (m) return { id: m[1], href };
-			}
+		const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+		let card = null;
+		for (const h of document.querySelectorAll('h1,h2,h3,h4,[class*="name"],[class*="title"],[class*="heading"]')) {
+			if ((h.textContent || '').trim().startsWith(name)) { card = h.closest('article,li,section,[class*="card"],[class*="row"]') || h.parentElement; break; }
 		}
-		// fallback: scan any element with the name, walk up to an <a>
-		for (const el of document.querySelectorAll('*')) {
-			if ((el.textContent || '').trim() === name) {
-				const a = el.closest('a[href]');
-				const m = a && a.getAttribute('href').match(/([0-9a-f-]{36})/i);
-				if (m) return { id: m[1], href: a.getAttribute('href') };
-			}
-		}
+		const scope = card || document.body;
+		for (const a of scope.querySelectorAll('a[href]')) { const m = (a.getAttribute('href') || '').match(UUID); if (m) return { id: m[0], href: a.getAttribute('href') }; }
+		for (const el of scope.querySelectorAll('[data-agent-id],[data-id],[data-agent]')) { const v = el.getAttribute('data-agent-id') || el.getAttribute('data-id') || el.getAttribute('data-agent') || ''; if (UUID.test(v)) return { id: v.match(UUID)[0], href: '' }; }
+		const m2 = scope.innerHTML.match(UUID); if (m2) return { id: m2[0], href: '' };
 		return null;
 	}, NAME).catch(() => null);
 

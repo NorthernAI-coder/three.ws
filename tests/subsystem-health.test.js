@@ -18,6 +18,7 @@ import { cacheSet } from '../api/_lib/cache.js';
 // Env the ring + x402-config checks read. Save/restore so cases don't leak.
 const ENV_KEYS = [
 	'X402_AUTONOMOUS_ENABLED',
+	'X402_RING_PAUSED',
 	'X402_EXTERNAL_ENABLED',
 	'X402_CHARITY_AUDIT_BPS',
 	'X402_SELF_FACILITATOR_ENABLED',
@@ -60,6 +61,15 @@ describe('gatherSubsystemHealth', () => {
 		expect(ring.status).toBe('paused');
 		// A paused ring is a chosen state, not a fault — must not drag overall down.
 		expect(health.status).not.toBe('down');
+	});
+
+	it('reports the x402 ring as PAUSED via the dedicated X402_RING_PAUSED switch', async () => {
+		delete process.env.X402_AUTONOMOUS_ENABLED;
+		process.env.X402_RING_PAUSED = 'true';
+		const health = await gatherSubsystemHealth({ probeDb: false });
+		const ring = sub(health, 'x402_ring');
+		expect(ring.status).toBe('paused');
+		expect(ring.detail).toMatch(/X402_RING_PAUSED/);
 	});
 
 	it('reports the x402 ring as DEGRADED when enabled but guards are unset (half-armed)', async () => {
