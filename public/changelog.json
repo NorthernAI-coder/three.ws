@@ -1,11 +1,22 @@
 {
-	"generated_at": "2026-07-03T05:12:09.743Z",
+	"generated_at": "2026-07-03T05:34:38.233Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-07-03",
+			"type": "update",
+			"title": "Every paid endpoint now settles — full x402 catalog coverage",
+			"summary": "The x402 ring economy now exercises every paid endpoint on the platform, not just a handful. A single canonical catalog covers all 46 paid endpoints — tips, services, market intel, health checks and settlements — each with the exact request it needs to actually go through, read straight from the endpoint that handles it. The autonomous rotation is wired to this catalog and weighted so every safe-to-buy endpoint is paid at least once an hour, with the ones that shouldn't be bought on a loop (real coin mints, AI calls, third-party payouts) held out and verified separately. Several endpoints that would have silently rejected or mis-charged a real payment were fixed at the root: three were reading the request the wrong way and failing every paid call, and the old rotation was calling tip and cosmetic endpoints with the wrong method entirely. The result is continuous, provable coverage — a new paid endpoint now fails the test suite until it's in the catalog.",
+			"link": null,
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
 		{
 			"date": "2026-07-03",
 			"type": "update",
@@ -90,6 +101,17 @@
 			"link": null,
 			"tags": [
 				"security",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-07-03",
+			"type": "update",
+			"title": "x402 ring: paid endpoints now settle every minute, cap-coherent",
+			"summary": "The platform's x402 endpoints now get paid continuously — a new per-minute ring tick sends a steady stream of real on-chain USDC payments across the catalog: cheap tips and services every minute, plus a larger ring-settle that carries volume for a few cents of network fees. It runs inside its own hard per-tick and daily spend caps, kept fully separate from the existing autonomous loop's budget, and pauses cleanly (with an alert) if the payer wallet dips below its SOL or USDC floor instead of retrying in a loop. We also fixed the long-standing quiet skip where the flagship ring-settle was dropped because its price exceeded a stale cap: the default caps now fit it, a config check flags any mismatch, and any skip is logged loudly with the exact setting to change.",
+			"link": "/docs/x402-ring-economy",
+			"tags": [
+				"feature",
 				"infra"
 			]
 		},

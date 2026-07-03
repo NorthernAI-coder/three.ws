@@ -29,12 +29,10 @@
 import { PublicKey } from '@solana/web3.js';
 
 import { payX402, USDC_MINT } from '../pay.js';
-import { ringAllowedAddresses } from '../ring-allowlist.js';
 import {
 	enforceSpendLimit,
 	recordSpend,
 	SpendLimitError,
-	getSpendLimits,
 } from '../../agent-trade-guards.js';
 import { recoverSolanaAgentKeypair } from '../../agent-wallet.js';
 import { env } from '../../env.js';
