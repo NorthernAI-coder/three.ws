@@ -100,6 +100,10 @@ up to `CIRCULATION_GROWTH_PER_TICK` agents and runs `CIRCULATION_ACTIONS_PER_TIC
 everyday actions (plus any heavyweight action that wins first refusal). Cron
 functions are bounded to a 120-second `maxDuration`.
 
+If Vercel's scheduler itself stops firing (account block, paused project), the
+[economy heartbeat](economy-heartbeat.md) drives the same cron endpoints on the
+same schedules from GitHub Actions.
+
 ## Configuration
 
 | Env var | Default | Range | Purpose |

@@ -1,0 +1,67 @@
+name: economy-heartbeat
+
+# External failover scheduler for the platform's Vercel crons
+# (scripts/economy-heartbeat.mjs — see docs/economy-heartbeat.md).
+#
+# Vercel Cron is the primary scheduler. When the Vercel project cannot fire
+# crons (account block, paused project), this workflow keeps every /api/cron/*
+# endpoint ticking on the schedule declared in vercel.json: each run lasts ~5
+# minutes and wakes at every UTC minute boundary, so minute-level crons
+# (x402-seed-cron) still fire every minute even though GitHub's scheduler
+# minimum is 5 minutes. Runs are queued, never cancelled, for gap-free coverage.
+#
+# Safe to leave enabled while Vercel crons are healthy: the endpoints are the
+# same ones Vercel calls, each tick is capped server-side, and double ticks are
+# absorbed by the engines' per-tick and daily caps.
+#
+# Requires repo secret CRON_SECRET (the same bearer secret set on Vercel).
+
+on:
+  workflow_dispatch:
+    inputs:
+      duration_minutes:
+        description: 'How many minutes this run should keep ticking'
+        required: false
+        default: '5'
+      only:
+        description: 'Optional regex filter on cron paths (e.g. pulse|x402)'
+        required: false
+        default: ''
+  schedule:
+    - cron: '*/5 * * * *'
+
+concurrency:
+  group: economy-heartbeat
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  heartbeat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            vercel.json
+            scripts/economy-heartbeat.mjs
+          sparse-checkout-cone-mode: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Tick all due crons
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          BASE_URL: https://three.ws
+          DURATION_MINUTES: ${{ inputs.duration_minutes || '5' }}
+          ONLY: ${{ inputs.only || '' }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::warning::Repo secret CRON_SECRET is not set — heartbeat is idle. Add it (same value as the Vercel CRON_SECRET env var) to activate the failover."
+            exit 0
+          fi
+          node scripts/economy-heartbeat.mjs
