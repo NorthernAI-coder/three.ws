@@ -199,9 +199,10 @@ export function classifyWalletDebits(tx, { wallet, allowed, usdcMint }) {
 		}
 
 		// Non-USDC out is ALWAYS a leak (the ring only ever moves USDC). USDC out
-		// is internal only to a controlled counterparty; unknown counterparty →
-		// leak (false-negative averse).
-		const internal = !nonUsdc && (isInternal(counterparty) || isInternal(after?.owner));
+		// is internal only to a controlled COUNTERPARTY (the account that gained
+		// the tokens) — never keyed off our own debited account's owner, which is
+		// always us. Unknown counterparty → leak (false-negative averse).
+		const internal = !nonUsdc && isInternal(counterparty);
 		events.push({
 			type: internal ? 'internal' : 'leak',
 			asset: nonUsdc ? (before.mint || 'token') : 'USDC',
@@ -368,10 +369,9 @@ export async function scanWallet(conn, PublicKey, wallet, { allowed, usdcMint, r
 	if (sigInfos.length === 0) return summary;
 	summary.truncated = sigInfos.length >= SIG_SCAN_LIMIT && !!cursor?.last_signature;
 
-	// getSignaturesForAddress returns newest→oldest; results[0] is the new cursor.
-	const newestSig = sigInfos[0].signature;
-	const newestSlot = sigInfos[0].slot ?? null;
+	// getSignaturesForAddress returns newest→oldest.
 	const signatures = sigInfos.map((s) => s.signature);
+	const slotBySig = new Map(sigInfos.map((s) => [s.signature, s.slot ?? null]));
 	const blockTimeBySig = new Map(sigInfos.map((s) => [s.signature, s.blockTime ?? null]));
 
 	// Batched parsed fetch.
@@ -394,10 +394,28 @@ export async function scanWallet(conn, PublicKey, wallet, { allowed, usdcMint, r
 	let leaksDelta = 0;
 	const nowMs = Date.now();
 
+	// Cursor advance (getSignaturesForAddress `until` returns sigs NEWER than the
+	// cursor). To never silently skip an unreadable tx — which could hide a leak —
+	// the new cursor is the newest signature OLDER than the last (oldest-indexed)
+	// unreadable one, so that tx and everything older is refetched next run. A
+	// transient null self-heals in one extra run; a few already-scanned txs newer
+	// than it are reprocessed idempotently (upsert + alert dedup). If the OLDEST
+	// sig in the window is unreadable there is nothing older to anchor to → keep
+	// the previous cursor and retry the whole window.
+	let lastNullIdx = -1;
+	for (let i = 0; i < parsed.length; i++) if (!parsed[i]) lastNullIdx = i;
+	let cursorSig = cursor?.last_signature ?? null;
+	let cursorSlot = null;
+	if (lastNullIdx < parsed.length - 1) {
+		const anchor = signatures[lastNullIdx + 1]; // newest readable older than every unreadable
+		cursorSig = anchor;
+		cursorSlot = slotBySig.get(anchor);
+	}
+
 	for (let i = 0; i < parsed.length; i++) {
 		const tx = parsed[i];
 		const sig = signatures[i];
-		if (!tx) continue; // unreadable — a later run retries (cursor not yet advanced past it only if newest; acceptable)
+		if (!tx) continue; // unreadable — refetched next run (cursor anchored older)
 		scannedDelta += 1;
 
 		const { unreadable, fee, events } = classifyWalletDebits(tx, { wallet, allowed, usdcMint });
@@ -446,7 +464,11 @@ export async function scanWallet(conn, PublicKey, wallet, { allowed, usdcMint, r
 
 	summary.scanned = scannedDelta;
 	summary.leaks_and_delegations = leaksDelta;
-	await saveCursor(wallet, { lastSignature: newestSig, lastSlot: newestSlot, scannedDelta, leaksDelta, runId });
+	// Only persist a cursor we actually advanced to (cursorSig is null only on a
+	// first run whose entire window was unreadable — nothing to anchor, retry all).
+	if (cursorSig) {
+		await saveCursor(wallet, { lastSignature: cursorSig, lastSlot: cursorSlot, scannedDelta, leaksDelta, runId });
+	}
 
 	if (summary.truncated) {
 		console.warn('[ring-leak-scan] sig backlog', { wallet, note: `>=${SIG_SCAN_LIMIT} new sigs in one run` });

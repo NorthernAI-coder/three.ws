@@ -38,10 +38,14 @@ import { env } from '../../env.js';
 import { logger } from '../../usage.js';
 import { solanaConnection } from '../../solana/connection.js';
 import { recordCustodyEvent } from '../../agent-trade-guards.js';
+import { isOnchainTick } from './persona-math.js';
 import {
 	recordInvocationReceipt,
 	AGENT_INVOCATION_PROGRAM_ID,
 } from '../../agent-invocation-onchain.js';
+
+// Re-export the pure cadence gate so callers/tests can import it from here.
+export { isOnchainTick };
 
 const log = logger('x402-ring-onchain');
 
@@ -55,12 +59,6 @@ export function onchainEveryNTicks() {
  *  forbid new mainnet program calls in this task. */
 export function onchainNetwork() {
 	return process.env.AGENT_INVOCATION_NETWORK === 'mainnet' ? 'mainnet' : 'devnet';
-}
-
-/** True on ticks where the on-chain step should fire. Pure — unit-testable. */
-export function isOnchainTick(seed, everyN = onchainEveryNTicks()) {
-	if (!everyN || everyN <= 0) return false;
-	return (seed >>> 0) % everyN === 0;
 }
 
 /**

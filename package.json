@@ -320,6 +320,7 @@
 		"colyseus.js": "0.16.22",
 		"dat.gui": "^0.7.9",
 		"draco3dgltf": "^1.5.7",
+		"esbuild": "^0.28.1",
 		"ethers": "^6.16.0",
 		"express": "^5.2.1",
 		"fast-check": "^4.8.0",
@@ -345,6 +346,7 @@
 		"query-string": "^9.4.0",
 		"qwen-ai-provider": "^0.1.1",
 		"resend": "^6.12.4",
+		"rollup": "^4.62.2",
 		"sas-lib": "^1.0.10",
 		"sharp": "^0.34.5",
 		"short-uuid": "6.0.3",
@@ -376,7 +378,7 @@
 		"vite": "^7.3.2",
 		"vite-plugin-node-polyfills": "^0.28.0",
 		"vite-plugin-pwa": "^1.3.0",
-		"vitest": "^4.1.7",
+		"vitest": "^4.1.9",
 		"workbox-build": "^7.4.0",
 		"workbox-window": "^7.4.0"
 	}

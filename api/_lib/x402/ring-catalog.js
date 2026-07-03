@@ -46,10 +46,9 @@ export const RING_CANARY_MINT = 'Bi11boardRingCanaryMint22222222222222222222';
 export const RING_CANARY_UUID = '00000000-0000-4000-8000-000000000001';
 // Solana mainnet CAIP-2 chain id (genesis hash), for onchain-identity-verify.
 const SOLANA_CAIP2 = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
-// $THREE — the platform coin, guaranteed to resolve on the market data feed.
+// $THREE — the platform coin, guaranteed to resolve on the market data feed and
+// carry on-chain metadata; used wherever a canary needs a real, resolvable mint.
 const THREE_MINT = 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
-// Wrapped SOL — a real, always-resolvable SPL mint for the mesh minter.
-const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 
 /**
  * @typedef {Object} CatalogEntry
@@ -159,7 +158,7 @@ export const RING_CATALOG = [
 		sourceFile: 'api/x402/mint-to-mesh-batch.js',
 		path: '/api/x402/mint-to-mesh-batch',
 		method: 'POST',
-		body: () => ({ mints: [WSOL_MINT] }),
+		body: () => ({ mints: [THREE_MINT] }),
 		priceAtomicDefault: 50_000,
 		priceSlug: 'mint-to-mesh-batch',
 		tier: 'commerce',
@@ -222,7 +221,7 @@ export const RING_CATALOG = [
 		sourceFile: 'api/x402/crypto-intel.js',
 		path: '/api/x402/crypto-intel',
 		method: 'POST',
-		body: () => ({ topic: 'btc' }),
+		body: () => ({ topic: 'sol' }),
 		priceAtomicDefault: 10_000,
 		priceSlug: 'crypto_intel',
 		tier: 'intel',
@@ -642,7 +641,7 @@ export const RING_CATALOG = [
 		sourceFile: 'api/agents/endpoint-shopper-run.js',
 		path: '/api/agents/endpoint-shopper-run',
 		method: 'POST',
-		body: () => ({ task: 'What is the current price of Ethereum?' }),
+		body: () => ({ task: 'Summarize the most recent three.ws changelog entry.' }),
 		priceAtomicDefault: 10_000,
 		priceSlug: 'endpoint-shopper-run',
 		tier: 'intel',

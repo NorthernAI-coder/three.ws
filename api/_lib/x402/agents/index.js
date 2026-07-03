@@ -331,7 +331,7 @@ export async function run(ctx = {}) {
 			log.info('roster_key_unavailable', { persona: persona.id });
 			continue;
 		}
-		const agent = { id: member.id, name: member.name, address: member.address, keypair, meta: member.meta };
+		const agent = { id: member.id, name: member.name, address: member.address, keypair, meta: member.meta, userId: member.user_id ?? null };
 
 		// Persona-specific, seed-deterministic plan for this tick.
 		const plan = persona.plan({ origin, seed, maxBuys: MAX_BUYS_PER_PERSONA });

@@ -103,14 +103,16 @@ loop, set `X402_AUTONOMOUS_ENABLED=false`.
 One registry entry — `volume-bootstrap-loop`, pipeline `volume`, cooldown 300s —
 owns a full sweep rather than a single call. On each run it advances a
 Redis-backed round-robin cursor, reserves the next `X402_VOLUME_BATCH_PER_RUN`
-endpoints from the `VOLUME_ENDPOINTS` catalog in
-[`pipelines/volume-bootstrap-loop.js`](../api/_lib/x402/pipelines/volume-bootstrap-loop.js),
+endpoints from the autobuy rotation in
+[`api/_lib/x402/ring-catalog.js`](../api/_lib/x402/ring-catalog.js) (mapped into
+the shared driver by [`pipelines/volume-shared.js`](../api/_lib/x402/pipelines/volume-shared.js)),
 and pays each one a real on-chain USDC payment ($0.001–$0.01). It respects both
 the loop's daily cap and its own `X402_VOLUME_PER_RUN_CAP_ATOMIC` per-run cap. It
 records every call in `x402_autonomous_log` and upserts the per-endpoint ledger
 `x402_volume_metrics` (call / success / fail counts, total + last USDC spent, last
 tx signature, liveness timestamps). To add an endpoint to the sweep, add it to
-`VOLUME_ENDPOINTS` — the cursor and ledger pick it up automatically.
+`ring-catalog.js` with `autobuy: true` — the cursor and ledger pick it up
+automatically (and `tests/x402-ring-catalog.test.js` fails until it is cataloged).
 
 > **This is synthetic, not organic.** The sweep pays our **own** endpoints from
 > our **own** seed wallet; the USDC round-trips back to the platform treasury. It
