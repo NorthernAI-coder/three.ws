@@ -72,6 +72,27 @@ const REACTIONS = {
 };
 const ALL_REACTION_CLIPS = [...new Set(Object.values(REACTIONS).flat())];
 
+// Distinct rigged bodies for agents that don't ship their own avatar. A trading
+// floor of identical mannequins reads as clones, so each avatar-less agent is
+// dressed in a different humanoid rig from this pool — assigned round-robin so no
+// two adjacent desks match. Every entry is a rigged humanoid that drives the
+// canonical clips; anything that fails the rig gate still falls back to the
+// mannequin (rare), it just costs one repeat rather than a T-pose.
+// Only standard, clean rigs whose skeleton retargets the canonical clips without
+// detonating (Mixamo, Khronos CesiumMan, ReadyPlayerMe, our mannequin). Ordered
+// lightest first so the most-visible front desks paint fast. Unknown-provenance
+// GLBs are excluded on purpose: some pass the rest-pose gate but explode once the
+// idle clip drives them (a giant blob), so we don't gamble the floor on them.
+const FALLBACK_RIGS = [
+	'/avatars/cesium-man.glb',      // ~0.4 MB, classic rigged human
+	'/avatars/mannequin.glb',       // ~0.2 MB
+	'/avatars/xbot.glb',            // ~2.9 MB, Mixamo
+	'/avatars/michelle.glb',        // ~3.2 MB, Mixamo
+	'/avatars/realistic-female.glb',// ~5.7 MB, ReadyPlayerMe
+	'/avatars/realistic-male.glb',  // ~9.7 MB, ReadyPlayerMe
+	'/avatars/selfie-girl.glb',     // ~11 MB, ReadyPlayerMe
+];
+
 // The colour a trader's monitor flashes for each event — green on a fill, violet
 // on a verify/pay, amber when a safety rule refuses a buy. The resting glow is a
 // dim blue so a room of idle desks still reads as "screens on, market open".
@@ -225,6 +246,11 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false, 
 	let orbitYaw = 0;
 	let swayT = 0;
 	let highlightId = null;
+	let lastExplodeCheck = 0;
+	// A humanoid — even mid-celebration with arms overhead — never exceeds a couple
+	// of metres. A retargeted skin that detonates balloons far past this, so any
+	// performer whose animated body crosses it is swapped to the clean mannequin.
+	const EXPLODE_LIMIT = 5;
 
 	// Build a workstation (desk + monitor) in front of a performer, toward the
 	// camera, so the trader stands behind a lit terminal. The monitor's emissive
@@ -323,14 +349,14 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false, 
 		return { model, anim, drivable: drivable && humanoid };
 	}
 
-	async function addPerformer(agent, index, total) {
+	async function addPerformer(agent, index, total, rigUrl = null) {
 		if (disposed || performers.has(agent.id)) return;
 		const slot = deskSlot(index, total);
 
-		// Rigged avatars only. Try the agent's own model first; if it isn't a
-		// drivable humanoid, swap in the rigged mannequin (the platform's designed
-		// fallback) rather than staging forge geometry as-is.
-		const url = agentAvatarGlb(agent);
+		// Rigged avatars only. Try the resolved body first (the agent's own avatar,
+		// or a distinct fallback rig assigned by setRoster); if it isn't a drivable
+		// humanoid, swap in the mannequin rather than staging forge geometry as-is.
+		const url = rigUrl || agentAvatarGlb(agent);
 		let body = await buildBody(url, slot);
 		if (disposed || performers.has(agent.id)) { body?.anim?.dispose?.(); return; }
 		if ((!body || !body.drivable) && url !== MANNEQUIN_GLB) {
@@ -415,13 +441,42 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false, 
 		for (const [id, rec] of [...performers]) {
 			if (!keep.has(id)) removePerformer(id, rec);
 		}
+		// Resolve each body, giving avatar-less agents a DISTINCT fallback rig so the
+		// floor isn't a row of clones. A running counter (not the loop index) walks
+		// the pool, so only agents that actually need a fallback consume a slot —
+		// agents with their own avatar never collide with the rotation.
+		let fbN = 0;
 		// Add sequentially with a micro-yield so a full room fills progressively
 		// instead of stalling one frame on a dozen GLB clones.
 		for (let i = 0; i < agents.length; i++) {
 			if (disposed) return;
-			await addPerformer(agents[i], i, agents.length);
+			const base = agentAvatarGlb(agents[i]);
+			const rigUrl = base !== MANNEQUIN_GLB ? base : FALLBACK_RIGS[fbN++ % FALLBACK_RIGS.length];
+			await addPerformer(agents[i], i, agents.length, rigUrl);
 			if ((i & 3) === 3) await new Promise((r) => setTimeout(r, 0));
 		}
+	}
+
+	// A rig detonated under animation — hide the wreck and hot-swap the clean
+	// mannequin into the same desk so the floor never shows a blob. Idempotent per
+	// performer via `_fixing`. The desk/plate/shadow stay; only the body changes.
+	async function neutralizeExploded(rec) {
+		if (rec._fixing) return;
+		rec._fixing = true;
+		rec.model.visible = false;
+		try { rec.anim?.dispose?.(); } catch {}
+		rec.drivable = false;
+		const body = await buildBody(MANNEQUIN_GLB, rec.slot);
+		if (disposed || !performers.has(rec.agent.id) || !body?.model) { body?.anim?.dispose?.(); return; }
+		const old = rec.model;
+		rec.group.remove(old);
+		old.traverse?.((n) => { if (n.isMesh) { n.geometry?.dispose?.(); disposeMaterial(n.material); } });
+		rec.group.add(body.model);
+		rec.model = body.model;
+		rec.anim = body.anim;
+		rec.drivable = body.drivable;
+		if (rec.drivable && !reducedMotion) rec.anim.play('idle');
+		rec._fixing = false;
 	}
 
 	function removePerformer(id, rec) {
@@ -588,6 +643,19 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false, 
 				if (rec.screenMat) {
 					rec.screenMat.emissiveIntensity += (SCREEN_REST - rec.screenMat.emissiveIntensity) * Math.min(1, dt * 2.4);
 					if (rec.screenFlash && now > rec.screenFlash) { rec.screenMat.emissive.setHex(SCREEN_IDLE); rec.screenFlash = 0; }
+				}
+			}
+
+			// Explosion guard (throttled): a rig that detonates under the idle clip is
+			// hot-swapped to the mannequin so the floor never shows a blob. Cheap — a
+			// bbox measure per performer twice a second.
+			if (now - lastExplodeCheck > 500) {
+				lastExplodeCheck = now;
+				for (const rec of performers.values()) {
+					if (!rec.drivable || rec._fixing || !rec.model?.visible) continue;
+					_box.setFromObject(rec.model, true);
+					const hh = _box.max.y - _box.min.y;
+					if (!(hh < EXPLODE_LIMIT)) { log.warn('[theater] rig exploded, swapping to mannequin', rec.agent?.id); neutralizeExploded(rec); }
 				}
 			}
 		}
