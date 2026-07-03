@@ -150,12 +150,13 @@ function openSwapModal(mint, symbol) {
 	loadJupiter()
 		.then(() => {
 			loader.style.display = 'none';
-			// Use a public Solana RPC — Jupiter routes through its own aggregator
-			// so this only needs to submit the final signed transaction.
+			// Route RPC through our proxy — it rotates Helius → Alchemy → public
+			// endpoints server-side, so blockhash fetch and tx submission survive
+			// any single provider being down or rate-limiting the browser.
 			window.Jupiter.init({
 				displayMode: 'integrated',
 				integratedTargetId: containerId,
-				endpoint: 'https://api.mainnet-beta.solana.com',
+				endpoint: `${location.origin}/api/solana-rpc`,
 				formProps: {
 					initialInputMint: SOL_MINT,
 					initialOutputMint: mint,

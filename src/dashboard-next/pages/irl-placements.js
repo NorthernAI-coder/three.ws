@@ -26,7 +26,7 @@ import { mountShell } from '../shell.js';
 import { requireUser, get, post, patch, esc, relTime } from '../api.js';
 import { skeletonHTML, emptyStateHTML, errorStateHTML, ensureStateKitStyles } from '../../shared/state-kit.js';
 import { loadInto } from '../../shared/async-state.js';
-import { loadLeaflet } from '../../shared/leaflet-loader.js';
+import { loadLeaflet, reverseGeocode } from '../../shared/leaflet-loader.js';
 import { mountReputationPanel } from './irl-reputation.js';
 import { openMyDataPanel } from '../../irl/privacy-center.js';
 
@@ -122,26 +122,12 @@ function statusBadge(status) {
 		+ `<span style="width:7px;height:7px;border-radius:50%;background:${s.c}"></span>${s.label}</span>`;
 }
 
-async function reverseGeocode(lat, lng) {
-	try {
-		const r = await fetch(
-			`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
-			{ headers: { 'User-Agent': 'three.ws/1.0' } },
-		);
-		const d = await r.json();
-		return d.address?.city || d.address?.town || d.address?.village
-			|| d.address?.county || d.display_name?.split(',')[0] || null;
-	} catch { return null; }
-}
-
-// Memoized reverse-geocode shared by the cards and the inbox modal — keeps us
-// polite to Nominatim (one lookup per ~11 m cell, not per render).
-const geoCache = new Map();
+// Reverse-geocode via the shared multi-provider geocoder (leaflet-loader.js):
+// Nominatim → Photon → BigDataCloud, memoized per ~11 m cell over there — so
+// the cards and the inbox modal share one cache and one politeness policy.
 function placeFor(lat, lng) {
 	if (lat == null || lng == null) return Promise.resolve(null);
-	const key = `${Number(lat).toFixed(4)},${Number(lng).toFixed(4)}`;
-	if (!geoCache.has(key)) geoCache.set(key, reverseGeocode(lat, lng));
-	return geoCache.get(key);
+	return reverseGeocode(lat, lng);
 }
 
 const INTERACTION_ICON = { view: '👁', tap: '👆', message: '💬', pay: '💸' };
