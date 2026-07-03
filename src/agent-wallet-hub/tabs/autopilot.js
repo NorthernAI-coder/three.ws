@@ -17,6 +17,7 @@
 import { registerWalletTab } from '../registry.js';
 import { formatUsd, formatSol, explorerTxUrl } from '../util.js';
 import { consumeCsrfToken } from '../../api.js';
+import { ensureRiskAck } from '../../shared/risk-ack.js';
 
 const SOL_ADDR_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const STYLE_ID = 'awh-autopilot-style';
@@ -436,6 +437,7 @@ registerWalletTab({
 			if (!sweep.ok) { ctx.toast(sweep.message); return; }
 			const needsSweepDest = c.rules.some((r) => r.kind === 'sweep') && !(sweep.value || c.sweep_destination);
 			if (needsSweepDest) { ctx.toast('Set a sweep destination — your policy sweeps profit.'); return; }
+			if (!(await ensureRiskAck({ context: 'autopilot' }))) return;
 			await savePolicy({
 				rules: c.rules,
 				buffer_sol: c.buffer_sol,

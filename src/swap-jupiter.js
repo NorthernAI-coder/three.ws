@@ -19,6 +19,7 @@ import {
 	VersionedTransaction,
 } from '@solana/web3.js';
 import { log } from './shared/log.js';
+import { ensureRiskAck } from './shared/risk-ack.js';
 import { trackFunnelStep, trackError, ANALYTICS_EVENTS } from './analytics.js';
 
 // The $THREE conversion funnel only counts swaps that actually touch $THREE —
@@ -795,6 +796,7 @@ async function executeSwap() {
 	// After a settled swap the primary button becomes a "Close" action.
 	if (_phase === 'done') { closeSwap(); return; }
 	if (!_ctx || !_quote) return;
+	if (!(await ensureRiskAck({ context: 'swap' }))) return;
 	const btn = $('sj-confirm');
 	btn.disabled = true;
 	btn.textContent = 'Preparing transaction…';

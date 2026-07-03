@@ -24,6 +24,7 @@ import {
 	previewAgentTrade, executeAgentTrade, fetchAgentHoldings, fetchAgentTradeHistory, TradeError,
 } from '../../agent-solana-wallet.js';
 import { createSafetyPanel } from '../../shared/safety-panel.js';
+import { ensureRiskAck } from '../../shared/risk-ack.js';
 import { solToUsd } from '../../shared/usd-price.js';
 import { formatSol, timeAgo, explorerTxUrl } from '../util.js';
 
@@ -364,6 +365,7 @@ registerWalletTab({
 		async function submit() {
 			const args = tradeArgs();
 			if (!args || state.submitting) return;
+			if (ctx.getNetwork() !== 'devnet' && !(await ensureRiskAck({ context: 'trade' }))) return;
 			state.submitting = true;
 			state.confirming = false;
 			state.result = null;

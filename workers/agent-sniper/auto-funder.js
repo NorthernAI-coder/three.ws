@@ -22,7 +22,8 @@ import { getSolBalance } from '../../api/_lib/avatar-wallet.js';
 import { solanaConnection } from '../../api/_lib/agent-pumpfun.js';
 import { log } from './log.js';
 import { screenPush } from './screen-push.js';
-import { cachedStrategies } from './strategy-store.js';
+import { cachedStrategies, getRealizedNetLamports, effectiveDailyLossLimitLamports } from './strategy-store.js';
+import { checkDailyLoss } from '../../api/_lib/agent-trade-guards.js';
 
 const POLL_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -40,6 +41,12 @@ const MIN_SOL = Math.max(0, num('SNIPER_AUTO_FUND_MIN_SOL', 0.02));
 const TARGET_SOL = Math.max(MIN_SOL, num('SNIPER_AUTO_FUND_TARGET_SOL', 0.05));
 const PER_TX_CAP_SOL = Math.max(0, num('SNIPER_AUTO_FUND_PER_TX_SOL', 0.1));
 const DAILY_CAP_SOL = Math.max(0, num('SNIPER_AUTO_FUND_DAILY_SOL', 1.0));
+// Per-agent daily refill ceiling — the guard the incident lacked. The fleet cap
+// alone let a SINGLE wallet that only bought rugs consume the whole day's budget:
+// buy rug → drop below MIN → refill → repeat. This bounds how much any one agent
+// can draw from the master per UTC day (default 0.25 SOL ≈ 5 top-ups), so a
+// bleeding wallet can't starve healthy agents or drain the master after it. 0 = off.
+const PER_AGENT_DAILY_CAP_SOL = Math.max(0, num('SNIPER_AUTO_FUND_PER_AGENT_DAILY_SOL', 0.25));
 
 /**
  * Agent ids eligible for auto-funding on this network.
@@ -84,6 +91,37 @@ async function dailyFundedSol(network) {
 	return Number(row?.sol || 0);
 }
 
+/** SOL moved (live) to EACH agent since the start of the UTC day — the per-agent cap base. */
+async function perAgentFundedSol(network) {
+	const rows = await sql`
+		SELECT agent_id, coalesce(sum(lamports), 0)::float8 / 1e9 AS sol
+		FROM sniper_funding_events
+		WHERE network = ${network}
+		  AND mode = 'live'
+		  AND created_at >= date_trunc('day', now())
+		GROUP BY agent_id
+	`;
+	const m = new Map();
+	for (const r of rows) m.set(r.agent_id, Number(r.sol || 0));
+	return m;
+}
+
+/**
+ * Tightest effective daily-loss cap (lamports) across an agent's opted-in
+ * strategies — an agent may run more than one. Used to decide whether to keep
+ * refilling a wallet: once realized loss crosses this, the refills stop.
+ */
+function agentLossLimit(agentId, network) {
+	let tightest = null;
+	for (const s of cachedStrategies()) {
+		if (s.agent_id !== agentId || s.network !== network) continue;
+		const lim = effectiveDailyLossLimitLamports(s);
+		if (lim == null) continue;
+		if (tightest == null || lim < tightest) tightest = lim;
+	}
+	return tightest;
+}
+
 /** Resolve each armed agent's Solana address from its identity meta. */
 async function agentAddresses(agentIds) {
 	if (!agentIds.length) return new Map();
@@ -109,6 +147,8 @@ async function tick(cfg) {
 	// One daily-spend read per tick; decremented locally as we fund so several
 	// agents in the same tick can't collectively blow past the cap.
 	let dailyRemaining = DAILY_CAP_SOL > 0 ? Math.max(0, DAILY_CAP_SOL - (await dailyFundedSol(cfg.network))) : Infinity;
+	// Per-agent funded-today, so one wallet can't consume the whole fleet budget.
+	const perAgentFunded = PER_AGENT_DAILY_CAP_SOL > 0 ? await perAgentFundedSol(cfg.network) : new Map();
 	const conn = solanaConnection(cfg.network);
 
 	for (const [agentId, address] of addresses) {
@@ -127,9 +167,39 @@ async function tick(cfg) {
 
 		if (balanceSol >= MIN_SOL) continue; // healthy — nothing to do
 
-		// Top up to the target, bounded by the per-transfer cap.
+		// LOSS GATE — stop refilling a wallet that has bled past its daily loss cap.
+		// This is the fix for the rug-buy + auto-refill loop: a wallet that only
+		// loses stops getting topped up, so the master can't keep pouring SOL after
+		// it. Only priced when a loss cap is configured; a DB hiccup never blocks a
+		// legitimate refill (the per-agent + daily SOL caps below stay the backstop).
+		const lossLimit = agentLossLimit(agentId, cfg.network);
+		if (lossLimit != null) {
+			try {
+				const netRealized = await getRealizedNetLamports(agentId, cfg.network);
+				if (checkDailyLoss(netRealized, lossLimit)) {
+					log.warn('auto-fund paused — agent hit daily loss cap', { agentId, wallet: address, net_realized_sol: Number(netRealized) / 1e9 });
+					screenPush(`Paused refills for ${address.slice(0, 4)}… — daily loss cap reached`, 'guard');
+					continue;
+				}
+			} catch (err) {
+				log.warn('auto-fund loss check failed — allowing on SOL-cap backstop', { agentId, err: err?.message });
+			}
+		}
+
+		// PER-AGENT DAILY CAP — bound how much any one wallet can draw per day.
+		let agentRemaining = Infinity;
+		if (PER_AGENT_DAILY_CAP_SOL > 0) {
+			agentRemaining = Math.max(0, PER_AGENT_DAILY_CAP_SOL - (perAgentFunded.get(agentId) || 0));
+			if (agentRemaining <= 0) {
+				log.warn('auto-fund per-agent daily cap reached — skipping', { agentId, wallet: address, perAgentCapSol: PER_AGENT_DAILY_CAP_SOL });
+				continue;
+			}
+		}
+
+		// Top up to the target, bounded by the per-transfer, per-agent, and fleet caps.
 		let topUp = TARGET_SOL - balanceSol;
 		if (PER_TX_CAP_SOL > 0) topUp = Math.min(topUp, PER_TX_CAP_SOL);
+		if (PER_AGENT_DAILY_CAP_SOL > 0) topUp = Math.min(topUp, agentRemaining);
 		if (DAILY_CAP_SOL > 0) topUp = Math.min(topUp, dailyRemaining);
 		topUp = Math.round(topUp * 1e9) / 1e9; // lamport precision
 		if (topUp <= 0) continue;
@@ -141,6 +211,7 @@ async function tick(cfg) {
 			await recordFunding({ agentId, wallet: address, network: cfg.network, sol: topUp, balanceBeforeSol: balanceSol, signature: 'SIMULATED', mode: 'simulate' });
 			log.info('simulate — would top up wallet', { agentId, wallet: address, top_up_sol: topUp });
 			if (DAILY_CAP_SOL > 0) dailyRemaining -= topUp;
+			if (PER_AGENT_DAILY_CAP_SOL > 0) perAgentFunded.set(agentId, (perAgentFunded.get(agentId) || 0) + topUp);
 			continue;
 		}
 
@@ -169,6 +240,7 @@ async function tick(cfg) {
 			balanceBeforeSol: balanceSol, signature: result.signature, mode: 'live',
 		});
 		if (DAILY_CAP_SOL > 0) dailyRemaining -= topUp;
+		if (PER_AGENT_DAILY_CAP_SOL > 0) perAgentFunded.set(agentId, (perAgentFunded.get(agentId) || 0) + topUp);
 
 		log.trade('wallet-funded', { agentId, wallet: address, top_up_sol: topUp, balance_before_sol: balanceSol, sig: result.signature });
 		screenPush(`Funded ${address.slice(0, 4)}… +${topUp.toFixed(3)} SOL`, 'trade');
@@ -213,6 +285,8 @@ export function startAutoFunderWatch({ cfg, signal } = {}) {
 	log.info('auto-funder armed', {
 		network: cfg.network, mode: cfg.mode, pollMs: POLL_INTERVAL_MS,
 		minSol: MIN_SOL, targetSol: TARGET_SOL, perTxCapSol: PER_TX_CAP_SOL, dailyCapSol: DAILY_CAP_SOL,
+		perAgentDailyCapSol: PER_AGENT_DAILY_CAP_SOL,
+		lossCapSol: num('SNIPER_MAX_DAILY_LOSS_SOL', null),
 		// Consent is explicit and per-strategy — this is how many agents can be funded at all.
 		optedInAgents: activeAgentIds(cfg.network).length,
 	});

@@ -348,6 +348,40 @@ export function checkDailyBudgetLamports(spentLamports, amountLamports, budgetLa
 	return null;
 }
 
+/**
+ * Realized-loss circuit breaker. Blocked when an agent's NET realized P&L over
+ * the trailing window is a loss deeper than `lossLimitLamports`.
+ *
+ * This is the portfolio-layer guard the per-trade caps (budget, headroom, price
+ * impact) don't provide: a fleet armed with a valid band can still bleed out one
+ * losing entry at a time. Once the day's realized loss crosses the limit the
+ * agent stops opening new positions — and, critically, the auto-funder stops
+ * refilling it (see workers/agent-sniper/auto-funder.js), so the master wallet
+ * can't keep pouring SOL after a wallet that only loses. The exact shape of the
+ * rug-buy + auto-refill incident.
+ *
+ * `netRealizedLamports` is SIGNED: negative = net loss, positive = net profit.
+ * A profitable or break-even day never blocks. `null`/`0` limit disables it.
+ *
+ * @param {bigint|string|number} netRealizedLamports  signed net realized P&L
+ * @param {bigint|string|number|null} lossLimitLamports  max tolerated loss (positive magnitude)
+ * @returns {{ reason: string, detail: object }|null}
+ */
+export function checkDailyLoss(netRealizedLamports, lossLimitLamports) {
+	if (lossLimitLamports == null) return null;
+	const limit = BigInt(lossLimitLamports);
+	if (limit <= 0n) return null;
+	const net = BigInt(netRealizedLamports);
+	const loss = net < 0n ? -net : 0n;
+	if (loss >= limit) {
+		return {
+			reason: 'daily_loss_limit',
+			detail: { loss_lamports: loss.toString(), limit_lamports: limit.toString() },
+		};
+	}
+	return null;
+}
+
 /** Wallet must cover the spend plus a fee/rent headroom. Blocked when short. */
 export function checkSolHeadroom(walletLamports, spendLamports, headroomLamports = SOL_FEE_HEADROOM_LAMPORTS) {
 	const wallet = BigInt(walletLamports);

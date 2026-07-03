@@ -768,7 +768,8 @@ function renderWalletProfile(data) {
 
 	const shareBtn = content.querySelector('#tp-share-wallet');
 	shareBtn?.addEventListener('click', () => {
-		const url = `${location.origin}/trader/${encodeURIComponent(addr)}`;
+		// /trader/<wallet>/share → SSR page with a real OG card for social crawlers
+		const url = `${location.origin}/trader/${encodeURIComponent(addr)}/share`;
 		if (navigator.share) {
 			navigator.share({ title: `${a.title || 'Wallet'} · ${shortAddr(addr)} on three.ws`, url }).catch(() => {});
 		} else {

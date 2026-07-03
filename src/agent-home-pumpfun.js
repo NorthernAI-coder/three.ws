@@ -22,6 +22,7 @@
 import { ACTION_TYPES } from './agent-protocol.js';
 import { THREE_WS_MARK } from './solana/vanity/brand.js';
 import { mountCoinStatus } from './pump/coin-status-card.js';
+import { ensureRiskAck } from './shared/risk-ack.js';
 
 const REFRESH_MS = 30_000;
 const QUOTE_DEBOUNCE_MS = 250;
@@ -680,6 +681,7 @@ export function mountPumpFunCard({ panel, identity, skills, memory, protocol }) 
 
 	const executeTrade = async () => {
 		if (!isExecutable(state)) return;
+		if (state.network !== 'devnet' && !(await ensureRiskAck({ context: 'pump-trade' }))) return;
 		const isBuy = state.tradeOpen === 'buy';
 		const btn = cardBody.querySelector('[data-action="confirm-trade"]');
 		if (btn) {

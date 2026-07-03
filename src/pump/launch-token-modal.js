@@ -10,6 +10,7 @@
 
 import { mountLaunchBondingCurve } from './bonding-curve-chart.js';
 import { log } from '../shared/log.js';
+import { ensureRiskAck } from '../shared/risk-ack.js';
 import { THREE_WS_MARK } from '../solana/vanity/brand.js';
 
 const _isDev =
@@ -761,6 +762,8 @@ export class LaunchTokenModal {
 	// ── Launch: prep → sign → broadcast → confirm ─────────────────────────────
 
 	async _doLaunch(walletAddress) {
+		// Launching costs real SOL (fees + optional dev buy) on mainnet.
+		if (this._d.cluster !== 'devnet' && !(await ensureRiskAck({ context: 'launch' }))) return;
 		const launchBtn = this._overlay.querySelector('#ltm-launch');
 		const backBtn = this._overlay.querySelector('#ltm-s3-back');
 		launchBtn.disabled = true;
