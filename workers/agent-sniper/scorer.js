@@ -110,6 +110,7 @@ export function scoreMint(mint, strat) {
 	if (graduated != null && graduated > 0) { score += graduated; reasons.push(`creator_graduated:${graduated}`); }
 	const initBuy = n(mint.initial_buy_sol);
 	if (initBuy != null && initBuy >= 1) { score += 1; reasons.push(`initial_buy:${initBuy.toFixed(2)}sol`); }
+	const mcUsd = n(mint.market_cap_usd);
 	if (mcUsd != null) reasons.push(`mc_usd:${Math.round(mcUsd)}`);
 
 	return { pass: true, score, reasons };
