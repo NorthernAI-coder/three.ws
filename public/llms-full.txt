@@ -606,6 +606,13 @@ URL: https://three.ws/viability
 
 The honest signal behind three.ws — real marketplace and trading viability. Live $THREE skill GMV, take-rate, repeat buyers and trading pairs, plus real guarded coin-trade flow, cost and realized P&L on closed positions. Real on-chain data only.
 
+### Ring Dashboard (admin)
+
+URL: https://three.ws/admin/ring
+Indexable: no (excluded from sitemap)
+
+Operator dashboard for the closed-loop x402 ring economy — live per-minute settlement pulse, loop diagram with wallet balances and floors, streaming activity feed with agent attribution and Solscan links, fee/burn efficiency vs the daily budget, integrity (leak scan + reconciliation), and per-endpoint coverage. Admin-authed, noindex. Labels all ring volume as internal dogfooding, not organic revenue.
+
 ### On-chain Deployments
 
 URL: https://three.ws/deployments

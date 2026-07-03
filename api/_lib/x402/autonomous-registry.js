@@ -44,7 +44,8 @@ import { run as reputationRefresh } from './pipelines/reputation-refresh.js';
 import { run as tokenIntelPreSnipeGate } from './pipelines/token-intel-gate.js';
 import { run as sniperIntelEnrich } from './pipelines/sniper-intel-enrich.js';
 import { run as volumeBootstrapLoop } from './pipelines/volume-bootstrap-loop.js';
-import { run as ringRebalance } from './pipelines/ring-rebalance.js';
+import { run as ringRebalance, floatTopUp as ringFloatTopUp } from './pipelines/ring-rebalance.js';
+import { run as ringAgentBuyers } from './agents/index.js';
 import { run as feeAudit } from './pipelines/fee-audit.js';
 import { run as liveFeedSeeder } from './pipelines/live-feed-seeder.js';
 import { run as feeCalculationValidator } from './pipelines/fee-calculation-validator.js';
@@ -2669,17 +2670,72 @@ const SELF_ENDPOINTS = [
 	// it never consumes the daily spend cap. No-op until X402_TREASURY_SECRET_BASE58
 	// is set. Value sink: x402_ring_ledger (kind='sweep'). See
 	// pipelines/ring-rebalance.js.
+	//
+	// Cooldown 120s (was 300s): the per-minute ring tick cycles the payer float
+	// far faster than the old 5-min volume-only cadence, so the rebalancer must
+	// keep up or the payer drains between sweeps. Sweep threshold is env-tunable
+	// via X402_RING_MIN_SWEEP_ATOMIC.
 	{
 		id: 'ring-rebalance',
 		name: 'Ring Rebalancer',
 		path: '/api/x402/ring-settle',
 		method: 'POST',
 		body: null,
-		cooldown_s: 300,
+		cooldown_s: 120,
 		priority: 20,
 		pipeline: 'volume',
 		enabled: true,
 		run: (ctx) => ringRebalance(ctx),
+	},
+
+	// ── Ring Agent Buyers (Task 09) ──────────────────────────────────────────────
+	// The roster of platform agents that make the ring an agent-to-agent economy
+	// rather than a cron paying itself. Each tick, the provisioned personas
+	// (endpoint-shopper, agora-citizen, curator — api/_lib/x402/agents/) shop the
+	// ring in character: intel + health, club cover + dance tips, marketplace +
+	// billboards. Every purchase pays with the AGENT's custodial keypair, is
+	// spend-limit-checked via enforceSpendLimit, custody-logged, and recorded to
+	// x402_autonomous_log WITH agent_id for attribution. Recirculation stays closed:
+	// the treasury is the seller and float-top-up recycles proceeds back to the
+	// agents. At low cadence (X402_RING_ONCHAIN_EVERY_N_TICKS) one roster agent also
+	// lands a real on-chain agent-invocation receipt (devnet), fee-paid by its own
+	// ring wallet. run() self-records granular per-purchase rows, so the loop adds no
+	// duplicate summary. No-op until a roster can be provisioned. Value sink:
+	// x402_autonomous_log (pipeline='ring-agents'/'ring-onchain') + agent_custody_events.
+	{
+		id: 'agent-buyers',
+		name: 'Ring Agent Buyers',
+		// path is informational — run() drives the persona roster across the catalog.
+		path: '/api/x402/*',
+		method: 'POST',
+		body: null,
+		cooldown_s: 60,
+		priority: 40,
+		pipeline: 'agents',
+		enabled: true,
+		run: (ctx) => ringAgentBuyers(ctx),
+	},
+
+	// ── Ring Agent Float Top-Up (Task 09) ────────────────────────────────────────
+	// Keeps each roster agent's USDC float inside a floor/target/ceiling band
+	// (X402_RING_AGENT_FLOAT_ATOMIC, default $2): tops up a hungry agent from the
+	// treasury, sweeps an overfull one back. Same closed loop as the payer
+	// rebalancer, applied to the agent wallets. Every counterparty is asserted
+	// against ringAllowedAddresses() before any move (fail-closed). Recorded to
+	// x402_ring_ledger (kind='fund'). Recirculation, not spend — returns
+	// amountAtomic:0. No-op until X402_TREASURY_SECRET_BASE58 is set. See
+	// pipelines/ring-rebalance.js floatTopUp().
+	{
+		id: 'ring-float-topup',
+		name: 'Ring Agent Float Top-Up',
+		path: '/api/x402/ring-settle',
+		method: 'POST',
+		body: null,
+		cooldown_s: 120,
+		priority: 22,
+		pipeline: 'agents',
+		enabled: true,
+		run: (ctx) => ringFloatTopUp(ctx),
 	},
 
 	// ── Fee Audit + ATA Rent Reclaim ─────────────────────────────────────────────

@@ -43,6 +43,7 @@ import { randomUUID } from 'node:crypto';
 
 import { fetchWithTimeout, loadSeedKeypair, USDC_MINT } from './pay.js';
 import { SPONSOR_SOL_FLOOR_LAMPORTS } from './self-facilitator.js';
+import { ringFloorSpecs, evaluateRingWallet, LAMPORTS_PER_SOL } from './ring-floors.js';
 import { sql as defaultSql } from '../db.js';
 import { env } from '../env.js';
 import { sendOpsAlert } from '../alerts.js';
@@ -50,8 +51,6 @@ import { solanaConnection } from '../solana/connection.js';
 import { logger } from '../usage.js';
 
 const log = logger('x402-wallet-balance-monitor');
-
-const LAMPORTS_PER_SOL = 1_000_000_000;
 
 // ── Ring-wallet floors ──────────────────────────────────────────────────────
 // The closed-loop ring has three platform-controlled wallets (payer, treasury,
@@ -210,78 +209,80 @@ function resolveRingAddresses() {
  * an ops alert on any breach. Reads balances live on-chain (no funds moved).
  * Best-effort: an unresolved address or dead RPC is reported, never thrown.
  *
- * @param {object} ctx — { redis } optional, for the cheap-read snapshot.
+ * The floor math lives in ring-floors.js (pure, dependency-free) so it can be
+ * unit-tested without a chain. Here we resolve addresses, read balances, hand
+ * them to the evaluator, and fire alerts on breach.
+ *
+ * @param {object} ctx — all optional:
+ *   { redis }         cheap-read snapshot sink
+ *   { readBalance }   async (address) => { lamports, usdcAtomic } — override the
+ *                     on-chain reader (used by tests to avoid RPC + spl-token)
+ *   { sendAlert }     override sendOpsAlert (tests assert on it)
  * @returns {Promise<{ configured: boolean, wallets: object[], breaches: string[] }>}
  */
 export async function checkRingWallets(ctx = {}) {
 	const redis = ctx.redis || null;
+	const sendAlert = ctx.sendAlert || sendOpsAlert;
 	const addrs = resolveRingAddresses();
 	const anyConfigured = Boolean(addrs.payer || addrs.treasury || addrs.sponsor);
 	if (!anyConfigured) {
 		return { configured: false, wallets: [], breaches: [] };
 	}
 
-	let conn;
-	try {
-		conn = solanaConnection({ url: env.SOLANA_RPC_URL, commitment: 'confirmed' });
-	} catch (err) {
-		log.warn('ring_balance_conn_failed', { message: err?.message });
-		return { configured: true, wallets: [], breaches: [], error: 'rpc_unavailable' };
-	}
+	// On-chain balance reader — injectable for tests. Reads SOL always and USDC
+	// only for the roles that watch it (payer float, treasury for the dashboard).
+	let conn = null;
+	const readBalance = ctx.readBalance || (async (address, watchUsdc) => {
+		if (!conn) conn = solanaConnection({ url: env.SOLANA_RPC_URL, commitment: 'confirmed' });
+		return {
+			lamports: await readSol(conn, address),
+			usdcAtomic: watchUsdc ? await readUsdc(conn, address) : null,
+		};
+	});
 
-	// Per-role floor spec. Treasury is intentionally floor-free (it fills + gets
-	// swept). SOL floors apply to sponsor always and to payer in self-pay mode.
 	const selfPay = String(process.env.X402_RING_SELF_PAY || env.X402_RING_SELF_PAY || '').toLowerCase() === 'true';
-	const specs = [
-		{ role: 'sponsor', address: addrs.sponsor, solFloor: RING_SOL_FLOOR_LAMPORTS, usdcFloor: null },
-		{ role: 'payer', address: addrs.payer, solFloor: selfPay ? RING_SOL_FLOOR_LAMPORTS : null, usdcFloor: RING_PAYER_USDC_FLOOR_ATOMIC },
-		{ role: 'treasury', address: addrs.treasury, solFloor: null, usdcFloor: null },
-	];
+	const specs = ringFloorSpecs({
+		solFloorLamports: RING_SOL_FLOOR_LAMPORTS,
+		payerUsdcFloorAtomic: RING_PAYER_USDC_FLOOR_ATOMIC,
+		selfPay,
+	});
+	const addrFor = { sponsor: addrs.sponsor, payer: addrs.payer, treasury: addrs.treasury };
 
 	const wallets = [];
 	const breaches = [];
 	for (const spec of specs) {
-		if (!spec.address) {
+		const address = addrFor[spec.role] || null;
+		if (!address) {
 			wallets.push({ role: spec.role, address: null, configured: false });
 			continue;
 		}
-		const lamports = await readSol(conn, spec.address);
-		const usdcAtomic = spec.usdcFloor != null || spec.role === 'payer' || spec.role === 'treasury'
-			? await readUsdc(conn, spec.address)
-			: null;
-		const solLow = spec.solFloor != null && lamports != null && lamports < spec.solFloor;
-		const usdcLow = spec.usdcFloor != null && usdcAtomic != null && usdcAtomic < spec.usdcFloor;
-
-		const entry = {
-			role: spec.role,
-			address: spec.address,
-			configured: true,
-			sol: lamports != null ? lamports / LAMPORTS_PER_SOL : null,
-			usdc: usdcAtomic != null ? usdcAtomic / 1e6 : null,
-			sol_floor: spec.solFloor != null ? spec.solFloor / LAMPORTS_PER_SOL : null,
-			usdc_floor: spec.usdcFloor != null ? spec.usdcFloor / 1e6 : null,
-			sol_low: solLow,
-			usdc_low: usdcLow,
-		};
+		let lamports = null;
+		let usdcAtomic = null;
+		try {
+			({ lamports, usdcAtomic } = await readBalance(address, spec.watchUsdc));
+		} catch (err) {
+			log.warn('ring_balance_read_failed', { role: spec.role, message: err?.message });
+		}
+		const entry = evaluateRingWallet(spec, address, lamports, usdcAtomic);
 		wallets.push(entry);
 
-		if (solLow) {
+		if (entry.sol_low) {
 			breaches.push(`${spec.role} SOL ${entry.sol.toFixed(4)} < floor ${entry.sol_floor.toFixed(4)}`);
-			await sendOpsAlert(
+			await sendAlert(
 				`⛽ x402 ring ${spec.role} low on SOL`,
-				`${spec.role} ${spec.address} holds ${entry.sol.toFixed(4)} SOL, below the ${entry.sol_floor.toFixed(4)} SOL floor. ` +
+				`${spec.role} ${address} holds ${entry.sol.toFixed(4)} SOL, below the ${entry.sol_floor.toFixed(4)} SOL floor. ` +
 					`Below the facilitator's ${(SPONSOR_SOL_FLOOR_LAMPORTS / LAMPORTS_PER_SOL).toFixed(4)} SOL hard floor settlement is refused and the ring halts. ` +
 					`The economy master's treasury-topup cron refills registry signers automatically; fund it or the ${spec.role} directly.`,
-				{ signature: `x402-ring-sol-low:${spec.address}` },
+				{ signature: `x402-ring-sol-low:${address}` },
 			);
 		}
-		if (usdcLow) {
+		if (entry.usdc_low) {
 			breaches.push(`${spec.role} USDC ${entry.usdc.toFixed(2)} < floor ${entry.usdc_floor.toFixed(2)}`);
-			await sendOpsAlert(
+			await sendAlert(
 				`💵 x402 ring ${spec.role} low on USDC float`,
-				`${spec.role} ${spec.address} holds $${entry.usdc.toFixed(2)} USDC, below the $${entry.usdc_floor.toFixed(2)} float floor. ` +
+				`${spec.role} ${address} holds $${entry.usdc.toFixed(2)} USDC, below the $${entry.usdc_floor.toFixed(2)} float floor. ` +
 					`The daily volume cap can no longer be fully funded — top up the payer's USDC float.`,
-				{ signature: `x402-ring-usdc-low:${spec.address}` },
+				{ signature: `x402-ring-usdc-low:${address}` },
 			);
 		}
 	}

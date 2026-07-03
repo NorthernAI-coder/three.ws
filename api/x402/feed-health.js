@@ -216,7 +216,20 @@ export default paidEndpoint({
 	requiredScope: 'x402:bypass',
 	accessControl: installAccessControl({ requiredScope: 'x402:bypass' }),
 	async handler({ req }) {
-		const body = req.body || {};
+		// Drain the stream — Vercel does not reliably pre-parse req.body for this
+		// POST route, and `feed` is required, so trusting req.body would 400 every
+		// paid call. Fall back to a pre-parsed body when the runtime supplies one.
+		let body = {};
+		if (req.body && typeof req.body === 'object') {
+			body = req.body;
+		} else {
+			try {
+				const chunks = [];
+				for await (const c of req) chunks.push(c);
+				const raw = Buffer.concat(chunks).toString('utf8');
+				if (raw) body = JSON.parse(raw);
+			} catch { /* tolerate an empty/unparseable body → unsupported_feed below */ }
+		}
 		const feed = String(body.feed || '').trim();
 
 		if (!SUPPORTED_FEEDS.includes(feed)) {

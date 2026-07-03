@@ -119,6 +119,30 @@ export const SOLANA_SIGNERS = [
 		network: 'mainnet',
 	},
 	{
+		name: 'x402-ring-sponsor',
+		env: 'X402_FEE_PAYER_SECRET_BASE58',
+		// The self-hosted facilitator's fee payer: co-signs + burns SOL on every
+		// ring settle. If it drops below X402_SPONSOR_SOL_FLOOR_LAMPORTS (0.02 SOL)
+		// the facilitator refuses to settle and the ring silently halts — so keep
+		// the topup floor a hair above that hard floor and let the economy master's
+		// treasury-topup cron refill it before the loop stops.
+		minSol: 0.03,
+		purpose: 'x402 ring sponsor (fee payer): co-signs + pays SOL on every self-hosted-facilitator settle; below-floor pauses the whole ring',
+		network: 'mainnet',
+	},
+	{
+		name: 'x402-ring-payer',
+		env: 'X402_SEED_SOLANA_SECRET_BASE58',
+		fallbackEnv: 'X402_AGENT_SOLANA_SECRET_BASE58',
+		// In self-pay mode (X402_RING_SELF_PAY) the payer signs and pays its own
+		// 1-signature fee, so it needs its own SOL headroom just like the sponsor.
+		// Its USDC float is watched separately by the wallet-balance monitor; the
+		// economy master only ever tops up SOL, never USDC.
+		minSol: 0.03,
+		purpose: 'x402 ring payer (self-pay mode): signs + pays its own 1-sig fee on each ring settle; USDC float watched by the balance monitor',
+		network: 'mainnet',
+	},
+	{
 		name: 'collection-authority',
 		env: 'SOLANA_AGENT_COLLECTION_AUTHORITY_KEY',
 		minSol: 0.02,

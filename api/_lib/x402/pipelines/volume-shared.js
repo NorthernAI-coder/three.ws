@@ -12,6 +12,7 @@
 // The payment itself is always payX402 (../pay.js); callers own budget/cadence.
 
 import { USDC_MINT } from '../pay.js';
+import { rotationPlan } from '../ring-catalog.js';
 
 export const ASSET = USDC_MINT || 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
@@ -37,34 +38,40 @@ export const VOLUME_BATCH_PER_RUN = Math.max(
 	Number(process.env.X402_VOLUME_BATCH_PER_RUN || 4),
 );
 
-// The canonical catalog of paid self x402 endpoints the ring drivers round-robin.
-// Each body is a proven, harmless canary payload (mirrors the per-endpoint health
-// entries in autonomous-registry.js) so every sweep call is a valid paid request.
-// INTERNAL paths only — the ring never pays anything outside three.ws; this list
-// is hardcoded and X402_EXTERNAL_ENABLED has no effect on it. To add an endpoint
-// to ring volume, add it here — the cursor, the metrics ledger, and the
-// per-minute tick pick it up automatically. The drivers themselves are never
-// listed (they are not HTTP endpoints; no self-recursion).
-export const VOLUME_ENDPOINTS = [
-	// Ring-settle is the price-configurable, INTERNAL settlement primitive — the
-	// fee-optimal way to carry volume (fewer, larger payments). The per-minute
-	// ring tick fires it every Nth tick; the volume loop rotates it too. Its price
-	// (X402_PRICE_RING_SETTLE, default $1.00) must fit the applicable per-run cap
-	// or it is skipped — the caps default high enough to fit it. See
-	// api/x402/ring-settle.js.
-	{ key: 'ring-settle',         name: 'Ring Settlement',      path: '/api/x402/ring-settle',         method: 'POST', body: { note: 'ring-cycle' } },
-	{ key: 'dance-tip',           name: 'Dance Tip',            path: '/api/x402/dance-tip',           method: 'POST', body: { dancer: '1', dance: 'hiphop' } },
-	{ key: 'crypto-intel',        name: 'Crypto Intel',         path: '/api/x402/crypto-intel',        method: 'POST', body: { topic: 'solana' } },
-	{ key: 'three-intel',         name: '$THREE Signal Feed',   path: '/api/x402/three-intel',         method: 'POST', body: {} },
-	{ key: 'token-intel',         name: 'Token Intel',          path: '/api/x402/token-intel',         method: 'POST', body: { mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', network: 'mainnet' } },
-	{ key: 'fact-check',          name: 'Fact Check',           path: '/api/x402/fact-check',          method: 'POST', body: { claim: 'The sky is blue' } },
-	{ key: 'symbol-availability', name: 'Symbol Availability',  path: '/api/x402/symbol-availability', method: 'POST', body: { symbol: 'HEALTH' } },
-	{ key: 'pay-by-name',         name: 'Pay By Name',          path: '/api/x402/pay-by-name?name=threews.sol', method: 'GET',  body: null },
-	{ key: 'skill-marketplace',   name: 'Skill Marketplace',    path: '/api/x402/skill-marketplace',   method: 'GET',  body: null },
-	{ key: 'agent-reputation',    name: 'Agent Reputation',     path: '/api/x402/agent-reputation',    method: 'GET',  body: null },
-	{ key: 'club-cover',          name: 'Club Cover Charge',    path: '/api/x402/club-cover',          method: 'POST', body: { club: 'canary_test' } },
-	{ key: 'cosmetic-purchase',   name: 'Cosmetic Purchase',    path: '/api/x402/cosmetic-purchase',   method: 'POST', body: { item: 'canary_test', quantity: 1, _health_check: true } },
-];
+// The catalog of paid self x402 endpoints the ring drivers round-robin is now the
+// single source of truth in ../ring-catalog.js — every paid endpoint on the
+// platform, each with a body()/query proven against the handler it points at.
+// This module maps the catalog's autobuy, weighted rotation into the flat
+// { key, name, path, method, body } shape both drivers already consume. INTERNAL
+// paths only — the ring never pays anything outside three.ws; X402_EXTERNAL_ENABLED
+// has no effect on it. To add an endpoint to ring volume, add it to ring-catalog.js
+// with autobuy:true — the cursor, the metrics ledger, and the per-minute tick pick
+// it up automatically (and tests/x402-ring-catalog.test.js fails until it is
+// cataloged). The drivers themselves are never listed (no self-recursion).
+//
+// Turn a display name from a slug: 'club-cover-snapshot' → 'Club Cover Snapshot'.
+function displayName(slug) {
+	return slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+// Fold a catalog entry into the driver's flat endpoint shape. GET query params
+// are baked into the path (the settle path already appends nothing else), so the
+// shared settleAndRecord needs no change; POST bodies are resolved once from
+// body() (the payloads are static canaries).
+function toVolumeEndpoint(e) {
+	const qs = e.query ? `?${new URLSearchParams(e.query).toString()}` : '';
+	return {
+		key: e.slug,
+		name: displayName(e.slug),
+		path: `${e.path}${qs}`,
+		method: e.method,
+		body: e.method === 'POST' ? e.body() : null,
+	};
+}
+
+// The weighted, interleaved autobuy rotation — a full pass touches every autobuy
+// slug at least once (weight-N entries appear N times so they are hit more often).
+export const VOLUME_ENDPOINTS = rotationPlan().map(toVolumeEndpoint);
 
 // The ring-settle catalog entry (the periodic large volume carrier).
 export const RING_SETTLE_ENDPOINT = VOLUME_ENDPOINTS.find((e) => e.key === 'ring-settle');

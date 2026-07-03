@@ -15,7 +15,7 @@
 		"api/cron/treasury-topup.js": {
 			"maxDuration": 120
 		},
-		"api/cron/economy-reconcile.js": {
+		"{api/cron/economy-reconcile,api/cron/x402-ring-leak-scan}.js": {
 			"maxDuration": 300
 		},
 		"{api/strategies,api/cron/payment-session-sweep,api/cron/three-market-refresh}.js": {
@@ -27,7 +27,7 @@
 		"api/tournaments/[id].js": {
 			"maxDuration": 120
 		},
-		"{api/agents/networth,api/avatars/from-forge,api/pay/execute,api/cron/launcher-claimer,api/seed/synthesize}.js": {
+		"{api/agents/networth,api/avatars/from-forge,api/pay/execute,api/cron/launcher-claimer,api/seed/synthesize,api/cron/x402-ring-tick}.js": {
 			"maxDuration": 60
 		},
 		"{api/club/tips-stream,api/feed-stream,api/pump/trades-stream,api/oracle/stream,api/oracle/action-stream,api/sniper/stream,api/sniper/radar-stream,api/agent-screen-stream}.js": {
@@ -215,6 +215,14 @@
 		{
 			"src": "/admin/seeder/",
 			"dest": "/admin/seeder.html"
+		},
+		{
+			"src": "/admin/ring",
+			"dest": "/admin/ring.html"
+		},
+		{
+			"src": "/admin/ring/",
+			"dest": "/admin/ring.html"
 		},
 		{
 			"src": "/aws-marketplace/welcome",
@@ -2055,6 +2063,10 @@
 		{
 			"src": "/api/agents/x402/manifest",
 			"dest": "/api/agents/x402/[action]?action=manifest"
+		},
+		{
+			"src": "/api/x402-facilitator/([^/]+)",
+			"dest": "/api/x402-facilitator/[action]?action=$1"
 		},
 		{
 			"src": "/api/agents/([^/]+)/wallet/([^/]+)",
@@ -4874,6 +4886,10 @@
 			"schedule": "*/5 * * * *"
 		},
 		{
+			"path": "/api/cron/x402-ring-tick",
+			"schedule": "* * * * *"
+		},
+		{
 			"path": "/api/cron/avatar-thumbnail-render",
 			"schedule": "*/10 * * * *"
 		},
@@ -4916,6 +4932,10 @@
 		{
 			"path": "/api/cron/economy-reconcile",
 			"schedule": "*/30 * * * *"
+		},
+		{
+			"path": "/api/cron/x402-ring-leak-scan",
+			"schedule": "*/10 * * * *"
 		}
 	]
 }

@@ -15,9 +15,9 @@
 //     a malformed challenge, or timed out (> 3s). Wallet connect is degraded.
 //
 // The autonomous loop pays this probe every 5 min and records the verdict to
-// x402_autonomous_log (signal_data: { session_created, latency_ms }). A Redis
-// alert key (x402:wallet-connect:alert) is set on degradation and cleared on
-// recovery — same convention as the forge-health and DID-sweep alerts.
+// x402_autonomous_log (signal_data: { session_created, latency_ms }); alerting
+// on a degraded verdict is handled by the loop's downstream monitors, not by
+// this handler.
 //
 // Pay-per-call: $0.001 USDC on Solana or Base mainnet.
 

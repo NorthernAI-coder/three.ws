@@ -28,6 +28,33 @@ export const USDC_MINT = env.X402_ASSET_MINT_SOLANA;
 export const SOLANA_RPC = env.SOLANA_RPC_URL;
 export const FETCH_TIMEOUT_MS = 20_000;
 
+// ── Loud price-vs-cap skip ──────────────────────────────────────────────────────
+// A silent skip when an endpoint's advertised price exceeds the caller's remaining
+// per-run cap is exactly the bug the ring economy was built to kill: the flagship
+// ring-settle ($1.00) was dropped every cycle because the volume loop's per-run
+// cap ($0.05) was below it, and nobody saw it. Now the skip is LOUD — it names the
+// endpoint, the price, the cap, and the envs to raise — throttled to once per hour
+// per (url,cap) signature so a per-minute driver can't flood the logs.
+const _capWarnAt = new Map();
+const CAP_WARN_TTL_MS = 60 * 60 * 1000;
+export function warnCapExceeded(url, priceAtomic, capAtomic) {
+	const now = Date.now();
+	const sig = `${url}|${capAtomic}`;
+	const last = _capWarnAt.get(sig) || 0;
+	if (now - last < CAP_WARN_TTL_MS) return;
+	_capWarnAt.set(sig, now);
+	if (_capWarnAt.size > 512) {
+		for (const [k, t] of _capWarnAt) if (now - t >= CAP_WARN_TTL_MS) _capWarnAt.delete(k);
+	}
+	console.warn(
+		`[x402-pay] price_exceeds_cap — ${url} advertises ${(priceAtomic / 1e6).toFixed(6)} USDC ` +
+		`but the remaining per-run cap is ${(capAtomic / 1e6).toFixed(6)} USDC, so the call was SKIPPED ` +
+		`(never settled). Raise the applicable cap to fit: X402_RING_TICK_CAP_ATOMIC (per-minute ring tick), ` +
+		`X402_VOLUME_PER_RUN_CAP_ATOMIC (5-min volume loop), X402_RING_DAILY_CAP_ATOMIC / ` +
+		`X402_AUTONOMOUS_DAILY_CAP_ATOMIC (daily), or lower X402_PRICE_RING_SETTLE.`,
+	);
+}
+
 // ── Fee floor ─────────────────────────────────────────────────────────────────
 // The ring's operating rule is "lowest fees always": 1-signature self-pay
 // settlement (5,000 lamports base) with the priority fee pinned at the floor.
@@ -196,6 +223,14 @@ export async function payX402({
 	// only an explicit X402_RING_SELF_PAY=false selects sponsor mode. See
 	// ringSelfPayDefault() and buildPaymentTx.
 	selfPay = ringSelfPayDefault(),
+	// Optional pre-broadcast recipient gate. Called with the resolved Solana
+	// `accept` (payTo, asset, amount, …) AFTER the 402 challenge is parsed and
+	// BEFORE the payment tx is built/signed. Return `{ abort: true, reason }` to
+	// refuse the payment without moving money — the ring agent buyers use this to
+	// enforce that every counterparty is inside ringAllowedAddresses(). Returning
+	// null/undefined continues the normal flow. Sync or async; a thrown hook is
+	// treated as an abort (fail-closed), never a crash.
+	onAccept = null,
 }) {
 	const reqInit = {
 		method,
@@ -226,8 +261,27 @@ export async function payX402({
 		return { success: false, paid: false, free: false, skipped: true, amountAtomic: 0, txSig: null, status: 402, responseBody: probe.body, errorMsg: 'missing_fee_payer' };
 	}
 
+	// Pre-broadcast recipient gate. A thrown hook is a fail-closed refusal, never
+	// a crash — the whole point is to stop money moving to an unexpected payTo.
+	if (typeof onAccept === 'function') {
+		let hook;
+		try {
+			hook = await onAccept(accept);
+		} catch (err) {
+			hook = { abort: true, reason: `onaccept_error:${String(err?.message || err).slice(0, 80)}` };
+		}
+		if (hook?.abort) {
+			return {
+				success: false, paid: false, free: false, skipped: true, refusedByHook: true,
+				amountAtomic: Number(accept.amount || 0), txSig: null, status: 402,
+				responseBody: probe.body, errorMsg: hook.reason || 'onaccept_abort',
+			};
+		}
+	}
+
 	const amountAtomic = Number(accept.amount || 0);
 	if (amountAtomic > remainingCap) {
+		warnCapExceeded(url, amountAtomic, Number.isFinite(remainingCap) ? remainingCap : 0);
 		return { success: false, paid: false, free: false, skipped: true, amountAtomic, txSig: null, status: 402, responseBody: probe.body, errorMsg: 'cap_would_exceed' };
 	}
 
