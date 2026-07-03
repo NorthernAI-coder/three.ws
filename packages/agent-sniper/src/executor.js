@@ -201,13 +201,21 @@ export async function executeBuy({ cfg, strat, candidate, throttle, ports }) {
  * @param {string} p.reason
  * @param {Ports} p.ports
  */
-export async function executeSell({ cfg, position, reason, ports }) {
+export async function executeSell({ cfg, position, reason, ports, fraction = 1, recoversInitials = false }) {
 	const { store, wallet, solana, executor, hooks, log } = ports;
 	return withAgentLock(position.agent_id, async () => {
-		const tag = { agent: position.agent_id, mint: position.mint, symbol: position.symbol, reason };
+		// Laddered exits sell only PART of the bag (take-initials). Resolve the sell
+		// size in ppm of the current base amount so the moon-bag remainder is exact,
+		// and decide up front whether this closes the position.
+		const fullBase = BigInt(position.base_amount);
+		const ppm = fraction > 0 && fraction < 1 ? BigInt(Math.max(1, Math.min(999_999, Math.round(fraction * 1_000_000)))) : 1_000_000n;
+		let sellBase = ppm === 1_000_000n ? fullBase : (fullBase * ppm) / 1_000_000n;
+		const partial = sellBase > 0n && sellBase < fullBase;
+		if (sellBase <= 0n) sellBase = fullBase; // degenerate fraction → full exit
+		const tag = { agent: position.agent_id, mint: position.mint, symbol: position.symbol, reason, partial };
 		const screen = (text, kind, extra) => safe(() => hooks.onScreen?.({ text, kind, ...extra }));
 		await store.updatePosition(position.id, { status: 'closing' });
-		screen(`Selling $${symOf(position)}: ${reason}`, 'trade');
+		screen(`${partial ? 'Taking initials on' : 'Selling'} $${symOf(position)}: ${reason}`, 'trade');
 
 		try {
 			const loaded = await wallet.loadKeypair(position.agent_id, { userId: position.user_id, reason: 'sniper_sell' });
@@ -217,7 +225,7 @@ export async function executeSell({ cfg, position, reason, ports }) {
 			}
 			const { keypair } = loaded;
 			const mintPk = new PublicKey(position.mint);
-			const baseAmount = BigInt(position.base_amount);
+			const baseAmount = sellBase;
 			const slippagePct = (position.slippage_bps ?? 500) / 100;
 
 			const quote = await solana.quoteForSell({ mint: mintPk, baseAmount, slippagePct });
@@ -234,16 +242,48 @@ export async function executeSell({ cfg, position, reason, ports }) {
 				sig = result.signature;
 			}
 
-			const entry = BigInt(position.entry_quote_lamports || '0');
-			const pnl = expectedOut - entry;
-			const pnlPct = entry > 0n ? (Number(pnl) / Number(entry)) * 100 : 0;
+			const entryFull = BigInt(position.entry_quote_lamports || '0');
+			// Cost basis of the tokens sold on THIS leg (scaled by the sold ppm).
+			const soldCostBasis = partial ? (entryFull * ppm) / 1_000_000n : entryFull;
+			const legPnl = expectedOut - soldCostBasis;
+			const legPnlPct = soldCostBasis > 0n ? (Number(legPnl) / Number(soldCostBasis)) * 100 : 0;
+			const cumRealized = BigInt(position.realized_pnl_lamports || '0') + legPnl;
+
+			if (partial) {
+				// Take-initials: keep the position OPEN with the moon-bag remainder.
+				// Scale the cost basis down with the tokens, flag initials recovered so
+				// the ladder fires once, and RESET the trailing high-water to the
+				// remaining bag's value (the pre-sale peak would instantly trip trailing).
+				const remainingBase = fullBase - sellBase;
+				const remainingEntry = entryFull - soldCostBasis;
+				const remainingValueEst = Math.round((Number(expectedOut) * Number(remainingBase)) / Number(sellBase));
+				await store.updatePosition(position.id, {
+					status: 'open',
+					base_amount: remainingBase.toString(),
+					entry_quote_lamports: remainingEntry.toString(),
+					initials_recovered: recoversInitials ? true : position.initials_recovered === true,
+					peak_value_lamports: remainingValueEst,
+					last_value_lamports: remainingValueEst,
+					realized_pnl_lamports: cumRealized.toString(),
+					error: null,
+				});
+				const legSol = lamportsToSol(legPnl);
+				log.trade('take-initials', { ...tag, mode: cfg.mode, sig, sold_fraction: fraction, leg_pnl_sol: legSol });
+				screen(`Took initials on $${symOf(position)} — +${legSol.toFixed(4)} SOL back, moon bag riding`, 'trade',
+					{ phase: 'take_initials', mint: position.mint, symbol: position.symbol || null, solDelta: legSol, soldFraction: fraction });
+				safe(() => hooks.onSell?.({ position, pnlSol: legSol, pnlPct: legPnlPct, exitReason: reason, mode: cfg.mode, sig, network: cfg.network, partial: true }));
+				return { status: 'partial', sig, sold_fraction: fraction, leg_pnl: legPnl.toString() };
+			}
+
+			const pnl = legPnl;
+			const pnlPct = entryFull > 0n ? (Number(cumRealized) / Number(entryFull)) * 100 : 0;
 			await store.updatePosition(position.id, {
 				status: 'closed', exit_reason: reason, sell_sig: sig,
 				exit_quote_lamports: expectedOut.toString(),
-				realized_pnl_lamports: pnl.toString(), realized_pnl_pct: pnlPct,
+				realized_pnl_lamports: cumRealized.toString(), realized_pnl_pct: pnlPct,
 				error: null, closed_at_ms: Date.now(),
 			});
-			const pnlSol = lamportsToSol(pnl);
+			const pnlSol = lamportsToSol(cumRealized);
 			log.trade('sell', { ...tag, mode: cfg.mode, sig, pnl_sol: pnlSol, pnl_pct: pnlPct.toFixed(1) });
 			screen(`Sold $${symOf(position)} — ${pnlPct >= 0 ? 'profit' : 'loss'}: ${pnlSol >= 0 ? '+' : ''}${pnlSol.toFixed(4)} SOL`, 'trade',
 				{ phase: 'exit', mint: position.mint, symbol: position.symbol || null, solDelta: pnlSol, pct: pnlPct });

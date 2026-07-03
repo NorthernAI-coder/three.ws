@@ -6,7 +6,7 @@
 // it needs no per-mint trade feed.
 
 import { PublicKey } from '@solana/web3.js';
-import { decideExit } from './exit-logic.js';
+import { decideLadderedExit } from './exit-logic.js';
 import { executeSell } from './executor.js';
 
 async function tickPosition(cfg, pos, ports) {
@@ -48,8 +48,13 @@ async function tickPosition(cfg, pos, ports) {
 		} catch { /* sentiment offline — fall back to stop/trailing/TP */ }
 	}
 
-	const reason = decideExit(pos, value, peak, Date.now(), sentiment);
-	if (reason) await executeSell({ cfg, position: pos, reason, ports });
+	const exit = decideLadderedExit(pos, value, peak, Date.now(), sentiment);
+	if (exit) {
+		await executeSell({
+			cfg, position: pos, reason: exit.reason, ports,
+			fraction: exit.sellFraction, recoversInitials: exit.recoversInitials === true,
+		});
+	}
 }
 
 /** Run one sweep over all open positions. An error on one never aborts the rest. */
