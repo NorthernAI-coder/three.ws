@@ -193,10 +193,33 @@ then kept in a verified, watched, auto-fundable state:
   registered as `fee-audit` (nightly). Measures the real per-settlement and
   per-$100 fee burn into `x402_fee_audit`, alerts on drift, and closes empty
   non-role ATAs to reclaim their rent. Audit + reclaim only — never a spend.
+- **Endpoint catalog** —
+  [api/_lib/x402/ring-catalog.js](../api/_lib/x402/ring-catalog.js) is the single
+  source of truth for **every** paid x402 endpoint on the platform (46 entries:
+  tips, services, intel, health checks, settlement). Each entry declares the exact
+  `method`, `query`/`body()` request contract, and default price the handler
+  actually validates — derived by reading the handler, so a ring call never spends
+  money on a request the endpoint would reject. **35 are `autobuy`** (safe to
+  purchase on the loop); the **11 `autobuy:false`** entries (real coin mints, real
+  LLM spend, dynamic third-party payouts) are covered by one-time verification, not
+  the loop, each with a justification in the source. Adding a new paid endpoint
+  without cataloging it fails `tests/x402-ring-catalog.test.js` (it greps every
+  `paidEndpoint(` construction site and asserts each is cataloged).
 - **Volume engine** — the existing autonomous loop
   ([api/cron/x402-autonomous-loop.js](../api/cron/x402-autonomous-loop.js) →
   [volume-bootstrap-loop.js](../api/_lib/x402/pipelines/volume-bootstrap-loop.js))
-  round-robins `VOLUME_ENDPOINTS`, which now includes `ring-settle`.
+  and the per-minute ring tick both round-robin the catalog's weighted autobuy
+  rotation (`rotationPlan()`), mapped into the shared driver in
+  [volume-shared.js](../api/_lib/x402/pipelines/volume-shared.js). The rotation is
+  weighted so **every autobuy endpoint is exercised at least once per hour** at the
+  stock 5-minute cadence (12 ticks × 4 = 48 selections/hour ≥ the 38-entry
+  rotation) — test-proven, not asserted.
+- **Coverage proof** —
+  [scripts/x402-ring-coverage-sweep.js](../scripts/x402-ring-coverage-sweep.js)
+  pays every catalog entry once and records the facilitator settle signature +
+  verified business effect into
+  [tasks/x402-ring/COVERAGE.md](../tasks/x402-ring/COVERAGE.md) — the standing
+  guarantee that each endpoint actually settles when paid, not just that it 402s.
 - **Setup script** — [scripts/x402-ring-setup.mjs](../scripts/x402-ring-setup.mjs).
   Generates the role wallets, writes secrets to a gitignored file, prints the env
   block. Never funds anything.
@@ -344,6 +367,185 @@ and `sol_per_100_usd` — from real chain-read fees, and alerts if they drift ab
 the floor (>1.5× the 1-sig fee) or the daily budget
 (`X402_RING_DAILY_FEE_BUDGET_LAMPORTS`, default 0.05 SOL).
 
+## Cadence — many paid hits every minute
+
+The 5-minute autonomous loop proves every endpoint is live, but it is too slow and
+too tightly capped to be the *continuous* driver — at 300s cooldowns and a $0.05
+per-run cap the flagship ring-settle ($1.00) was skipped every cycle. The
+**per-minute ring tick** ([api/cron/x402-ring-tick.js](../api/cron/x402-ring-tick.js),
+scheduled `* * * * *`) is the steady driver: every minute it pays
+`X402_RING_TICK_CALLS` endpoints drawn from the internal catalog, weighted so cheap
+tips/services dominate the count while one **ring-settle carries volume cheaply**
+every `X402_RING_SETTLE_EVERY_N_TICKS` ticks.
+
+It shares the *one* payment + recording path with the volume loop
+([pipelines/volume-shared.js](../api/_lib/x402/pipelines/volume-shared.js)) — same
+`payX402`, same `x402_autonomous_log`, same `x402_volume_metrics` ledger — but with
+its **own, separate budget**: rows are tagged `pipeline='ring-tick'` and summed
+independently, so the ring tick never consumes the autonomous loop's
+`X402_AUTONOMOUS_DAILY_CAP_ATOMIC`.
+
+### Throughput + fee math at the stock defaults
+
+| Knob | Default | Meaning |
+|---|---|---|
+| `X402_RING_TICK_CALLS` | 3 | paid calls per minute |
+| `X402_RING_SETTLE_EVERY_N_TICKS` | 5 | one ring-settle every 5th tick (~1 / 5 min) |
+| `X402_PRICE_RING_SETTLE` | $1.00 | the volume carrier's per-call size |
+| `X402_RING_TICK_CAP_ATOMIC` | $1.10 | per-tick spend ceiling (fits one settle + its cheap co-riders) |
+| `X402_RING_DAILY_CAP_ATOMIC` | $50.00 | ring-tick daily ceiling (separate budget) |
+
+At 3 calls/min the **traffic shape** is:
+
+- **4,320 tx/day** (3 × 1,440 min) — of which **288/day are ring-settle** (1 per
+  5 min) and **~4,032/day are cheap tips/services**.
+- **~0.0216 SOL/day** in network fees at the 1-signature self-pay floor
+  (4,320 tx × 5,000 lamports = 21,600,000 lamports). The priority fee (~5 µlamports
+  over 60k CU ≈ 0.3 lamports/tx) is negligible; ATAs already exist, so no per-call
+  rent. In sponsor mode (2 signatures) it is ~0.0432 SOL/day.
+
+The **$50/day ring-tick cap bounds spend**, not tx count: with ~$1 settles plus
+cheap tips it is reached after roughly **4 hours** of continuous per-minute traffic
+(~48 settles + their tips), after which the tick **no-ops cleanly** — one structured
+`ring_daily_cap_reached` log row per minute — until UTC midnight. That is the
+intended "steady, capped" behavior. For **24-hour continuous** coverage, raise
+`X402_RING_DAILY_CAP_ATOMIC` to cover the full day's settle volume (≈ 288 × the
+settle price, e.g. ~$300 at $1/call), or lower `X402_PRICE_RING_SETTLE` /
+raise `X402_RING_SETTLE_EVERY_N_TICKS` so a day's settles fit under $50. Because the
+principal recirculates (the rebalancer sweeps treasury→payer, now on a **120s**
+cooldown to keep up with the faster float), a higher daily cap raises *gross volume*
+without raising real cost — cost is only the SOL fees above.
+
+### Coherence: no silent skips
+
+The old failure — ring-settle silently dropped because its price exceeded the
+per-run cap — is now **impossible to hit quietly** three ways:
+
+1. `X402_VOLUME_PER_RUN_CAP_ATOMIC` and `X402_RING_TICK_CAP_ATOMIC` **default high
+   enough** ($1.10) to fit the $1.00 ring-settle out of the box.
+2. `validateRingConfig()` returns a `ring_price_exceeds_run_cap` **error finding**
+   when the price still exceeds the cap — surfaced on `/api/x402-ring` and
+   `/api/x402-status`, and the ring tick **refuses to run** on any error finding.
+3. If a call is ever skipped for `cap_would_exceed`, `payX402` logs a **loud,
+   throttled warning** naming the endpoint, the price, the cap, and the exact env
+   to change.
+
+### Back-pressure, never a retry-storm
+
+Before paying, the tick pre-flights the payer's SOL and USDC balances. Below the
+facilitator SOL floor (`X402_SPONSOR_SOL_FLOOR_LAMPORTS`, default 0.02 SOL),
+insufficient payer USDC, or an RPC fault → the whole tick **skips** with a
+structured `x402_autonomous_log` row and **one throttled ops alert** (max 1/hour per
+reason via `sendOpsAlert`). It never fires settlements that would 502 in a loop.
+
+## Agents in the ring — buyers with names, not a cron
+
+The cadence above keeps volume flowing, but volume alone still reads as "a cron
+paying itself." What makes it an **agent-to-agent economy** is that the buyers are
+real platform agents — `agent_identities` rows with custodial Solana wallets —
+each shopping the ring in character, spend-limited, and attributed. That layer
+lives in [api/_lib/x402/agents/](../api/_lib/x402/agents/) and runs as the
+`agent-buyers` entry in the autonomous loop.
+
+### The roster & personas
+
+Three personas, one module each, each backing a real custodial agent wallet:
+
+| Persona | Agent buys | Tier |
+|---|---|---|
+| **Endpoint Shopper** ([endpoint-shopper.js](../api/_lib/x402/agents/endpoint-shopper.js)) | market/$THREE intel + health probes | intel, health |
+| **Agora Citizen** ([agora-citizen.js](../api/_lib/x402/agents/agora-citizen.js)) | club cover + dance tips (after "completing work") | commerce, tip |
+| **Marketplace Curator** ([curator.js](../api/_lib/x402/agents/curator.js)) | skill-marketplace listings + $THREE billboards | commerce |
+
+Each persona's `plan({ origin, seed, maxBuys })` is a **pure function of the tick
+seed** — same seed ⇒ same purchases — so the rotation is reproducible and
+testable. Every purchase routes through the one guarded path in
+[persona-kit.js](../api/_lib/x402/agents/persona-kit.js) `executePurchase()`:
+
+1. **`enforceSpendLimit`** ([agent-trade-guards.js](../api/_lib/agent-trade-guards.js)) —
+   the agent's own per-tx / daily USD caps. A breach is a **refusal** (recorded +
+   custody-logged), never a thrown error that crashes the tick.
+2. **Allowlist gate** — the tick pre-resolves `ringAllowedAddresses()` and refuses,
+   *before broadcasting*, any payment whose `payTo` is outside the controlled set
+   (via the new `onAccept` hook on `payX402`). Defence-in-depth over the
+   facilitator's own recipient allowlist.
+3. **Pay** with the **agent's** custodial keypair (`recoverSolanaAgentKeypair`).
+4. **Custody-log** the settled `spend` event with the settle signature.
+
+Every settled purchase is written to `x402_autonomous_log` with the buying
+**`agent_id`** (migration
+[2026-07-03-x402-ring-agents.sql](../api/_lib/migrations/2026-07-03-x402-ring-agents.sql)),
+so the dashboard can show *which agent bought what* — the surface that makes it an
+agent economy, not anonymous cron traffic. Personas are labeled `internal:true` in
+every row; they are never presented as organic users.
+
+### Roster provisioning & membership
+
+`ensureRosterAgents()` idempotently resolves each persona's backing agent (finds it
+by `meta.ring_persona`, else creates it under the platform owner), provisions its
+custodial wallet via `ensureAgentWallet`, stamps its spend limits, and registers the
+wallet in `x402_ring_wallets` with `role='agent'`. Because both
+`ringAllowedAddresses()` and the [ring verify script](../scripts/x402-ring-verify.mjs)
+read `x402_ring_wallets`, roster wallets land inside the controlled set and the
+audit table automatically — `node scripts/x402-ring-verify.mjs` lists them under
+"roster agents", and the [leak scanner](#on-chain-leak-scanner) classifies their
+traffic as `internal`.
+
+### Closing the loop through the business layer
+
+Every persona pays the ring **treasury** (`X402_PAY_TO_SOLANA`) — the seller side
+is the platform itself, so no purchase leaves the controlled set:
+
+- **intel / health** — the agent pays the treasury for a real signal/liveness
+  response it consumes.
+- **club cover / dance tip** — settle to the treasury (the club's takings); the
+  dancer is a stage slot on the 3D club stage, not an external wallet, so the tip
+  is recorded in `club_tips` (business) **and** `x402_ring_ledger` (settlement)
+  without leaving the ring.
+- **skill-marketplace / billboard** — the marketplace read and the $THREE billboard
+  slot both pay the treasury.
+
+The proceeds are recycled back to each agent's working balance by the **float
+top-up** step — `floatTopUp()` in
+[ring-rebalance.js](../api/_lib/x402/pipelines/ring-rebalance.js), the
+`ring-float-topup` loop entry. It keeps every roster agent's USDC inside a band
+(`X402_RING_AGENT_FLOAT_ATOMIC`, default **$2**; floor $1, ceiling $4): tops up a
+hungry agent from the treasury, sweeps an overfull one back, asserts every
+counterparty against `ringAllowedAddresses()` first (fail-closed), and records each
+move to `x402_ring_ledger` as **`kind='fund'`**. Recirculation, not spend — it
+returns `amountAtomic:0` and never consumes the daily cap.
+
+### On-chain deployments in the loop
+
+At low cadence (`X402_RING_ONCHAIN_EVERY_N_TICKS`, default **60** ≈ hourly) one
+roster agent lands a **real on-chain program call**: an agent-to-agent invocation
+receipt on the `agent_invocation` Anchor program
+([onchain.js](../api/_lib/x402/agents/onchain.js) →
+[agent-invocation-onchain.js](../api/_lib/agent-invocation-onchain.js)). The invoking
+agent's **own custodial keypair signs and pays the network fee — so the fee payer is
+a ring wallet**, as required. The program moves no funds; it emits a `SkillInvoked`
+event, giving the ring a permanent, explorer-linkable proof that two platform agents
+transacted. It runs on **devnet** (`AGENT_INVOCATION_NETWORK`, per the no-new-mainnet
+constraint), verifies the program is deployed before attempting, and **skips cleanly**
+(logging why) when the program/env is absent or the wallet is unfunded. Every attempt
+— landed or skipped — is written to `x402_autonomous_log` (pipeline `ring-onchain`,
+with `agent_id`), and a landed receipt also records an `onchain_event` custody row.
+
+### Running it
+
+`node scripts/x402-ring-agents-run.mjs [ticks]` drives the roster locally for N
+ticks (default 10) using the exact `run(ctx)` the loop invokes — real end to end,
+degrading to clean skips without env/funding — and prints the attribution summary
+(distinct `agent_id`s + settle sigs) and fund-ledger moves for the acceptance
+checklist.
+
+**Env knobs:** `X402_RING_AGENT_FLOAT_ATOMIC` (float target, default $2),
+`X402_RING_AGENT_FLOAT_FLOOR_ATOMIC` / `_CEIL_ATOMIC` (band edges),
+`X402_RING_AGENT_MAX_BUYS_PER_TICK` (per-persona buys, default 1),
+`X402_RING_AGENT_PERSONAS_PER_TICK` (active personas, default all),
+`X402_RING_ONCHAIN_EVERY_N_TICKS` (on-chain cadence, default 60),
+`X402_RING_AGENT_OWNER_USER_ID` (owner for auto-created roster agents).
+
 ## Leak-proofing — the invariant, made active
 
 **The invariant:** no SOL or USDC ever leaves the set of wallets three.ws
@@ -429,9 +631,65 @@ WARN.
 5. **Re-verify** — run `node scripts/x402-ring-verify.mjs` to confirm the wallet
    set is clean, then mark the verdict reconciled.
 
+## Watching it — the operator dashboard
+
+The ring has a JSON scoreboard ([/api/x402-ring](../api/x402-ring.js)) and now a
+pair of eyes: **[/admin/ring](../pages/admin/ring.html)** — a live operator
+dashboard that makes the closed-loop economy visible at a glance, so "it stopped
+working" can never again go unnoticed for days. It is admin-authed and
+`noindex`; every panel renders from real data, and a persistent header badge
+labels all ring volume as **internal dogfooding, not organic revenue** (per the
+labeling rule at the top of this doc).
+
+One aggregate endpoint —
+**[/api/admin/ring-dashboard](../api/admin/ring-dashboard.js)** — backs the whole
+page (one authed fetch per 15s poll, not seven). It *composes* the public
+`/api/x402-ring` report rather than forking it, then adds the read-only cuts the
+public feed doesn't carry. Auth is identical to
+[/api/admin/seeder](../api/admin/seeder.js): a real admin session **or**
+`Authorization: Bearer $CRON_SECRET`.
+
+What you see:
+
+- **Pulse strip** — settlements per minute over the last 60 minutes as a live
+  spark strip where a gap is instantly visible, plus `minutes_since_last_settle`
+  as a big status number with heartbeat thresholds: **≤1 min green** (the
+  per-minute tick is alive), **≤5 amber** (slowing), **>5 red** (stalled — go
+  look). Kill the tick and the number climbs amber→red within those thresholds.
+- **Loop diagram** — payer → endpoint → treasury → (sweep) → payer with live
+  on-chain balances on each node and the sponsor's SOL floor indicator (sponsor
+  node is optional in self-pay mode).
+- **Activity feed** — the last 100 paid calls: time, agent persona, endpoint
+  slug, kind (`tip` / `service` / `intel` / `commerce` / `settle`), price, and
+  the settle signature as a Solscan link. Skips (e.g. `cap_would_exceed`) render
+  amber and failures red, each with its structured reason — never a silent drop.
+- **Fees panel** — lamports per settlement vs the 5,000-lamport 1-signature
+  floor, SOL burned per $100 of gross volume, and today's burn against
+  `X402_RING_DAILY_FEE_BUDGET_LAMPORTS` as a budget bar (amber ≥80%, red over).
+- **Integrity panel** — all-green collapses to one calm row; any open leak-scan
+  finding, reconciliation verdict, or config error expands to red detail with
+  the `chain_status` breakdown.
+- **Coverage panel** — per-endpoint last-paid age from `x402_volume_metrics`;
+  older than 2h (the hourly-coverage guarantee) shows amber.
+
+Keyboard: `r` refreshes, `p` pauses polling. The page polls only while visible
+(it aborts on a hidden tab) and ships designed loading (skeletons), empty (`ring
+idle — run the activation runbook`), and error (API unreachable, with the `curl`
+to debug) states. Reach it from the admin sidebar
+([/admin](../public/admin/index.html) → **Ring Economy**) or directly at
+`/admin/ring`.
+
+Debug the read model straight from a shell:
+
+```bash
+curl -s -H "Authorization: Bearer $CRON_SECRET" \
+  "$APP_ORIGIN/api/admin/ring-dashboard?period=24h" | jq '.pulse, .fees'
+```
+
 ## Related
 
 - [STRUCTURE.md](../STRUCTURE.md) — surface map
+- [/admin/ring](../pages/admin/ring.html) + [api/admin/ring-dashboard.js](../api/admin/ring-dashboard.js) — the operator dashboard (above)
 - [/api/x402-revenue](../api/x402-revenue.js) — the **public** organic-revenue
   feed (self-cycled ring volume is excluded from the "organic" framing here)
 - [docs/x402-revenue.md](./x402-revenue.md) — revenue surface docs

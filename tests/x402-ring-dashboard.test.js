@@ -23,7 +23,7 @@ import {
 	splitIntegrity,
 	FEE_FLOOR_LAMPORTS,
 	ENDPOINT_STALE_MINUTES,
-} from '../api/admin/ring-dashboard.js';
+} from '../api/_lib/x402/ring-dashboard-model.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const p = (...parts) => resolve(__dirname, '..', ...parts);
@@ -89,6 +89,9 @@ describe('ring dashboard — activity classification', () => {
 		expect(activityStatus({ success: true, amount_atomic: 1000 })).toBe('paid');
 		expect(activityStatus({ success: true, amount_atomic: 0 })).toBe('ok');
 		expect(activityStatus({ success: false, error_msg: 'cap_would_exceed' })).toBe('skipped');
+		expect(activityStatus({ success: false, error_msg: 'fee_ceiling_exceeded:10500' })).toBe(
+			'skipped',
+		);
 		expect(activityStatus({ success: false, error_msg: 'fee_wallet_below_floor:1<2' })).toBe(
 			'skipped',
 		);

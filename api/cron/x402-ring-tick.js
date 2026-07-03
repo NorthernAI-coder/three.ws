@@ -53,6 +53,7 @@ import { sendOpsAlert } from '../_lib/alerts.js';
 import { priceFor } from '../_lib/x402-prices.js';
 import { loadSeedKeypair, payX402, USDC_MINT, SOLANA_RPC } from '../_lib/x402/pay.js';
 import { validateRingConfig } from '../_lib/x402/ring-config.js';
+import { assertRingSpendInvariants } from '../_lib/x402/ring-allowlist.js';
 import {
 	ASSET,
 	RING_SETTLE_ENDPOINT,
@@ -116,11 +117,12 @@ async function reserveCheapCursor(redis, count) {
 // records 0 for non-paid calls). Separate from the autonomous loop's budget by
 // construction: it filters on pipeline='ring-tick'.
 async function ringDailySpent() {
-	const since = new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00.000Z');
+	// UTC calendar day, computed in SQL (the platform's day convention — mirrors
+	// the autonomous loop's toISOString()-based UTC key). No JS Date param binding.
 	const rows = await sql`
 		SELECT COALESCE(SUM(amount_atomic), 0)::bigint AS spent
 		FROM x402_autonomous_log
-		WHERE pipeline = 'ring-tick' AND ts >= ${since}
+		WHERE pipeline = 'ring-tick' AND ts >= date_trunc('day', now())
 	`;
 	return Number(rows[0]?.spent || 0);
 }
@@ -179,6 +181,20 @@ export default wrapCron(async (req, res) => {
 			skipped: true,
 			reason: 'ring_config_invalid',
 			findings: gate.errors,
+		});
+	}
+
+	// ── Leak-proofing invariant — fail CLOSED before any spend ────────────────
+	// external spending off, charity split zero, facilitator = self. A flipped or
+	// forgotten guard no-ops the whole tick and fires one throttled CRITICAL
+	// alert naming the flag — see api/_lib/x402/ring-allowlist.js.
+	const invariants = await assertRingSpendInvariants({ context: 'x402-ring-tick' });
+	if (!invariants.ok) {
+		return json(res, 200, {
+			ok: false,
+			skipped: true,
+			reason: 'ring_invariant_violation',
+			violations: invariants.violations.map((v) => v.flag),
 		});
 	}
 

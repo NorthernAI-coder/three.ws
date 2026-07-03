@@ -38,114 +38,32 @@ import {
 } from '../../agent-trade-guards.js';
 import { recoverSolanaAgentKeypair } from '../../agent-wallet.js';
 import { env } from '../../env.js';
+// The pure core (RNG, float math, small utils) lives in a dependency-free module
+// so it can be unit-tested without loading Solana/DB/env. Re-exported here so
+// existing importers of persona-kit keep working unchanged.
+import {
+	mulberry32,
+	seedFromString,
+	pickDeterministic,
+	planFloatMove,
+	floatBand,
+	isRingAddress,
+	summarizeLiveness,
+	buildUrl,
+} from './persona-math.js';
 
-// ── Deterministic RNG ─────────────────────────────────────────────────────────
-
-/**
- * mulberry32 — a tiny, fast, well-distributed 32-bit PRNG. Seeded, deterministic,
- * dependency-free. Used so persona selection and per-tick endpoint choice are a
- * pure function of the tick seed (reproducible across processes and tests).
- * @param {number} seed
- * @returns {() => number} next float in [0,1)
- */
-export function mulberry32(seed) {
-	let a = seed >>> 0;
-	return function next() {
-		a |= 0;
-		a = (a + 0x6d2b79f5) | 0;
-		let t = Math.imul(a ^ (a >>> 15), 1 | a);
-		t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-	};
-}
-
-/**
- * Fold an arbitrary string (e.g. a runId) into a 32-bit seed. Lets the driver
- * derive a stable seed when no monotonic tick counter is available.
- * @param {string} str
- * @returns {number}
- */
-export function seedFromString(str) {
-	let h = 2166136261 >>> 0;
-	const s = String(str || '');
-	for (let i = 0; i < s.length; i++) {
-		h ^= s.charCodeAt(i);
-		h = Math.imul(h, 16777619);
-	}
-	return h >>> 0;
-}
-
-/**
- * Deterministically pick `n` distinct items from `items` given a seed. Stable:
- * same (items, seed, n) ⇒ same picks in the same order. Used by personas to
- * choose which endpoint(s) to buy this tick.
- * @template T
- * @param {T[]} items
- * @param {number} seed
- * @param {number} [n=1]
- * @returns {T[]}
- */
-export function pickDeterministic(items, seed, n = 1) {
-	const pool = items.slice();
-	const rng = mulberry32(seed);
-	const out = [];
-	const take = Math.min(n, pool.length);
-	for (let i = 0; i < take; i++) {
-		const idx = Math.floor(rng() * pool.length);
-		out.push(pool.splice(idx, 1)[0]);
-	}
-	return out;
-}
-
-// ── Float math (shared with ring-rebalance float-top-up) ───────────────────────
-
-/**
- * Pure float-band arithmetic. Given an agent's current USDC balance and the
- * band, decide the single next move that returns it toward target:
- *   balance < floor   → 'top_up'  by (target − balance)   (treasury → agent)
- *   balance > ceiling → 'sweep'   by (balance − target)   (agent → treasury)
- *   otherwise         → 'none'
- * All amounts are atomic USDC (6dp). Never returns a negative amount.
- *
- * @param {{ balanceAtomic: number|bigint, floorAtomic: number, targetAtomic: number, ceilingAtomic: number }} p
- * @returns {{ action: 'top_up'|'sweep'|'none', amountAtomic: number }}
- */
-export function planFloatMove({ balanceAtomic, floorAtomic, targetAtomic, ceilingAtomic }) {
-	const bal = Number(balanceAtomic);
-	if (bal < floorAtomic) {
-		return { action: 'top_up', amountAtomic: Math.max(0, targetAtomic - bal) };
-	}
-	if (bal > ceilingAtomic) {
-		return { action: 'sweep', amountAtomic: Math.max(0, bal - targetAtomic) };
-	}
-	return { action: 'none', amountAtomic: 0 };
-}
-
-/**
- * Resolve the float band from env, once per call. FLOAT is the target; floor is
- * half of it, ceiling is double — a symmetric band that keeps a small working
- * balance without letting winnings accumulate off-ledger.
- * @returns {{ floorAtomic: number, targetAtomic: number, ceilingAtomic: number }}
- */
-export function floatBand() {
-	const target = Math.max(0, Number(process.env.X402_RING_AGENT_FLOAT_ATOMIC || 2_000_000));
-	const floor = Math.max(0, Number(process.env.X402_RING_AGENT_FLOAT_FLOOR_ATOMIC || Math.floor(target / 2)));
-	const ceiling = Math.max(target, Number(process.env.X402_RING_AGENT_FLOAT_CEIL_ATOMIC || target * 2));
-	return { floorAtomic: floor, targetAtomic: target, ceilingAtomic: ceiling };
-}
+export {
+	mulberry32,
+	seedFromString,
+	pickDeterministic,
+	planFloatMove,
+	floatBand,
+	isRingAddress,
+	summarizeLiveness,
+	buildUrl,
+};
 
 // ── Guarded purchase path ──────────────────────────────────────────────────────
-
-/**
- * Is `address` inside the platform-controlled ring set? Accepts a pre-resolved
- * allowlist Set to avoid re-querying per purchase within a tick.
- * @param {string} address
- * @param {Set<string>} allowed
- * @returns {boolean}
- */
-export function isRingAddress(address, allowed) {
-	return typeof address === 'string' && allowed.has(address);
-}
 
 const ATOMIC_PER_USD = 1_000_000;
 
@@ -198,6 +116,7 @@ export async function executePurchase({ agent, purchase, solana, allowed, person
 	try {
 		await enforceSpendLimit({
 			agentId: agent.id,
+			userId: agent.userId ?? null,
 			meta: agent.meta || {},
 			category: 'x402',
 			usdValue,
@@ -208,6 +127,7 @@ export async function executePurchase({ agent, purchase, solana, allowed, person
 		if (err instanceof SpendLimitError) {
 			await recordSpend({
 				agentId: agent.id,
+				userId: agent.userId ?? null,
 				category: 'x402',
 				network: 'mainnet',
 				asset: USDC_MINT,
@@ -267,6 +187,7 @@ export async function executePurchase({ agent, purchase, solana, allowed, person
 	// 4 — durable custody record of the settled spend (owner-viewable trail).
 	await recordSpend({
 		agentId: agent.id,
+		userId: agent.userId ?? null,
 		category: 'x402',
 		network: 'mainnet',
 		asset: USDC_MINT,
@@ -285,18 +206,6 @@ export async function executePurchase({ agent, purchase, solana, allowed, person
 		txSig: result.txSig,
 		responseLiveness: summarizeLiveness(result.responseBody),
 	});
-}
-
-/** Compact liveness summary — keeps the log row small while proving a real reply. */
-export function summarizeLiveness(body) {
-	if (body == null) return { ok: false, shape: 'empty' };
-	if (typeof body === 'string') return { ok: body.length > 0, shape: 'text', length: body.length };
-	if (Array.isArray(body)) return { ok: body.length > 0, shape: 'array', length: body.length };
-	if (typeof body === 'object') {
-		const keys = Object.keys(body);
-		return { ok: keys.length > 0 && !body.error, shape: 'object', keys: keys.slice(0, 10) };
-	}
-	return { ok: true, shape: typeof body };
 }
 
 /**
@@ -321,13 +230,6 @@ export async function recoverAgentBuyer(row) {
 	}
 }
 
-/** Build a GET URL with query params, or return the path unchanged for POST. */
-export function buildUrl(origin, path, query) {
-	if (!query || Object.keys(query).length === 0) return `${origin}${path}`;
-	const qs = new URLSearchParams(query).toString();
-	const sep = path.includes('?') ? '&' : '?';
-	return `${origin}${path}${sep}${qs}`;
-}
 
 /** Assert USDC is configured; personas call this before planning real spends. */
 export function usdcConfigured() {

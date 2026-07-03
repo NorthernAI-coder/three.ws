@@ -251,8 +251,8 @@ Schema:
 growth + status surfaces read: **proof-of-volume** (total settled calls and USDC
 volume per endpoint — the metric agentic.market ranks facilitators on) and
 **per-endpoint liveness** (`last_success` / `last_called_at` confirm each paid
-endpoint is up). Add an endpoint to `VOLUME_ENDPOINTS` in the pipeline and the
-cursor and ledger pick it up automatically.
+endpoint is up). Add an endpoint to `api/_lib/x402/ring-catalog.js` with
+`autobuy: true` and the cursor and ledger pick it up automatically.
 
 > **Synthetic vs organic — do not conflate them.** The Volume Bootstrap Loop pays
 > our **own** endpoints from our **own** seed wallet, and those endpoints settle
