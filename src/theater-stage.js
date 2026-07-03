@@ -16,6 +16,13 @@
 //   • agentAvatarGlb(agent)        — resolves a real GLB (custom or mannequin fallback)
 // so a brand-new agent with no custom body still renders as a real figure, never a
 // T-pose (CLAUDE.md: no rig allowlist, mannequin is the designed fallback).
+//
+// Rigged avatars only. The stage is a performance space — every body must be able
+// to act. A resolved avatar earns the stage only if it's a drivable humanoid rig
+// with sane proportions; a static forge prop, a non-humanoid mesh, or a broken rig
+// is swapped for the rigged mannequin at load time and never staged as-is. That's
+// what stops a forge blob from sprawling across the floor instead of standing as a
+// figure that can idle and react.
 
 import {
 	Scene,
@@ -45,7 +52,7 @@ import {
 import { clone as cloneSkinnedScene } from 'three/addons/utils/SkeletonUtils.js';
 import { gltfLoader, disposeGltfLoader } from './loaders/gltf.js';
 import { AnimationManager } from './animation-manager.js';
-import { agentAvatarGlb } from './shared/agent-3d.js';
+import { agentAvatarGlb, MANNEQUIN_GLB } from './shared/agent-3d.js';
 import { log } from './shared/log.js';
 
 // Reaction vocabulary mapped onto the real pre-baked clip library
@@ -195,21 +202,64 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false }
 		return p;
 	}
 
-	async function addPerformer(agent, index, total) {
-		if (disposed || performers.has(agent.id)) return;
-		const url = agentAvatarGlb(agent);
+	// Build a candidate body from a GLB url: clone it, size it to the stage, and
+	// attach the canonical animation rig. Reports whether the result is a rigged,
+	// sanely-proportioned humanoid we can actually drive — the gate that keeps
+	// static forge props and exploded rigs off the stage. Returns null if the GLB
+	// has no usable scene. The returned body is not yet parented to the scene, so
+	// a rejected candidate can be disposed without any teardown of live state.
+	async function buildBody(url, slot) {
 		const tpl = await template(url);
-		if (disposed || !tpl.scene || performers.has(agent.id)) return;
+		if (!tpl.scene) return null;
 
-		const slot = arcSlot(index, total);
 		const model = cloneSkinnedScene(tpl.scene);
 		model.traverse((n) => { if (n.isMesh) n.frustumCulled = true; });
+		scaleToHeight(model, 1.74 * slot.scale);
+		groundFeet(model);
+
+		const anim = new AnimationManager();
+		let drivable = false;
+		try {
+			anim.attach(model, { avatarUrl: url });
+			anim.setAnimationDefs(CLIP_DEFS);
+			drivable = anim.supportsCanonicalClips();
+		} catch (err) {
+			log.warn('[theater] anim attach failed', url, err?.message);
+		}
+
+		// Proportion sanity: a rigged avatar occupies a tall, narrow box (even arms
+		// fully out, span ≈ height). A forge prop or a mesh exploded by a bad rig
+		// sprawls far wider — reject it so it can never reach the stage as a blob.
+		_box.setFromObject(model, true);
+		const h = _box.max.y - _box.min.y || 1;
+		const wide = Math.max(_box.max.x - _box.min.x, _box.max.z - _box.min.z);
+		const humanoid = Number.isFinite(wide) && wide / h <= 3;
+
+		return { model, anim, drivable: drivable && humanoid };
+	}
+
+	async function addPerformer(agent, index, total) {
+		if (disposed || performers.has(agent.id)) return;
+		const slot = arcSlot(index, total);
+
+		// Rigged avatars only. Try the agent's own model first; if it isn't a
+		// drivable humanoid, swap in the rigged mannequin (the platform's designed
+		// fallback) rather than staging forge geometry as-is.
+		const url = agentAvatarGlb(agent);
+		let body = await buildBody(url, slot);
+		if (disposed || performers.has(agent.id)) { body?.anim?.dispose?.(); return; }
+		if ((!body || !body.drivable) && url !== MANNEQUIN_GLB) {
+			body?.anim?.dispose?.();
+			body = await buildBody(MANNEQUIN_GLB, slot);
+			if (disposed || performers.has(agent.id)) { body?.anim?.dispose?.(); return; }
+		}
+		if (!body || !body.model) return;
+
+		const { model, anim, drivable } = body;
 
 		const group = new Group();
 		group.name = `performer:${agent.id}`;
 		group.add(model);
-		scaleToHeight(model, 1.74 * slot.scale);
-		groundFeet(model);
 		group.position.set(slot.x, 0, slot.z);
 		group.rotation.y = (Math.atan2(-group.position.x, 9 - group.position.z) || 0) * 0.35; // toward the audience
 		group.userData.agentId = agent.id;
@@ -224,17 +274,6 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false }
 		pad.position.set(slot.x, 0.02, slot.z);
 		cast.add(pad);
 
-		const anim = new AnimationManager();
-		const drivable = (() => {
-			try {
-				anim.attach(model, { avatarUrl: url });
-				anim.setAnimationDefs(CLIP_DEFS);
-				return anim.supportsCanonicalClips();
-			} catch (err) {
-				log.warn('[theater] anim attach failed', agent.id, err?.message);
-				return false;
-			}
-		})();
 		if (drivable && !reducedMotion) anim.play('idle');
 
 		const rec = { agent, group, model, pad, anim, drivable, slot, busy: false, plate: null };

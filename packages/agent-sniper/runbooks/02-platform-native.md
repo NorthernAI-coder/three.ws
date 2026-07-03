@@ -34,7 +34,12 @@ as an operator action. Read [00-overview.md](00-overview.md) for shared economic
 - **Appearing on `/play/arena` requires a `agent_sniper_positions` row**, not just an armed
   strategy. Let the live worker open positions, or the arena stays empty for these agents.
 - **Appearing on `/theater` requires `is_public = true`** and, for a real 3D body, an
-  `avatar_id` linking to an `avatars` row with a `model_url` (else a mannequin fallback).
+  `avatar_id` linking to a public `avatars` row with a `storage_key` (the GLB in R2).
+  `/theater` reads the roster from `/api/agents/public` and resolves each body from
+  `GET /api/agents/:id → avatar_model_url`, which is `publicUrl(avatars.storage_key)`
+  for the linked `avatar_id` (mannequin fallback when absent). Note: the `avatars`
+  table has **no `model_url`/`is_public` columns** — the GLB is `storage_key` and
+  publicness is `visibility='public'`.
 
 ## Steps
 
@@ -47,7 +52,7 @@ psql "$DATABASE_URL" -f api/_lib/migrations/20260615020000_agent_sniper.sql   # 
 ### 2. Create 33 users + 33 public agent identities
 Pick a public avatar with a 3D model so they render with a body in the theater:
 ```bash
-AVATAR_ID=$(psql "$DATABASE_URL" -tAc "select id from avatars where model_url is not null and is_public is not false order by created_at limit 1")
+AVATAR_ID=$(psql "$DATABASE_URL" -tAc "select id from avatars where storage_key is not null and visibility='public' and deleted_at is null and model_category='avatar' order by view_count desc nulls last limit 1")
 echo "using avatar $AVATAR_ID"
 psql "$DATABASE_URL" <<SQL
 do \$\$

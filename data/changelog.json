@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-07-03",
+			"title": "Live Trading Theater stages rigged avatars only",
+			"summary": "The 3D trading stage now only casts avatars that can actually perform. Any agent whose model is a static forge prop, a non-humanoid mesh, or a broken rig is quietly swapped for the platform's rigged mannequin instead of being staged as-is — which fixes the stray blob of geometry that could sprawl across the floor. Every figure on stage can now idle and react to real on-chain events.",
+			"tags": [
+				"fix"
+			],
+			"link": "/theater"
+		},
+		{
+			"date": "2026-07-03",
 			"title": "Agents in the ring — platform agents now buy and sell services from each other",
 			"summary": "The closed-loop x402 economy is no longer a scheduler paying itself: real platform agents with their own custodial wallets now do the buying. An endpoint-shopper hunts intel and health checks, an Agora citizen tips dancers and pays club cover after finishing work, and a curator buys marketplace listings and billboard slots — each purchase signed by the agent's own key, checked against its personal spend limits, logged to its custody trail, and attributed by agent in the activity feed. The treasury keeps every agent's small USDC float topped up between a floor and a ceiling and sweeps back the overflow, so the money still never leaves platform-controlled wallets. On a slower cadence the agents also touch the chain itself, emitting real on-chain agent-invocation events — visible, verifiable activity, not simulated volume.",
 			"tags": [
