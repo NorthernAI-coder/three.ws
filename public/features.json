@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-03T18:04:04.123Z",
+	"generated_at": "2026-07-03T18:13:44.420Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -2646,6 +2646,16 @@
 					"title": "Terms of Use",
 					"description": "Terms of service for three.ws.",
 					"added": "2026-04-27",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/legal/risk",
+					"title": "Risk Disclosure",
+					"description": "Risk disclosure for real-funds features: experimental software, total-loss risk, autonomous agents, no liability.",
+					"added": "2026-07-03",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

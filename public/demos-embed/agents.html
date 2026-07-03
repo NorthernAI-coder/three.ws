@@ -144,9 +144,15 @@
     }
     .card-see3d:hover { background: rgba(15,98,254,0.06); }
 
-    .agents-loading { text-align: center; padding: 3rem 2rem; color: #525252; display: flex; align-items: center; justify-content: center; gap: 0.75rem; }
-    .agents-loading::after { content: ''; display: inline-block; width: 1rem; height: 1rem; border: 2px solid rgba(15,98,254,0.2); border-top-color: #0f62fe; border-radius: 50%; animation: spin 0.8s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    /* Skeleton cards — mirror the real card layout while the directory loads,
+       so the grid doesn't jump when data lands. */
+    .agent-skel { background: transparent; padding: 1.1rem 1.25rem 1.25rem; display: flex; flex-direction: column; gap: 0.6rem; }
+    .agent-skel .skel-head { display: flex; align-items: center; gap: 0.75rem; }
+    .skel { background: #e8e8e8; animation: skel-pulse 1.4s ease-in-out infinite; }
+    .skel-avatar { width: 48px; height: 48px; flex-shrink: 0; }
+    .skel-line { height: 0.8rem; }
+    @keyframes skel-pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 0.95; } }
+    @media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
 
     .agents-empty { text-align: center; padding: 4rem 2rem; background: transparent; }
     .agents-empty h2 { font-size: 1.25rem; font-weight: 600; color: #161616; margin-bottom: 0.5rem; }
@@ -197,7 +203,7 @@
     </div>
 
     <div class="agents-wrap">
-      <div id="loading" class="agents-loading" style="display:none">Loading agents</div>
+      <div id="loading" class="sr-only" role="status" aria-live="polite" style="display:none">Loading agents</div>
       <div id="agents" class="agent-grid"></div>
       <div id="empty-state" class="agents-empty" style="display:none">
         <h2>No agents found</h2>

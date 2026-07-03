@@ -63,7 +63,9 @@ Enforced in `executeBuy`, short-circuiting before any transaction:
 6. **Price-impact circuit breaker** — `max_price_impact_pct` checked against a fresh `quoteForBuy`.
 7. **Idempotency** — `INSERT … ON CONFLICT (agent_id, mint, network) DO NOTHING` claims the slot before the tx; one shot per mint per agent.
 8. **Mayhem exclusion (owner rule)** — the first gate: never buy pump.fun "Mayhem"-mode tokens, only regular launches. Reads `isMayhemMode` off the on-chain bonding curve (cached per mint) via `mayhem-gate.js`. Applies to **every** trigger path, since it lives in the `executeBuy` chokepoint. `SNIPER_MAYHEM_FILTER=0` disables; `SNIPER_MAYHEM_STRICT=1` also skips when the curve can't be read.
-9. **Agent scoping** — `SNIPER_AGENT_IDS` restricts the worker to a specific set of agents, so a bounded run against the shared DB can't act on every other armed strategy.
+9. **Market-cap band (owner rule)** — buy only inside a market-cap window. Enforced at the `executeBuy` chokepoint (`marketCapBandReason`), so `new_mint`, `intel`, `alpha`, `first_claim`, `radar` and `swarm` all obey it. **Fails closed**: a coin whose market cap can't be confirmed inside the band is skipped, not bought. A per-strategy `min/max_market_cap_usd` only *tightens* the fleet-wide floor/ceil (`SNIPER_MIN_MC_FLOOR_USD` / `SNIPER_MAX_MC_CEIL_USD`) — it can never loosen it. On a blind `new_mint` snipe the create-event cap is ~$4k, so a $10k floor correctly rejects brand-new launches; use the `intel_confirmed` trigger to buy a coin *after* it pumps into the band.
+10. **Realized-loss circuit breaker (portfolio layer)** — once an agent's **net realized loss over the trailing 24 h** crosses its cap, it stops opening new positions for the rest of the window. Catches a fleet that bleeds one losing entry at a time — each trade passes the per-trade caps yet the wallet still grinds down. A profitable or break-even day never trips it; a DB hiccup never blocks (the lamports caps stay the backstop). The fleet-wide `SNIPER_MAX_DAILY_LOSS_SOL` protects every agent at once and is tightened by an optional per-strategy `daily_loss_limit_lamports`. **The same breaker gates the auto-funder** — a wallet past its loss cap stops being refilled, so the master can't keep pouring SOL after a wallet that only loses.
+11. **Agent scoping** — `SNIPER_AGENT_IDS` restricts the worker to a specific set of agents, so a bounded run against the shared DB can't act on every other armed strategy.
 
 > **Wallet/funds pre-check.** An agent with no wallet or too little SOL is skipped
 > *before* the idempotency claim, so it leaves no `failed` position row — those
@@ -93,7 +95,15 @@ Enforced in `executeBuy`, short-circuiting before any transaction:
 | `SNIPER_MAYHEM_FILTER` | | `1` | Enforce the no-Mayhem rule (skip pump.fun Mayhem-mode tokens). `0` disables. |
 | `SNIPER_MAYHEM_STRICT` | | `0` | `1` = skip a buy when the bonding curve can't be read (default allows-on-unknown, logged). |
 | `SNIPER_AGENT_IDS` | | — | Comma/space-separated agent UUID allowlist. Unset = all agents for the network. |
+| `SNIPER_MIN_MC_FLOOR_USD` | | — | Fleet-wide market-cap floor (USD). Buys below it are skipped across every agent; a per-strategy `min_market_cap_usd` only tightens it. Unset = no floor. |
+| `SNIPER_MAX_MC_CEIL_USD` | | — | Fleet-wide market-cap ceiling (USD). Buys above it are skipped; a per-strategy `max_market_cap_usd` only tightens it. Unset = no ceiling. |
+| `SNIPER_MAX_DAILY_LOSS_SOL` | | — | Fleet-wide realized-loss cap (SOL) per trailing 24 h. An agent past it stops opening positions AND stops being auto-funded. Tightened by per-strategy `daily_loss_limit_lamports`. Unset = no cap. |
 | `LAUNCHER_MASTER_DAILY_CAP_SOL` | | — | Hard per-UTC-day ceiling on total master-wallet outflow across automated funders. Unset = no cap. |
+| `SNIPER_AUTO_FUND_MIN_SOL` | | `0.02` | Auto-funder: refill an armed agent's wallet when it drops below this. |
+| `SNIPER_AUTO_FUND_TARGET_SOL` | | `0.05` | Auto-funder: balance a low wallet is topped up to. |
+| `SNIPER_AUTO_FUND_PER_TX_SOL` | | `0.1` | Auto-funder: max SOL moved in one top-up. |
+| `SNIPER_AUTO_FUND_DAILY_SOL` | | `1.0` | Auto-funder: max SOL moved per UTC day across **all** agents. |
+| `SNIPER_AUTO_FUND_PER_AGENT_DAILY_SOL` | | `0.25` | Auto-funder: max SOL any **single** agent can draw per UTC day — stops one bleeding wallet from consuming the whole fleet budget. `0` = off. |
 | `SNIPER_CONFIRM_TIMEOUT_MS` | | `60000` | Per-trade confirmation wait. |
 | `SNIPER_CLAIM_POLL_MS` | | `30000` | First-claim trigger: fee-claim poll cadence. |
 | `SNIPER_CLAIM_LOOKBACK_S` | | `600` | First-claim trigger: window scanned each poll (must exceed the poll interval). |

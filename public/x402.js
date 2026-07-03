@@ -33,6 +33,11 @@
 
 const VERSION = '0.1.0';
 
+// Real-funds gate: before the first payment, the user must accept the three.ws
+// Risk Disclosure. Resolved relative to this module's URL, so merchant-site
+// embeds load it from the three.ws origin.
+import { ensureRiskAck } from './risk-ack.js';
+
 // SIWX ("Sign-In-With-X" / CAIP-122) lets a wallet that has already paid for
 // an endpoint re-enter it by signing a challenge instead of paying again. The
 // server advertises support by including `extensions['sign-in-with-x']` in the
@@ -1359,6 +1364,7 @@ class CheckoutModal {
 	}
 
 	async runSolana(accept) {
+		if (!(await ensureRiskAck({ context: 'x402-pay' }))) { this.close('cancelled'); return; }
 		this.accept = accept;
 		this.setPrice(accept);
 		const provider = detectSolanaProvider();
@@ -1428,6 +1434,7 @@ class CheckoutModal {
 	}
 
 	async runEvm(accept) {
+		if (!(await ensureRiskAck({ context: 'x402-pay' }))) { this.close('cancelled'); return; }
 		this.accept = accept;
 		this.setPrice(accept);
 		this.renderProgress('connect', { text: 'Opening browser wallet…' });

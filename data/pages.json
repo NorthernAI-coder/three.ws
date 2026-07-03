@@ -2122,6 +2122,14 @@
 					"priority": 0.2,
 					"changefreq": "yearly",
 					"added": "2026-04-27"
+				},
+				{
+					"path": "/legal/risk",
+					"title": "Risk Disclosure",
+					"description": "Risk disclosure for real-funds features: experimental software, total-loss risk, autonomous agents, no liability.",
+					"priority": 0.2,
+					"changefreq": "yearly",
+					"added": "2026-07-03"
 				}
 			]
 		},

@@ -19,6 +19,7 @@
 import { sql } from './db.js';
 import { env } from './env.js';
 import { randomUUID } from 'node:crypto';
+import { scrubSecrets } from './scrub-secrets.js';
 import {
 	ensureAgentWallet,
 	recoverSolanaAgentKeypair,
@@ -142,7 +143,7 @@ async function logAction(row) {
 			values (
 				${row.kind}, ${row.network ?? null}, ${row.actorAgentId ?? null}, ${row.counterpartyAgentId ?? null},
 				${row.signature ?? null}, ${row.amountLamports != null ? String(row.amountLamports) : null},
-				${row.status ?? 'ok'}, ${JSON.stringify(row.detail ?? {})}::jsonb
+				${row.status ?? 'ok'}, ${JSON.stringify(scrubSecrets(row.detail ?? {}))}::jsonb
 			)
 		`;
 	} catch (e) {

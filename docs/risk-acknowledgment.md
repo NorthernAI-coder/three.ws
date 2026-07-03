@@ -1,0 +1,97 @@
+# The real-funds risk acknowledgment
+
+Every feature on three.ws that can move real money is gated behind a one-time,
+versioned risk acknowledgment. Before a user's first real-funds action — a
+trade, a sniper arm, a withdrawal, a swap, a token launch, an x402 payment, a
+fiat onramp — a dialog asks them to read and accept the
+[Risk Disclosure](https://three.ws/legal/risk): three.ws is experimental
+software, losses can be total, autonomous agents act without asking again, and
+they use real funds entirely at their own risk. Decline and the money action
+simply doesn't run; everything else on the platform keeps working.
+
+## How it behaves
+
+- **Once per browser.** Acceptance is stored in `localStorage` under
+  `threews:risk-ack` as `{ version, acceptedAt, context }`. Every gated surface
+  shares the same record — accepting in the trade tab also satisfies the swap
+  modal, the launcher, and every other gate.
+- **Versioned.** The current disclosure version is `RISK_ACK_VERSION` in
+  [`public/risk-ack.js`](../public/risk-ack.js). If the disclosure changes
+  materially, bump that constant (and the version line on
+  [`public/legal/risk.html`](../public/legal/risk.html)) — every user is then
+  re-prompted before their next real-funds action. Stored acceptances with an
+  older version no longer count.
+- **Recorded server-side.** On accept, the client fires
+  `POST /api/legal/risk-ack` ([`api/legal/risk-ack.js`](../api/legal/risk-ack.js)),
+  which writes a `risk-ack-accept` row into `audit_log` — user id when signed
+  in (null otherwise), disclosure version, the feature context, path, IP, and
+  user agent. `audit_log` is not retention-pruned, so acceptance records
+  persist. The write is fire-and-forget: a failed network call never blocks the
+  user's accepted state.
+- **Devnet stays friction-free.** Surfaces that know their network only gate
+  when it isn't `devnet`. Simulation modes (e.g. Oracle arm's simulate mode)
+  are never gated.
+- **Fails closed.** If the gate can't render (no DOM) or the user never
+  accepts, `ensureRiskAck()` resolves `false` and the caller must abort the
+  money action.
+
+## Wiring a new money surface
+
+Any new feature that commits real funds MUST call the gate before executing.
+From bundled app code (`src/`):
+
+```js
+import { ensureRiskAck } from './shared/risk-ack.js'; // adjust the relative path
+
+async function onConfirm() {
+	if (!(await ensureRiskAck({ context: 'my-feature' }))) return; // declined
+	// … move real funds …
+}
+```
+
+From plain `public/` scripts or third-party embeds:
+
+```js
+import { ensureRiskAck } from './risk-ack.js'; // resolves on the three.ws origin
+```
+
+`context` is a short kebab-case slug of the gated action (`trade`, `snipe`,
+`withdraw`, `swap`, `launch`, `x402-pay`, `onramp`, …). It is stored with the
+acceptance record so the audit trail shows which feature prompted it. The call
+is idempotent — once accepted it resolves `true` instantly, so gating multiple
+layers of the same flow costs nothing.
+
+The canonical implementation lives in [`public/risk-ack.js`](../public/risk-ack.js)
+(dependency-free, served at `/risk-ack.js`); [`src/shared/risk-ack.js`](../src/shared/risk-ack.js)
+is a thin wrapper for bundled code. Pure logic (`parseAckRecord`,
+`isAckCurrent`) is covered by [`tests/risk-ack.test.js`](../tests/risk-ack.test.js).
+
+## Currently gated surfaces
+
+| Surface | Entry point | Context |
+|---|---|---|
+| Agent wallet — trade | `src/agent-wallet-hub/tabs/trade.js` | `trade` |
+| Agent wallet — withdraw | `src/agent-wallet-hub/tabs/withdraw.js` | `withdraw` |
+| Agent wallet — give | `src/agent-wallet-hub/tabs/give.js` | `give` |
+| Agent wallet — arm sniper | `src/agent-wallet-hub/tabs/snipe.js` | `snipe` |
+| Agent wallet — arm autopilot | `src/agent-wallet-hub/tabs/autopilot.js` | `autopilot` |
+| Agent wallet — x402 pay | `src/agent-wallet-hub/tabs/pay.js` | `x402-pay` |
+| Oracle arm (live mode only) | `src/arm.js` | `oracle-arm` |
+| Jupiter swap modal | `src/swap-jupiter.js` | `swap` |
+| pump.fun token launch | `src/pump/launch-token-modal.js` | `launch` |
+| Agent-home pump.fun buy/sell | `src/agent-home-pumpfun.js` | `pump-trade` |
+| pump.fun x402 access payment | `src/pump/pump-modals.js` | `x402-pay` |
+| Skill purchase modal | `src/payment-modal.js` | `skill-purchase` |
+| $THREE token payments | `src/token-pay.js` | `token-pay` |
+| Forge pay-per-generation | `src/forge-pay.js` | `forge-pay` |
+| Add funds / Coinbase onramp | `src/shared/add-funds.js` | `onramp` |
+| Drop-in x402 modal (incl. merchant embeds) | `public/x402.js` | `x402-pay` |
+
+If you add a surface, add its row here and its gate call in the code — both in
+the same change.
+
+## Related
+
+- [Risk Disclosure](https://three.ws/legal/risk) — the full legal text users accept
+- [Custody you can verify](./custody.md) — the spend-limit and freeze controls that bound what agents can do after acceptance
+- [Terms of Service](https://three.ws/legal/tos) — §8 Limitation of Liability, which this acknowledgment supplements
