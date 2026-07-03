@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-07-03",
+			"title": "Every data feed now has free backups — one provider going down no longer takes a feature with it",
+			"summary": "The platform already rotated across multiple Solana RPC providers when one failed; that same resilience now covers the rest of the data it fetches. SOL/USD pricing tries four independent free sources (CoinGecko, Jupiter, Kraken, Coinbase) instead of one. Token stats on agent pages and the /coin3d viewer roll from DexScreener to GeckoTerminal to Jupiter. The real-time wallet trade monitor rotates across three free Solana WebSocket endpoints. Map place labels fall back across three geocoders. And the swap terminal on launch pages now rides the same multi-provider RPC rotation as the rest of the site. If a source is down or rate-limiting, the next one answers within seconds — you should simply never notice.",
+			"tags": [
+				"improvement",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-07-03",
 			"title": "Live Trading Theater loads more gracefully — no more endless \"Assembling the cast\"",
 			"summary": "The Theater used to sit on its loading spinner indefinitely if the roster feed was slow to answer, and a room with no traders yet showed an unlit, empty stage with no explanation. Both are fixed. Every roster and agent-detail request is now time-bounded, so a slow or unreachable edge falls through to a clear \"couldn't load\" state with a Try-again button instead of hanging. And when a room genuinely has no traders yet, you get a designed empty state that tells you why and points you to browse agents or launch your own — never a blank void.",
 			"tags": [

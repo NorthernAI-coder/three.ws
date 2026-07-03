@@ -95,6 +95,14 @@
 			<description>Two more guides for the trust layer. Custody You Can Verify walks through the four guarantees on every agent wallet — spend caps enforced before signing, a freeze switch that never blocks your own withdrawal, the six-hourly Merkle proof-of-custody you can re-verify in your own browser, and social recovery with a dead-man’s-switch inheritance flow. Claim Your Wallet explains how any Solana wallet’s pump.fun track record is computed from on-chain aggregates and how one gasless signature publishes it as your shareable Trader Card.</description>
 		</item>
 		<item>
+			<title>Every data feed now has free backups — one provider going down no longer takes a feature with it</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-03:Every data feed now has free backups — one provider going down no longer takes a feature with it</guid>
+			<pubDate>Fri, 03 Jul 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The platform already rotated across multiple Solana RPC providers when one failed; that same resilience now covers the rest of the data it fetches. SOL/USD pricing tries four independent free sources (CoinGecko, Jupiter, Kraken, Coinbase) instead of one. Token stats on agent pages and the /coin3d viewer roll from DexScreener to GeckoTerminal to Jupiter. The real-time wallet trade monitor rotates across three free Solana WebSocket endpoints. Map place labels fall back across three geocoders. And the swap terminal on launch pages now rides the same multi-provider RPC rotation as the rest of the site. If a source is down or rate-limiting, the next one answers within seconds — you should simply never notice.</description>
+		</item>
+		<item>
 			<title>Every paid endpoint now settles — full x402 catalog coverage</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-07-03:Every paid endpoint now settles — full x402 catalog coverage</guid>
