@@ -1,11 +1,23 @@
 {
-	"generated_at": "2026-07-02T23:53:40.916Z",
+	"generated_at": "2026-07-03T00:09:38.457Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-07-03",
+			"type": "update",
+			"title": "Full audit trail + breach monitoring on the economy's funding wallet",
+			"summary": "The master wallet that fuels the platform's autonomous economy now keeps a tamper-evident accounting book of every move it makes. Each SOL transfer is recorded with the engine it funded, the amount, the on-chain signature, the running balance, and the US-dollar value at the moment of the transfer — cryptographically hash-chained so no past entry can be altered or deleted without detection. A monitor runs every 30 minutes and checks three things: that the book hasn't been tampered with, that every transfer we recorded really happened on-chain, and — most importantly — that no SOL ever left the wallet without a matching record, which is the tell-tale sign of a stolen key. Anything off raises an immediate operator alert and lands on the finance-integrity board. There's also a one-command accounting export (CSV or JSON, with running balance and dollar totals) for bookkeeping and review.",
+			"link": null,
+			"tags": [
+				"security",
+				"infra",
+				"docs"
+			]
+		},
 		{
 			"date": "2026-07-02",
 			"type": "update",

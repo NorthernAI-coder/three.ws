@@ -4,6 +4,10 @@
 
 Public history for [three.ws](https://three.ws), newest first. New pages come from `added` dates in data/pages.json; everything else is curated in data/changelog.json. Also available as [JSON](https://three.ws/changelog.json) and [RSS](https://three.ws/changelog.xml), live at [three.ws/changelog](https://three.ws/changelog).
 
+## 2026-07-03
+
+- **Full audit trail + breach monitoring on the economy's funding wallet** — The master wallet that fuels the platform's autonomous economy now keeps a tamper-evident accounting book of every move it makes. Each SOL transfer is recorded with the engine it funded, the amount, the on-chain signature, the running balance, and the US-dollar value at the moment of the transfer — cryptographically hash-chained so no past entry can be altered or deleted without detection. A monitor runs every 30 minutes and checks three things: that the book hasn't been tampered with, that every transfer we recorded really happened on-chain, and — most importantly — that no SOL ever left the wallet without a matching record, which is the tell-tale sign of a stolen key. Anything off raises an immediate operator alert and lands on the finance-integrity board. There's also a one-command accounting export (CSV or JSON, with running balance and dollar totals) for bookkeeping and review. `[security, infra, docs]`
+
 ## 2026-07-02
 
 - **Agent wallet creation and vanity addresses restored** — Creating an agent's custodial Solana wallet — including grinding a custom vanity address — was failing with a server error. The platform's dedicated at-rest encryption key had gone missing from the production environment, and the wallet layer correctly refuses to encrypt a new custodial key without it rather than fall back to a weaker key. The key is restored, and the encryption layer now also keeps wallets written under the older key readable after a key change, so wallet creation, vanity addresses, and withdrawals all work again. No funds were ever at risk or moved. (`/vanity-wallet`) `[fix, security]`

@@ -388,11 +388,20 @@ async function main() {
 		if (enterBtn) { enterBtn.disabled = true; enterBtn.textContent = 'Entering…'; }
 		try {
 			const { mountPlayerMode } = await import('./player-mode.js');
-			playerMode = await mountPlayerMode({
+			const mounted = await mountPlayerMode({
 				scene, camera, population, buildingBoxes,
 				getCameraYaw: () => cityCamera.yaw,
 				openPassport: (id) => openPassport(id, null),
 			});
+			// The mount awaits a module import + an avatar GLB (seconds). If the page
+			// was torn down during that window (pagehide → disposeWorld already ran,
+			// once), nothing would ever dispose this layer — its socket + global
+			// listeners + HUD would outlive the world. Tear it down here instead.
+			if (disposed) {
+				try { mounted.dispose(); } catch { /* best-effort */ }
+				return;
+			}
+			playerMode = mounted;
 			focusGoal = null;
 			if (enterBtn) {
 				enterBtn.disabled = false;

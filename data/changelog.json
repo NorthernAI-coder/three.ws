@@ -2,6 +2,16 @@
   "$comment": "Curated changelog entries for three.ws \u2014 the editorial layer of the public changelog. New PAGE launches are tracked automatically via the `added` field in data/pages.json; this file is for everything else holders care about: improvements, fixes, SDK releases, trading/payments capabilities, security work. scripts/build-page-index.mjs merges both sources into CHANGELOG.md, public/changelog.json, and public/changelog.xml. Newest first. Allowed tags: feature, improvement, fix, sdk, infra, docs, security. `link` is optional and must be a live three.ws path.",
   "entries": [
     {
+      "date": "2026-07-03",
+      "title": "Full audit trail + breach monitoring on the economy's funding wallet",
+      "summary": "The master wallet that fuels the platform's autonomous economy now keeps a tamper-evident accounting book of every move it makes. Each SOL transfer is recorded with the engine it funded, the amount, the on-chain signature, the running balance, and the US-dollar value at the moment of the transfer — cryptographically hash-chained so no past entry can be altered or deleted without detection. A monitor runs every 30 minutes and checks three things: that the book hasn't been tampered with, that every transfer we recorded really happened on-chain, and — most importantly — that no SOL ever left the wallet without a matching record, which is the tell-tale sign of a stolen key. Anything off raises an immediate operator alert and lands on the finance-integrity board. There's also a one-command accounting export (CSV or JSON, with running balance and dollar totals) for bookkeeping and review.",
+      "tags": [
+        "security",
+        "infra",
+        "docs"
+      ]
+    },
+    {
       "date": "2026-07-02",
       "title": "Coin pages now have a live price chart, and every coin across the site links to them",
       "summary": "Two upgrades to the full coin page. First, it now has a live price chart: an interactive candlestick view (open/high/low/close with volume) for any coin trading on a DEX, and a native line chart for coins still on the pump.fun bonding curve — so there's always a chart, from launch to graduation. Second, coins everywhere on three.ws now link to their full page. Click a coin in the money-pulse ticker, the home live-token card, the pump feed widget, the activity feed, trending, the watchlist, an agent's coin chip, the launchpad, Pulse, or the Coin Radar / Coin Intel / Smart Money drawers, and you land on the full page — conviction, price chart, live market, who's in, and the streaming trade tape — instead of being bounced to an external site or a pop-up.",

@@ -155,6 +155,7 @@ recurring payout crons that forward the flows above:
 
 ## Related
 
+- [Financial controls & audit register](financial-controls.md) — every ledger's integrity, reconciliation, retention, monitoring, and the ranked gap list.
 - [x402 endpoints](x402-endpoints.md) — the paid endpoint catalog and price overrides.
 - [x402 revenue & receipts](x402-revenue.md) — where settlements are recorded.
 - [x402 ring economy](x402-ring-economy.md) — the internal recirculation loop.

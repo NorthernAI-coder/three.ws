@@ -15,6 +15,9 @@
 		"api/cron/treasury-topup.js": {
 			"maxDuration": 120
 		},
+		"api/cron/economy-reconcile.js": {
+			"maxDuration": 300
+		},
 		"{api/strategies,api/cron/payment-session-sweep,api/cron/three-market-refresh}.js": {
 			"maxDuration": 30
 		},
@@ -4908,6 +4911,10 @@
 		},
 		{
 			"path": "/api/cron/treasury-topup",
+			"schedule": "*/30 * * * *"
+		},
+		{
+			"path": "/api/cron/economy-reconcile",
 			"schedule": "*/30 * * * *"
 		}
 	]

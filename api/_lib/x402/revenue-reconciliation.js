@@ -41,6 +41,7 @@ import { randomUUID } from 'node:crypto';
 import { sql } from '../db.js';
 import { env } from '../env.js';
 import { logger } from '../usage.js';
+import { sendOpsAlert } from '../alerts.js';
 import { solanaConnection } from '../solana/connection.js';
 import {
 	payX402, bootstrapSolanaContext, fetchWithTimeout,
@@ -370,6 +371,27 @@ export async function run(ctx = {}) {
 	// Keep only a bounded sample of flagged rows in the log summary; the full set
 	// lives in payment_reconciliation.
 	summary.flagged_sample = flagged.slice(0, 20);
+
+	// Page ops on any settlement whose books disagree with the chain. "Recorded
+	// revenue ≠ on-chain reality" is the single most regulatory-relevant signal a
+	// financial ledger can produce, and until now it was written to
+	// payment_reconciliation and never surfaced. Best-effort; the signature keys on
+	// the discrepancy counts so a stable state de-dupes (1/hr) while any change or a
+	// worsening count always re-fires. Never blocks the run.
+	if (summary.discrepancies > 0) {
+		const { missing_onchain, failed_onchain, missing_signature } = summary;
+		await sendOpsAlert(
+			`x402 reconciliation: ${summary.discrepancies} discrepanc${summary.discrepancies === 1 ? 'y' : 'ies'} of ${summary.checked} settlements`,
+			[
+				`missing_onchain=${missing_onchain} — DB marked settled but no tx on-chain`,
+				`failed_onchain=${failed_onchain} — on-chain tx reverted`,
+				`missing_signature=${missing_signature} — settled row carries no tx signature`,
+				`sample: ${flagged.slice(0, 5).map((f) => `${f.source}:${f.ref}[${f.status}]`).join(', ') || '—'}`,
+				`full set: SELECT * FROM payment_reconciliation WHERE reconciled = false`,
+			].join('\n'),
+			{ signature: `reconcile-discrepancy:${missing_onchain}:${failed_onchain}:${missing_signature}` },
+		).catch(() => {});
+	}
 
 	const durationMs = Date.now() - t0;
 	const success = statusOk || records.length > 0;
