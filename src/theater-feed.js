@@ -64,6 +64,10 @@ export function normalizeEvent(e) {
 			return { ...base, kind: 'pay', title: 'Payment', usd: Number.isFinite(Number(e.usdcAtomic)) ? Number(e.usdcAtomic) / 1e6 : null, sub: fmtUsdc(e.usdcAtomic) || e.recipientLabel || base.actor, href: e.explorerUrl || null };
 		case 'jackpot':
 			return { ...base, kind: 'win', title: 'Jackpot', sub: e.reward ? `${e.reward}` : base.actor, href: null };
+		case 'agent-guard':
+			// A safety refusal — an agent declined a bad buy. Shown in the tape (not
+			// as a performance) so watchers see the platform's guardrails working.
+			return { ...base, kind: 'guard', agentId: e.agentId || null, title: `${base.actor || 'Agent'} ${e.label || 'skipped an unsafe buy'}`, sub: e.mint ? shortMint(e.mint) : (e.reason || 'safety'), href: e.agentId ? `/agent/${e.agentId}` : (e.mint ? solscanToken(e.mint, e.network) : null) };
 		case 'agora-registered':
 			return { ...base, kind: 'launch', title: 'Agora citizen joined', sub: base.actor, href: e.citizenId ? `/agora?citizen=${e.citizenId}` : '/agora' };
 		case 'agora-task-claimed':

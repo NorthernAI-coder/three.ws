@@ -425,6 +425,8 @@
 .th-tick-buy .th-tick-dot, .th-tick-win .th-tick-dot { background: var(--success, #4ade80); }
 .th-tick-loss .th-tick-dot { background: var(--danger, #f87171); }
 .th-tick-launch .th-tick-dot, .th-tick-verify .th-tick-dot, .th-tick-pay .th-tick-dot { background: var(--th-accent); }
+.th-tick-guard .th-tick-dot { background: var(--warn, #fbbf24); box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.14); }
+.th-tick-guard .th-tick-title { text-transform: none; color: var(--warn, #fbbf24); font-weight: var(--weight-medium, 500); }
 .th-tick-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .th-tick-title { font-size: var(--text-sm, 0.78rem); font-weight: var(--weight-semibold, 600); color: var(--ink-bright, #fff); text-transform: capitalize; }
 .th-tick-sub { font-family: var(--font-mono, monospace); font-size: var(--text-2xs, 0.69rem); color: var(--ink-dim, #888); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

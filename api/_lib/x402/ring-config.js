@@ -28,25 +28,11 @@
 
 import { env } from '../env.js';
 import { priceFor } from '../x402-prices.js';
+import { RING_SETTLE_DEFAULT_PRICE_ATOMICS, volumePerRunCapAtomic } from './ring-constants.js';
 
 // External default when the self-facilitator is off and no URL is set.
 // Mirrors the default baked into env.js X402_FACILITATOR_URL_SOLANA.
 export const EXTERNAL_FACILITATOR_URL_DEFAULT = 'https://facilitator.payai.network';
-
-// Mirrors DEFAULT_PRICE_ATOMICS in api/x402/ring-settle.js ($1.00) — kept as a
-// local constant because importing the endpoint module would drag the whole
-// paid-endpoint wiring into this pure config module.
-const RING_SETTLE_DEFAULT_PRICE_ATOMICS = '1000000';
-
-// Mirrors VOLUME_PER_RUN_CAP_ATOMIC in x402/pipelines/volume-shared.js
-// ($1.10 default) — same env var, same default, read here without importing the
-// pipeline (it pulls db/pay/web3 at module load). The default was raised from
-// $0.05 to $1.10 (task 04) precisely so it accommodates the ring-settle price it
-// rotates ($1.00); keep this mirror in lockstep or the price>cap finding below
-// false-positives on stock config.
-function volumePerRunCapAtomic() {
-	return Math.max(0, Number(process.env.X402_VOLUME_PER_RUN_CAP_ATOMIC || 1_100_000));
-}
 
 export function selfFacilitatorEnabled() {
 	return String(process.env.X402_SELF_FACILITATOR_ENABLED || '').toLowerCase() === 'true';

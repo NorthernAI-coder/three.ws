@@ -14,6 +14,16 @@ Silencing any of them in code would hide a real production signal, so don't.
 Severity legend: 🔴 owner decision (money / security / billing) · 🟡 set an env
 var or add quota · 🟢 self-healing, no action needed.
 
+> **You no longer need a log export to see most of this.** The platform now
+> self-reports internal-dependency health: **[/status](https://three.ws/status)**
+> renders it with a plain-language fix for each degradation, and
+> **`/api/healthz`** carries a machine-readable `subsystems` block (cache, database,
+> Helius RPC, x402 ring, world, x402 config). The uptime cron
+> ([api/cron/uptime-check.js](../../api/cron/uptime-check.js)) parks a snapshot
+> each tick and re-pages a degradation that persists. Source of the roll-up:
+> [api/_lib/ops/subsystem-health.js](../../api/_lib/ops/subsystem-health.js). This
+> table remains the deep reference for what each state means and how to clear it.
+
 ---
 
 ## 🔴 `[ring-invariants] SPEND PATH DISABLED in x402-autonomous-loop`

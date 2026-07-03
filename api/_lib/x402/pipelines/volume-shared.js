@@ -13,22 +13,19 @@
 
 import { USDC_MINT } from '../pay.js';
 import { rotationPlan } from '../ring-catalog.js';
+import { volumePerRunCapAtomic } from '../ring-constants.js';
 
 export const ASSET = USDC_MINT || 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
 // Self-imposed per-run USDC budget (atomics, 6dp) for the 5-minute volume loop.
 // Bounds a single tick on top of the loop's daily cap so one run can't drain the
-// day. Raised from the original $0.05 to ACCOMMODATE the ring-settle price this
-// catalog rotates ($1.00 default, X402_PRICE_RING_SETTLE) — at $0.05 the
-// flagship ring-settle call was silently skipped every cycle (cap_would_exceed).
-// The pair is documented in .env.example; validateRingConfig() flags a
+// day. The default ($1.10) accommodates the ring-settle price this catalog
+// rotates ($1.00 default, X402_PRICE_RING_SETTLE) — at the old $0.05 the flagship
+// ring-settle call was silently skipped every cycle (cap_would_exceed). The value
+// and its env override live in ring-constants.js (the single source of truth that
+// ring-config.js's price>cap check also reads); validateRingConfig() flags a
 // price > cap contradiction, and payX402 warns loudly if one is ever hit.
-// Default $1.10 = 1_100_000 (ring-settle $1.00 + headroom for the cheap calls a
-// window sweeps alongside it). The loop's daily cap still bounds total spend.
-export const VOLUME_PER_RUN_CAP_ATOMIC = Math.max(
-	0,
-	Number(process.env.X402_VOLUME_PER_RUN_CAP_ATOMIC || 1_100_000),
-);
+export const VOLUME_PER_RUN_CAP_ATOMIC = volumePerRunCapAtomic();
 
 // How many endpoints the 5-minute volume loop sweeps per run (cursor advances by
 // this each tick). With the catalog below a batch of 4 covers the full set in
