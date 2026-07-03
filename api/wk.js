@@ -13,6 +13,7 @@ import {
 	declareErc20ApprovalGasSponsoringExtension,
 	permit2VariantOf,
 	baseSettleable,
+	solanaSettleable,
 	NETWORK_BASE_MAINNET,
 	NETWORK_SOLANA_MAINNET,
 } from './_lib/x402-spec.js';
@@ -297,7 +298,11 @@ function acceptsForPrice(amountAtomics, resourceUrl) {
 	const price = RAW_AMOUNT_TO_USDC(amountAtomics);
 	// Solana-first platform default — the Solana accept leads so first-accept
 	// clients and marketplaces treat it as the primary rail; Base follows.
-	if (env.X402_PAY_TO_SOLANA) {
+	// Solana only when settlement is fulfillable — solanaSettleable() confirms the
+	// self-facilitator can co-sign (its X402_FEE_PAYER_SECRET_BASE58 is loaded), so
+	// the catalog never lists a Solana rail the live 402 now drops. See
+	// solanaSettleable() / baseSettleable() in x402-spec.js.
+	if (env.X402_PAY_TO_SOLANA && solanaSettleable()) {
 		out.push({
 			scheme: 'exact',
 			network: NETWORK_SOLANA_MAINNET,
@@ -442,7 +447,8 @@ async function buildAgentServiceItems(origin) {
 			row.network === 'solana' &&
 			row.payout_address &&
 			env.X402_ASSET_MINT_SOLANA &&
-			env.X402_FEE_PAYER_SOLANA
+			env.X402_FEE_PAYER_SOLANA &&
+			solanaSettleable()
 		) {
 			accepts.push({
 				scheme: 'exact',
@@ -1263,8 +1269,10 @@ async function handleX402Discovery(req, res) {
 	// resource it gates without walking back to the parent resource[] entry.
 	function buildMcpAccepts(resourceUrl) {
 		const out = [];
-		// Solana-first platform default — Solana leads, Base follows.
-		if (env.X402_PAY_TO_SOLANA) {
+		// Solana-first platform default — Solana leads, Base follows. Gated on
+		// solanaSettleable() so the catalog never advertises a Solana rail the live
+		// 402 drops when the self-facilitator's co-signing secret is missing.
+		if (env.X402_PAY_TO_SOLANA && solanaSettleable()) {
 			out.push({
 				scheme: 'exact',
 				network: NETWORK_SOLANA_MAINNET,

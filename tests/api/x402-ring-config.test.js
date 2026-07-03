@@ -32,6 +32,7 @@ function healthyRingEnv() {
 	delete process.env.X402_FACILITATOR_URL_SOLANA;
 	delete process.env.X402_FACILITATOR_URL;
 	process.env.X402_FEE_PAYER_SOLANA = '2wKupLR9q6wXYppw8Gr2NvWxKBUqm4PPJKkQfoxHDBg4';
+	process.env.X402_FEE_PAYER_SECRET_BASE58 = 'z'.repeat(88);
 	process.env.X402_TREASURY_SECRET_BASE58 = 'z'.repeat(64);
 	process.env.X402_RING_SELF_PAY = 'true';
 	process.env.X402_PRICE_RING_SETTLE = '1000000';
@@ -44,6 +45,7 @@ const RING_VARS = [
 	'X402_FACILITATOR_URL_SOLANA',
 	'X402_FACILITATOR_URL',
 	'X402_FEE_PAYER_SOLANA',
+	'X402_FEE_PAYER_SECRET_BASE58',
 	'X402_TREASURY_SECRET_BASE58',
 	'X402_RING_SELF_PAY',
 	'X402_PRICE_RING_SETTLE',
@@ -153,6 +155,23 @@ describe('validateRingConfig finding matrix', () => {
 		const f = validateRingConfig().find((x) => x.code === 'fee_payer_pubkey_missing');
 		expect(f).toBeTruthy();
 		expect(f.severity).toBe('error');
+	});
+
+	it('flags fee_payer_secret_missing (error) when self-routing without the co-signing secret', () => {
+		healthyRingEnv();
+		delete process.env.X402_FEE_PAYER_SECRET_BASE58;
+		const f = validateRingConfig().find((x) => x.code === 'fee_payer_secret_missing');
+		expect(f).toBeTruthy();
+		expect(f.severity).toBe('error');
+	});
+
+	it('does NOT flag fee_payer_secret_missing when settlement routes externally', () => {
+		healthyRingEnv();
+		delete process.env.X402_FEE_PAYER_SECRET_BASE58;
+		// An explicit external facilitator wins → route.self is false → the external
+		// facilitator co-signs with its own key, so our secret is irrelevant.
+		process.env.X402_FACILITATOR_URL_SOLANA = 'https://ext.example.test';
+		expect(codes(validateRingConfig())).not.toContain('fee_payer_secret_missing');
 	});
 
 	it('flags ring_price_exceeds_run_cap when the per-call price exceeds the per-run cap', () => {

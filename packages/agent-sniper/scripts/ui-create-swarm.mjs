@@ -49,6 +49,15 @@ async function existingSwarmNames() {
 	} catch { return []; }
 }
 
+async function existsOnDashboard(name) {
+	try {
+		await page.goto(`${BASE}/dashboard/agents`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+		await page.waitForTimeout(3500);
+		return await page.evaluate((nm) => [...document.querySelectorAll('h1,h2,h3,h4,[class*="name"],[class*="title"]')]
+			.some((h) => (h.textContent || '').trim() === nm || new RegExp('^' + nm + '\\b').test((h.textContent || '').trim())), name).catch(() => false);
+	} catch { return false; }
+}
+
 async function clickAdvance() {
 	for (const sel of ['#btn-next', 'button:has-text("Continue")', 'button:has-text("Next")', 'button:has-text("Review")']) {
 		for (const el of await page.$$(sel)) {
@@ -109,8 +118,12 @@ try {
 		process.stdout.write(`creating ${name} … `);
 		let ok = false;
 		for (let attempt = 1; attempt <= 2 && !ok; attempt++) {
+			// before any retry, confirm it wasn't actually created (avoid duplicates)
+			if (attempt > 1 && await existsOnDashboard(name)) { ok = true; break; }
 			try { ok = await createOne(name, i - 1); } catch (e) { console.log(`(attempt ${attempt} err: ${e.message.slice(0, 60)})`); }
 		}
+		// final safety: even if UI detection missed it, don't count as fail if it exists
+		if (!ok && await existsOnDashboard(name)) ok = true;
 		if (ok) {
 			made++;
 			manifest.created.push({ name, at: 'created' });

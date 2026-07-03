@@ -170,7 +170,7 @@ export function paymentRequirements(resourceUrl, { amount } = {}) {
 	// Solana-first platform default: the Solana accept leads so first-accept
 	// clients and the payment modal settle on Solana unless the caller picks
 	// another network explicitly. Base/BSC follow as alternatives.
-	if (env.X402_PAY_TO_SOLANA) {
+	if (env.X402_PAY_TO_SOLANA && solanaSettleable()) {
 		out.push({
 			...common,
 			network: NETWORK_SOLANA_MAINNET,
@@ -314,6 +314,30 @@ export function baseSettleable() {
 	return env.X402_ADVERTISE_BASE === true;
 }
 
+// Is Solana (the in-house ring rail) actually settleable right now? The Solana
+// mirror of baseSettleable(): never advertise a Solana accept the facilitator
+// will reject AFTER the buyer has paid. Solana settlement routes via
+// resolveSolanaFacilitator():
+//
+//   • EXTERNAL facilitator (PayAI, or an explicit non-self URL) — it holds its
+//     own sponsor key and co-signs; we trust that path, so the accept settles.
+//   • Our SELF-hosted facilitator — settle co-signs sponsor-mode payments with
+//     X402_FEE_PAYER_SECRET_BASE58 (api/_lib/x402/self-facilitator.js). Without
+//     that secret loaded, EVERY sponsor-mode settle throws
+//     `sponsor_key_unconfigured` and the buyer eats a 502 AFTER submitting a
+//     signed payment — the exact production failure this gate closes (80× 502 on
+//     /api/x402/dance-tip, crypto-intel, three-intel in the 2026-07-03 export).
+//     So self-routing is settleable only when the co-signing secret is present.
+//
+// The 402 challenge already requires X402_FEE_PAYER_SOLANA (the advertised
+// sponsor PUBKEY); this adds the matching requirement that we can actually SIGN
+// for it. Self-heals the instant the secret is set — no redeploy needed.
+export function solanaSettleable() {
+	const route = resolveSolanaFacilitator();
+	if (!route.self) return true; // external facilitator co-signs with its own key
+	return !!String(process.env.X402_FEE_PAYER_SECRET_BASE58 || '').trim();
+}
+
 // Shared exact-scheme requirements builder for the hand-rolled x402 endpoints that
 // call send402()/verifyPayment() directly instead of going through paidEndpoint().
 // Emits the platform-standard accept set for a USDC price:
@@ -332,7 +356,12 @@ export function baseSettleable() {
 export function buildExactRequirements(resourceUrl, amount = env.X402_MAX_AMOUNT_REQUIRED) {
 	const amt = String(amount);
 	const out = [];
-	if (env.X402_PAY_TO_SOLANA && env.X402_ASSET_MINT_SOLANA && env.X402_FEE_PAYER_SOLANA) {
+	if (
+		env.X402_PAY_TO_SOLANA &&
+		env.X402_ASSET_MINT_SOLANA &&
+		env.X402_FEE_PAYER_SOLANA &&
+		solanaSettleable()
+	) {
 		out.push({
 			scheme: 'exact',
 			network: NETWORK_SOLANA_MAINNET,

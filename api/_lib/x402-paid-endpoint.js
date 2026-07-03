@@ -41,6 +41,7 @@ import {
 	NETWORK_SOLANA_MAINNET,
 	X402Error,
 	baseSettleable,
+	solanaSettleable,
 	encodePaymentResponseHeader,
 	permit2VariantOf,
 	resolveResourceUrl,
@@ -171,10 +172,19 @@ function buildRequirements({ priceAtomics, networks, resourceUrl, payToOverride 
 		)
 			continue;
 		// Solana also needs a fee payer to be co-signable — skip the network
-		// rather than advertise an accept the facilitator will reject.
+		// rather than advertise an accept the facilitator will reject. The pay-to,
+		// USDC mint and advertised sponsor PUBKEY must all be present AND settlement
+		// must be fulfillable: solanaSettleable() confirms the self-facilitator can
+		// actually co-sign (its X402_FEE_PAYER_SECRET_BASE58 is loaded), so a deploy
+		// that advertises a sponsor it can't sign for drops Solana here instead of
+		// handing the buyer an accept that 502s at settle. Self-heals when the
+		// secret is set. See solanaSettleable() in x402-spec.js.
 		if (
 			net === NETWORK_SOLANA_MAINNET &&
-			(!solTo || !env.X402_FEE_PAYER_SOLANA || !env.X402_ASSET_MINT_SOLANA)
+			(!solTo ||
+				!env.X402_FEE_PAYER_SOLANA ||
+				!env.X402_ASSET_MINT_SOLANA ||
+				!solanaSettleable())
 		)
 			continue;
 		if (net === NETWORK_BSC_MAINNET && (!bscTo || !env.X402_ASSET_ADDRESS_BSC)) continue;
@@ -207,6 +217,26 @@ function buildRequirements({ priceAtomics, networks, resourceUrl, payToOverride 
 		if (sibling) out.push(sibling);
 	}
 	if (!out.length) {
+		// Distinguish a TEMPORARY settlement gap from a genuine misconfiguration.
+		// If Solana was requested and is otherwise fully configured (pay-to + mint +
+		// sponsor pubkey) but dropped ONLY because solanaSettleable() is false — the
+		// self-facilitator's co-signing secret isn't loaded yet — this is a transient,
+		// operator-fixable state, not "nothing is wired". Surface a retryable 503 with
+		// an actionable message instead of a 500 that reads as a permanent config
+		// error, and never after taking a payment. Self-heals when the secret is set.
+		const solanaGatedOnSecret =
+			networks.some((n) => resolveNetwork(n) === NETWORK_SOLANA_MAINNET) &&
+			(payToOverride?.solana || env.X402_PAY_TO_SOLANA) &&
+			env.X402_FEE_PAYER_SOLANA &&
+			env.X402_ASSET_MINT_SOLANA &&
+			!solanaSettleable();
+		if (solanaGatedOnSecret) {
+			throw new X402Error(
+				'settlement_unavailable',
+				'paidEndpoint: Solana settlement is temporarily unavailable — the self-facilitator co-signing key (X402_FEE_PAYER_SECRET_BASE58) is not configured. Retry once it is set.',
+				503,
+			);
+		}
 		throw new X402Error(
 			'no_payto_configured',
 			'paidEndpoint: no X402_PAY_TO_* configured for any requested network',

@@ -128,6 +128,23 @@ export function validateRingConfig() {
 			fix: 'set X402_FEE_PAYER_SOLANA to the sponsor pubkey from scripts/x402-ring-setup.mjs',
 		});
 	}
+	// When settlement routes in-house, the sponsor SECRET must be present or every
+	// sponsor-mode settle throws `sponsor_key_unconfigured` and the buyer gets a 502
+	// AFTER paying. The advertising layer (solanaSettleable() in x402-spec.js) now
+	// drops the Solana accept when this secret is missing, turning that 502 into a
+	// clean unpayable state — but the deploy still can't earn on Solana until it is
+	// set, so surface it here as an error the health board and /api/x402-status show.
+	// Only meaningful when we route to our own facilitator; an external facilitator
+	// co-signs with its own key.
+	if (route.self && !String(process.env.X402_FEE_PAYER_SECRET_BASE58 || '').trim()) {
+		findings.push({
+			code: 'fee_payer_secret_missing',
+			severity: 'error',
+			message:
+				'X402_FEE_PAYER_SECRET_BASE58 is not set — the self-facilitator cannot co-sign sponsor-mode settlements, so the Solana accept is withheld and no Solana payment can settle in-house',
+			fix: 'set X402_FEE_PAYER_SECRET_BASE58 to the sponsor secret from scripts/x402-ring-setup.mjs (must match X402_FEE_PAYER_SOLANA)',
+		});
+	}
 	const priceAtomic = Number(priceFor('ring-settle', RING_SETTLE_DEFAULT_PRICE_ATOMICS));
 	const capAtomic = volumePerRunCapAtomic();
 	if (capAtomic > 0 && priceAtomic > capAtomic) {
