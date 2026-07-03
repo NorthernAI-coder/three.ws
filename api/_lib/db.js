@@ -324,7 +324,7 @@ export async function isStoragePressured() {
 	}
 }
 
-export const sql = new Proxy(function () {}, {
+export const sql = /** @type {ReturnType<typeof import('@neondatabase/serverless').neon>} */ (new Proxy(function () {}, {
 	apply(_t, _this, args) {
 		// Neon dispatches on the first argument: a string is the ordinary
 		// function form `sql(queryText, params, opts)`; anything else is a
@@ -344,4 +344,4 @@ export const sql = new Proxy(function () {}, {
 	get(_t, prop) {
 		return getSql()[prop];
 	},
-});
+}));

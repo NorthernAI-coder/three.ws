@@ -11,7 +11,7 @@ import { getTradeCtx } from './trade-client.js';
 import { getOpenPositions } from './strategy-store.js';
 import { executeSell } from './executor.js';
 import { quoteAmmSell } from './amm-exit.js';
-import { decideExit } from './exit-logic.js';
+import { decideLadderedExit } from './exit-logic.js';
 import { screenPush } from './screen-push.js';
 
 async function tickPosition(cfg, pos) {
@@ -51,8 +51,16 @@ async function tickPosition(cfg, pos) {
 		sentiment = await readCoinSentiment(cfg, pos.mint);
 	}
 
-	const reason = decideExit(pos, value, peak, Date.now(), sentiment);
-	if (reason) await executeSell({ cfg, position: pos, reason });
+	const exit = decideLadderedExit(pos, value, peak, Date.now(), sentiment);
+	if (exit) {
+		await executeSell({
+			cfg,
+			position: pos,
+			reason: exit.reason,
+			fraction: exit.sellFraction,
+			recoversInitials: exit.recoversInitials === true,
+		});
+	}
 }
 
 // Re-quote a still-on-curve position off the bonding curve. On graduation, flag

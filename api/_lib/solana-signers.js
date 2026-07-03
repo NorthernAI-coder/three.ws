@@ -219,7 +219,7 @@ export async function decodeSecretKey(secret) {
 	// base58 form (…_BASE58)
 	try {
 		const bs58mod = await import('bs58');
-		const bs58 = bs58mod.default || bs58mod;
+		const bs58 = /** @type {import('bs58').default} */ (bs58mod.default || bs58mod);
 		const bytes = bs58.decode(raw);
 		if (bytes.length === 64 || bytes.length === 32) return toFullSecretKey(Uint8Array.from(bytes));
 	} catch {

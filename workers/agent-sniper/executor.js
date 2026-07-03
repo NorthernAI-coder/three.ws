@@ -9,6 +9,7 @@ import { sql } from '../../api/_lib/db.js';
 import { log } from './log.js';
 import { loadAgentKeypair } from './keys.js';
 import { mayhemGate } from './mayhem-gate.js';
+import { recordJournal, journalEntry } from './journal.js';
 import { getTradeCtx, signAndSend, submitProtectedTrade } from './trade-client.js';
 import { countOpenPositions, getDailySpend } from './strategy-store.js';
 import { notifyBuy, notifySell } from '../../api/_lib/sniper/notify.js';
@@ -415,6 +416,12 @@ export async function executeBuy({ cfg, strat, mint, throttle }) {
 				WHERE id = ${posId}
 			`;
 			log.trade('buy', { ...tag, mode: cfg.mode, sig, sol: lamportsToSol(perTrade), base: baseAmount.toString(), impact: Number(quote.priceImpactPct).toFixed(2) });
+			// Journal the entry WITH its reasoning — the learn-what-works surface.
+			await journalEntry({
+				cfg, strat, mint, posId, sig,
+				score: mint.score ?? null,
+				rationale: `Entered on ${mint.entry_trigger || 'new_mint'}${mint.market_cap_usd != null ? ` at ~$${Math.round(mint.market_cap_usd).toLocaleString()} mcap` : ''}${firewallSnapshot ? ` (firewall ${firewallSnapshot.verdict}, score ${firewallSnapshot.score})` : ''}; ${lamportsToSol(perTrade).toFixed(4)} SOL, impact ${Number(quote.priceImpactPct).toFixed(2)}%.`,
+			});
 			screenPush(`Bought $${(mint.symbol || mint.mint.slice(0, 6)).toUpperCase()} at ${lamportsToSol(perTrade).toFixed(4)} SOL — position open`, 'trade');
 			notifyBuy({ agentName: strat.agent_name || strat.agent_id, symbol: mint.symbol, mint: mint.mint, solSpent: lamportsToSol(perTrade), mode: cfg.mode, sig, chatId: strat.telegram_chat_id || null });
 			await recordSnipeSpend({ agentId: strat.agent_id, userId: strat.user_id, network: cfg.network, lamports: perTrade, signature: sig, mode: cfg.mode, mint: mint.mint, capabilityId: spendCapabilityId });
@@ -433,11 +440,20 @@ export async function executeBuy({ cfg, strat, mint, throttle }) {
  * Close `position` for `reason`. Re-quotes fresh for slippage, builds the sell,
  * broadcasts (live), records realized P&L.
  */
-export async function executeSell({ cfg, position, reason }) {
+export async function executeSell({ cfg, position, reason, fraction = 1, recoversInitials = false }) {
 	return withAgentLock(position.agent_id, async () => {
-		const tag = { agent: position.agent_id, mint: position.mint, symbol: position.symbol, reason };
+		// Laddered exits sell only PART of the bag (take-initials). Resolve the sell
+		// size in ppm of the current base amount so the moon-bag remainder is exact
+		// with no float drift, and decide up front whether this closes the position.
+		const f = Number(fraction);
+		const fullBase = BigInt(position.base_amount);
+		const ppm = f > 0 && f < 1 ? BigInt(Math.max(1, Math.min(999_999, Math.round(f * 1_000_000)))) : 1_000_000n;
+		let sellBaseBig = ppm === 1_000_000n ? fullBase : (fullBase * ppm) / 1_000_000n;
+		const partial = sellBaseBig > 0n && sellBaseBig < fullBase;
+		if (sellBaseBig <= 0n) sellBaseBig = fullBase; // degenerate fraction → full exit
+		const tag = { agent: position.agent_id, mint: position.mint, symbol: position.symbol, reason, partial };
 		await sql`UPDATE agent_sniper_positions SET status = 'closing' WHERE id = ${position.id} AND status = 'open'`;
-		screenPush(`Selling $${(position.symbol || position.mint.slice(0, 6)).toUpperCase()}: ${reason}`, 'trade');
+		screenPush(`${partial ? 'Taking initials on' : 'Selling'} $${(position.symbol || position.mint.slice(0, 6)).toUpperCase()}: ${reason}`, 'trade');
 
 		try {
 			const loaded = await loadAgentKeypair(position.agent_id, position.user_id, 'sniper_sell');
@@ -446,7 +462,7 @@ export async function executeSell({ cfg, position, reason }) {
 
 			const ctx = await getTradeCtx(cfg.network);
 			const mintPk = new ctx.web3.PublicKey(position.mint);
-			const baseAmount = bn(ctx, BigInt(position.base_amount));
+			const baseAmount = bn(ctx, sellBaseBig);
 			const slippagePct = (position.slippage_bps ?? 500) / 100;
 
 			let expectedOut;
@@ -483,20 +499,63 @@ export async function executeSell({ cfg, position, reason }) {
 				expectedOut = BigInt(built.expectedQuoteOut.toString());
 			}
 
-			const entry = BigInt(position.entry_quote_lamports || '0');
-			const pnl = expectedOut - entry;
-			const pnlPct = entry > 0n ? (Number(pnl) / Number(entry)) * 100 : 0;
+			const entryFull = BigInt(position.entry_quote_lamports || '0');
+			// Cost basis of the tokens sold on THIS leg (scaled by the sold ppm), so a
+			// partial take-initials books the profit on just the half it sold and the
+			// remainder keeps its own proportional basis.
+			const soldCostBasis = partial ? (entryFull * ppm) / 1_000_000n : entryFull;
+			const legPnl = expectedOut - soldCostBasis;
+			const legPnlPct = soldCostBasis > 0n ? (Number(legPnl) / Number(soldCostBasis)) * 100 : 0;
+			const priorRealized = BigInt(position.realized_pnl_lamports || '0');
+			const cumRealized = priorRealized + legPnl;
+
+			if (partial) {
+				// Take-initials: keep the position OPEN with the moon-bag remainder.
+				// Scale the cost basis down with the tokens, flag initials recovered so
+				// the ladder fires once, and RESET the trailing high-water to the
+				// remaining bag's value — the pre-sale full-position peak would instantly
+				// trip the trailing stop against the now-smaller moon bag.
+				const remainingBase = fullBase - sellBaseBig;
+				const remainingEntry = entryFull - soldCostBasis;
+				const remainingValueEst = Math.round((Number(expectedOut) * Number(remainingBase)) / Number(sellBaseBig));
+				await sql`
+					UPDATE agent_sniper_positions SET
+						status = 'open',
+						base_amount = ${remainingBase.toString()},
+						entry_quote_lamports = ${remainingEntry.toString()},
+						initials_recovered = ${recoversInitials ? true : position.initials_recovered === true},
+						peak_value_lamports = ${remainingValueEst},
+						last_value_lamports = ${remainingValueEst},
+						realized_pnl_lamports = ${cumRealized.toString()},
+						error = ${null},
+						last_quoted_at = now()
+					WHERE id = ${position.id}
+				`;
+				const legSol = lamportsToSol(legPnl);
+				log.trade('take-initials', { ...tag, venue, mode: cfg.mode, sig, sold_fraction: f, leg_pnl_sol: legSol, kept_moonbag_base: remainingBase.toString() });
+				await recordJournal({ position, cfg, event: 'take_initials', reason, sig, venue, soldFraction: f, legPnlLamports: legPnl, remainingBase });
+				screenPush(
+					`Took initials on $${(position.symbol || position.mint.slice(0, 6)).toUpperCase()} — +${legSol.toFixed(4)} SOL back, moon bag riding`,
+					'trade',
+					{ phase: 'take_initials', mint: position.mint, symbol: position.symbol || null, solDelta: legSol, soldFraction: f },
+				);
+				return { status: 'partial', sig, sold_fraction: f, leg_pnl: legPnl.toString(), venue };
+			}
+
+			const pnl = legPnl;
+			const pnlPct = entryFull > 0n ? (Number(cumRealized) / Number(entryFull)) * 100 : 0;
 			await sql`
 				UPDATE agent_sniper_positions SET
 					status = 'closed', exit_reason = ${reason}, sell_sig = ${sig},
 					exit_quote_lamports = ${expectedOut.toString()},
-					realized_pnl_lamports = ${pnl.toString()},
+					realized_pnl_lamports = ${cumRealized.toString()},
 					realized_pnl_pct = ${pnlPct},
 					error = ${null},
 					closed_at = now()
 				WHERE id = ${position.id}
 			`;
-			const pnlSol = lamportsToSol(pnl);
+			await recordJournal({ position, cfg, event: 'exit', reason, sig, venue, soldFraction: 1, legPnlLamports: legPnl });
+			const pnlSol = lamportsToSol(cumRealized);
 			log.trade('sell', { ...tag, venue, mode: cfg.mode, sig, pnl_sol: pnlSol, pnl_pct: pnlPct.toFixed(1) });
 			// Price the realized SOL delta into USD best-effort for the live PnL
 			// ticker. A pricing hiccup just omits realizedUsd — the viewer's ticker
