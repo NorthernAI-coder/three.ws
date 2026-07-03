@@ -352,7 +352,7 @@ async function ringScanWallets() {
 
 // ── Per-wallet scan ───────────────────────────────────────────────────────────
 
-async function scanWallet(conn, PublicKey, wallet, { allowed, usdcMint, runId, feeByDay }) {
+export async function scanWallet(conn, PublicKey, wallet, { allowed, usdcMint, runId, feeByDay }) {
 	const summary = { wallet, scanned: 0, leaks: 0, delegations: 0, truncated: false };
 	const cursor = await loadCursor(wallet);
 

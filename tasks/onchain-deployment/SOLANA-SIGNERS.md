@@ -27,8 +27,12 @@ Encodings: `base64` = base64 of the 64 raw secret-key bytes (`…_B64` vars); `b
 | `VANITY_BOUNTY_PAYOUT_KEY` | Vanity grind-bounty payouts + refunds (strict base58) | base58 | — | mainnet |
 | `CIRCULATION_TREASURY_SECRET` | Circulation engine treasury (agent↔agent tips/pays/trades) | base58 | — | mainnet |
 | `A2A_PAYER_SOLANA_SECRET` (→ `A2A_PAYER_SOLANA_PRIVATE_KEY`) | Co-signs SPL TransferChecked for a2a mandate settlements | base58 | 0.02 | mainnet |
+| `X402_FEE_PAYER_SECRET_BASE58` | x402 ring **sponsor**: co-signs + pays SOL on every self-hosted-facilitator settle; below floor the ring halts | base58 | 0.03 | mainnet |
+| `X402_SEED_SOLANA_SECRET_BASE58` (→ `X402_AGENT_SOLANA_SECRET_BASE58`) | x402 ring **payer** (self-pay mode): pays its own 1-sig fee per settle; USDC float watched separately | base58 | 0.03 | mainnet |
 | `REWARDS_DISTRIBUTOR_SECRET` | $THREE holder rewards/reflections distributor | base58 | — | mainnet |
 | `SOLANA_AGENT_COLLECTION_AUTHORITY_KEY` | Creates/manages the three.ws agent NFT collection | base64 | 0.02 | both |
+
+> The x402 ring **treasury** (`X402_PAY_TO_SOLANA` / `X402_TREASURY_SECRET_BASE58`) is deliberately **not** a signer here. It only receives ring payments and gets swept back to the payer by the rebalancer, so a low balance is its healthy resting state — the economy master must never top it up. Only the sponsor (and the payer, which pays its own fee in self-pay mode) hold fee SOL, so only they get auto-topped-up. The payer's USDC float is watched by [`api/_lib/x402/wallet-balance-monitor.js`](../../api/_lib/x402/wallet-balance-monitor.js), not this registry (the master only ever moves SOL).
 
 **Do not** overwrite `SOLANA_AGENT_COLLECTION_AUTHORITY_KEY` with a different wallet — it is the on-chain update authority for the NFT collection; changing it breaks NFT management. It is excluded from master-wallet consolidation by default.
 

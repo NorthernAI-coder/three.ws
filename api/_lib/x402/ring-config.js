@@ -38,11 +38,14 @@ export const EXTERNAL_FACILITATOR_URL_DEFAULT = 'https://facilitator.payai.netwo
 // paid-endpoint wiring into this pure config module.
 const RING_SETTLE_DEFAULT_PRICE_ATOMICS = '1000000';
 
-// Mirrors VOLUME_PER_RUN_CAP_ATOMIC in x402/pipelines/volume-bootstrap-loop.js
-// ($0.05 default) — same env var, same default, read here without importing the
-// pipeline (task 04 owns it, and it pulls db/pay/web3 at module load).
+// Mirrors VOLUME_PER_RUN_CAP_ATOMIC in x402/pipelines/volume-shared.js
+// ($1.10 default) — same env var, same default, read here without importing the
+// pipeline (it pulls db/pay/web3 at module load). The default was raised from
+// $0.05 to $1.10 (task 04) precisely so it accommodates the ring-settle price it
+// rotates ($1.00); keep this mirror in lockstep or the price>cap finding below
+// false-positives on stock config.
 function volumePerRunCapAtomic() {
-	return Math.max(0, Number(process.env.X402_VOLUME_PER_RUN_CAP_ATOMIC || 50_000));
+	return Math.max(0, Number(process.env.X402_VOLUME_PER_RUN_CAP_ATOMIC || 1_100_000));
 }
 
 export function selfFacilitatorEnabled() {

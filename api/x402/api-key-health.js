@@ -141,10 +141,24 @@ export default paidEndpoint({
 		serviceName: 'three.ws API Key Health Check',
 		tags: ['health', 'api-key', 'autonomous', 'access-control'],
 	}),
-	async handler(req) {
+	async handler({ req }) {
 		const checkedAt = new Date().toISOString();
+		// paidEndpoint invokes handler({ req, res, ... }); read the client body off
+		// the real request. Vercel does not reliably pre-parse it for these POST
+		// routes, so drain the stream (falling back to a pre-parsed req.body when
+		// present) rather than trusting req.body — which was always undefined here
+		// and silently pinned scope to the default.
 		let body = {};
-		try { body = typeof req.body === 'object' ? req.body : JSON.parse(req.body || '{}'); } catch { /* use empty */ }
+		if (req.body && typeof req.body === 'object') {
+			body = req.body;
+		} else {
+			try {
+				const chunks = [];
+				for await (const c of req) chunks.push(c);
+				const raw = Buffer.concat(chunks).toString('utf8');
+				if (raw) body = JSON.parse(raw);
+			} catch { /* tolerate an empty/unparseable body → default scope */ }
+		}
 		const scope = (typeof body?.scope === 'string' && body.scope.trim()) || 'autonomous_loop';
 
 		// 1. Check for a dedicated subscription key covering this scope.

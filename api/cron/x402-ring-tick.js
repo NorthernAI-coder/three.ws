@@ -1,0 +1,345 @@
+// GET /api/cron/x402-ring-tick
+//
+// Per-minute ring tick — the driver that makes three.ws's x402 endpoints get hit
+// every minute, many times: tips, services, and settlements bought and sold on a
+// continuous cadence, all inside hard caps and settled by the self-hosted
+// facilitator so no third party ever touches ring money.
+//
+// The 5-minute autonomous loop (x402-autonomous-loop.js) already sweeps the
+// catalog, but at 300s cooldowns and a $0.05 per-run cap the flagship ring-settle
+// ($1.00) was skipped every cycle. This cron runs EVERY MINUTE with its own,
+// separate budget and a weighted rotation:
+//
+//   • X402_RING_TICK_CALLS paid calls per minute (default 3), cheap tips/services
+//     ($0.001–$0.01) dominating the count so the platform shows constant activity.
+//   • one ring-settle at X402_PRICE_RING_SETTLE every X402_RING_SETTLE_EVERY_N_TICKS
+//     ticks (default 5) to carry real volume cheaply (fewer, larger payments —
+//     the fee-optimal lever; see docs/x402-ring-economy.md "Cadence").
+//
+// Budgets (both enforced, both SEPARATE from the autonomous loop's daily cap):
+//   • X402_RING_TICK_CAP_ATOMIC  per-tick spend ceiling (default $1.10 — fits one
+//     ring-settle plus its cheap co-riders).
+//   • X402_RING_DAILY_CAP_ATOMIC ring-tick daily ceiling (default $50), summed
+//     from x402_autonomous_log rows tagged pipeline='ring-tick'. The autonomous
+//     loop's Redis spend accumulator is never touched.
+//
+// Safety:
+//   • Kill switches: X402_AUTONOMOUS_ENABLED=false (global) OR
+//     X402_RING_TICK_ENABLED=false (this driver) → clean skip.
+//   • Config gate: runs only when validateRingConfig() reports no ERROR findings
+//     (settlement routes in-house and is buildable); WARN findings are logged.
+//   • Back-pressure: below the SOL floor, insufficient payer USDC, or an RPC
+//     fault → skip the whole tick with a structured log row and ONE throttled
+//     ops alert (max 1/hour per reason). Never a retry-storm of failing settles.
+//
+// Real on-chain payments only — no mocks. Shares the ONE payment + recording path
+// (pipelines/volume-shared.js) with the volume loop.
+
+import { randomUUID } from 'node:crypto';
+import { PublicKey } from '@solana/web3.js';
+import {
+	getAssociatedTokenAddressSync, getAccount, getMint,
+	TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID,
+} from '@solana/spl-token';
+
+import { json, wrapCron } from '../_lib/http.js';
+import { env } from '../_lib/env.js';
+import { constantTimeEquals } from '../_lib/crypto.js';
+import { getRedis } from '../_lib/redis.js';
+import { sql } from '../_lib/db.js';
+import { solanaConnection } from '../_lib/solana/connection.js';
+import { logger } from '../_lib/usage.js';
+import { sendOpsAlert } from '../_lib/alerts.js';
+import { priceFor } from '../_lib/x402-prices.js';
+import { loadSeedKeypair, payX402, USDC_MINT, SOLANA_RPC } from '../_lib/x402/pay.js';
+import { validateRingConfig } from '../_lib/x402/ring-config.js';
+import {
+	ASSET,
+	RING_SETTLE_ENDPOINT,
+	CHEAP_ENDPOINTS,
+	ensureVolumeSchema,
+	settleAndRecord,
+} from '../_lib/x402/pipelines/volume-shared.js';
+import {
+	ringTickConfig,
+	planTick,
+	minUsdcForTick,
+	tickBudget,
+	assessBackpressure,
+	gateOnRingConfig,
+} from '../_lib/x402/ring-tick-plan.js';
+
+const log = logger('x402-ring-tick');
+
+const ORIGIN = () => env.APP_ORIGIN || 'https://three.ws';
+const RING_SETTLE_DEFAULT_PRICE = '1000000'; // $1.00 — mirrors ring-settle.js
+
+// Redis keys: a monotonic per-minute tick counter and the cheap-rotation cursor.
+// Independent of the volume loop's cursor so the two drivers rotate separately.
+const TICK_SEQ_KEY = 'x402:ring:tick:seq';
+const CHEAP_CURSOR_KEY = 'x402:ring:tick:cheap';
+let _memTickSeq = 0;
+let _memCheapCursor = 0;
+
+function requireCron(req, res) {
+	const secret = process.env.CRON_SECRET || env.CRON_SECRET;
+	if (!secret) { json(res, 503, { error: 'CRON_SECRET unset' }); return false; }
+	const auth = req.headers['authorization'] || '';
+	const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+	if (!constantTimeEquals(token, secret)) { json(res, 401, { error: 'unauthorized' }); return false; }
+	return true;
+}
+
+// Advance the durable per-minute counter (Redis INCR, in-memory fallback).
+async function nextTickSeq(redis) {
+	if (redis) {
+		try { return Number(await redis.incr(TICK_SEQ_KEY)); } catch { /* fall through */ }
+	}
+	return (_memTickSeq += 1);
+}
+
+// Reserve the next `count` cheap-rotation indices, returning the start cursor.
+async function reserveCheapCursor(redis, count) {
+	if (count <= 0) return 0;
+	if (redis) {
+		try {
+			const end = Number(await redis.incrby(CHEAP_CURSOR_KEY, count));
+			return end - count;
+		} catch { /* fall through */ }
+	}
+	const start = _memCheapCursor;
+	_memCheapCursor += count;
+	return start;
+}
+
+// Sum of ring-tick spend so far this UTC day (paid amounts only — settleAndRecord
+// records 0 for non-paid calls). Separate from the autonomous loop's budget by
+// construction: it filters on pipeline='ring-tick'.
+async function ringDailySpent() {
+	const since = new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00.000Z');
+	const rows = await sql`
+		SELECT COALESCE(SUM(amount_atomic), 0)::bigint AS spent
+		FROM x402_autonomous_log
+		WHERE pipeline = 'ring-tick' AND ts >= ${since}
+	`;
+	return Number(rows[0]?.spent || 0);
+}
+
+// One structured, queryable row for a skipped/failed tick. Every non-paying tick
+// outcome leaves a trail (task 04 constraint). Wrapped — a DB fault never crashes
+// the cron.
+async function recordSkip(runId, origin, reason, extra = {}) {
+	try {
+		await sql`
+			INSERT INTO x402_autonomous_log
+				(run_id, endpoint_type, service_name, endpoint_url,
+				 network, amount_atomic, asset, success, error_msg, pipeline, value_extracted)
+			VALUES
+				(${runId}, ${'self'}, ${'Ring Tick'}, ${`${origin}/api/cron/x402-ring-tick`},
+				 ${'solana:mainnet'}, ${0}, ${ASSET}, ${false}, ${reason}, ${'ring-tick'},
+				 ${JSON.stringify({ skipped: true, reason, ...extra })})
+		`;
+	} catch (err) {
+		log.warn('ring_tick_skip_log_failed', { reason, message: err?.message });
+	}
+}
+
+// Does a paid result carry a facilitator SOL-floor signal? (Back-pressure that
+// appeared mid-tick — the pre-flight check passed but the floor was crossed.)
+function isFloorSignal(result) {
+	const hay = `${result?.errorMsg || ''} ${JSON.stringify(result?.responseBody || '')}`;
+	return /below_floor|sol_floor|fee_wallet_below/i.test(hay);
+}
+
+export default wrapCron(async (req, res) => {
+	if (req.method !== 'GET') return json(res, 405, { error: 'method_not_allowed' });
+	if (!requireCron(req, res)) return;
+
+	const origin = ORIGIN();
+
+	// ── Kill switches ─────────────────────────────────────────────────────────
+	if (process.env.X402_AUTONOMOUS_ENABLED === 'false') {
+		return json(res, 200, { ok: true, skipped: true, reason: 'X402_AUTONOMOUS_ENABLED=false' });
+	}
+	const cfg = ringTickConfig();
+	if (!cfg.enabled) {
+		return json(res, 200, { ok: true, skipped: true, reason: 'X402_RING_TICK_ENABLED=false' });
+	}
+
+	// ── Config gate: only run with a clean (no-error) ring envelope ────────────
+	const findings = validateRingConfig();
+	const gate = gateOnRingConfig(findings);
+	if (gate.warnings.length) {
+		log.warn('ring_tick_config_warnings', { warnings: gate.warnings.map((w) => w.code) });
+	}
+	if (gate.blocked) {
+		log.warn('ring_tick_config_blocked', { errors: gate.errors.map((e) => e.code) });
+		return json(res, 200, {
+			ok: true,
+			skipped: true,
+			reason: 'ring_config_invalid',
+			findings: gate.errors,
+		});
+	}
+
+	const runId = randomUUID();
+	const redis = getRedis();
+
+	// ── Payer keypair ─────────────────────────────────────────────────────────
+	let payer;
+	try { payer = loadSeedKeypair(); } catch (err) {
+		return json(res, 200, { ok: false, skipped: true, reason: err.message });
+	}
+
+	if (redis) {
+		try { await redis.ping(); } catch (err) {
+			return json(res, 200, { ok: false, skipped: true, reason: `redis_unavailable: ${err?.message}` });
+		}
+	}
+
+	// ── Schema (shared ledger + log column) ────────────────────────────────────
+	try {
+		await ensureVolumeSchema(sql);
+	} catch (err) {
+		return json(res, 200, { ok: false, skipped: true, reason: `schema_failed: ${err?.message}` });
+	}
+
+	// ── Shared Solana state (one blockhash per tick) ──────────────────────────
+	const conn = solanaConnection({ url: SOLANA_RPC, commitment: 'confirmed' });
+	let blockhash, mintInfo;
+	try {
+		[{ blockhash }, mintInfo] = await Promise.all([
+			conn.getLatestBlockhash('confirmed'),
+			getMint(conn, new PublicKey(USDC_MINT)),
+		]);
+	} catch (err) {
+		await recordSkip(runId, origin, 'rpc_preflight_failed', { message: err?.message });
+		await sendOpsAlert('x402 ring tick paused: RPC preflight failed', String(err?.message || err), { signature: 'ring-tick:rpc' });
+		return json(res, 200, { ok: false, skipped: true, reason: `rpc_preflight_failed: ${err?.message}`, run_id: runId });
+	}
+
+	// ── Plan this tick (durable cadence counters) ──────────────────────────────
+	const tickSeq = await nextTickSeq(redis);
+	const isSettleTick = cfg.settleEveryN > 0 && (tickSeq % cfg.settleEveryN === 0) && !!RING_SETTLE_ENDPOINT;
+	const cheapNeeded = Math.max(0, cfg.calls - (isSettleTick ? 1 : 0));
+	const cheapStart = await reserveCheapCursor(redis, cheapNeeded);
+	const plan = planTick({
+		tickSeq,
+		calls: cfg.calls,
+		settleEveryN: RING_SETTLE_ENDPOINT ? cfg.settleEveryN : 0,
+		cheapCount: CHEAP_ENDPOINTS.length,
+		cheapStart,
+	});
+
+	// ── Back-pressure pre-flight (never fire calls that will 502) ──────────────
+	const ringSettlePriceAtomic = Number(priceFor('ring-settle', RING_SETTLE_DEFAULT_PRICE));
+	let solLamports = Number.NaN;
+	try { solLamports = await conn.getBalance(payer.publicKey); } catch { solLamports = Number.NaN; }
+	// If SOL read succeeded the RPC is up, so a missing ATA means 0 USDC (not a
+	// fault); only a genuine read failure leaves it NaN → rpc_balance_unavailable.
+	let usdcAtomic = 0;
+	try {
+		const payerAta = getAssociatedTokenAddressSync(
+			new PublicKey(USDC_MINT), payer.publicKey, false, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID,
+		);
+		usdcAtomic = Number((await getAccount(conn, payerAta)).amount);
+	} catch { usdcAtomic = Number.isFinite(solLamports) ? 0 : Number.NaN; }
+
+	const minUsdc = minUsdcForTick({ isSettleTick: plan.isSettleTick, ringSettlePriceAtomic });
+	const bp = assessBackpressure({
+		solLamports, usdcAtomic, floorLamports: cfg.solFloorLamports, minUsdcAtomic: minUsdc,
+	});
+	if (!bp.ok) {
+		await recordSkip(runId, origin, bp.reason, {
+			detail: bp.detail, sol_lamports: Number.isFinite(solLamports) ? solLamports : null,
+			usdc_atomic: Number.isFinite(usdcAtomic) ? usdcAtomic : null, min_usdc_atomic: minUsdc,
+		});
+		await sendOpsAlert(
+			`x402 ring tick paused: ${bp.reason}`,
+			`sol=${solLamports} usdc=${usdcAtomic} floor=${cfg.solFloorLamports} min_usdc=${minUsdc}`,
+			{ signature: `ring-tick:${bp.reason}` },
+		);
+		log.warn('ring_tick_backpressure', { reason: bp.reason, detail: bp.detail });
+		return json(res, 200, { ok: true, skipped: true, reason: bp.reason, run_id: runId });
+	}
+
+	// ── Daily cap ──────────────────────────────────────────────────────────────
+	let dailySpent = 0;
+	try { dailySpent = await ringDailySpent(); } catch (err) {
+		log.warn('ring_tick_daily_query_failed', { message: err?.message });
+	}
+	let remaining = tickBudget(dailySpent, cfg.dailyCapAtomic, cfg.tickCapAtomic);
+	if (remaining <= 0) {
+		await recordSkip(runId, origin, 'ring_daily_cap_reached', {
+			daily_spent_atomic: dailySpent, daily_cap_atomic: cfg.dailyCapAtomic,
+		});
+		log.info('ring_tick_daily_cap_reached', { spent: dailySpent, cap: cfg.dailyCapAtomic });
+		return json(res, 200, {
+			ok: true, skipped: true, reason: 'ring_daily_cap_reached',
+			daily_spent_usdc: (dailySpent / 1e6).toFixed(4), run_id: runId,
+		});
+	}
+
+	// ── Build the ordered pick list for this tick ─────────────────────────────
+	const picks = [];
+	if (plan.isSettleTick) picks.push(RING_SETTLE_ENDPOINT);
+	for (const idx of plan.cheapIndices) picks.push(CHEAP_ENDPOINTS[idx]);
+
+	// ── Pay each pick through the shared path ─────────────────────────────────
+	const payCtx = { buyer: payer, conn, blockhash, mintInfo };
+	const results = [];
+	let paid = 0, calls = 0, errors = 0, spent = 0, lastTxSig = null;
+	let floorHit = false;
+
+	for (const ep of picks) {
+		if (remaining <= 0) {
+			log.info('ring_tick_cap_reached', { endpoint: ep.key, spent_atomic: spent });
+			break;
+		}
+		const { result, paidAmount } = await settleAndRecord({
+			sql, runId, ep, origin, remaining, ctx: payCtx,
+			pipeline: 'ring-tick', namePrefix: 'Ring', payFn: payX402, log,
+		});
+		calls += 1;
+		if (!result.success) errors += 1;
+		if (result.paid) {
+			paid += 1; spent += paidAmount; remaining -= paidAmount;
+			if (result.txSig) lastTxSig = result.txSig;
+		}
+		results.push({ key: ep.key, paid: result.paid === true, success: result.success, status: result.status, amount_usdc: paidAmount / 1e6 });
+
+		// Mid-tick back-pressure: the floor was crossed after pre-flight. Stop the
+		// tick (don't keep firing settles that will fail) and alert once.
+		if (!result.success && isFloorSignal(result)) { floorHit = true; break; }
+	}
+
+	if (floorHit) {
+		await sendOpsAlert(
+			'x402 ring tick paused: sponsor_sol_floor (mid-tick)',
+			`fee wallet crossed the SOL floor mid-tick; stopped after ${calls} calls`,
+			{ signature: 'ring-tick:sponsor_sol_floor' },
+		);
+		log.warn('ring_tick_floor_midtick', { run_id: runId, calls });
+	}
+
+	log.info('ring_tick_complete', {
+		run_id: runId, tick_seq: tickSeq, settle_tick: plan.isSettleTick,
+		calls, paid, errors, spent_usdc: (spent / 1e6).toFixed(4),
+		payer: payer.publicKey.toBase58(),
+	});
+
+	return json(res, 200, {
+		ok: true,
+		run_id: runId,
+		tick_seq: tickSeq,
+		settle_tick: plan.isSettleTick,
+		calls,
+		paid,
+		errors,
+		spent_usdc: (spent / 1e6).toFixed(4),
+		daily_spent_usdc: ((dailySpent + spent) / 1e6).toFixed(4),
+		daily_cap_usdc: (cfg.dailyCapAtomic / 1e6).toFixed(2),
+		tick_cap_usdc: (cfg.tickCapAtomic / 1e6).toFixed(2),
+		results,
+	});
+});

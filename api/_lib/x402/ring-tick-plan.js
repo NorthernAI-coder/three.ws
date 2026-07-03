@@ -1,0 +1,110 @@
+// api/_lib/x402/ring-tick-plan.js
+//
+// Pure planning + guard logic for the per-minute ring tick
+// (api/cron/x402-ring-tick.js). No network, no DB, no @solana/web3.js — every
+// function here is deterministic given its inputs, so the ring tick's cadence,
+// cap arithmetic, back-pressure decisions, and config gating are all unit-tested
+// (tests/x402-ring-tick.test.js) without touching the chain.
+//
+// The cron does the I/O (probe, sign, settle, log); this module decides WHAT to
+// do each minute and WHETHER it is safe to do it.
+
+// ── Config knobs ────────────────────────────────────────────────────────────────
+// Read once per tick. Defaults are chosen to cohere with the stock ring-settle
+// price ($1.00): the per-tick cap fits one ring-settle plus the cheap calls that
+// ride alongside it, and the daily cap bounds gross throughput. See
+// docs/x402-ring-economy.md "Cadence".
+export function ringTickConfig(e = process.env) {
+	const num = (v, d) => {
+		const n = Number(v);
+		return Number.isFinite(n) && n >= 0 ? n : d;
+	};
+	return {
+		// Kill switch: default ON. Only an explicit "false" disables it (subject to
+		// validateRingConfig() being clean — the cron enforces that separately).
+		enabled: String(e.X402_RING_TICK_ENABLED ?? '').trim().toLowerCase() !== 'false',
+		// Paid calls to attempt per minute.
+		calls: Math.max(1, Math.floor(num(e.X402_RING_TICK_CALLS, 3))),
+		// Fire one ring-settle every Nth tick (0 disables the settle carrier).
+		settleEveryN: Math.max(0, Math.floor(num(e.X402_RING_SETTLE_EVERY_N_TICKS, 5))),
+		// Spend ceiling for a single tick (atomics). Must fit a ring-settle tick:
+		// ring-settle price + (calls-1) cheap calls. Default $1.10.
+		tickCapAtomic: num(e.X402_RING_TICK_CAP_ATOMIC, 1_100_000),
+		// Ring tick's OWN daily ceiling (atomics), summed from x402_autonomous_log
+		// rows tagged pipeline='ring-tick'. Separate from the autonomous loop's
+		// X402_AUTONOMOUS_DAILY_CAP_ATOMIC — the two budgets never touch. Default $50.
+		dailyCapAtomic: num(e.X402_RING_DAILY_CAP_ATOMIC, 50_000_000),
+		// Sponsor/payer SOL floor (lamports). Mirrors self-facilitator's
+		// SPONSOR_SOL_FLOOR_LAMPORTS default (0.02 SOL) — below it, settlement is
+		// paused, so we skip the tick rather than fire calls that will 502.
+		solFloorLamports: num(e.X402_SPONSOR_SOL_FLOOR_LAMPORTS, 20_000_000),
+	};
+}
+
+// ── Cadence: which endpoints does this tick pay? ────────────────────────────────
+// Weighted rotation: cheap tips/services dominate the count; every Nth tick one of
+// the slots is the ring-settle carrier. `tickSeq` is a monotonic per-minute
+// counter (Redis-backed in the cron, in-memory fallback), `cheapStart` is the
+// reserved cheap-rotation cursor. Pure: same inputs → same plan.
+//
+// Returns { isSettleTick, cheapNeeded, cheapIndices } where cheapIndices index
+// into the CHEAP_ENDPOINTS catalog (ring-settle excluded).
+export function planTick({ tickSeq, calls, settleEveryN, cheapCount, cheapStart = 0 }) {
+	const isSettleTick = settleEveryN > 0 && cheapCount >= 0
+		&& Number.isFinite(tickSeq) && (tickSeq % settleEveryN === 0);
+	const settleCalls = isSettleTick ? 1 : 0;
+	const cheapNeeded = Math.max(0, calls - settleCalls);
+	const cheapIndices = [];
+	for (let i = 0; i < cheapNeeded && cheapCount > 0; i++) {
+		cheapIndices.push(((cheapStart + i) % cheapCount + cheapCount) % cheapCount);
+	}
+	return { isSettleTick, cheapNeeded, cheapIndices };
+}
+
+// The largest single payment this tick could attempt — used to size the minimum
+// payer USDC balance we require before firing (so we never start a tick we can't
+// afford and trigger a settle failure). On a settle tick that is the ring-settle
+// price; otherwise a small tip headroom.
+export function minUsdcForTick({ isSettleTick, ringSettlePriceAtomic, tipHeadroomAtomic = 20_000 }) {
+	return isSettleTick ? Math.max(ringSettlePriceAtomic, tipHeadroomAtomic) : tipHeadroomAtomic;
+}
+
+// ── Budget arithmetic ───────────────────────────────────────────────────────────
+// Remaining ring-tick daily budget, and the effective cap for THIS tick (the
+// smaller of the per-tick cap and what's left in the day). Never negative.
+export function dailyRemaining(dailySpentAtomic, dailyCapAtomic) {
+	return Math.max(0, dailyCapAtomic - dailySpentAtomic);
+}
+export function tickBudget(dailySpentAtomic, dailyCapAtomic, tickCapAtomic) {
+	return Math.max(0, Math.min(tickCapAtomic, dailyRemaining(dailySpentAtomic, dailyCapAtomic)));
+}
+
+// ── Back-pressure ───────────────────────────────────────────────────────────────
+// Decide, BEFORE paying, whether the tick is safe to run. Returns
+// { ok, reason }. A false-with-reason is a clean no-op (logged + one throttled
+// alert), never a retry-storm of failing settles. Order matters: RPC/context
+// failure first, then SOL floor (settlement paused), then payer USDC.
+export function assessBackpressure({ solLamports, usdcAtomic, floorLamports, minUsdcAtomic }) {
+	if (!Number.isFinite(solLamports)) return { ok: false, reason: 'rpc_balance_unavailable' };
+	if (solLamports < floorLamports) {
+		return { ok: false, reason: 'sponsor_sol_floor', detail: `${solLamports}<${floorLamports}` };
+	}
+	if (!Number.isFinite(usdcAtomic)) return { ok: false, reason: 'rpc_balance_unavailable' };
+	if (usdcAtomic < minUsdcAtomic) {
+		return { ok: false, reason: 'insufficient_payer_usdc', detail: `${usdcAtomic}<${minUsdcAtomic}` };
+	}
+	return { ok: true, reason: null };
+}
+
+// ── Config gate ─────────────────────────────────────────────────────────────────
+// validateRingConfig() returns findings [{ code, severity, message, fix }].
+// The tick runs only when there are no ERROR-severity findings — those mean
+// settlement would route to a third party or can't be built at all, which is the
+// one thing the ring must never do. WARN findings (sponsor mode, missing
+// rebalancer) degrade economics but still settle in-house, so they are logged,
+// not blocking. Returns { blocked, errors, warnings }.
+export function gateOnRingConfig(findings = []) {
+	const errors = findings.filter((f) => f?.severity === 'error');
+	const warnings = findings.filter((f) => f?.severity !== 'error');
+	return { blocked: errors.length > 0, errors, warnings };
+}

@@ -45,7 +45,10 @@ function loadKp(b58) {
 
 // Keep this much USDC in the treasury after a sweep (default 0 — sweep all).
 const TREASURY_BUFFER_ATOMIC = BigInt(process.env.X402_RING_TREASURY_BUFFER_ATOMIC || 0);
-// Don't bother sweeping dust — default $0.10 minimum.
+// Don't bother sweeping dust — default $0.10 minimum. Env-tunable via
+// X402_RING_MIN_SWEEP_ATOMIC: lower it when the per-minute ring tick cycles the
+// float in small increments so the rebalancer sweeps sooner and the payer never
+// starves between the (now 120s) rebalance ticks.
 const MIN_SWEEP_ATOMIC = BigInt(process.env.X402_RING_MIN_SWEEP_ATOMIC || 100_000);
 
 async function confirmSignature(conn, signature, timeoutMs = 30_000) {
@@ -187,5 +190,198 @@ export async function run(ctx = {}) {
 		amountAtomic: 0, // recirculation, not spend — cap-neutral
 		txSig: signature,
 		note: `swept ${Number(sweep) / 1e6} USDC treasury→payer`,
+	};
+}
+
+// ── Agent float top-up / sweep (Task 09) ───────────────────────────────────────
+//
+// The treasury→payer sweep above keeps the seed PAYER funded. This step does the
+// same for the ROSTER AGENTS (api/_lib/x402/agents/): it keeps each agent's USDC
+// balance inside a floor/target/ceiling band by moving float between the treasury
+// and the agent — top up a hungry agent, sweep an overfull one back. Same closed
+// loop, same platform-controlled wallets, recorded to x402_ring_ledger as
+// kind='fund'. It deliberately does NOT touch the treasury→payer core above.
+//
+// Every counterparty is asserted against ringAllowedAddresses() before any move —
+// a wallet outside the controlled set is skipped (fail-closed), never funded.
+// Recirculation, not spend: returns amountAtomic:0 so it never consumes the daily
+// spend cap. No-op until the treasury secret is set (same gate as run()).
+
+/**
+ * Build, sign, broadcast and confirm ONE USDC transfer between two ring wallets.
+ * `from` is the token-transfer authority (must sign); `feePayer` pays the SOL fee
+ * (may be the same as `from`). Returns { ok, signature } | { ok:false, err }.
+ */
+async function transferUsdcBetween({ conn, mint, mintInfo, fromKp, toPub, amountAtomic, feePayerKp }) {
+	const fromAta = getAssociatedTokenAddressSync(mint, fromKp.publicKey, false, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID);
+	const toAta = getAssociatedTokenAddressSync(mint, toPub, false, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID);
+	const toAtaInfo = await conn.getAccountInfo(toAta).catch(() => null);
+	const { blockhash } = await conn.getLatestBlockhash('confirmed');
+
+	const ixs = [
+		ComputeBudgetProgram.setComputeUnitLimit({ units: 60_000 }),
+		ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5 }),
+	];
+	if (!toAtaInfo) {
+		ixs.push(createAssociatedTokenAccountIdempotentInstruction(
+			feePayerKp.publicKey, toAta, toPub, mint, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID,
+		));
+	}
+	ixs.push(createTransferCheckedInstruction(
+		fromAta, mint, toAta, fromKp.publicKey, BigInt(amountAtomic), mintInfo.decimals, [], TOKEN_PROGRAM_ID,
+	));
+
+	const msg = new TransactionMessage({
+		payerKey: feePayerKp.publicKey,
+		recentBlockhash: blockhash,
+		instructions: ixs,
+	}).compileToV0Message();
+	const vtx = new VersionedTransaction(msg);
+	const signers = feePayerKp.publicKey.equals(fromKp.publicKey) ? [fromKp] : [feePayerKp, fromKp];
+	vtx.sign(signers);
+
+	let signature;
+	try {
+		signature = await conn.sendRawTransaction(vtx.serialize(), { skipPreflight: false, maxRetries: 5 });
+	} catch (err) {
+		return { ok: false, err: `broadcast_failed:${String(err?.message || err).slice(0, 160)}` };
+	}
+	const conf = await confirmSignature(conn, signature);
+	if (!conf.confirmed) return { ok: false, err: `not_confirmed:${conf.err}`, signature };
+	return { ok: true, signature };
+}
+
+/**
+ * Keep every roster agent's USDC float inside its band. Conforms to the run()-style
+ * registry contract (cap-neutral recirculation). Standalone-safe.
+ *
+ * @param {object} ctx { sql?, conn?, runId? }
+ * @returns {Promise<{ success:boolean, amountAtomic:0, skipped?:boolean, note?:string, moves?:Array }>}
+ */
+export async function floatTopUp(ctx = {}) {
+	const sql = ctx.sql || defaultSql;
+	const runId = ctx.runId || null;
+
+	const treasurySecret = process.env.X402_TREASURY_SECRET_BASE58;
+	if (!treasurySecret) return { success: true, skipped: true, amountAtomic: 0, note: 'treasury_secret_unset' };
+	if (!USDC_MINT) return { success: true, skipped: true, amountAtomic: 0, note: 'usdc_mint_unset' };
+
+	let treasury;
+	try {
+		treasury = loadKp(treasurySecret);
+	} catch (err) {
+		return { success: false, amountAtomic: 0, errorMsg: `bad_treasury_key:${err.message}` };
+	}
+	if (env.X402_PAY_TO_SOLANA && treasury.publicKey.toBase58() !== env.X402_PAY_TO_SOLANA) {
+		return { success: false, amountAtomic: 0, errorMsg: 'treasury_pubkey_mismatch' };
+	}
+
+	// Lazy imports: keep the rebalancer's core dependency graph small, and avoid a
+	// module-load cycle with the agents driver (which imports pay.js).
+	const [{ ensureRosterAgents }, { planFloatMove, floatBand, recoverAgentBuyer }, { ringAllowedAddresses }] = await Promise.all([
+		import('../agents/index.js'),
+		import('../agents/persona-kit.js'),
+		import('../ring-allowlist.js'),
+	]);
+
+	const roster = await ensureRosterAgents(sql);
+	if (roster.length === 0) return { success: true, skipped: true, amountAtomic: 0, note: 'no_roster_agents' };
+
+	const allowed = await ringAllowedAddresses({ sql });
+	if (!allowed.has(treasury.publicKey.toBase58())) {
+		return { success: false, amountAtomic: 0, errorMsg: 'treasury_not_allowlisted' };
+	}
+
+	const conn = ctx.conn || solanaConnection({ url: env.SOLANA_RPC_URL, commitment: 'confirmed' });
+	const mint = new PublicKey(USDC_MINT);
+	const mintInfo = await getMint(conn, mint);
+	const band = floatBand();
+
+	// Sponsor pays fees when configured so SOL burn stays on one wallet.
+	let sponsorKp = null;
+	if (process.env.X402_FEE_PAYER_SECRET_BASE58) {
+		try { sponsorKp = loadKp(process.env.X402_FEE_PAYER_SECRET_BASE58); } catch { sponsorKp = null; }
+	}
+
+	const moves = [];
+	const minMove = Math.max(0, Number(process.env.X402_RING_AGENT_MIN_FLOAT_MOVE_ATOMIC || 100_000)); // $0.10
+
+	for (const member of roster) {
+		// Both counterparties must be inside the controlled set — fail-closed.
+		if (!allowed.has(member.address)) {
+			moves.push({ agent: member.id, action: 'skip', reason: 'agent_not_allowlisted' });
+			continue;
+		}
+		const agentPub = new PublicKey(member.address);
+		const agentAta = getAssociatedTokenAddressSync(mint, agentPub, false, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID);
+		let balance = 0n;
+		try {
+			const acc = await getAccount(conn, agentAta);
+			balance = acc.amount;
+		} catch {
+			balance = 0n; // no ATA yet → treated as empty; a top-up creates it
+		}
+
+		const plan = planFloatMove({
+			balanceAtomic: balance, floorAtomic: band.floorAtomic,
+			targetAtomic: band.targetAtomic, ceilingAtomic: band.ceilingAtomic,
+		});
+		if (plan.action === 'none' || plan.amountAtomic < minMove) {
+			moves.push({ agent: member.id, action: 'none', balance_atomic: Number(balance) });
+			continue;
+		}
+
+		let res;
+		let fromWallet;
+		let toWallet;
+		if (plan.action === 'top_up') {
+			// treasury → agent, sponsor (or treasury) pays the fee.
+			fromWallet = treasury.publicKey.toBase58();
+			toWallet = member.address;
+			res = await transferUsdcBetween({
+				conn, mint, mintInfo, fromKp: treasury, toPub: agentPub,
+				amountAtomic: plan.amountAtomic, feePayerKp: sponsorKp || treasury,
+			});
+		} else {
+			// agent → treasury (sweep overflow). The agent signs; sponsor (or the
+			// agent) pays the fee. Needs the agent's custodial key.
+			const agentKp = await recoverAgentBuyer(member);
+			if (!agentKp) {
+				moves.push({ agent: member.id, action: 'sweep', reason: 'agent_key_unavailable' });
+				continue;
+			}
+			fromWallet = member.address;
+			toWallet = treasury.publicKey.toBase58();
+			res = await transferUsdcBetween({
+				conn, mint, mintInfo, fromKp: agentKp, toPub: treasury.publicKey,
+				amountAtomic: plan.amountAtomic, feePayerKp: sponsorKp || agentKp,
+			});
+		}
+
+		if (!res.ok) {
+			moves.push({ agent: member.id, action: plan.action, reason: res.err });
+			continue;
+		}
+
+		try {
+			await sql`
+				INSERT INTO x402_ring_ledger (kind, from_wallet, to_wallet, mint, amount_atomic, tx_sig, run_id)
+				VALUES ('fund', ${fromWallet}, ${toWallet}, ${USDC_MINT}, ${plan.amountAtomic}, ${res.signature}, ${runId})
+			`;
+		} catch (err) {
+			log.warn('float_fund_ledger_write_failed', { agent: member.id, message: err?.message });
+		}
+		moves.push({ agent: member.id, persona: member.persona.id, action: plan.action, amount_atomic: plan.amountAtomic, tx: res.signature });
+		log.info('ring_float_move', { agent: member.id, action: plan.action, amount_atomic: plan.amountAtomic, tx: res.signature });
+	}
+
+	const funded = moves.filter((m) => m.tx).length;
+	return {
+		success: true,
+		amountAtomic: 0, // recirculation, not spend — cap-neutral
+		recorded: false,
+		skipped: funded === 0,
+		note: `float_top_up moves=${funded}/${roster.length}`,
+		moves,
 	};
 }

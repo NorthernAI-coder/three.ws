@@ -76,6 +76,45 @@ The three roles are all platform-controlled:
 > **sponsor** role becomes optional. Sponsor mode exists for buyers that hold no
 > SOL and want gas sponsored (2 signatures, ~2× the base fee).
 
+### Provisioning, verification & monitoring
+
+Every ring wallet is provisioned once, registered in `x402_ring_wallets`, and
+then kept in a verified, watched, auto-fundable state:
+
+- **Verify** — [scripts/x402-ring-verify.mjs](../scripts/x402-ring-verify.mjs)
+  resolves each role from env, checks the secret decodes to its declared pubkey
+  (treasury secret ↔ `X402_PAY_TO_SOLANA`, sponsor secret ↔
+  `X402_FEE_PAYER_SOLANA`), confirms `x402_ring_wallets` holds exactly one enabled
+  row per role, checks the treasury is inside the facilitator's `payToAllowlist()`,
+  prints a 3-row table with live SOL/USDC, and exits non-zero on any mismatch. It
+  never prints a secret. `--fix` reconciles the DB registry to env (upsert the env
+  pubkey, disable stray rows); `--json` emits machine-readable output.
+- **Balance monitor** — [api/_lib/x402/wallet-balance-monitor.js](../api/_lib/x402/wallet-balance-monitor.js)
+  (`checkRingWallets`, run every 10 min by the autonomous loop) reads all three
+  wallets on-chain and alerts via `sendOpsAlert` on a role-floor breach:
+
+  | Role | SOL floor | USDC floor |
+  |---|---|---|
+  | **sponsor** | 0.03 SOL (1.5× the 0.02 hard floor) | — |
+  | **payer** | 0.03 SOL *(self-pay mode only)* | `X402_RING_PAYER_USDC_FLOOR_ATOMIC`, default **$5** |
+  | **treasury** | — (unbounded: fills + gets swept) | — |
+
+  The 0.03 SOL floor sits a hair above the facilitator's `X402_SPONSOR_SOL_FLOOR_LAMPORTS`
+  (0.02 SOL) hard stop, so operators are warned *before* settlement is refused.
+  A breach snapshot is published to Redis `x402:ring-wallets:latest` for cheap
+  dashboard reads. The pure floor math is in
+  [ring-floors.js](../api/_lib/x402/ring-floors.js).
+- **Auto-topup** — the sponsor (`x402-ring-sponsor`) and payer (`x402-ring-payer`)
+  are entries in [api/_lib/solana-signers.js](../api/_lib/solana-signers.js) with
+  `minSol: 0.03`, so the economy master's
+  [treasury-topup](../api/cron/treasury-topup.js) cron refills their fee **SOL**
+  automatically when they fall below floor — closing the "sponsor runs dry and the
+  ring silently halts" failure. The **treasury is deliberately not a signer** (the
+  master must never top up a wallet that only receives and gets swept), and the
+  master only ever moves SOL, so the payer's **USDC** float is a manual top-up when
+  the monitor alerts. Funding amounts and verification commands live in
+  [tasks/x402-ring/FUNDING.md](../tasks/x402-ring/FUNDING.md).
+
 ## Components
 
 - **Self-hosted facilitator** — [api/x402-facilitator/[action].js](../api/x402-facilitator/[action].js),
@@ -121,11 +160,12 @@ node scripts/x402-ring-setup.mjs
 psql "$DATABASE_URL" -f api/_lib/migrations/2026-07-01-x402-ring-economy.sql
 
 # 3. Set env (Vercel), from the printed block:
-#    X402_SELF_FACILITATOR_ENABLED=true
-#    X402_FACILITATOR_URL_SOLANA=https://three.ws/api/x402-facilitator
+#    X402_SELF_FACILITATOR_ENABLED=true   # else /api/x402-facilitator → 503
 #    X402_EXTERNAL_ENABLED=false          # only OUR endpoints get paid
 #    X402_CHARITY_AUDIT_BPS=0             # no charity split leaves the ring
+#    X402_RING_SELF_PAY=true              # 1-signature settles, lowest SOL
 #    X402_PRICE_RING_SETTLE=1000000       # $1.00/call
+#    X402_VOLUME_PER_RUN_CAP_ATOMIC=…     # must be ≥ X402_PRICE_RING_SETTLE
 #    X402_AUTONOMOUS_DAILY_CAP_ATOMIC=…   # your daily volume target
 #    X402_SPONSOR_SOL_FLOOR_LAMPORTS=20000000
 #    + the payer / treasury / sponsor pub+secret pairs
@@ -135,9 +175,48 @@ psql "$DATABASE_URL" -f api/_lib/migrations/2026-07-01-x402-ring-economy.sql
 #    sponsor → SOL for fees, e.g. 0.1 SOL (≈ thousands of settlements)
 #    treasury→ nothing; it fills and gets swept back
 
-# 5. Watch it.
-curl https://three.ws/api/x402-ring?period=24h
+# 5. Confirm the envelope is correct BEFORE funding — config_warnings must be [].
+curl https://three.ws/api/x402-status  | jq '.ring'
+curl https://three.ws/api/x402-ring    | jq '.config_warnings'
 ```
+
+### How Solana settlement routes
+
+Turning on `X402_SELF_FACILITATOR_ENABLED=true` is what makes the self-hosted
+facilitator the *default* Solana settle path — it is **not** always-on. The
+resolver ([api/_lib/x402/ring-config.js](../api/_lib/x402/ring-config.js), used
+by `facilitatorFor()`) decides in this order:
+
+1. **An explicit `X402_FACILITATOR_URL_SOLANA` always wins.** Existing non-ring
+   deploys never silently re-route. Point it at
+   `https://three.ws/api/x402-facilitator` to force in-house settlement
+   regardless of the flag, or at an external facilitator to opt out.
+2. **Else, with `X402_SELF_FACILITATOR_ENABLED=true`,** Solana settlement
+   defaults to this deploy's own `$APP_ORIGIN/api/x402-facilitator` — no URL
+   needed.
+3. **Else** it falls back to the external PayAI facilitator.
+
+So the correctly-enveloped ring deploy sets the flag and **leaves
+`X402_FACILITATOR_URL_SOLANA` unset** (or points it at the self URL). Setting the
+flag while an external URL still wins is the mis-envelope the surfaces below flag.
+
+### Fail loud, not silent
+
+A mis-enveloped deploy — flag on but settlement still routing externally, or a
+missing secret, or `X402_PRICE_RING_SETTLE` above the per-run cap — never routes
+volume elsewhere quietly:
+
+- **`/api/x402-status`** returns a `ring` block: `self_facilitator_enabled`, the
+  resolved `self_facilitator_url`, and `config_warnings[]`. The self-hosted
+  facilitator's `/supported` is probed as a distinct `self: true` entry whenever
+  the flag is on, even if an external URL wins routing.
+- **`/api/x402-ring`** returns the same `config_warnings[]` alongside the
+  net-position report, and logs one structured warning per boot when settlement
+  would route to an external facilitator.
+
+`validateRingConfig()` reports six findings — facilitator disabled, URL external,
+missing treasury secret, missing fee-payer pubkey, price-above-cap, and self-pay
+off. A green ring is `config_warnings: []`.
 
 Everything is **off by default**: without `X402_SELF_FACILITATOR_ENABLED=true` and
 the sponsor secret, the facilitator returns `503` and nothing settles.
@@ -156,9 +235,98 @@ For a monthly gross target `V` at per-call size `p`:
 Example: $10k/mo at $1/call ≈ 10k txs ≈ 0.05 SOL ≈ ~$10 real cost. At $100/call it
 is ~$0.10.
 
+## Leak-proofing — the invariant, made active
+
+**The invariant:** no SOL or USDC ever leaves the set of wallets three.ws
+controls — not to another user, not to a charity, not to an external facilitator,
+not as a fee beyond the network's own. The anti-drain gate above already refuses
+to *settle* a leaking transaction; leak-proofing closes the remaining gap — a
+flipped guard env, a compromised key, or any path that moves money without going
+through the facilitator — by asserting the invariant at runtime **and** watching
+the chain for money actually leaving.
+
+### The controlled-wallet set
+
+[api/_lib/x402/ring-allowlist.js](../api/_lib/x402/ring-allowlist.js) resolves
+`ringAllowedAddresses()` — every address the platform controls:
+
+- the three ring role wallets (payer, treasury, sponsor — env + derived),
+- the `x402_ring_wallets` registry,
+- every platform signer in [api/_lib/solana-signers.js](../api/_lib/solana-signers.js),
+- explicit extras from `X402_SELF_FACILITATOR_PAYTO_ALLOWLIST`,
+- and the USDC ATAs of all of the above (SPL credits land on the token account).
+
+> This is the **membership** set (is a counterparty ours?), and it is deliberately
+> broader than the facilitator's `payToAllowlist()` **receiving** set (may we
+> settle *to* this address?). Receiving is stricter than membership — a wallet can
+> be controlled without being a valid settlement recipient.
+
+### Assertion points — the ring fails CLOSED
+
+Before any spend, the spend entry points call `assertRingSpendInvariants()`,
+which checks three guards:
+
+1. `X402_EXTERNAL_ENABLED === 'false'` — external spending disabled (unset = violation),
+2. `X402_CHARITY_AUDIT_BPS` parses to exactly `0` — no split leaves the ring,
+3. facilitator resolves to **self** — `X402_SELF_FACILITATOR_ENABLED=true` and
+   settlement routes to our own `/api/x402-facilitator` (via `resolveSolanaFacilitator()`).
+
+Any violation **no-ops the entire spend path** and fires one throttled CRITICAL
+ops alert naming the flipped flag. A forgotten or tampered flag can no longer
+silently re-open external spending — the loop stops spending instead.
+Wired into [api/cron/x402-autonomous-loop.js](../api/cron/x402-autonomous-loop.js)
+(the loop that runs ring settlement) and the ring tick.
+
+### On-chain leak scanner
+
+[api/cron/x402-ring-leak-scan.js](../api/cron/x402-ring-leak-scan.js) runs every
+10 min (`CRON_SECRET`-authed, **strictly read-only** on chain). For each ring
+wallet it pulls the new signatures since a persisted per-wallet cursor
+(`x402_ring_scan_cursor`, ≤100/run), batches `getParsedTransactions`, and
+classifies every debit:
+
+| class | meaning |
+|---|---|
+| `internal` | counterparty ∈ `ringAllowedAddresses()` — money stayed in the set |
+| `network_fee` | the Solana fee our wallet paid (the only permitted outflow) |
+| **`LEAK`** | anything else: USDC to an unknown address, **any** non-USDC token out, an unexplained SOL debit, a System transfer to an unknown address |
+| `delegation` | an SPL `Approve` on a ring ATA — a leak vector *before* funds move |
+
+Every `LEAK`/`delegation` fires a CRITICAL `sendOpsAlert` (signature,
+counterparty, amount, rotate-the-key recommendation) and upserts a verdict into
+`payment_reconciliation` with source `x402_ring_onchain`, alongside the economy
+master's breach verdicts on the same ops financial-integrity board. When
+classification is ambiguous it errs to `LEAK` — a false positive is cheaper than
+a missed drain.
+
+**Fee-leak line item.** The scanner accumulates the per-day network fees ring
+wallets actually paid on chain (`x402_ring_fee_observed`) and cross-checks the
+last complete UTC day against task 05's `x402_fee_audit` rollup. A >20% mismatch
+means something is paying fees from our wallets outside the ring's accounting →
+WARN.
+
+### Response runbook — a leak alert fired
+
+1. **Confirm** — open the `solscan.io/tx/<sig>` link in the alert; read the
+   counterparty and amount. Cross-check the verdict:
+   `SELECT * FROM payment_reconciliation WHERE source = 'x402_ring_onchain' AND reconciled = false`.
+2. **Rotate** — treat the affected wallet's key as compromised. Generate a new
+   secret (`node scripts/x402-ring-setup.mjs` for a ring role; the signer's own
+   runbook otherwise) and replace it in Vercel env.
+3. **Drain** — move remaining funds from the old wallet to the treasury
+   (`X402_PAY_TO_SOLANA`) before the old key can move more.
+4. **Revoke** (delegation alerts) — send an SPL `Revoke` on the approved ATA to
+   kill the delegate's authority.
+5. **Re-verify** — run `node scripts/x402-ring-verify.mjs` to confirm the wallet
+   set is clean, then mark the verdict reconciled.
+
 ## Related
 
 - [STRUCTURE.md](../STRUCTURE.md) — surface map
 - [/api/x402-revenue](../api/x402-revenue.js) — the **public** organic-revenue
   feed (self-cycled ring volume is excluded from the "organic" framing here)
 - [docs/x402-revenue.md](./x402-revenue.md) — revenue surface docs
+- [api/_lib/x402/ring-allowlist.js](../api/_lib/x402/ring-allowlist.js) — the
+  controlled-wallet set + spend invariants
+- [api/cron/x402-ring-leak-scan.js](../api/cron/x402-ring-leak-scan.js) — the
+  on-chain leak scanner
