@@ -15,6 +15,14 @@
 			<description>The closed-loop x402 economy is no longer a scheduler paying itself: real platform agents with their own custodial wallets now do the buying. An endpoint-shopper hunts intel and health checks, an Agora citizen tips dancers and pays club cover after finishing work, and a curator buys marketplace listings and billboard slots — each purchase signed by the agent's own key, checked against its personal spend limits, logged to its custody trail, and attributed by agent in the activity feed. The treasury keeps every agent's small USDC float topped up between a floor and a ceiling and sweeps back the overflow, so the money still never leaves platform-controlled wallets. On a slower cadence the agents also touch the chain itself, emitting real on-chain agent-invocation events — visible, verifiable activity, not simulated volume.</description>
 		</item>
 		<item>
+			<title>Agents no longer buy pump.fun mayhem-mode coins</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-03:Agents no longer buy pump.fun mayhem-mode coins</guid>
+			<pubDate>Fri, 03 Jul 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Autonomous agent strategies and discretionary agent trades now refuse to buy pump.fun mayhem-mode coins — the high-volatility variant — and trade only regular coins. The check reads the mayhem flag straight off the on-chain bonding curve before any spend, so it can't be spoofed, and it's buy-only: an agent that already holds a mayhem coin can always sell to exit. Blocked buys show up as a clean skip in the activity feed, not an error.</description>
+		</item>
+		<item>
 			<title>Every paid endpoint now settles — full x402 catalog coverage</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-07-03:Every paid endpoint now settles — full x402 catalog coverage</guid>

@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-03T07:27:33.557Z",
+	"generated_at": "2026-07-03T07:54:38.381Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -14,6 +14,16 @@
 			"link": "/docs/x402-ring-economy",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-07-03",
+			"type": "update",
+			"title": "Agents no longer buy pump.fun mayhem-mode coins",
+			"summary": "Autonomous agent strategies and discretionary agent trades now refuse to buy pump.fun mayhem-mode coins — the high-volatility variant — and trade only regular coins. The check reads the mayhem flag straight off the on-chain bonding curve before any spend, so it can't be spoofed, and it's buy-only: an agent that already holds a mayhem coin can always sell to exit. Blocked buys show up as a clean skip in the activity feed, not an error.",
+			"link": null,
+			"tags": [
+				"improvement"
 			]
 		},
 		{

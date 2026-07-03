@@ -58,6 +58,7 @@ export const STRATEGY_SKIP_LABELS = Object.freeze({
 	firewall_blocked: 'blocked by the rug/honeypot firewall',
 	insufficient_sol: 'not enough SOL for size + fees',
 	no_market: 'no tradeable market for this mint',
+	mayhem: 'pump.fun mayhem-mode coin — agents only buy regular coins',
 	wsol: 'wrapped SOL is not a tradeable target',
 	max_concurrent: 'at the strategy’s max concurrent positions',
 	cooldown: 'within the strategy’s cooldown window',
@@ -125,6 +126,9 @@ export async function runStrategyTrade({
 		quote = await quoteTrade({ conn, side, mintPk, mintStr: mint, network, solAmount, tokenAmountRaw, slippageBps });
 	} catch (e) {
 		if (e?.code === 'pool_not_found') return { status: 'skipped', code: 'no_market' };
+		// Mayhem-mode coins are refused by policy, not a pricing failure — record
+		// it as a clean skip so the feed reads "skipped: mayhem", not an error.
+		if (e?.code === 'mayhem_blocked') return { status: 'skipped', code: 'mayhem' };
 		return { status: 'failed', code: e?.code || 'quote_failed', message: (e?.message || '').slice(0, 200) };
 	}
 

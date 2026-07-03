@@ -116,6 +116,11 @@ export async function quoteTrade({ conn, side, mintPk, mintStr, network, solAmou
 		// Bonding curve first.
 		const curve = await getBuyQuote(conn, mintStr, lamportsIn.toString());
 		if (curve && curve.tokens) {
+			// Platform rule: agents never buy pump.fun mayhem-mode coins — only
+			// regular coins. The mayhem flag is read straight off the bonding curve
+			// (ungameable), so a mayhem coin is refused before any spend. Sells are
+			// unaffected, so an agent already holding one can always exit.
+			if (curve.isMayhemMode) throw typed(422, 'mayhem_blocked', 'this is a pump.fun mayhem-mode coin — agents only buy regular coins');
 			const decimals = await resolveMintDecimals(conn, mintPk);
 			const tokensOut = BigInt(curve.tokens.toString());
 			if (tokensOut <= 0n) throw typed(400, 'amount_too_small', 'that SOL amount is too small to buy any tokens');

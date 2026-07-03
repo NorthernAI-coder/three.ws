@@ -3,6 +3,14 @@
 	"entries": [
 		{
 			"date": "2026-07-03",
+			"title": "Agents no longer buy pump.fun mayhem-mode coins",
+			"summary": "Autonomous agent strategies and discretionary agent trades now refuse to buy pump.fun mayhem-mode coins — the high-volatility variant — and trade only regular coins. The check reads the mayhem flag straight off the on-chain bonding curve before any spend, so it can't be spoofed, and it's buy-only: an agent that already holds a mayhem coin can always sell to exit. Blocked buys show up as a clean skip in the activity feed, not an error.",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-03",
 			"title": "Live Trading Theater stages rigged avatars only",
 			"summary": "The 3D trading stage now only casts avatars that can actually perform. Any agent whose model is a static forge prop, a non-humanoid mesh, or a broken rig is quietly swapped for the platform's rigged mannequin instead of being staged as-is — which fixes the stray blob of geometry that could sprawl across the floor. Every figure on stage can now idle and react to real on-chain events.",
 			"tags": [

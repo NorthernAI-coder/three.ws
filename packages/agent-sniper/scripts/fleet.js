@@ -250,11 +250,36 @@ async function cmdRun(flags) {
 
 	const perTrade = Number(flags['per-trade'] || DEFAULTS.perTradeSol);
 	const daily = Number(flags['daily'] || DEFAULTS.dailyBudgetSol);
-	const strategies = strategiesForFleet(keys, perTrade, daily).map(({ _archetype, ...s }) => s);
+	const armed = strategiesForFleet(keys, perTrade, daily);
+	const archetypeByAgent = Object.fromEntries(armed.map((s) => [s.agent_id, s._archetype]));
+	const strategies = armed.map(({ _archetype, ...s }) => s);
 	const secrets = Object.fromEntries(keys.agents.map((a) => [a.id, a.secret]));
 
+	// Live Telegram tracker: a message per buy/sell + a periodic portfolio summary.
+	// Enabled by --telegram or by TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID being present.
+	const { createTelegramTracker } = await import('./telegram.js');
+	const tg = createTelegramTracker({
+		token: flags['telegram-token'] || process.env.TELEGRAM_BOT_TOKEN,
+		chatId: flags['telegram-chat'] || process.env.TELEGRAM_CHAT_ID,
+		network: keys.network,
+		archetypeByAgent,
+	});
+	// Rule: no pump.fun Mayhem tokens — only normal launches. Reads each mint's
+	// bonding curve (cached, shared across agents) and skips isMayhemMode tokens.
+	// On by default; --allow-mayhem disables it.
+	const { createMayhemFilter } = await import('./mayhem-filter.js');
+	const mayhem = flags['allow-mayhem'] ? null
+		: createMayhemFilter({ rpcUrl, strictOnUnknown: Boolean(flags['mayhem-strict']) });
+
+	const hooks = {
+		...(tg.enabled ? tg.hooks : {}),
+		...(mayhem ? { oracleGate: mayhem.oracleGate } : {}),
+	};
+
 	console.log(`\n  Starting sniper — ${keys.agents.length} agents · ${mode.toUpperCase()} · ${keys.network} · ${perTrade} SOL/trade`);
-	console.log(`  RPC: ${rpcUrl ? rpcUrl.replace(/api-key=[^&]+/i, 'api-key=***') : 'default'}\n`);
+	console.log(`  RPC: ${rpcUrl ? rpcUrl.replace(/api-key=[^&]+/i, 'api-key=***') : 'default'}`);
+	console.log(`  Telegram tracker: ${tg.enabled ? 'ON' : 'off (set TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID)'}`);
+	console.log(`  Mayhem filter: ${mayhem ? (flags['mayhem-strict'] ? 'ON (strict — skip on unknown)' : 'ON (skip Mayhem tokens)') : 'OFF (--allow-mayhem)'}\n`);
 
 	// --serve mounts the package's own HTTP API + web console over THIS fleet's
 	// live sniper/store, so packages/agent-sniper/web/console.html (and the
@@ -271,26 +296,36 @@ async function cmdRun(flags) {
 			solana,
 			executor: createWeb3Executor(),
 			feed: createPumpPortalFeed({ network: keys.network }),
+			hooks,
 		});
 		const { serve } = await import('../src/faces/api.js');
 		await serve({ sniper, store, adminToken: process.env.SNIPER_ADMIN_TOKEN }, { port });
 		sniper.__started = true; // serve() already called start()
 		console.log(`  Console + API on http://localhost:${port}/  (film this)\n`);
+		if (tg.enabled) tg.startSummary(sniper, store);
 	} else {
-		sniper = await presets.local({ network: keys.network, mode, rpcUrl, strategies, secrets });
+		sniper = await presets.local({ network: keys.network, mode, rpcUrl, strategies, secrets, hooks });
 		await sniper.start();
+		if (tg.enabled) tg.startSummary(sniper, sniper.store || { listPositions: null });
 	}
+	if (tg.enabled) await tg.announce(`🚀 <b>Fleet armed</b> · ${keys.agents.length} agents · ${mode} · ${keys.network} · ${perTrade} SOL/trade`);
 
 	const tick = setInterval(() => {
 		const s = sniper.stats();
-		console.log(`  [${new Date().toISOString().slice(11, 19)}] events=${s.events} candidates=${s.candidates} buys=${s.buys} sells=${s.sells} errors=${s.errors} queued=${s.queued}`);
+		const m = mayhem ? (() => { const c = mayhem.stats(); return ` mayhem_skipped=${c.mayhem} mayhem_unknown=${c.unknown}`; })() : '';
+		console.log(`  [${new Date().toISOString().slice(11, 19)}] events=${s.events} candidates=${s.candidates} buys=${s.buys} sells=${s.sells} errors=${s.errors} queued=${s.queued}${m}`);
 	}, 15_000);
 
 	const stop = async () => {
 		clearInterval(tick);
 		console.log('\n  Stopping…');
 		try { await sniper.stop?.(); } catch {}
-		console.log('  Final stats:', JSON.stringify(sniper.stats()));
+		const s = sniper.stats();
+		if (tg.enabled) {
+			tg.stop();
+			try { await tg.announce(`🛑 <b>Fleet stopped</b> · Buys ${s.buys} · Sells ${s.sells} · Errors ${s.errors}`); } catch {}
+		}
+		console.log('  Final stats:', JSON.stringify(s));
 		process.exit(0);
 	};
 	process.on('SIGINT', stop);

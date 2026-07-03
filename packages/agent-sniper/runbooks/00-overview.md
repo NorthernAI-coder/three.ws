@@ -46,6 +46,33 @@ sudo npx playwright install-deps chromium               # or apt the libs below
 #   libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2t64 libnss3 libnspr4 libdrm2 libxshmfence1
 ```
 
+## Live tracking — Telegram feed (recommended)
+
+The fleet posts a message on **every buy and sell** (agent, archetype, symbol, size,
+PnL, Solscan tx link) plus a **portfolio summary every 15 min**, to a Telegram chat or
+channel. Push-based, on your phone, and a public channel is instantly shareable.
+
+Setup:
+1. Create a bot with [@BotFather](https://t.me/BotFather) → get the **bot token**.
+2. Create a channel (e.g. "three.ws sniper fleet"), add the bot as an **admin**.
+3. Use the channel's `@handle` (public channels) or numeric id (`-100…`) as the chat id.
+4. Run the fleet with the tracker on:
+   ```bash
+   TELEGRAM_BOT_TOKEN=<token> TELEGRAM_CHAT_ID=@yourchannel \
+     node scripts/fleet.js run --rpc "$RPC" --mode live --serve --yes
+   ```
+   (or pass `--telegram-token` / `--telegram-chat`). Tracker code: `scripts/telegram.js`.
+
+Other ways to watch (complementary, not either/or):
+- **Local console** — `--serve` already exposes a live dashboard (positions, PnL, activity)
+  at `http://localhost:8787/`. Great to watch or record; localhost unless you tunnel it.
+- **Public web page** — deploy that same console (`packages/agent-sniper` `serve` face) to
+  Vercel/Cloud Run for a shareable URL. Heavier; do it if you want a public site.
+- **three.ws pages** — the fleet only shows *natively* on `/theater` `/play/arena` via
+  Cut 02 (platform agents). Otherwise those pages are platform-wide, not this fleet.
+- **On-chain** — every wallet is trackable directly on Solscan; `fleet.js balance` prints
+  all 33 + the funder any time.
+
 ## Cleanup (all cuts) — recover leftover SOL
 
 ```bash

@@ -108,7 +108,10 @@ export async function getBuyQuote(connection, mint, solAmount) {
 		const { global, feeConfig, bondingCurve, mintSupply } = await fetchState(connection, pk);
 		const tokens = getBuyTokenAmountFromSolAmount({ global, feeConfig, mintSupply, bondingCurve, amount });
 		const impact = calculateBuyPriceImpact({ global, feeConfig, mintSupply, bondingCurve, solAmount: amount });
-		return { tokens, priceImpact: impact.impactBps / 100 };
+		// Surface the curve's mayhem flag so the buy path can refuse mayhem-mode
+		// coins (platform rule: agents only buy regular pump.fun coins, never the
+		// high-volatility mayhem variant). Read from chain, never assumed.
+		return { tokens, priceImpact: impact.impactBps / 100, isMayhemMode: Boolean(bondingCurve.isMayhemMode) };
 	} catch (err) {
 		// A graduated coin (no curve) is an expected state — the trade handler
 		// re-prices off the AMM pool. Don't log it as a failure.
