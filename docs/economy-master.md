@@ -107,6 +107,99 @@ The JSON response reports `configured`, `master_sol`, `funded`, `failed`,
 `skipped`, `rejected`, and `spent_sol`. A non-empty `rejected` array means an
 off-registry target reached the sweep and was blocked — investigate the caller.
 
+## Audit, accounting & breach monitoring
+
+This is real money, so every movement is recorded to a durable, tamper-evident
+book and independently reconciled against the chain. Three moving parts:
+
+### 1. The ledger — the financial book of record
+
+Every sweep appends a hash-chained batch of rows to the `economy_master_ledger`
+table via [`api/_lib/economy-ledger.js`](../api/_lib/economy-ledger.js):
+
+- one **`transfer`** row per SOL movement — the engine it funded, the target
+  pubkey, the amount, the confirmed **tx signature**, the **running balance**
+  after the move, and the **USD value at the instant of the transfer** (SOL/USD is
+  captured at write time via [`sol-price.js`](../api/_lib/sol-price.js), so an
+  accountant reads the dollar value as of the transfer, not as of report time);
+- a **`failed`** row per attempted transfer that errored, with the reason;
+- a **`blocked`** row per target the allowlist refused (`not_in_registry` /
+  `is_master`) — the on-chain evidence that the leak guard fired;
+- a **`sweep`** heartbeat row every run, even a no-op, so there is a continuous
+  "we checked this wallet every 30 minutes" trail.
+
+**Tamper-evidence.** Each row carries `prev_hash` + `entry_hash`, a SHA-256 hash
+chain: `entry_hash = sha256(seq | ts | master | event | target | lamports |
+signature | resulting-balance | prev_hash)`. The head commits the entire history,
+so editing or deleting *any* historical row (to hide a transfer, change an amount,
+or swap a recipient) breaks the chain from that row forward. The break is
+detectable and located to the exact `seq`. Schema:
+[`migrations/20260702010000_economy_master_ledger.sql`](../api/_lib/migrations/20260702010000_economy_master_ledger.sql).
+
+### 2. The reconcile / breach monitor
+
+[`api/cron/economy-reconcile.js`](../api/cron/economy-reconcile.js) runs every 30
+minutes and answers the three questions an auditor, an accountant, and an incident
+responder each ask:
+
+| Check | What it does | On failure |
+|---|---|---|
+| **Tamper** | `verifyChain()` recomputes the whole hash chain | 🚨 CRITICAL ops alert; row in `payment_reconciliation` (`source=economy_master_chain`) |
+| **Breach** | Pulls the master's real on-chain history and flags any **outbound debit whose signature is not in the ledger** | 🚨 CRITICAL alert — *unrecorded SOL leaving the master is the key-compromise signal*; verdict `chain_status=unrecorded_outbound` |
+| **Integrity** | Confirms every recorded `transfer` signature exists and succeeded on-chain | verdict `missing_onchain` / `failed_onchain` — a fabricated or lost record |
+| **Reserve** | Master balance below `ECONOMY_MASTER_RESERVE_SOL` | ⛽ fund-safety alert |
+
+Non-reconciled findings are upserted into the **shared** `payment_reconciliation`
+table (the same finance-integrity surface x402 revenue reconciliation writes to),
+so `WHERE reconciled = false` on the ops board shows master discrepancies next to
+everything else. The monitor is **read-only on-chain** — it never moves funds.
+
+### 3. Accounting export
+
+[`scripts/economy-ledger-export.mjs`](../scripts/economy-ledger-export.mjs) emits
+the ledger as CSV (default) or JSON with the running balance and USD valuation, and
+can re-verify the chain first:
+
+```bash
+# CSV of July, into a file for the accountant:
+node scripts/economy-ledger-export.mjs --from 2026-07-01 --to 2026-07-31 > july.csv
+
+# JSON with window totals (SOL out + USD out):
+node scripts/economy-ledger-export.mjs --event transfer --format json
+
+# Verify tamper-evidence before exporting (non-zero exit if the chain is broken):
+node scripts/economy-ledger-export.mjs --verify
+```
+
+Needs `DATABASE_URL`. Never prints secrets.
+
+### Breach-response runbook
+
+**On a `🚨 Unrecorded SOL leaving the economy master` alert:**
+1. Open the linked Solscan tx. If it is *not* a `treasury-topup` transfer to a
+   registry engine, treat the key as compromised.
+2. **Rotate immediately** — generate a new master keypair, set
+   `ECONOMY_MASTER_SECRET_BASE58` + `ECONOMY_MASTER_ADDRESS` to it, and redeploy so
+   the compromised key is no longer loaded.
+3. **Sweep remaining funds** from the old master to the new one (or cold storage)
+   before the attacker drains more.
+4. Reconcile: the ledger's last good `entry_hash` and the on-chain history bound
+   exactly what was authorized vs. stolen.
+
+**On a `🚨 Economy ledger tamper detected` alert:**
+1. Do not trust the DB books until resolved — the chain says a row was altered.
+2. Export with `--verify` to get the exact broken `seq`.
+3. Compare the on-chain transaction history against the ledger around that `seq`
+   to reconstruct the true record; restore from backup / re-derive from chain.
+
+### Retention
+
+`economy_master_ledger` is append-only and **must not** be pruned by the
+`db-retention` cron — it is the accounting record. It is tiny (a few dozen rows per
+day) so it does not contribute to storage pressure. The chain head may be anchored
+on-chain (same mechanism as [`ledger-anchor.js`](../api/_lib/ledger-anchor.js)) for
+a third-party-verifiable timestamp of the books.
+
 ## Known gaps & runbook (as of 2026-07-02)
 
 The master is configured and funded, but the tree it feeds is only partly wired:

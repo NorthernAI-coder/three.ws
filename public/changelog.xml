@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Full audit trail + breach monitoring on the economy's funding wallet</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-03:Full audit trail + breach monitoring on the economy's funding wallet</guid>
+			<pubDate>Fri, 03 Jul 2026 12:00:00 GMT</pubDate>
+			<category>security</category>
+			<description>The master wallet that fuels the platform's autonomous economy now keeps a tamper-evident accounting book of every move it makes. Each SOL transfer is recorded with the engine it funded, the amount, the on-chain signature, the running balance, and the US-dollar value at the moment of the transfer — cryptographically hash-chained so no past entry can be altered or deleted without detection. A monitor runs every 30 minutes and checks three things: that the book hasn't been tampered with, that every transfer we recorded really happened on-chain, and — most importantly — that no SOL ever left the wallet without a matching record, which is the tell-tale sign of a stolen key. Anything off raises an immediate operator alert and lands on the finance-integrity board. There's also a one-command accounting export (CSV or JSON, with running balance and dollar totals) for bookkeeping and review.</description>
+		</item>
+		<item>
 			<title>Agent wallet creation and vanity addresses restored</title>
 			<link>https://three.ws/vanity-wallet</link>
 			<guid isPermaLink="false">2026-07-02:Agent wallet creation and vanity addresses restored</guid>

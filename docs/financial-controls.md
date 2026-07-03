@@ -1,0 +1,235 @@
+# Financial controls & audit register
+
+three.ws moves **real money** (USDC, SOL, $THREE) on behalf of users and agents.
+This document is the audit-grade control register: for every money flow it records
+**where it is logged, whether that record is immutable and idempotent, whether the
+on-chain transaction is captured, whether it is reconciled against the chain, and
+how long it is retained** — plus the monitoring/breach controls around it and the
+open gaps ranked by accounting/regulatory risk.
+
+It is a companion to the [money map](money-map.md) (who receives what) and the
+[Solana signers runbook](../tasks/onchain-deployment/SOLANA-SIGNERS.md) (the
+wallets). Keep it in sync with the code — every row cites its source.
+
+> **Status of this register:** the platform's logging is strong for a few flows
+> (credit deposits, marketplace sales, labor settlement) and has material gaps in
+> others (unlogged treasury transfers, fire-and-forget revenue writes, Redis-only
+> payout ledgers). The [gap register](#gap-register) tracks each with a severity
+> and a fix. Do not treat any flow as audit-complete until its gaps are closed.
+
+---
+
+## 1. The financial ledgers
+
+Each row: the flow, its ledger table + key columns, whether the on-chain tx
+signature is persisted, whether the record is append-only, its idempotency guard,
+and whether it is reconciled against the chain.
+
+| Flow | Ledger table (key columns) | tx sig? | Append-only | Idempotency | Chain-reconciled |
+| ---- | -------------------------- | ------- | ----------- | ----------- | ---------------- |
+| x402 settlements (main revenue) | `x402_audit_log` (`event_type, payer, network, amount_atomics, asset, tx_hash, settlement_status, …`) | ✅ | by convention* | Redis proof-hash slot (app-layer) | ❌ **no** |
+| Signed receipts | `x402_receipts` (`payer, resource_url, receipt jsonb, transaction`) | ⚠️ often NULL (`includeTxHash` default false) | by convention | ❌ none | n/a (EIP-712 verifiable) |
+| Club tips → dancer payouts | `club_tips` (`ticket_id UNIQUE, dancer, amount_atomics, paid_tx`) → `club_payouts` (`tx, swept_tip_count`) | ✅ | payouts ✅; tips mutable | `ticket_id UNIQUE` + claim-before-send | ❌ |
+| Club cover charges | **none** (only `x402_audit_log`) | — | — | — | ❌ |
+| Cosmetic sales + creator split | `cosmetic_sales` (`price_usdc_atomics, creator_cut_atomics, payout_tx, payout_status`, `UNIQUE(account,cosmetic_id)`) | ✅ | sale once; payout fields mutable | `UNIQUE(account,cosmetic_id)` | ❌ |
+| Marketplace skill sale + fee | `skill_purchases` (`tx_signature UNIQUE`, `platform_fee_amount`) + `agent_revenue_events` (`gross/fee/net`) | ✅ | revenue events ✅ | `tx_signature UNIQUE` | ❌ |
+| Labor escrow (fund/settle/payout/refund) | `agent_bounties`, `agent_jobs` (`settle_key UNIQUE, settlement_sig, royalty_sig, refund_sig`) + custody ledger | ✅ | mutable status; single-shot | `settle_key UNIQUE` + atomic claim | ❌ |
+| $THREE buyback | `three_buyback_runs` (`usdc_spent_atomics, three_bought_atomics, buy_signature, sweep_signature`) | ✅ | ✅ (one row/run) | ❌ **no unique key** | ❌ |
+| Coin buyback / distribute | `pump_buyback_runs`, `pump_distribute_runs` (`tx_signature, status`) | ✅ | mutable status | ❌ **no unique key** | ❌ |
+| Withdrawals | `agent_withdrawals` (`amount, currency_mint, chain, to_address, tx_signature, status`) | ✅ | mutable status | ⚠️ claim-CAS only; **no on-chain-send idempotency** | ❌ |
+| Treasury top-up / economy master | **NONE** — only an ops-alert string + ephemeral cron response | ⚠️ in alert text only | ❌ not persisted | ❌ | ❌ |
+| Autonomous x402 loop | `x402_autonomous_log` (`tx_signature, amount_atomic, success`) | ✅ | ✅ | ❌ no unique on sig | ✅ **yes** |
+| Inbound agent payments | `agent_payment_intents` (`amount, currency_mint, tx_signature, status`) | ✅ | mutable status | tx-unique index | ✅ **yes** |
+| a2a mandate settlements | **no durable ledger** — mandate is an unstored JWS; cap in Redis (`INCRBY`) with per-replica memory fallback | ❌ | ❌ | Redis atomic (bypassable w/o Upstash) | ❌ |
+| Credit deposits | `credit_ledger` (`amount_usd, balance_after, tx_signature, idempotency_key UNIQUE`) — balance+ledger in one CTE | ✅ | ✅ | `idempotency_key UNIQUE` + finalized-only | on finalized tx |
+| Subscriptions | `subscription_checkouts` (`reference UNIQUE, amount, platform_fee_amount, tx_signature`) | ✅ | mutable status | `reference UNIQUE` + payment-idempotency | ❌ |
+| Vanity bounty payouts | **Redis / in-memory** (`vanity-bounty-store.js`) — not Postgres | ⚠️ in Redis only | ❌ (memory fallback loses on restart) | Redis CAS | ❌ |
+
+\* **"By convention"** means the code never issues UPDATE/DELETE on the table, but
+there is **no DB-level enforcement** (no trigger, no revoked grant) — so
+immutability is not guaranteed against a bug, a migration, or a compromised
+credential. This applies to *every* table above, including those designed as
+immutable (`credit_ledger`, `agent_revenue_events`, `three_buyback_runs`).
+
+**Reference-grade flows** (idempotent + tx-sig + append-only): **credit deposits**,
+**marketplace skill purchases**, **labor settlement**. New money flows should copy
+their pattern — a `UNIQUE` idempotency key on the on-chain signature, an
+append-only ledger row, and balance+ledger written atomically.
+
+---
+
+## 2. Reconciliation coverage
+
+Only two books are automatically verified against the chain, by
+[`revenue-reconciliation.js`](../api/_lib/x402/revenue-reconciliation.js) (daily,
+7-day / 250-row window, driven by the `x402-autonomous-loop` cron):
+
+- ✅ `x402_autonomous_log` (outbound autonomous spend)
+- ✅ `agent_payment_intents` (inbound user→agent revenue)
+
+**NOT reconciled against the chain:** `x402_audit_log` (the main revenue ledger),
+`club_payouts`, `cosmetic_sales`, `agent_jobs`, `agent_withdrawals`,
+`three_buyback_runs`, treasury top-ups, and vanity payouts.
+
+Two blind spots default a record to `reconciled=true` without verifying it:
+**EVM/Base** settlements (`skipped_non_solana`) and **RPC failures** (`unknown`).
+A network-wide RPC outage, or all-EVM revenue, would show zero discrepancies while
+nothing was actually checked.
+
+**As of this register**, discrepancies now page ops: when the reconciler finds any
+`missing_onchain` / `failed_onchain` / `missing_signature` record it fires
+`sendOpsAlert` (previously the verdict was written to `payment_reconciliation` and
+never surfaced). The full open set is always queryable:
+
+```sql
+SELECT * FROM payment_reconciliation WHERE reconciled = false ORDER BY checked_at DESC;
+```
+
+---
+
+## 3. Monitoring & breach controls
+
+**Alerting** — [`sendOpsAlert`](../api/_lib/alerts.js) is **Telegram-only**
+(`TELEGRAM_BOT_TOKEN` + `TELEGRAM_ALERTS_CHAT_ID`); a no-op if unset, swallows
+delivery failures, and **self-throttles at 20 alerts/hour**. There is no
+email/Slack/PagerDuty fallback and no alert-on-alerting-down.
+
+**Balance watchdogs** — `relayer-balance-check` (6h) alerts on any signer's SOL
+below its `minSol` floor; `treasury-topup` (30 min) auto-refills from the economy
+master and alerts when the master can't cover or an off-registry target is
+rejected. **Both read native SOL only — no USDC balance watchdog exists.**
+
+**Spend controls** — x402 buyer caps (`X402_MAX_PER_CALL/HOUR/DAY_ATOMIC`, Redis
+reserve-first), autonomous-loop daily cap (default $5), pumpfun spend-policy
+(`daily_sol_cap` default 5), agent-wallet bridge caps, a2a mandate budget, labor
+escrow. **Cross-path USD caps (`agent-trade-guards.js` `daily_usd`/`per_tx_usd`)
+default to `null` = uncapped** — an agent whose owner never set limits has no USD
+ceiling.
+
+**Kill switches** — per-agent wallet freeze (`spend_limits.frozen`, instant,
+auto-set by the anomaly engine), per-agent/strategy `kill_switch`, worker global
+kills (`SNIPER_/ORACLE_/MM_/ORDERS_GLOBAL_KILL` — **env flags, need a redeploy**),
+`CIRCULATION_ENABLED`, dead-man switch.
+
+**Breach detection** — `wallet-anomaly.js` scores outbound transfers (size,
+velocity, first-time destination) and **auto-freezes** the wallet, but notifies
+only the **wallet owner, never platform ops** (`sendOpsAlert` is not called), and
+**does not cover the treasury / economy-master / coin-creator custodial signers**.
+There is no detection of a signer key used from an unexpected host/IP.
+
+**Tamper-evidence** — `custody-attest` (6h) Merkle-anchors custodial wallet
+balances on-chain. The revenue/tips/hires ledgers have **no hash-chain, signature,
+or anchor**.
+
+---
+
+## 4. Retention
+
+| Table(s) | Deleted by | Window | Financial-record risk |
+| -------- | ---------- | ------ | --------------------- |
+| `x402_audit_log`, `x402_receipts`, `club_tips/payouts`, `cosmetic_sales`, `agent_*`, `credit_ledger`, payout/run tables | **nothing** | ∞ | none (safe) |
+| `audit_log` (generic action log) | `audit-log-cleanup` (daily) | **365 days, hardcoded** | ⚠️ likely below statutory (5–7 yr) retention; no archive before delete |
+| `siwx_payments` (access grants) | `siwx-gc` (daily) | 7 days post-expiry | low (money record survives elsewhere; entitlement history lost) |
+| pump-intel firehose | `db-retention` (15 min) | `PUMP_INTEL_RETENTION_DAYS` (14, floor 3) | none — valve never touches money tables |
+
+**Storage fragility:** financial tables share one **512 MB Neon branch** with a
+~60 MB/day intel firehose. The pressure valve protects money data *by omission
+only*; at the cap **all financial/audit writes fail** (audit writes already
+fail-fast at 3 s), silently losing *new* records. Money data is not isolated onto a
+separate branch/DB, and there is no dead-letter for dropped writes.
+
+---
+
+## 5. Accounting export
+
+There is **no consolidated, admin-authenticated, all-flows ledger export** and no
+cost side, so **a full P&L / cash-flow cannot be produced today**. What exists:
+
+- `api/x402-revenue.js?view=export` → CSV, **x402 settlements only**.
+- `api/x402/analytics.js?report=revenue` → JSON, x402 only, **net is an estimate**
+  (gross − count × avg gas), not actual per-tx fees.
+- `api/billing/invoices.js?format=csv` → per-user metered usage, owner-scoped only.
+- `api/x402/my-receipts.js` → a buyer's own signed receipts.
+
+Club tips, hires, skill purchases, metered `token_payments`, buybacks, payouts, and
+withdrawals have **no unified export**.
+
+---
+
+## Gap register
+
+Ranked by accounting/regulatory risk. Each is a tracked remediation item.
+
+### P0 — must fix (unlogged or double-pay risk)
+1. **Treasury top-up / economy-master transfers are unlogged.** Real SOL moves with
+   no durable record — only an ops-alert string. *Fix: append-only
+   `treasury_transfers` table (from, to, lamports, signature, run_id, ts) written in
+   `economy-master.js` `sendSol`.* ⚠️ `economy-master.js` is under active
+   development by another workstream — coordinate before editing.
+2. **x402 revenue writes are fire-and-forget and drop under DB load.** On-chain
+   settled USDC can be absent from `x402_audit_log`, under-reporting revenue. *Fix:
+   make the settle-path audit write awaited/durable with a dead-letter, and add a
+   `UNIQUE(tx_hash)` idempotency constraint.*
+3. **Withdrawals lack on-chain-send idempotency.** Broadcast-then-throw marks
+   `failed` while funds may have left → double-pay on retry. *Fix: persist an
+   idempotency key / pre-send intent and check chain before re-issuing.*
+
+### P1
+4. **Vanity bounty payout ledger is Redis/in-memory** (lost on restart w/o Upstash).
+   *Fix: mirror payouts/refunds to an append-only Postgres table.*
+5. **a2a mandate settlements have no durable per-tx ledger**; the spend cap's memory
+   fallback allows cross-replica overspend without Upstash. *Fix: persist mandates +
+   settlements; make the cap Postgres- or Redis-authoritative (no memory fallback in
+   prod).*
+6. **Signed receipts lack an idempotency key and usually omit the tx hash.** *Fix:
+   `UNIQUE(payer, resource_url, transaction)` + default `includeTxHash=true`.*
+7. **Main revenue ledger is not chain-reconciled and has no tamper-evidence.** *Fix:
+   extend reconciliation to `x402_audit_log`; hash-chain or periodically
+   Merkle-anchor it (reuse `custody-proof.js`).*
+8. **No consolidated P&L / all-flows export.** *Fix: an admin-auth endpoint that
+   unions every ledger into one dated cash-flow CSV, with the cost side.*
+9. **Custodial-signer drains don't page ops and aren't anomaly-scored.** *Fix: extend
+   `wallet-anomaly` (or a balance-delta monitor) to treasury/master/coin signers and
+   route to `sendOpsAlert`.*
+
+### P2
+10. **Buyback/distribute run tables and `x402_autonomous_log` lack idempotency keys.**
+11. **No DB-level immutability** on any ledger — add append-only enforcement
+    (revoke UPDATE/DELETE, or triggers) to the truly-append-only tables
+    (`x402_audit_log`, `credit_ledger`, `agent_revenue_events`, `three_buyback_runs`).
+12. **`audit_log` hard-deleted at 365 days** — make the window configurable and
+    archive to cold storage before delete.
+13. **Reconciliation blind spots** (EVM/RPC-miss default to reconciled); **no USDC
+    balance watchdog**; **alerting is single-channel + self-throttling**; **global
+    kill switches need a redeploy** (add a runtime halt flag).
+14. **Financial data shares the storage-capped Neon branch** — isolate money/audit
+    tables onto their own branch/DB so an intel-firehose cap can't drop financial
+    writes.
+
+### Done
+- ✅ **Reconciliation discrepancies now page ops** (`revenue-reconciliation.js`) —
+  was detected-but-silent (G1/R1).
+
+---
+
+## Operating procedures
+
+- **Daily:** review `SELECT * FROM payment_reconciliation WHERE reconciled = false`
+  and clear or escalate every row. An alert here means recorded revenue disagrees
+  with the chain — treat as a financial incident until explained.
+- **On a breach/anomaly alert:** freeze the affected wallet(s)
+  (`spend_limits.frozen`), and for a signer-key concern rotate the key
+  ([Solana signers runbook](../tasks/onchain-deployment/SOLANA-SIGNERS.md)) and
+  re-run `check-relayer-balances.mjs` to confirm balances.
+- **Before adding a paid flow:** it is not done until it writes an append-only
+  ledger row with the on-chain signature and a `UNIQUE` idempotency key, and is
+  added to this register and the [money map](money-map.md).
+
+---
+
+## Related
+
+- [Money map](money-map.md) — who receives each payment.
+- [x402 revenue & receipts](x402-revenue.md) — the x402 recording detail.
+- [x402 endpoints](x402-endpoints.md) — the paid endpoint catalog.
+- [Solana signers runbook](../tasks/onchain-deployment/SOLANA-SIGNERS.md) — the wallets + funding.

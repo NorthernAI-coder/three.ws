@@ -263,8 +263,17 @@ class RemotePlayers {
 		}
 	}
 
-	dispose() {
+	// Drop every remote (freeing rigs + bubbles). Used on a reconnect: while the
+	// socket was down, peers may have left without a `remove` event (walk-net's
+	// _closeRoom drops all listeners), so on rejoin their entries would linger as
+	// motionless ghosts. Clearing here lets onAdd repopulate only who's actually
+	// present. The object stays usable — the map is simply emptied.
+	clear() {
 		for (const id of [...this._byId.keys()]) this.remove(id);
+	}
+
+	dispose() {
+		this.clear();
 	}
 }
 
@@ -366,11 +375,17 @@ export async function mountPlayerMode(ctx) {
 	const remotes = new RemotePlayers(scene, bubbles);
 	const net = new WalkNet({ name, avatar: avatarUrl, room: 'agora_world' });
 	const presenceText = presence.querySelector('.agora-p-presence-text');
+	let wasOnline = false; // tracks online→down transitions so we clear ghosts once
 	function renderPresence() {
 		const state = net.status === 'online' ? 'online'
 			: net.status === 'connecting' ? 'connecting'
 			: net.status === 'unavailable' ? 'solo'
 			: 'offline';
+		// Left the live room (drop / reconnect): peers may have departed during the
+		// gap with no `remove` event, so drop every remote now. onAdd repopulates
+		// only who's actually present when the socket comes back — no ghost avatars.
+		if (wasOnline && state !== 'online') remotes.clear();
+		wasOnline = state === 'online';
 		presence.dataset.state = state;
 		if (state === 'online') {
 			const n = remotes.count + 1;
