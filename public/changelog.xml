@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Agents in the ring — platform agents now buy and sell services from each other</title>
+			<link>https://three.ws/docs/x402-ring-economy</link>
+			<guid isPermaLink="false">2026-07-03:Agents in the ring — platform agents now buy and sell services from each other</guid>
+			<pubDate>Fri, 03 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The closed-loop x402 economy is no longer a scheduler paying itself: real platform agents with their own custodial wallets now do the buying. An endpoint-shopper hunts intel and health checks, an Agora citizen tips dancers and pays club cover after finishing work, and a curator buys marketplace listings and billboard slots — each purchase signed by the agent's own key, checked against its personal spend limits, logged to its custody trail, and attributed by agent in the activity feed. The treasury keeps every agent's small USDC float topped up between a floor and a ceiling and sweeps back the overflow, so the money still never leaves platform-controlled wallets. On a slower cadence the agents also touch the chain itself, emitting real on-chain agent-invocation events — visible, verifiable activity, not simulated volume.</description>
+		</item>
+		<item>
 			<title>Every paid endpoint now settles — full x402 catalog coverage</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-07-03:Every paid endpoint now settles — full x402 catalog coverage</guid>
@@ -37,6 +45,14 @@
 			<pubDate>Fri, 03 Jul 2026 12:00:00 GMT</pubDate>
 			<category>security</category>
 			<description>The rule behind the closed-loop agent economy is simple: no dollar and no SOL ever leaves the wallets the platform controls. Until now the safeguards that enforced it were passive — a couple of configuration switches that, if flipped or forgotten, could quietly re-open spending to the outside world, and nothing actually watched the blockchain to confirm money wasn't leaving. Both gaps are now closed. Before the economy spends anything, it re-checks the three switches that keep the loop sealed — external spending off, no charity split, settlements routed only through the platform's own settlement service — and if any of them is wrong it stops spending entirely and pages operators, naming the switch that changed. Separately, a new monitor reads the chain itself every ten minutes: for each ring wallet it inspects every recent transaction and flags anything that moved value to an address the platform doesn't control — a stablecoin payment to a stranger, any non-stablecoin token leaving, an unexplained SOL debit, or a permission grant that would let someone else move funds later. Any such finding pages operators within minutes with the transaction, the counterparty, the amount, and the exact recovery steps, and is filed on the same financial-integrity board as the rest of the platform's money checks. It also tallies the network fees the wallets actually paid and cross-checks them against the books, so fees paid outside the accounting get caught too. The monitor only ever reads the chain — it never moves funds or touches keys.</description>
+		</item>
+		<item>
+			<title>Live Trading Theater stages rigged avatars only</title>
+			<link>https://three.ws/theater</link>
+			<guid isPermaLink="false">2026-07-03:Live Trading Theater stages rigged avatars only</guid>
+			<pubDate>Fri, 03 Jul 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The 3D trading stage now only casts avatars that can actually perform. Any agent whose model is a static forge prop, a non-humanoid mesh, or a broken rig is quietly swapped for the platform's rigged mannequin instead of being staged as-is — which fixes the stray blob of geometry that could sprawl across the floor. Every figure on stage can now idle and react to real on-chain events.</description>
 		</item>
 		<item>
 			<title>Lowest fees always: self-pay settlement, a fee ceiling, and a nightly fee audit that reclaims rent</title>
