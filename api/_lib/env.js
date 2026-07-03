@@ -762,7 +762,9 @@ export const env = {
 	// verification, and got a 502. Turn this on
 	// only after confirming your non-CDP Base facilitator actually verifies+settles.
 	// With CDP creds set, Base routes to CDP and this flag is unnecessary. Solana
-	// (self-hosted facilitator) is always-on regardless. See baseSettleable().
+	// (self-hosted facilitator) routes per api/_lib/x402/ring-config.js (explicit URL wins, else self-hosted
+		// facilitator when X402_SELF_FACILITATOR_ENABLED=true, else external PayAI).
+		// See baseSettleable().
 	get X402_ADVERTISE_BASE() {
 		return opt('X402_ADVERTISE_BASE', 'false') === 'true';
 	},
@@ -775,7 +777,8 @@ export const env = {
 	// Coinbase Developer Platform x402 facilitator. When both keys are set,
 	// Base-mainnet payments route through CDP (required for CDP Bazaar /
 	// agentic.market listing — only endpoints whose first verify+settle is
-	// processed by CDP get cataloged). Solana keeps routing to PayAI.
+	// processed by CDP get cataloged). Solana routing is
+		// independent — see api/_lib/x402/ring-config.js.
 	get CDP_API_KEY_ID() {
 		return opt('CDP_API_KEY_ID');
 	},

@@ -63,6 +63,7 @@ import { runCircuitBreaker } from './pipelines/circuit-breaker.js';
 import { run as runGlbSizeOptimizer } from './glb-size-optimizer.js';
 import { run as walletBalanceMonitor } from './wallet-balance-monitor.js';
 import { run as revenueReconciliation } from './revenue-reconciliation.js';
+import { run as ringReconciliation } from './ring-reconciliation.js';
 import { mcpLatencySweep } from './mcp-latency-sweep.js';
 import { runStreamingMcpHealth } from './pipelines/streaming-mcp-health.js';
 import {
@@ -2868,6 +2869,38 @@ const SELF_ENDPOINTS = [
 		pipeline: 'reconciliation',
 		enabled: true,
 		run: (ctx) => revenueReconciliation(ctx),
+	},
+	// ── Ring Reconciliation (Finance) ─────────────────────────────────────────
+	// Closes the reconciliation blind spot over the closed-loop x402 ring economy.
+	// The daily revenue reconciler proves x402_autonomous_log + agent_payment_intents
+	// against the chain but NEVER reads the ring's own books. This entry does: every
+	// x402_self_facilitator_log settle and x402_ring_ledger sweep from the last 72h is
+	// proven on-chain (batched getSignatureStatuses), a sampled subset is parsed to
+	// verify the USDC amount + receiver + sweep direction (≤50 parsed-tx/run), the two
+	// ring books are joined on signature to catch settlements with no buyer record (the
+	// "leak through our own facilitator" case), daily logged fees are compared to the
+	// fee-audit rollup, and a zero-volume tripwire fires when the ring is enabled but
+	// silent for 30 min — the alarm that was missing when it stopped working quietly.
+	// run()-style, read-only on chain (runs without the spend wallet). Verdicts land in
+	// payment_reconciliation under ring_* sources so the ops board separates them;
+	// CRITICAL for missing/failed/mismatch, WARN (daily-throttled) for coherence/fee
+	// drift. Cooldown 1800 s (30 min) so the tripwire window stays tight.
+	{
+		id: 'ring-reconciliation',
+		name: 'Ring Reconciliation',
+		// path/endpoint informational — run() owns the multi-book verify itself.
+		path: '/api/x402-facilitator',
+		endpoint: '/api/x402-facilitator',
+		method: 'GET',
+		body: null,
+		price_atomic: 0, // read-only audit of our own books + chain; owes no payment
+		cooldown_s: 1800,
+		cooldown_seconds: 1800,
+		priority: 30,
+		pipeline: 'reconciliation',
+		enabled: true,
+		run: (ctx) => ringReconciliation(ctx),
+		extractSignal: null,
 	},
 	// Builder Code Attribution Tracker (Finance) — watchdog over ERC-8021
 	// builder-code attribution, the mechanism Coinbase builder rewards / x402scan

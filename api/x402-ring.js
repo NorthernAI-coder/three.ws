@@ -25,6 +25,7 @@ import { getAccount, getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID, ASSOCIATED
 import { solanaConnection } from './_lib/solana/connection.js';
 import { loadSeedKeypair, USDC_MINT } from './_lib/x402/pay.js';
 import { SELF_FACILITATOR_ENABLED, SPONSOR_SOL_FLOOR_LAMPORTS } from './_lib/x402/self-facilitator.js';
+import { validateRingConfig, warnIfRingRoutesExternal } from './_lib/x402/ring-config.js';
 
 const PERIOD_HOURS = { '24h': 24, '7d': 168, '30d': 720 };
 
@@ -167,9 +168,18 @@ export default wrap(async (req, res) => {
 	const ringFloat = (treasuryUsdc || 0) + (payerUsdc || 0);
 	const burnedUsd = price != null ? Number((fees.sol_burned * price).toFixed(4)) : null;
 
+	// Config truth. `config_warnings` lists every ring misconfiguration (external
+	// routing, missing secrets, price>cap, self-pay off) so an operator sees at a
+	// glance whether this deploy actually keeps settlement in-house. Emit the
+	// once-per-boot external-routing warning here too, so a mis-enveloped deploy
+	// logs it even before the first pipeline tick.
+	warnIfRingRoutesExternal('x402-ring');
+	const configWarnings = validateRingConfig();
+
 	return json(res, 200, {
 		ok: true,
 		self_hosted_facilitator: SELF_FACILITATOR_ENABLED,
+		config_warnings: configWarnings,
 		internal: true,
 		note: 'Self-cycled internal ring volume — dogfooding, not organic third-party demand.',
 		period: since ? periodKey : 'all',
