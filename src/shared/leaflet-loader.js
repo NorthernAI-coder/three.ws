@@ -6,6 +6,8 @@
 // stack. Leaflet (JS + CSS) loads only when a map actually opens; the rest of the
 // app never pays for it.
 
+import { fetchFirstOrNull } from './failover-fetch.js';
+
 const LEAFLET_JS  = 'https://esm.sh/leaflet@1.9.4';
 const LEAFLET_CSS = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
 
@@ -44,8 +46,6 @@ export function loadLeaflet() {
 // descriptive UA; a 429 there rolls to the next provider instead of losing the
 // label. We memoize per ~11 m cell and never let a geocode failure block the
 // caller — a null label is a soft, designed state, never an error.
-
-import { fetchFirstOrNull } from './failover-fetch.js';
 
 const _reverseCache = new Map();
 

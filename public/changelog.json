@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-03T19:08:43.914Z",
+	"generated_at": "2026-07-03T23:56:32.955Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -115,6 +115,17 @@
 			"link": "/docs/custody",
 			"tags": [
 				"docs"
+			]
+		},
+		{
+			"date": "2026-07-03",
+			"type": "update",
+			"title": "Every data feed now has free backups — one provider going down no longer takes a feature with it",
+			"summary": "The platform already rotated across multiple Solana RPC providers when one failed; that same resilience now covers the rest of the data it fetches. SOL/USD pricing tries four independent free sources (CoinGecko, Jupiter, Kraken, Coinbase) instead of one. Token stats on agent pages and the /coin3d viewer roll from DexScreener to GeckoTerminal to Jupiter. The real-time wallet trade monitor rotates across three free Solana WebSocket endpoints. Map place labels fall back across three geocoders. And the swap terminal on launch pages now rides the same multi-provider RPC rotation as the rest of the site. If a source is down or rate-limiting, the next one answers within seconds — you should simply never notice.",
+			"link": null,
+			"tags": [
+				"improvement",
+				"infra"
 			]
 		},
 		{

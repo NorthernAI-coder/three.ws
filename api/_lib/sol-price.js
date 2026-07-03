@@ -37,9 +37,11 @@ const PROVIDERS = [
 		},
 	},
 	{
-		name: 'binance',
-		url: 'https://api.binance.com/api/v3/ticker/price?symbol=SOLUSDT',
-		parse: async (r) => asPrice((await r.json())?.price),
+		// Kraken, not Binance: Binance geo-blocks US datacenter IPs (Vercel),
+		// returning an error body that would make it a permanent dead slot.
+		name: 'kraken',
+		url: 'https://api.kraken.com/0/public/Ticker?pair=SOLUSD',
+		parse: async (r) => asPrice((await r.json())?.result?.SOLUSD?.c?.[0]),
 	},
 	{
 		name: 'coinbase',
