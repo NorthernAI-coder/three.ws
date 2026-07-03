@@ -276,6 +276,11 @@ export function ensureRiskAck({ context = 'real-funds' } = {}) {
 		try {
 			_openDialog({ context, resolve });
 		} catch {
+			// A half-built dialog may have landed in the DOM before the failure.
+			try {
+				document.querySelectorAll('dialog.risk-ack').forEach((d) => d.remove());
+				document.body.style.overflow = '';
+			} catch { /* detached document — nothing to clean */ }
 			_inFlight = null;
 			resolve(fallbackConfirmAck({ context }));
 		}

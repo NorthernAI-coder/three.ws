@@ -34,9 +34,36 @@
 const VERSION = '0.1.0';
 
 // Real-funds gate: before the first payment, the user must accept the three.ws
-// Risk Disclosure. Resolved relative to this module's URL, so merchant-site
-// embeds load it from the three.ws origin.
-import { ensureRiskAck } from './risk-ack.js';
+// Risk Disclosure (three.ws/legal/risk). Loaded lazily and failure-tolerant on
+// purpose — this modal is a drop-in embed on merchant sites, and a payment
+// must never brick because the gate module 404'd or was blocked. If risk-ack.js
+// can't load, degrade to a native confirm() with the same core wording,
+// remembered for the page session.
+let _riskAckSessionOk = false;
+
+async function ensureRiskAckSafe(context) {
+	try {
+		// Resolved relative to this module's URL, so merchant-site embeds load it
+		// from the three.ws origin, not the host page's.
+		const m = await import(new URL('./risk-ack.js', import.meta.url).href);
+		return await m.ensureRiskAck({ context });
+	} catch (err) {
+		console.error('[x402] risk-ack unavailable, degrading to confirm()', err);
+		if (_riskAckSessionOk) return true;
+		try {
+			_riskAckSessionOk = globalThis.confirm?.(
+				'Real funds — risk acknowledgment\n\n' +
+				'three.ws is experimental software. Losses can be total, fast, and irreversible; ' +
+				'nothing here is financial advice; and three.ws is not responsible for any losses. ' +
+				'Full text: three.ws/legal/risk\n\n' +
+				'Press OK to accept that you use real funds entirely at your own risk, or Cancel to stop.',
+			) === true;
+		} catch {
+			_riskAckSessionOk = false;
+		}
+		return _riskAckSessionOk;
+	}
+}
 
 // SIWX ("Sign-In-With-X" / CAIP-122) lets a wallet that has already paid for
 // an endpoint re-enter it by signing a challenge instead of paying again. The
@@ -1364,7 +1391,7 @@ class CheckoutModal {
 	}
 
 	async runSolana(accept) {
-		if (!(await ensureRiskAck({ context: 'x402-pay' }))) { this.close('cancelled'); return; }
+		if (!(await ensureRiskAckSafe('x402-pay'))) { this.close('cancelled'); return; }
 		this.accept = accept;
 		this.setPrice(accept);
 		const provider = detectSolanaProvider();
@@ -1434,7 +1461,7 @@ class CheckoutModal {
 	}
 
 	async runEvm(accept) {
-		if (!(await ensureRiskAck({ context: 'x402-pay' }))) { this.close('cancelled'); return; }
+		if (!(await ensureRiskAckSafe('x402-pay'))) { this.close('cancelled'); return; }
 		this.accept = accept;
 		this.setPrice(accept);
 		this.renderProgress('connect', { text: 'Opening browser wallet…' });
