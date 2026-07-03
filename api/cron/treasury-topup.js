@@ -100,7 +100,26 @@ export default wrapCron(async (req, res) => {
 		});
 	}
 
-	const result = await sweepTopUps({ connection, targets, network: 'mainnet' });
+	// ?dry=1 → plan only: same balance reads, allowlist filter, and cap math, but
+	// no SOL moves, no ledger write, no alerts. Lets an operator inspect exactly
+	// what the next sweep would do (e.g. after adding a signer to the registry).
+	const dryRun = /[?&]dry=(1|true)\b/.test(req.url || '');
+	const result = await sweepTopUps({ connection, targets, network: 'mainnet', dryRun });
+	if (dryRun) {
+		return json(res, 200, {
+			ok: true,
+			dry_run: true,
+			rpc: rpcUrl,
+			configured: result.configured,
+			targets,
+			plan: result.plan || [],
+			skipped: result.skipped || [],
+			rejected: result.rejected || [],
+			master_sol: result.masterSol ?? null,
+			spendable_sol: result.spendableSol ?? null,
+			read_errors: errors,
+		});
+	}
 
 	// Record the sweep to the tamper-evident accounting ledger. Every transfer,
 	// block, and failure becomes a hash-chained row; the heartbeat row proves the
