@@ -144,7 +144,11 @@
 		.coin-top { display: grid; grid-template-columns: 46px 1fr auto; gap: 12px; align-items: center; }
 		.coin-img { width: 46px; height: 46px; border-radius: 12px; object-fit: cover; background: radial-gradient(120% 100% at 50% 0%, #1a1c24, #0d0e14); border: 1px solid var(--line); display: grid; place-items: center; font: 700 17px/1 var(--mono); color: var(--faint); }
 		.coin-id { min-width: 0; }
-		.coin-sym { font-weight: 700; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.coin-sym { font-weight: 700; font-size: 15px; display: flex; align-items: center; gap: 6px; min-width: 0; }
+		.coin-sym .sym-txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.dupe-badge { flex: none; font: 700 10px/1 var(--mono); padding: 3px 5px; border-radius: 6px; cursor: help;
+			color: var(--amber); background: color-mix(in srgb, var(--amber) 12%, transparent);
+			border: 1px solid color-mix(in srgb, var(--amber) 32%, var(--line)); }
 		.coin-name { font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 		/* conviction dial */
 		.dial { text-align: center; }

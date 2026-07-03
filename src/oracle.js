@@ -516,12 +516,44 @@ function renderFeed() {
 	const watched = watchedMints();
 	let items = [...state.feed.values()].sort(sorter);
 	if (state.watchOnly) items = items.filter((it) => watched.has(it.mint));
+	items = collapseCopycats(items, watched);
 	syncWatchToggleUi();
 	$('#ctFeed').textContent = items.length ? items.length : '';
 	if (!items.length) return renderFeedEmpty(state.watchOnly ? 'watch' : 'empty');
 	const grid = $('#feedGrid');
 	grid.innerHTML = '';
 	items.forEach((it) => grid.appendChild(coinCard(it, watched)));
+}
+
+// Copycat & bundle spam floods pump.fun — dozens of distinct mints launched
+// with an identical symbol+name (the "deploy 100 more" and "America 250" runs),
+// each landing on the same default conviction. Because every mint is its own
+// row, the feed would render a wall of near-identical cards that reads like a
+// bug. Fold each cluster into its single strongest representative — items arrive
+// pre-sorted, so the first one seen (highest score / newest, per the active
+// sort) wins — and tag it with the cluster size. A watched ★ mint is never
+// folded away: a coin you're tracking always keeps its own card.
+function collapseCopycats(items, watched = new Set()) {
+	const repByKey = new Map();
+	const out = [];
+	for (const it of items) {
+		const sym = (it.symbol || '').trim().toLowerCase();
+		const name = (it.name || '').trim().replace(/\s+/g, ' ').toLowerCase();
+		const key = (sym || name) ? `${sym} ${name}` : null;
+		if (!key || watched.has(it.mint)) { out.push(it); continue; }
+		const rep = repByKey.get(key);
+		if (rep) {
+			rep._dupes += 1;
+			rep._dupeMints.push(it.mint);
+		} else {
+			// Shallow clone so the dupe tally never mutates the cached feed item
+			// (renderFeed runs on every SSE insert — mutation would double-count).
+			const clone = { ...it, _dupes: 1, _dupeMints: [it.mint] };
+			repByKey.set(key, clone);
+			out.push(clone);
+		}
+	}
+	return out;
 }
 
 function renderFeedEmpty(kind) {
@@ -778,14 +810,16 @@ function coinCard(it, watched = new Set()) {
 	btn.className = `coin ${tierClass(it.tier)}`;
 	btn.dataset.mint = it.mint;
 	btn.type = 'button';
-	btn.setAttribute('aria-label', `View ${it.symbol || it.name || it.mint.slice(0, 8)} conviction — score ${it.score}, ${it.tier || 'unrated'} tier`);
+	btn.setAttribute('aria-label', `View ${it.symbol || it.name || it.mint.slice(0, 8)} conviction — score ${it.score}, ${it.tier || 'unrated'} tier${it._dupes > 1 ? `, ${it._dupes} copycat mints share this name` : ''}`);
 	btn.innerHTML = `
 		<div class="coin-top">
 			${it.image_uri
 				? `<img class="coin-img" src="${esc(it.image_uri)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'coin-img',textContent:'${esc((it.symbol || '?')[0])}'}))">`
 				: `<div class="coin-img">${esc((it.symbol || '?')[0])}</div>`}
 			<div class="coin-id">
-				<div class="coin-sym">${esc(it.symbol || '—')}</div>
+				<div class="coin-sym"><span class="sym-txt">${esc(it.symbol || '—')}</span>${it._dupes > 1
+					? `<span class="dupe-badge" title="${it._dupes} distinct mints launched with this exact name — copycat or bundle spam. Showing the highest-conviction one.">×${it._dupes}</span>`
+					: ''}</div>
 				<div class="coin-name">${esc(it.name || it.mint.slice(0, 8))}</div>
 			</div>
 			<div class="dial">
