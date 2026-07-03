@@ -73,13 +73,26 @@ function archetypes(perTradeSol, dailyBudgetSol) {
 		max_hold_seconds: 1800,
 		require_socials: true,
 		max_creator_launches: 10,
+		// OWNER RULE: only newer projects, market cap $10k–$100k. Enforced on EVERY
+		// archetype — never buy dust or already-run coins. The feed enriches
+		// market_cap_usd (SOL mcap × live price); the scorer rejects a mint whose
+		// mcap is unknown or outside the band (mc_below_min / mc_above_max), so a
+		// missing price fails CLOSED (skips the buy) rather than buying a rug.
+		min_market_cap_usd: 10000,
+		max_market_cap_usd: 100000,
+		// OWNER RULE: take initials at 2×, hold a moon bag, never a 100% exit up.
+		initials_out_multiple: 2,
+		moonbag_min_pct: 15,
 	};
 	return [
 		{ key: 'scalp',    ...base, take_profit_pct: 40, stop_loss_pct: 25, trailing_stop_pct: 15, max_hold_seconds: 600 },
 		{ key: 'runner',   ...base, take_profit_pct: 120, stop_loss_pct: 30, trailing_stop_pct: 25, max_hold_seconds: 3600 },
-		{ key: 'degen',    ...base, require_socials: false, max_price_impact_pct: 15, take_profit_pct: 80, stop_loss_pct: 35, max_creator_launches: 25 },
-		{ key: 'strict',   ...base, require_socials: true, max_creator_launches: 3, min_creator_graduated: 1, take_profit_pct: 60, stop_loss_pct: 20 },
-		{ key: 'patient',  ...base, min_market_cap_usd: 8000, take_profit_pct: 50, stop_loss_pct: 20, max_hold_seconds: 2400 },
+		// 'degen' no longer drops socials or widens the creator filter — the owner's
+		// rules apply to every archetype. It keeps only a slightly higher impact
+		// tolerance for faster fills within the same 10k–100k, socials-required band.
+		{ key: 'degen',    ...base, max_price_impact_pct: 15, take_profit_pct: 80, stop_loss_pct: 35 },
+		{ key: 'strict',   ...base, max_creator_launches: 3, min_creator_graduated: 1, take_profit_pct: 60, stop_loss_pct: 20 },
+		{ key: 'patient',  ...base, take_profit_pct: 50, stop_loss_pct: 20, max_hold_seconds: 2400 },
 		{ key: 'momentum', ...base, take_profit_pct: 70, stop_loss_pct: 22, trailing_stop_pct: 18, max_hold_seconds: 1200 },
 	];
 }
