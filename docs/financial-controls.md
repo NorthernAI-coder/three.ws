@@ -204,9 +204,15 @@ Ranked by accounting/regulatory risk. Each is a tracked remediation item.
    Merkle-anchor it (reuse `custody-proof.js`).*
 8. **No consolidated P&L / all-flows export.** *Fix: an admin-auth endpoint that
    unions every ledger into one dated cash-flow CSV, with the cost side.*
-9. **Custodial-signer drains don't page ops and aren't anomaly-scored.** *Fix: extend
-   `wallet-anomaly` (or a balance-delta monitor) to treasury/master/coin signers and
-   route to `sendOpsAlert`.*
+9. ✅ **Custodial-signer drains now page ops (on-chain leak scan).** The general
+   scanner `api/cron/wallets-leak-scan.js` (every 15 min) watches EVERY resolvable
+   mainnet `SOLANA_SIGNERS` wallet — economy/launcher masters, all treasuries, x402
+   sponsor/payer — and reuses the ring scanner's audited `classifyWalletDebits`: any
+   SOL/token debit to an address outside `ringAllowedAddresses()` (or an SPL Approve)
+   raises a CRITICAL `sendOpsAlert` + a `payment_reconciliation` verdict
+   (`source='wallets_onchain'`). *Remaining: a balance-delta (velocity) monitor on top
+   of the leak scan, and per-agent custodial wallets (currently only preventively
+   anomaly-scored, owner-alerted).*
 
 ### P2
 10. **Buyback/distribute run tables and `x402_autonomous_log` lack idempotency keys.**
@@ -223,6 +229,16 @@ Ranked by accounting/regulatory risk. Each is a tracked remediation item.
     writes.
 
 ### Done
+- ✅ **All controlled wallets are on-chain leak-scanned** (`wallets-leak-scan.js`,
+  every 15 min) — not just the ring. Any SOL/token debit leaving a
+  `SOLANA_SIGNERS` wallet to an address outside the controlled set pages ops and
+  files a `wallets_onchain` verdict. Closes the "custodial-signer drains are
+  silent" gap (P1-#9).
+- ✅ **Implicit sniper auto-funding is gated behind explicit consent.** Arming a
+  mainnet `agent_sniper_strategies` row no longer causes the launcher master to
+  push SOL to the agent wallet: the auto-funder only tops up agents whose strategy
+  set `auto_fund_enabled = true` (default false, fail-safe on a missing value).
+  Removes an implicit fund-moving trigger.
 - ✅ **Reconciliation discrepancies now page ops** (`revenue-reconciliation.js`) —
   was detected-but-silent (G1/R1).
 - ✅ **The closed-loop ring's own books are now chain-reconciled**
