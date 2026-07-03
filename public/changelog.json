@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-03T12:32:00.086Z",
+	"generated_at": "2026-07-03T13:24:01.776Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -183,6 +183,17 @@
 			"summary": "The public status page and the platform health API now report the health of the systems behind the surfaces — cache, database, Solana RPC, the x402 payment ring, and the world service — not only whether each page returns. A surface can answer normally while a dependency is quietly running on a fallback (cache on memory, RPC throttled, the payment ring half-configured); those states are now visible with a plain-language explanation and the exact fix, instead of being buried in server logs. The monitor also re-alerts on a degradation that persists rather than going silent after the first notice, and posts a recovery note when it clears.",
 			"link": "/status",
 			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-03",
+			"type": "update",
+			"title": "The leaderboard now shows what each trader made it on",
+			"summary": "Every ranked trader now carries their signature coin — the single token they earned (or lost) the most on, with the realized P&L and ROI to match. It shows up right on the leaderboard row next to the name, on the trader's profile as a \"Made it on\" breakdown of their top three coins (each linking to the coin's on-chain account), and on the shareable PnL card. A new Most Profitable Trader spotlight now crowns the top earner in the selected window at the top of the board — avatar, realized P&L, win rate, and the coin behind the run. Every number is computed from the same on-chain closed-trade ledger the rest of the track record uses, so the coin credited on the leaderboard, the profile, and the card can never disagree — and self-dealt coins a trader launched themselves are excluded from the credit, exactly as they already are from the score.",
+			"link": "/leaderboard",
+			"tags": [
+				"feature",
 				"improvement"
 			]
 		},

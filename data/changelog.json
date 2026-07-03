@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-07-03",
+			"title": "The leaderboard now shows what each trader made it on",
+			"summary": "Every ranked trader now carries their signature coin — the single token they earned (or lost) the most on, with the realized P&L and ROI to match. It shows up right on the leaderboard row next to the name, on the trader's profile as a \"Made it on\" breakdown of their top three coins (each linking to the coin's on-chain account), and on the shareable PnL card. A new Most Profitable Trader spotlight now crowns the top earner in the selected window at the top of the board — avatar, realized P&L, win rate, and the coin behind the run. Every number is computed from the same on-chain closed-trade ledger the rest of the track record uses, so the coin credited on the leaderboard, the profile, and the card can never disagree — and self-dealt coins a trader launched themselves are excluded from the credit, exactly as they already are from the score.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/leaderboard"
+		},
+		{
+			"date": "2026-07-03",
 			"title": "Paid endpoints never hand you a payment rail they can't complete",
 			"summary": "We fixed a case where paying for an endpoint on Solana could fail with a server error after you had already built and signed the payment. The platform advertises which networks an endpoint accepts; it was offering the Solana rail based on the sponsor wallet's address alone, without checking that the co-signing key needed to actually complete the payment was in place. If that key was missing, you got a 502 at the last step. Now the Solana rail is only offered when settlement can genuinely complete — the same rule the platform already applied to Base — so you never pick a rail that dead-ends. The live payment challenge and the machine-readable service catalog now agree, and if the co-signing key is missing you get a clear, retryable \"temporarily unavailable\" instead of a hard error. The moment the key is configured, Solana payments resume on their own with no redeploy, and the platform health board now flags this specific gap so operators can fix it fast.",
 			"tags": [

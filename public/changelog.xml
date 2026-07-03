@@ -143,6 +143,14 @@
 			<description>The public status page and the platform health API now report the health of the systems behind the surfaces — cache, database, Solana RPC, the x402 payment ring, and the world service — not only whether each page returns. A surface can answer normally while a dependency is quietly running on a fallback (cache on memory, RPC throttled, the payment ring half-configured); those states are now visible with a plain-language explanation and the exact fix, instead of being buried in server logs. The monitor also re-alerts on a degradation that persists rather than going silent after the first notice, and posts a recovery note when it clears.</description>
 		</item>
 		<item>
+			<title>The leaderboard now shows what each trader made it on</title>
+			<link>https://three.ws/leaderboard</link>
+			<guid isPermaLink="false">2026-07-03:The leaderboard now shows what each trader made it on</guid>
+			<pubDate>Fri, 03 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Every ranked trader now carries their signature coin — the single token they earned (or lost) the most on, with the realized P&amp;L and ROI to match. It shows up right on the leaderboard row next to the name, on the trader's profile as a &quot;Made it on&quot; breakdown of their top three coins (each linking to the coin's on-chain account), and on the shareable PnL card. A new Most Profitable Trader spotlight now crowns the top earner in the selected window at the top of the board — avatar, realized P&amp;L, win rate, and the coin behind the run. Every number is computed from the same on-chain closed-trade ledger the rest of the track record uses, so the coin credited on the leaderboard, the profile, and the card can never disagree — and self-dealt coins a trader launched themselves are excluded from the credit, exactly as they already are from the score.</description>
+		</item>
+		<item>
 			<title>The Live Trading Theater got more alive — and shows its guardrails</title>
 			<link>https://three.ws/theater</link>
 			<guid isPermaLink="false">2026-07-03:The Live Trading Theater got more alive — and shows its guardrails</guid>
