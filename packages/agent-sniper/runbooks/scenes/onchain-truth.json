@@ -15,7 +15,7 @@
   },
   {
     "key": "solscan-funder",
-    "url": "https://solscan.io/account/GiE8RvENLjJSEsQRZdmUzoivDWDdJnXtL8PPAwWPdVRk",
+    "url": "https://solscan.io/account/niChPkGyY4ncGgqCQyP3gcQCx7p72LYNz4WPT8Keevy",
     "caption": "The funder wallet — funded once, fanned out to 33.",
     "waitFor": "body",
     "dwellMs": 8000
