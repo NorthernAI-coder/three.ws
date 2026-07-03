@@ -222,10 +222,24 @@ function buildMirror(leaderId, leaderName) {
 }
 
 // ── data layer ────────────────────────────────────────────────────────────────
+// Every roster/detail fetch is time-bounded so a slow or black-holed edge can
+// never wedge the room behind an infinite "Assembling the cast…" spinner. On
+// timeout the AbortController rejects, loadRoom catches it and shows the
+// designed error state (with a Try-again button) instead of hanging forever.
+async function fetchJson(url, { timeout = 8000, ...opts } = {}) {
+	const ctrl = new AbortController();
+	const timer = setTimeout(() => ctrl.abort(), timeout);
+	try {
+		const r = await fetch(url, { ...opts, signal: ctrl.signal, headers: { accept: 'application/json', ...(opts.headers || {}) } });
+		if (!r.ok) throw new Error(`${new URL(url, location.href).pathname} ${r.status}`);
+		return await r.json();
+	} finally {
+		clearTimeout(timer);
+	}
+}
+
 async function fetchLeaderboard(limit) {
-	const r = await fetch(`/api/reputation/leaderboard?limit=${limit}`, { headers: { accept: 'application/json' } });
-	if (!r.ok) throw new Error(`leaderboard ${r.status}`);
-	const body = await r.json();
+	const body = await fetchJson(`/api/reputation/leaderboard?limit=${limit}`);
 	return (body.agents || []).map((a) => ({
 		id: a.id, name: a.name || 'Agent', solana_address: a.solana_address || null,
 		score: a.score, tier: a.tier, tierLabel: a.tier_label, totals: a.totals || {},
@@ -233,9 +247,7 @@ async function fetchLeaderboard(limit) {
 	}));
 }
 async function fetchNewLaunches(limit) {
-	const r = await fetch(`/api/agents/public?sort=newest&limit=${limit}`, { headers: { accept: 'application/json' } });
-	if (!r.ok) throw new Error(`public ${r.status}`);
-	const body = await r.json();
+	const body = await fetchJson(`/api/agents/public?sort=newest&limit=${limit}`);
 	return (body.agents || []).map((a) => ({
 		id: a.id, name: a.name || 'Agent', solana_address: null,
 		score: null, tier: null, tierLabel: null, totals: {},
@@ -247,14 +259,13 @@ async function fetchNewLaunches(limit) {
 // Falls back cleanly (mannequin via agentAvatarGlb) if the detail is unavailable.
 async function resolveBody(agent) {
 	try {
-		const r = await fetch(`/api/agents/${encodeURIComponent(agent.id)}`, { credentials: 'include', headers: { accept: 'application/json' } });
-		if (r.ok) {
-			const d = await r.json().catch(() => null);
-			const a = d?.agent || d || {};
-			agent.avatar_model_url = a.avatar_model_url || a.avatar_glb_url || a.glb_url || null;
-			agent.is_owner = !!a.is_owner;
-			if (!agent.solana_address) agent.solana_address = a.solana_address || null;
-		}
+		// Short timeout: one slow agent-detail GET must not stall the whole reveal,
+		// since these run before the stage is shown. On abort we keep the mannequin.
+		const d = await fetchJson(`/api/agents/${encodeURIComponent(agent.id)}`, { credentials: 'include', timeout: 5000 });
+		const a = d?.agent || d || {};
+		agent.avatar_model_url = a.avatar_model_url || a.avatar_glb_url || a.glb_url || null;
+		agent.is_owner = !!a.is_owner;
+		if (!agent.solana_address) agent.solana_address = a.solana_address || null;
 	} catch { /* mannequin fallback handles it */ }
 	return agent;
 }
@@ -262,9 +273,7 @@ async function resolveBody(agent) {
 async function fetchReputationBatch(ids) {
 	if (!ids.length) return {};
 	try {
-		const r = await fetch(`/api/agents/reputation-batch?ids=${ids.map(encodeURIComponent).join(',')}`, { headers: { accept: 'application/json' } });
-		if (!r.ok) return {};
-		const body = await r.json();
+		const body = await fetchJson(`/api/agents/reputation-batch?ids=${ids.map(encodeURIComponent).join(',')}`, { timeout: 6000 });
 		return body.data || {};
 	} catch { return {}; }
 }
@@ -295,6 +304,7 @@ export function initTheater(root) {
 		quiet: root.querySelector('#th-quiet'),
 		loading: root.querySelector('#th-loading'),
 		error: root.querySelector('#th-error'),
+		empty: root.querySelector('#th-empty'),
 		hint: root.querySelector('#th-room-hint'),
 	};
 
@@ -387,6 +397,16 @@ export function initTheater(root) {
 			const limit = rosterBudget();
 			const rows = state.room.id === 'launches' ? await fetchNewLaunches(limit) : await fetchLeaderboard(limit);
 
+			// Empty roster is a designed state, not a bare stage: tell the viewer why
+			// the room is empty and what to do, instead of showing an unlit void.
+			if (!rows.length) {
+				state.roster = [];
+				state.byId = new Map();
+				stage.setRoster([]).catch(() => {});
+				showState('empty');
+				return;
+			}
+
 			await pool(rows, 5, resolveBody);
 			state.roster = rows;
 			state.byId = new Map(rows.map((a) => [a.id, a]));
@@ -418,13 +438,14 @@ export function initTheater(root) {
 	function showState(which) {
 		refs.loading.hidden = which !== 'loading';
 		refs.error.hidden = which !== 'error';
+		if (refs.empty) refs.empty.hidden = which !== 'empty';
 		if (which !== 'stage') refs.quiet.hidden = true;
 	}
 	function maybeShowQuiet() {
 		refs.quiet.hidden = !(state.liveCount === 0 && refs.loading.hidden && refs.error.hidden);
 	}
 
-	refs.error.querySelector('[data-retry]')?.addEventListener('click', loadRoom);
+	for (const card of [refs.error, refs.empty]) card?.querySelector('[data-retry]')?.addEventListener('click', loadRoom);
 
 	// ── live feed routing ────────────────────────────────────────────────────────
 	const feed = connectFeed({
