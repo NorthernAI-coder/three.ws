@@ -90,7 +90,11 @@ test('unpaid x402 requests are not monitored — 402 challenges must not report 
 });
 
 test('drain delivers the response event stranded behind an in-flight batch', async () => {
-	const { instrument, drain } = await import('../api/_lib/zauth.js');
+	const { instrument, drain, ensureReady } = await import('../api/_lib/zauth.js');
+
+	// The SDK now loads lazily (kept off the esbuild/NFT static graph so it
+	// isn't bundled into every route) — warm it before asserting instrumentation.
+	await ensureReady();
 
 	const req = makeReq('/api/x402/model-check');
 	const res = makeRes();
