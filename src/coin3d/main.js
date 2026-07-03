@@ -52,6 +52,7 @@ import {
 	Vector3,
 } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { fetchFirstOrNull } from '../shared/failover-fetch.js';
 
 const MCP_ENDPOINT = '/api/pump-fun-mcp';
 // The one and only coin — featured on the no-mint landing.
@@ -127,31 +128,69 @@ async function loadSnapshot() {
 	};
 }
 
-// GeckoTerminal token info (keyless, CORS-enabled, mainnet-only). Resolves the
-// canonical name, symbol, logo and market cap for any token — including
-// graduated coins that getTokenDetails can't describe. Best-effort: null on any
-// failure so the snapshot still renders from MCP data.
+// Token info from three keyless, CORS-enabled sources, tried in order
+// (GeckoTerminal → DexScreener → Jupiter). Resolves the canonical name,
+// symbol, logo and market cap for any token — including graduated coins that
+// getTokenDetails can't describe. Best-effort: null on any failure so the
+// snapshot still renders from MCP data. Mainnet-only (none index devnet).
 async function fetchTokenMeta(mintAddr) {
 	if (network !== 'mainnet') return null;
-	try {
-		const r = await fetch(
-			`https://api.geckoterminal.com/api/v2/networks/solana/tokens/${encodeURIComponent(mintAddr)}`,
-			{ headers: { accept: 'application/json' }, signal: AbortSignal.timeout(7000) },
-		);
-		if (!r.ok) return null;
-		const a = (await r.json())?.data?.attributes || {};
-		const img = a.image_url && !/missing\.png$/i.test(a.image_url) ? a.image_url : null;
-		return {
-			name: a.name || null,
-			symbol: a.symbol || null,
-			image: img,
-			marketCapUsd: numOrNull(a.market_cap_usd) ?? numOrNull(a.fdv_usd),
-			priceUsd: numOrNull(a.price_usd),
-			volume24: numOrNull(a.volume_usd?.h24),
-		};
-	} catch {
-		return null;
-	}
+	const mint = encodeURIComponent(mintAddr);
+	return fetchFirstOrNull([
+		{
+			name: 'geckoterminal',
+			url: `https://api.geckoterminal.com/api/v2/networks/solana/tokens/${mint}`,
+			parse: async (r) => {
+				const a = (await r.json())?.data?.attributes;
+				if (!a) return null;
+				const img = a.image_url && !/missing\.png$/i.test(a.image_url) ? a.image_url : null;
+				return {
+					name: a.name || null,
+					symbol: a.symbol || null,
+					image: img,
+					marketCapUsd: numOrNull(a.market_cap_usd) ?? numOrNull(a.fdv_usd),
+					priceUsd: numOrNull(a.price_usd),
+					volume24: numOrNull(a.volume_usd?.h24),
+				};
+			},
+		},
+		{
+			name: 'dexscreener',
+			url: `https://api.dexscreener.com/latest/dex/tokens/${mint}`,
+			parse: async (r) => {
+				const pairs = ((await r.json())?.pairs || []).filter((p) => p.chainId === 'solana');
+				if (!pairs.length) return null;
+				pairs.sort((a, b) => (b.liquidity?.usd ?? 0) - (a.liquidity?.usd ?? 0));
+				const p = pairs[0];
+				return {
+					name: p.baseToken?.name || null,
+					symbol: p.baseToken?.symbol || null,
+					image: p.info?.imageUrl || null,
+					marketCapUsd: numOrNull(p.marketCap) ?? numOrNull(p.fdv),
+					priceUsd: numOrNull(p.priceUsd),
+					volume24: numOrNull(p.volume?.h24),
+				};
+			},
+		},
+		{
+			name: 'jupiter',
+			url: `https://lite-api.jup.ag/tokens/v2/search?query=${mint}`,
+			parse: async (r) => {
+				const t = (await r.json())?.[0];
+				if (!t || (t.id || t.address) !== mintAddr) return null;
+				return {
+					name: t.name || null,
+					symbol: t.symbol || null,
+					image: t.icon || t.logoURI || null,
+					marketCapUsd: numOrNull(t.mcap) ?? numOrNull(t.fdv),
+					priceUsd: numOrNull(t.usdPrice),
+					volume24: numOrNull(t.stats24h?.buyVolume) != null || numOrNull(t.stats24h?.sellVolume) != null
+						? (numOrNull(t.stats24h?.buyVolume) ?? 0) + (numOrNull(t.stats24h?.sellVolume) ?? 0)
+						: null,
+				};
+			},
+		},
+	], { timeoutMs: 7000, label: 'token-meta' });
 }
 
 // The token logo lives in the off-chain metadata JSON pointed to by the

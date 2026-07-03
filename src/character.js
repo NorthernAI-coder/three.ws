@@ -11,6 +11,7 @@ import { walletChipEl } from './shared/agent-wallet-chip.js';
 import { hydrateAvatarWallet } from './shared/wallet-aura.js';
 import './ui-juice.css';
 import { countUp } from './ui-juice.js';
+import { fetchFirstOrNull } from './shared/failover-fetch.js';
 
 let chNetWorthAura = null;
 
@@ -152,27 +153,65 @@ function showPlaceholder(agent, el) {
 	el.style.display = 'flex';
 }
 
+// Live market stats from three keyless, CORS-enabled sources, tried in order.
+// DexScreener leads because it's the only one with a 24h price change; the
+// fallbacks fill price/mcap/volume so the token card still renders live data
+// when DexScreener is down or rate-limiting.
 async function fetchDexScreener(mint) {
-	try {
-		const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${mint}`);
-		if (!res.ok) return null;
-		const data = await res.json();
-		const pairs = (data.pairs || []).filter(p => p.chainId === 'solana');
-		if (!pairs.length) return null;
-		// Pick highest-liquidity pair
-		pairs.sort((a, b) => (b.liquidity?.usd ?? 0) - (a.liquidity?.usd ?? 0));
-		const p = pairs[0];
-		return {
-			priceUsd: parseFloat(p.priceUsd) || null,
-			marketCapUsd: p.marketCap ?? null,
-			change24h: p.priceChange?.h24 ?? null,
-			volume24h: p.volume?.h24 ?? null,
-			liquidity: p.liquidity?.usd ?? null,
-			dexUrl: p.url ?? `https://dexscreener.com/solana/${mint}`,
-		};
-	} catch {
-		return null;
-	}
+	const m = encodeURIComponent(mint);
+	return fetchFirstOrNull([
+		{
+			name: 'dexscreener',
+			url: `https://api.dexscreener.com/latest/dex/tokens/${m}`,
+			parse: async (res) => {
+				const pairs = ((await res.json())?.pairs || []).filter(p => p.chainId === 'solana');
+				if (!pairs.length) return null;
+				// Pick highest-liquidity pair
+				pairs.sort((a, b) => (b.liquidity?.usd ?? 0) - (a.liquidity?.usd ?? 0));
+				const p = pairs[0];
+				return {
+					priceUsd: parseFloat(p.priceUsd) || null,
+					marketCapUsd: p.marketCap ?? null,
+					change24h: p.priceChange?.h24 ?? null,
+					volume24h: p.volume?.h24 ?? null,
+					liquidity: p.liquidity?.usd ?? null,
+					dexUrl: p.url ?? `https://dexscreener.com/solana/${mint}`,
+				};
+			},
+		},
+		{
+			name: 'geckoterminal',
+			url: `https://api.geckoterminal.com/api/v2/networks/solana/tokens/${m}`,
+			parse: async (res) => {
+				const a = (await res.json())?.data?.attributes;
+				if (!a) return null;
+				return {
+					priceUsd: parseFloat(a.price_usd) || null,
+					marketCapUsd: a.market_cap_usd != null ? Number(a.market_cap_usd) : (a.fdv_usd != null ? Number(a.fdv_usd) : null),
+					change24h: null,
+					volume24h: a.volume_usd?.h24 != null ? Number(a.volume_usd.h24) : null,
+					liquidity: a.total_reserve_in_usd != null ? Number(a.total_reserve_in_usd) : null,
+					dexUrl: `https://dexscreener.com/solana/${mint}`,
+				};
+			},
+		},
+		{
+			name: 'jupiter',
+			url: `https://lite-api.jup.ag/tokens/v2/search?query=${m}`,
+			parse: async (res) => {
+				const t = (await res.json())?.[0];
+				if (!t || (t.id || t.address) !== mint) return null;
+				return {
+					priceUsd: Number(t.usdPrice) || null,
+					marketCapUsd: t.mcap != null ? Number(t.mcap) : (t.fdv != null ? Number(t.fdv) : null),
+					change24h: t.stats24h?.priceChange != null ? Number(t.stats24h.priceChange) : null,
+					volume24h: null,
+					liquidity: t.liquidity != null ? Number(t.liquidity) : null,
+					dexUrl: `https://dexscreener.com/solana/${mint}`,
+				};
+			},
+		},
+	], { timeoutMs: 6000, label: 'token-market' });
 }
 
 function buildTokenHtml(symbol, mint, marketCapUsd, priceUsd, change24h, holders, volume24h) {

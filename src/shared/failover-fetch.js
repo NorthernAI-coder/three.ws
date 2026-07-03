@@ -57,11 +57,14 @@ export async function fetchFirst(providers, { timeoutMs = 4000, cooldownMs = 60_
 	for (const p of order) {
 		const ctrl = new AbortController();
 		const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+		// A caller-supplied signal (stale-search abort) composes with the
+		// per-attempt timeout rather than being replaced by it.
+		const signal = p.init?.signal ? AbortSignal.any([ctrl.signal, p.init.signal]) : ctrl.signal;
 		try {
 			const res = await fetch(p.url, {
 				headers: { accept: 'application/json' },
 				...p.init,
-				signal: ctrl.signal,
+				signal,
 			});
 			if (!res.ok) throw new Error(`http_${res.status}`);
 			const value = await (p.parse ? p.parse(res) : res.json());
@@ -70,6 +73,12 @@ export async function fetchFirst(providers, { timeoutMs = 4000, cooldownMs = 60_
 			lastErr = new Error(`${p.name}: no_data`);
 		} catch (err) {
 			lastErr = err instanceof Error ? err : new Error(String(err));
+			// Caller abandoned the request (stale search) — stop the whole chain
+			// and don't penalise the provider for it.
+			if (p.init?.signal?.aborted) {
+				clearTimeout(timer);
+				break;
+			}
 			_cooldowns.set(p.name, Date.now() + cooldownMs);
 		} finally {
 			clearTimeout(timer);

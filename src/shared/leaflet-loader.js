@@ -38,10 +38,14 @@ export function loadLeaflet() {
 	return _jsPromise;
 }
 
-// ── Nominatim geocoding (shared, memoized, polite) ──────────────────────────
-// OSM's Nominatim is rate-limited and asks for a descriptive UA. We memoize per
-// ~11 m cell and never let a geocode failure block the caller — a null label is
-// a soft, designed state, never an error.
+// ── Geocoding (shared, memoized, polite, multi-provider) ────────────────────
+// Free keyless geocoders, tried in order: OSM Nominatim → Photon (komoot) →
+// BigDataCloud (reverse only). Nominatim is rate-limited and asks for a
+// descriptive UA; a 429 there rolls to the next provider instead of losing the
+// label. We memoize per ~11 m cell and never let a geocode failure block the
+// caller — a null label is a soft, designed state, never an error.
+
+import { fetchFirstOrNull } from './failover-fetch.js';
 
 const _reverseCache = new Map();
 
@@ -50,18 +54,34 @@ export async function reverseGeocode(lat, lng) {
 	if (lat == null || lng == null) return null;
 	const key = `${Number(lat).toFixed(4)},${Number(lng).toFixed(4)}`;
 	if (_reverseCache.has(key)) return _reverseCache.get(key);
-	const p = (async () => {
-		try {
-			const r = await fetch(
-				`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
-				{ headers: { 'User-Agent': 'three.ws/1.0' } },
-			);
-			if (!r.ok) return null;
-			const d = await r.json();
-			return d.address?.city || d.address?.town || d.address?.village
-				|| d.address?.county || d.display_name?.split(',')[0] || null;
-		} catch { return null; }
-	})();
+	const p = fetchFirstOrNull([
+		{
+			name: 'nominatim-reverse',
+			url: `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
+			init: { headers: { 'User-Agent': 'three.ws/1.0' } },
+			parse: async (r) => {
+				const d = await r.json();
+				return d.address?.city || d.address?.town || d.address?.village
+					|| d.address?.county || d.display_name?.split(',')[0] || null;
+			},
+		},
+		{
+			name: 'photon-reverse',
+			url: `https://photon.komoot.io/reverse?lat=${lat}&lon=${lng}&limit=1`,
+			parse: async (r) => {
+				const f = (await r.json())?.features?.[0]?.properties;
+				return f?.city || f?.town || f?.village || f?.county || f?.name || null;
+			},
+		},
+		{
+			name: 'bigdatacloud-reverse',
+			url: `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`,
+			parse: async (r) => {
+				const d = await r.json();
+				return d?.city || d?.locality || d?.principalSubdivision || null;
+			},
+		},
+	], { timeoutMs: 5000, label: 'reverse-geocode' });
 	_reverseCache.set(key, p);
 	return p;
 }
@@ -72,20 +92,46 @@ export async function reverseGeocode(lat, lng) {
 export async function searchPlaces(query, { limit = 6, signal } = {}) {
 	const q = String(query || '').trim();
 	if (q.length < 2) return [];
-	try {
-		const r = await fetch(
-			`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=${limit}`,
-			{ headers: { 'User-Agent': 'three.ws/1.0' }, signal },
-		);
-		if (!r.ok) return [];
-		const rows = await r.json();
-		return (Array.isArray(rows) ? rows : [])
-			.map((d) => ({
-				lat: parseFloat(d.lat),
-				lng: parseFloat(d.lon),
-				label: d.display_name || '',
-				short: d.display_name?.split(',').slice(0, 2).join(',') || d.display_name || '',
-			}))
-			.filter((r) => Number.isFinite(r.lat) && Number.isFinite(r.lng));
-	} catch { return []; }
+	const results = await fetchFirstOrNull([
+		{
+			name: 'nominatim-search',
+			url: `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=${limit}`,
+			init: { headers: { 'User-Agent': 'three.ws/1.0' }, signal },
+			parse: async (r) => {
+				const rows = await r.json();
+				const list = (Array.isArray(rows) ? rows : [])
+					.map((d) => ({
+						lat: parseFloat(d.lat),
+						lng: parseFloat(d.lon),
+						label: d.display_name || '',
+						short: d.display_name?.split(',').slice(0, 2).join(',') || d.display_name || '',
+					}))
+					.filter((row) => Number.isFinite(row.lat) && Number.isFinite(row.lng));
+				return list.length ? list : null;
+			},
+		},
+		{
+			name: 'photon-search',
+			url: `https://photon.komoot.io/api?q=${encodeURIComponent(q)}&limit=${limit}`,
+			init: { signal },
+			parse: async (r) => {
+				const feats = (await r.json())?.features || [];
+				const list = feats
+					.map((f) => {
+						const [lon, lat] = f.geometry?.coordinates || [];
+						const pr = f.properties || {};
+						const parts = [pr.name, pr.city, pr.state, pr.country].filter(Boolean);
+						return {
+							lat: Number(lat),
+							lng: Number(lon),
+							label: parts.join(', '),
+							short: parts.slice(0, 2).join(', '),
+						};
+					})
+					.filter((row) => Number.isFinite(row.lat) && Number.isFinite(row.lng) && row.label);
+				return list.length ? list : null;
+			},
+		},
+	], { timeoutMs: 5000, label: 'search-places' });
+	return results || [];
 }
