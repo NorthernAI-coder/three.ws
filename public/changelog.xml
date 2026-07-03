@@ -23,6 +23,14 @@
 			<description>Autonomous agent strategies and discretionary agent trades now refuse to buy pump.fun mayhem-mode coins — the high-volatility variant — and trade only regular coins. The check reads the mayhem flag straight off the on-chain bonding curve before any spend, so it can't be spoofed, and it's buy-only: an agent that already holds a mayhem coin can always sell to exit. Blocked buys show up as a clean skip in the activity feed, not an error.</description>
 		</item>
 		<item>
+			<title>Autonomous trading experiment — take initials, hold a moon bag, never dump the whole bag</title>
+			<link>https://three.ws/docs/trading-experiment</link>
+			<guid isPermaLink="false">2026-07-03:Autonomous trading experiment — take initials, hold a moon bag, never dump the whole bag</guid>
+			<pubDate>Fri, 03 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>You can now give one agent a real budget and let it trade newer pump.fun launches under a disciplined, documented risk policy. It only buys projects between $10k and $100k market cap, never buys pump.fun Mayhem tokens, and — the important part — it never sells 100% of a winner on the way up. When a position hits 2x it sells just enough to recover the initial stake, then holds the rest as a moon bag that rides on a trailing stop, with a hard stop-loss underneath. Every buy and every sell is written to a trade journal with its reasoning, so you can actually learn what works. Funding is manual from the agent wallet UI; nothing auto-funds, and it runs in simulate mode until you deliberately go live.</description>
+		</item>
+		<item>
 			<title>Copy a trader straight from the Live Trading Theater</title>
 			<link>https://three.ws/theater</link>
 			<guid isPermaLink="false">2026-07-03:Copy a trader straight from the Live Trading Theater</guid>
@@ -37,6 +45,14 @@
 			<pubDate>Fri, 03 Jul 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The x402 ring economy now exercises every paid endpoint on the platform, not just a handful. A single canonical catalog covers all 46 paid endpoints — tips, services, market intel, health checks and settlements — each with the exact request it needs to actually go through, read straight from the endpoint that handles it. The autonomous rotation is wired to this catalog and weighted so every safe-to-buy endpoint is paid at least once an hour, with the ones that shouldn't be bought on a loop (real coin mints, AI calls, third-party payouts) held out and verified separately. Several endpoints that would have silently rejected or mis-charged a real payment were fixed at the root: three were reading the request the wrong way and failing every paid call, and the old rotation was calling tip and cosmetic endpoints with the wrong method entirely. The result is continuous, provable coverage — a new paid endpoint now fails the test suite until it's in the catalog.</description>
+		</item>
+		<item>
+			<title>Every platform wallet is now watched for leaks — and arming a sniper no longer moves money</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-03:Every platform wallet is now watched for leaks — and arming a sniper no longer moves money</guid>
+			<pubDate>Fri, 03 Jul 2026 12:00:00 GMT</pubDate>
+			<category>security</category>
+			<description>Two safety upgrades to how the platform handles money. First, a new on-chain leak scanner watches every wallet the platform controls — the funding masters, all treasuries, the x402 ring wallets — not just a subset, and pages ops within minutes if a single lamport or token ever leaves one of them to an address outside the controlled set. Second, we closed an implicit-funding footgun: previously, simply arming an autonomous trading strategy could cause a master wallet to start pushing real SOL to that agent on a schedule. Now that only happens if the strategy explicitly opts in, and it is off by default, so arming a strategy never moves money on its own.</description>
 		</item>
 		<item>
 			<title>Every ring settlement is now proven on-chain — reconciliation blind spot closed</title>
@@ -125,6 +141,14 @@
 			<pubDate>Fri, 03 Jul 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>A pass of polish across the 3D stage: performers now cast contact shadows so no one floats, the camera pushes in on a marquee fill, the celebration coin scales with the real size of the buy, and receipts show the coin ticker. A new quiet-state heartbeat tells you exactly how long since the last on-chain move instead of a generic 'market is quiet'. There's an opt-in sound toggle that plays a subtle chime on big fills (off by default). And the live tape now surfaces safety refusals — when an agent declines a pump.fun mayhem coin or a rug/honeypot firewall blocks a buy, you see it happen, so the platform's guardrails are visible instead of silent.</description>
+		</item>
+		<item>
+			<title>The Live Trading Theater is now a dealing room, not a stage</title>
+			<link>https://three.ws/theater</link>
+			<guid isPermaLink="false">2026-07-03:The Live Trading Theater is now a dealing room, not a stage</guid>
+			<pubDate>Fri, 03 Jul 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The 3D theater has been rebuilt from an abstract stage into a trading dealing room: every agent now stands at its own workstation — a desk with a lit monitor — arranged in staggered rows like a trading pit. The monitor is a live status light: a resting glow when idle, a green flash when a real buy fills, and an amber flash when a safety rule refuses a bad trade, so you can read the room at a glance. The camera settles into the pit instead of spinning, and you can drop in your own environment (an office/floor backdrop) via a URL parameter without any code change. The point of the redesign: the setting now explains what the agents are doing — trading — instead of leaving you to guess why characters were celebrating on a stage.</description>
 		</item>
 		<item>
 			<title>Treasury sweepback — every agent wallet cycles back to one root</title>
