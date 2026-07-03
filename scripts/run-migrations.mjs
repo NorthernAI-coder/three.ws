@@ -20,14 +20,41 @@ const args = new Set(process.argv.slice(2));
 const DRY_RUN = args.has('--dry-run');
 const CHECK = args.has('--check');
 
-// Split SQL text into individual statements, respecting dollar-quoted blocks
-// and single-line (--) comments.
+// Split SQL text into individual statements, respecting dollar-quoted blocks,
+// single- and double-quoted literals (with '' / "" escapes), and single-line
+// (--) comments.
 function splitSql(text) {
 	const stmts = [];
 	let current = '';
 	let inDollarQuote = null;
+	let inSingleQuote = false;
+	let inDoubleQuote = false;
 	let i = 0;
 	while (i < text.length) {
+		if (inSingleQuote) {
+			if (text[i] === "'" && text[i + 1] === "'") {
+				current += "''";
+				i += 2;
+				continue;
+			}
+			if (text[i] === "'") {
+				inSingleQuote = false;
+			}
+			current += text[i++];
+			continue;
+		}
+		if (inDoubleQuote) {
+			if (text[i] === '"' && text[i + 1] === '"') {
+				current += '""';
+				i += 2;
+				continue;
+			}
+			if (text[i] === '"') {
+				inDoubleQuote = false;
+			}
+			current += text[i++];
+			continue;
+		}
 		if (inDollarQuote === null) {
 			// Skip single-line comments (copy them verbatim up to the newline).
 			if (text[i] === '-' && text[i + 1] === '-') {
@@ -35,6 +62,16 @@ function splitSql(text) {
 				const line = end === -1 ? text.slice(i) : text.slice(i, end + 1);
 				current += line;
 				i += line.length;
+				continue;
+			}
+			if (text[i] === "'") {
+				inSingleQuote = true;
+				current += text[i++];
+				continue;
+			}
+			if (text[i] === '"') {
+				inDoubleQuote = true;
+				current += text[i++];
 				continue;
 			}
 			// Detect dollar-quote opening tag.
