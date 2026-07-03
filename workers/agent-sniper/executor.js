@@ -12,13 +12,13 @@ import { mayhemGate } from './mayhem-gate.js';
 import { marketCapBandReason } from './scorer.js';
 import { recordJournal, journalEntry } from './journal.js';
 import { getTradeCtx, signAndSend, submitProtectedTrade } from './trade-client.js';
-import { countOpenPositions, getDailySpend } from './strategy-store.js';
+import { countOpenPositions, getDailySpend, getRealizedNetLamports, effectiveDailyLossLimitLamports } from './strategy-store.js';
 import { notifyBuy, notifySell } from '../../api/_lib/sniper/notify.js';
 import { getPolicyRules } from '../../api/_lib/spend-policy-rules.js';
 import {
 	getSpendLimits, enforceSpendLimit, SpendLimitError, recordSpend, lamportsToUsd,
 	checkConcurrency, checkDailyBudgetLamports, checkSolHeadroom, checkPriceImpact,
-	recordCustodyEvent,
+	checkDailyLoss, recordCustodyEvent,
 	SOL_FEE_HEADROOM_LAMPORTS,
 } from '../../api/_lib/agent-trade-guards.js';
 import { buildAmmSellInstructions } from './amm-exit.js';
@@ -266,6 +266,25 @@ export async function executeBuy({ cfg, strat, mint, throttle }) {
 		const spent = await getDailySpend(strat.agent_id, cfg.network);
 		const budget = checkDailyBudgetLamports(spent, perTrade, BigInt(strat.daily_budget_lamports));
 		if (budget) return skip(tag, budget.reason);
+
+		// 3c. realized-loss circuit breaker (portfolio layer). The per-trade caps
+		//     above (budget, headroom, impact) can't stop a fleet that bleeds one
+		//     losing entry at a time — this does. Once the day's NET realized loss
+		//     crosses the cap the agent stops opening positions AND the auto-funder
+		//     stops refilling its wallet, so the master can't keep pouring SOL after
+		//     a wallet that only loses. Priced only when a cap is configured (env
+		//     SNIPER_MAX_DAILY_LOSS_SOL or per-strategy), so the hot path stays free
+		//     otherwise. A DB hiccup never blocks — the lamports caps stay the backstop.
+		const lossLimit = effectiveDailyLossLimitLamports(strat);
+		if (lossLimit != null) {
+			try {
+				const netRealized = await getRealizedNetLamports(strat.agent_id, cfg.network);
+				const loss = checkDailyLoss(netRealized, lossLimit);
+				if (loss) return skip(tag, loss.reason);
+			} catch (err) {
+				log.warn('realized-loss check failed — allowing on lamports backstop', { ...tag, err: err?.message });
+			}
+		}
 
 		// 3b. shared per-agent spend policy (the same ceiling that governs
 		// withdraw / x402 / trade). Opt-in: only priced + enforced when the owner

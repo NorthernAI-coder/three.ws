@@ -1659,6 +1659,10 @@
 			"dest": "/dashboard-next/sniper.html"
 		},
 		{
+			"src": "/dashboard/fleet/?",
+			"dest": "/dashboard-next/fleet.html"
+		},
+		{
 			"src": "/dashboard/capabilities/?",
 			"dest": "/dashboard-next/capabilities.html"
 		},
@@ -4274,6 +4278,10 @@
 		{
 			"src": "/legal/content-policy/?",
 			"dest": "/legal/content-policy.html"
+		},
+		{
+			"src": "/legal/risk/?",
+			"dest": "/legal/risk.html"
 		},
 		{
 			"src": "/content-policy/?",

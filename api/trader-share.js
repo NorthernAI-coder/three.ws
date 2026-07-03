@@ -1,15 +1,17 @@
 /**
  * SSR share page for trader track records
  * ----------------------------------------
- * GET /api/trader-share?agent_id=<uuid>
+ * GET /api/trader-share?agent_id=<uuid>       — three.ws agent
+ * GET /api/trader-share?agent_id=<base58>     — claimed/external wallet
  *
- * Wired via vercel.json: /trader/<agent_id>/share → /api/trader-share?agent_id=$1
+ * Wired via vercel.json: /trader/<id>/share → /api/trader-share?agent_id=$1
+ * (the rewrite passes either kind of id; base58 is treated as a wallet)
  *
  * Bakes Open Graph + Twitter Card + Farcaster Frame meta into <head> so social
  * crawlers render a rich preview with the trader's score, P&L, and win rate.
- * Real browsers are JS-redirected to /trader/<agent_id> for the full profile.
+ * Real browsers are JS-redirected to /trader/<id> for the full profile.
  *
- * OG image: /api/trader-og?agent_id=<uuid>
+ * OG image: /api/trader-og?agent_id=<uuid> | /api/trader-og?wallet=<base58>
  */
 
 import { sql } from './_lib/db.js';
@@ -17,7 +19,8 @@ import { cors, wrap } from './_lib/http.js';
 import { env } from './_lib/env.js';
 import { isUuid } from './_lib/validate.js';
 
-const LAMPORTS = 1e9;
+const LAMPORTS  = 1e9;
+const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS' })) return;
@@ -26,7 +29,10 @@ export default wrap(async (req, res) => {
 	const agentId = (url.searchParams.get('agent_id') || '').trim();
 	const origin  = env.APP_ORIGIN || 'https://three.ws';
 
-	if (!isUuid(agentId)) return redirect(res, `${origin}/leaderboard`);
+	if (!isUuid(agentId)) {
+		if (BASE58_RE.test(agentId)) return shareWallet(res, agentId, origin);
+		return redirect(res, `${origin}/leaderboard`);
+	}
 
 	let agent, stats;
 	try {
@@ -81,6 +87,59 @@ function redirect(res, to) {
 	res.setHeader('location', to);
 	res.setHeader('cache-control', 'no-cache');
 	res.end();
+}
+
+/** wallet_reputation stores win_rate as a 0–1 fraction; normalize to 0–100. */
+function pct(v) {
+	if (v == null) return null;
+	const n = Number(v);
+	if (!Number.isFinite(n)) return null;
+	return Math.round(n <= 1 ? n * 100 : n);
+}
+
+/**
+ * Share page for a claimed/external wallet — reads the Oracle wallet-reputation
+ * ledger. An unindexed wallet redirects to the plain profile rather than
+ * shipping a preview full of em-dashes.
+ */
+async function shareWallet(res, wallet, origin) {
+	const deepUrl = `${origin}/trader/${encodeURIComponent(wallet)}`;
+
+	let rep;
+	try {
+		[rep] = await sql`
+			select coins_traded, win_rate, smart_money_score, label
+			from wallet_reputation
+			where wallet = ${wallet} and network = 'mainnet'
+			limit 1
+		`;
+	} catch {
+		return redirect(res, deepUrl);
+	}
+	if (!rep) return redirect(res, deepUrl);
+
+	const short   = `${wallet.slice(0, 4)}…${wallet.slice(-4)}`;
+	const winRate = pct(rep.win_rate);
+	const score   = rep.smart_money_score != null ? Math.round(Number(rep.smart_money_score)) : null;
+	const coins   = Number(rep.coins_traded || 0);
+	const label   = rep.label ? String(rep.label).replace(/_/g, ' ') : null;
+
+	const title = `${short} · ${score != null ? `smart-money score ${score}` : 'Solana trader'} · three.ws Oracle`;
+	const parts = [`${short}'s on-chain pump.fun track record on three.ws`];
+	if (label)           parts.push(label);
+	if (coins > 0)       parts.push(`${coins} coin${coins === 1 ? '' : 's'} traded`);
+	if (winRate != null) parts.push(`${winRate}% win rate`);
+	if (score != null)   parts.push(`smart-money score ${score}`);
+	parts.push('proof.not.promises');
+	const desc = parts.join(' · ');
+
+	const pageUrl = `${origin}/trader/${encodeURIComponent(wallet)}/share`;
+	const ogImage = `${origin}/api/trader-og?wallet=${encodeURIComponent(wallet)}`;
+
+	res.statusCode = 200;
+	res.setHeader('content-type', 'text/html; charset=utf-8');
+	res.setHeader('cache-control', 'public, max-age=60, s-maxage=600, stale-while-revalidate=3600');
+	res.end(renderHtml({ title, desc, pageUrl, deepUrl, ogImage, name: short, winRate, pnlStr: null, origin }));
 }
 
 function buildDesc({ name, total, winRate, pnlStr, bestStr }) {

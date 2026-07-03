@@ -113,6 +113,33 @@ function maxDrawdown(closedOrderedLamports) {
 }
 
 /**
+ * Compact cumulative-realized-equity series (SOL) for a sparkline. Takes the
+ * per-close realized P&L in lamports, oldest→newest, and returns the running
+ * equity in SOL downsampled to at most `maxPoints` points — small enough to ship
+ * on every one of the ~100 leaderboard rows without bloating the payload, yet
+ * enough to read the shape of the run. The last point is always the final
+ * realized equity so the sparkline's endpoint matches the row's headline P&L.
+ * Fewer than two closes returns [] (the caller renders a flat "no trend yet"
+ * placeholder rather than a misleading single dot).
+ */
+function cumulativeEquitySeries(pnlsLamports, maxPoints = 24) {
+	if (!Array.isArray(pnlsLamports) || pnlsLamports.length < 2) return [];
+	const equity = [];
+	let running = 0;
+	for (const p of pnlsLamports) {
+		running += p;
+		equity.push(running / LAMPORTS_PER_SOL);
+	}
+	if (equity.length <= maxPoints) return equity.map((v) => Number(v.toFixed(4)));
+	// Even stride, but force-include the final point so the endpoint is exact.
+	const out = [];
+	const stride = (equity.length - 1) / (maxPoints - 1);
+	for (let i = 0; i < maxPoints - 1; i++) out.push(equity[Math.round(i * stride)]);
+	out.push(equity[equity.length - 1]);
+	return out.map((v) => Number(v.toFixed(4)));
+}
+
+/**
  * Compute the full metric set for one trader from their position rows.
  *
  * @param {Array<object>} positions  agent_sniper_positions rows (closed + open).
@@ -347,6 +374,11 @@ export function computeTraderMetrics(positions, { solUsd = null, selfDealMints =
 
 		max_drawdown_sol: Number(drawdown.sol.toFixed(6)),
 		max_drawdown_pct: Number(drawdown.pct.toFixed(2)),
+
+		// Compact cumulative-realized-equity curve (SOL, oldest→newest, ≤24 pts) so
+		// the leaderboard row and profile can draw a P&L sparkline without a second
+		// query. Endpoint equals realized_pnl_sol; [] when < 2 closed trades.
+		pnl_series: cumulativeEquitySeries(equityPnls),
 
 		avg_hold_seconds: Math.round(avgHoldSeconds),
 		median_hold_seconds: Math.round(median(holdSorted)),
@@ -885,6 +917,7 @@ export async function getLeaderboard({
 				avg_pnl_pct: m.avg_pnl_pct,
 				best_pnl_pct: m.best_pnl_pct,
 				max_drawdown_pct: m.max_drawdown_pct,
+				pnl_series: m.pnl_series,
 				avg_hold_seconds: m.avg_hold_seconds,
 				unique_coins: m.unique_coins,
 				churn_pct: m.churn_pct,

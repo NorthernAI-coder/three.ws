@@ -280,7 +280,7 @@ async function cmdRun(flags) {
 	// Rule: no pump.fun Mayhem tokens — only normal launches. Reads each mint's
 	// bonding curve (cached, shared across agents) and skips isMayhemMode tokens.
 	// On by default; --allow-mayhem disables it.
-	const { createMayhemFilter } = await import('./mayhem-filter.js');
+	const { createMayhemFilter } = await import('../src/mayhem-filter.js');
 	const mayhem = flags['allow-mayhem'] ? null
 		: createMayhemFilter({ rpcUrl, strictOnUnknown: Boolean(flags['mayhem-strict']) });
 

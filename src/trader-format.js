@@ -130,4 +130,50 @@ export function signatureCoin(coin, { compact = false } = {}) {
 	return `<span class="sig-coin ${cls}" title="${verb}: ${label} · ${escapeHtml(pnl)} realized${coin.roi_pct != null ? ` · ${coin.roi_pct > 0 ? '+' : ''}${coin.roi_pct}% ROI` : ''}">${lead}<span class="sig-coin-sym">${label}</span><span class="sig-coin-pnl">${escapeHtml(pnl)}</span></span>`;
 }
 
+/**
+ * Compact P&L sparkline from a cumulative-realized-equity series (SOL, oldest→
+ * newest — the `pnl_series` the trader-stats truth layer ships on every board row
+ * and profile). Draws the shape of the run in a tiny inline SVG: a line + soft
+ * area fill, a dashed break-even baseline, and a pulsing end-dot at the latest
+ * point. Green when the trader is up on the window, red when down. Returns a muted
+ * "no trend yet" placeholder under two closed trades so a new trader's row is never
+ * a jarring empty cell. Purely presentational — every number is still proven in the
+ * row's headline P&L and on-chain on the profile.
+ *
+ * @param {number[]} series cumulative realized SOL, oldest→newest
+ * @param {{ w?: number, h?: number, label?: string }} [opts]
+ */
+export function pnlSparkline(series, { w = 68, h = 22, label = 'P&L trend' } = {}) {
+	const pts = Array.isArray(series) ? series.filter((v) => Number.isFinite(v)) : [];
+	if (pts.length < 2) {
+		return `<span class="lb-spark lb-spark--empty" aria-hidden="true"><span class="lb-spark-flat"></span></span>`;
+	}
+	const data = [0, ...pts]; // anchor the curve at break-even so direction reads honestly
+	const min = Math.min(...data), max = Math.max(...data);
+	const range = (max - min) || 1;
+	const pad = 2;
+	const x = (i) => pad + (i / (data.length - 1)) * (w - pad * 2);
+	const y = (v) => h - pad - ((v - min) / range) * (h - pad * 2);
+	const line = data.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ');
+	const last = data[data.length - 1];
+	const up = last >= 0;
+	const stroke = up ? 'var(--success, #22c55e)' : 'var(--danger, #ef4444)';
+	const area = `${line} L${x(data.length - 1).toFixed(1)} ${(h - pad).toFixed(1)} L${x(0).toFixed(1)} ${(h - pad).toFixed(1)} Z`;
+	const zeroY = y(0).toFixed(1);
+	const ex = x(data.length - 1).toFixed(1), ey = y(last).toFixed(1);
+	const gid = `sp${Math.abs(Math.round(last * 1e4))}${data.length}`;
+	return `<span class="lb-spark ${up ? 'is-up' : 'is-down'}" role="img" aria-label="${escapeHtml(label)}: ${up ? 'up' : 'down'} over the window">
+		<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" preserveAspectRatio="none" aria-hidden="true">
+			<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
+				<stop offset="0" stop-color="${stroke}" stop-opacity="0.22"/>
+				<stop offset="1" stop-color="${stroke}" stop-opacity="0"/>
+			</linearGradient></defs>
+			<line x1="${pad}" y1="${zeroY}" x2="${w - pad}" y2="${zeroY}" stroke="currentColor" stroke-width="1" stroke-dasharray="2 3" opacity="0.28"/>
+			<path d="${area}" fill="url(#${gid})"/>
+			<path d="${line}" fill="none" stroke="${stroke}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+			<circle class="lb-spark-dot" cx="${ex}" cy="${ey}" r="1.9" fill="${stroke}"/>
+		</svg>
+	</span>`;
+}
+
 export { SOL };

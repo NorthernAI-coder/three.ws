@@ -12,6 +12,7 @@
 import { formatUsdcEq, formatSolEq } from './shared/usd-price.js';
 import { buildReceiptHTML, buildReceiptText } from './shared/payment-receipt.js';
 import { showAddFunds } from './shared/add-funds.js';
+import { ensureRiskAck } from './shared/risk-ack.js';
 import { log } from './shared/log.js';
 
 const USDC_DECIMALS = 6;
@@ -448,6 +449,7 @@ export class SkillPaymentModal {
 	}
 
 	async _purchase() {
+		if (!(await ensureRiskAck({ context: 'skill-purchase' }))) return;
 		const confirm = this._el.querySelector('.skill-pay-confirm');
 		confirm.disabled = true;
 

@@ -531,6 +531,44 @@
 .lb-neg { color: var(--danger); }
 .lb-muted { color: var(--ink-faint); }
 
+/* ---- P&L sparkline (per-row realized-equity trend) ---- */
+/* The P&L cell pairs the headline number with a tiny cumulative-equity curve, so
+   two traders with the same total read differently when one ground it out and the
+   other spiked once. The SVG sits above the numbers on wide rows and tucks inline
+   when the column is tight. */
+.lb-pnl-cell { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+.lb-pnl-nums { display: inline-flex; flex-direction: column; align-items: flex-end; line-height: 1.15; }
+.lb-spark { display: inline-block; width: 68px; height: 22px; line-height: 0; color: var(--ink-faint); }
+.lb-spark svg { display: block; overflow: visible; }
+.lb-spark.is-up { color: var(--success); }
+.lb-spark.is-down { color: var(--danger); }
+.lb-spark--empty { display: inline-flex; align-items: center; }
+.lb-spark-flat {
+	display: block; width: 68px; height: 1px; border-radius: var(--radius-pill);
+	background: repeating-linear-gradient(90deg, var(--stroke) 0 3px, transparent 3px 6px);
+	opacity: 0.5;
+}
+/* End-dot pulse marks the latest point — the row's "live" tell. Motion-gated. */
+.lb-spark-dot { transform-box: fill-box; transform-origin: center; }
+@media (prefers-reduced-motion: no-preference) {
+	.lb-spark-dot { animation: lb-spark-pulse 2.4s var(--ease-standard) infinite; }
+}
+@keyframes lb-spark-pulse { 0%, 100% { opacity: 1; r: 1.9px; } 50% { opacity: 0.55; r: 2.6px; } }
+
+/* Win/loss distribution micro-bar under the win-rate % — green wins vs red losses. */
+.lb-wl {
+	display: block; height: 3px; margin-top: 4px; border-radius: var(--radius-pill);
+	background: var(--danger); overflow: hidden;
+}
+.lb-wl-win { display: block; height: 100%; background: var(--success); border-radius: var(--radius-pill); }
+.lb-winrate { position: relative; }
+
+@media (max-width: 640px) {
+	/* On narrow rows the sparkline would crowd the number — keep the number, drop the chart. */
+	.lb-spark, .lb-spark--empty { display: none; }
+	.lb-pnl-cell { gap: 0; }
+}
+
 .lb-view {
 	display: inline-flex;
 	align-items: center;

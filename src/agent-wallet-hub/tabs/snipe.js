@@ -19,6 +19,7 @@
 
 import { registerWalletTab } from '../registry.js';
 import { consumeCsrfToken } from '../../api.js';
+import { ensureRiskAck } from '../../shared/risk-ack.js';
 import { formatSol, shortAddress, explorerAddressUrl } from '../util.js';
 
 const LAMPORTS_PER_SOL = 1_000_000_000;
@@ -456,6 +457,7 @@ registerWalletTab({
 			if (!(BigInt(s.per_trade_lamports || '0') > 0n) || !(BigInt(s.daily_budget_lamports || '0') > 0n)) {
 				ctx.toast('Set a per-trade size and a daily budget first.'); return;
 			}
+			if (ctx.getNetwork() !== 'devnet' && !(await ensureRiskAck({ context: 'snipe' }))) return;
 			state.arming = true; render();
 			const res = await call('/api/sniper/strategy', {
 				method: 'POST',

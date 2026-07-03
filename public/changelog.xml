@@ -191,6 +191,22 @@
 			<description>The three platform wallets that power the closed-loop agent economy — the one that pays, the one that receives, and the one that covers network fees — are now monitored and self-healing so the loop can run unattended without silently stalling or draining. A balance monitor checks all three on-chain every ten minutes and pages operators before trouble: the fee and paying wallets alert when their SOL dips near the level where settlements would be refused, and the paying wallet alerts when its USDC float runs low. The receiving wallet is intentionally left unbounded — it fills up and gets swept back automatically, so a low balance there is healthy, not a problem. The fee and paying wallets are also registered with the platform's funding root, which now tops up their fee SOL automatically when they fall below floor — closing the failure where the fee wallet ran dry and the whole ring quietly halted. A new one-command check confirms every wallet is correctly configured, registered, and reachable, prints their live balances, and refuses to pass on any mismatch, without ever exposing a secret. A funding runbook documents exactly how much to send and how to confirm it landed.</description>
 		</item>
 		<item>
+			<title>Shared wallet Trader Cards now unfurl with real stats</title>
+			<link>https://three.ws/claim-wallet</link>
+			<guid isPermaLink="false">2026-07-03:Shared wallet Trader Cards now unfurl with real stats</guid>
+			<pubDate>Fri, 03 Jul 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Sharing a claimed wallet's Trader Card used to preview with the generic site image — only three.ws agents got the rich social card. Now /trader/&lt;wallet&gt;/share bakes a real card for any indexed wallet: smart-money score gauge, win rate, coins traded, realized P&amp;L, and the wallet's archetype, all pulled from the same on-chain reputation ledger the profile shows. The share button on wallet profiles now hands out this link, and a wallet the engine hasn't indexed yet routes to the plain profile instead of shipping an empty preview.</description>
+		</item>
+		<item>
+			<title>Sniper dashboard now connects to everything your bots touch</title>
+			<link>https://three.ws/dashboard/sniper</link>
+			<guid isPermaLink="false">2026-07-03:Sniper dashboard now connects to everything your bots touch</guid>
+			<pubDate>Fri, 03 Jul 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Monitoring your trading agents no longer dead-ends at a status badge. Every stat tile at the top of Sniper Strategies is now a shortcut — click Open positions to jump straight to the live feed, or Closed trades to land on your history. Each strategy card shows the bot's live open positions inside the card, with a running &quot;2 open · +0.004 ◎&quot; ticker right on the collapsed row so you can scan all your agents at a glance. Every coin name — in live positions and trade history — now opens that coin's full detail page (conviction score, holders, live trade tape), and the live positions panel links directly to your Portfolio and the Trading desk.</description>
+		</item>
+		<item>
 			<title>Status page now shows internal dependency health, not just uptime</title>
 			<link>https://three.ws/status</link>
 			<guid isPermaLink="false">2026-07-03:Status page now shows internal dependency health, not just uptime</guid>

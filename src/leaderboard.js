@@ -9,7 +9,7 @@
 
 import {
 	escapeHtml, fmtSol, fmtUsd, fmtPct, pnlClass, shortAddr, holdTime, relTime,
-	identicon, verifiedBadge, signatureCoin,
+	identicon, verifiedBadge, signatureCoin, pnlSparkline,
 } from './trader-format.js';
 import { walletChipHTML, wireWalletChips } from './shared/agent-wallet-chip.js';
 import { updateValue, flipReorder, setLiveDot } from './ui-juice.js';
@@ -92,6 +92,12 @@ function rowMarkup(r) {
 	const dd = r.max_drawdown_pct > 0
 		? `<span class="lb-neg">−${r.max_drawdown_pct.toFixed(1)}%</span>` : '<span class="lb-muted">0%</span>';
 	const scoreBar = Math.max(4, Math.min(100, r.score));
+	const spark = pnlSparkline(r.pnl_series, { label: `${r.agent_name || 'Trader'} P&L trend` });
+	// Win/loss distribution micro-bar — the same wins/closed the cell already shows,
+	// as a proportion you can read at a glance. Only meaningful with closed trades.
+	const wlBar = r.closed > 0
+		? `<span class="lb-wl" aria-hidden="true"><span class="lb-wl-win" style="width:${((r.wins / r.closed) * 100).toFixed(1)}%"></span></span>`
+		: '';
 	const rowLabel = [
 		`Rank ${r.rank}`,
 		r.agent_name || 'Unnamed agent',
@@ -113,8 +119,8 @@ function rowMarkup(r) {
 				<span class="lb-score">${r.score}</span>
 				<span class="lb-score-track"><span class="lb-score-bar" style="width:${scoreBar}%"></span></span>
 			</span>
-			<span class="lb-num">${pnlSol}${pnlUsd}</span>
-			<span class="lb-num lb-winrate">${fmtPct(r.win_rate * 100)}<span class="lb-sub-num">${r.wins}/${r.closed}</span></span>
+			<span class="lb-num lb-pnl-cell">${spark}<span class="lb-pnl-nums">${pnlSol}${pnlUsd}</span></span>
+			<span class="lb-num lb-winrate">${fmtPct(r.win_rate * 100)}<span class="lb-sub-num">${r.wins}/${r.closed}</span>${wlBar}</span>
 			<span class="lb-num lb-hide-sm"><span class="${pnlClass(r.roi_pct)}">${fmtPct(r.roi_pct, { sign: true })}</span></span>
 			<span class="lb-num lb-hide-sm">${dd}</span>
 			<span class="lb-num lb-hide-md">${r.closed}<span class="lb-sub-num">${holdTime(r.avg_hold_seconds)} avg</span></span>

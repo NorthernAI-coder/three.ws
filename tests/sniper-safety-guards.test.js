@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Query-aware fake `sql` for launcher-funding's ledger reads. Each source can be
 // toggled to throw (missing-table simulation) to prove the fail-open contract.
@@ -22,6 +22,8 @@ vi.mock('../api/_lib/db.js', () => {
 import { parseAgentIds } from '../workers/agent-sniper/config.js';
 import { mayhemVerdict, mayhemGate } from '../workers/agent-sniper/mayhem-gate.js';
 import { marketCapBandReason, scoreMint } from '../workers/agent-sniper/scorer.js';
+import { checkDailyLoss } from '../api/_lib/agent-trade-guards.js';
+import { effectiveDailyLossLimitLamports } from '../workers/agent-sniper/strategy-store.js';
 import { criticalFirewallReason } from '../api/_lib/trade-firewall.js';
 import { withinMasterDailyCap, masterDailyOutflowSol } from '../api/_lib/launcher-funding.js';
 
@@ -131,6 +133,58 @@ describe('withinMasterDailyCap (hard master outflow ceiling)', () => {
 		const r = withinMasterDailyCap(1.8, 0.5, 2);
 		expect(r.ok).toBe(false);
 		expect(r.reason).toMatch(/master_daily_cap/);
+	});
+});
+
+describe('checkDailyLoss (realized-loss circuit breaker)', () => {
+	const SOL = 1_000_000_000n;
+	it('no breaker when limit is null / 0 / negative', () => {
+		expect(checkDailyLoss(-5n * SOL, null)).toBeNull();
+		expect(checkDailyLoss(-5n * SOL, 0n)).toBeNull();
+		expect(checkDailyLoss(-5n * SOL, -1n)).toBeNull();
+	});
+	it('a profitable or break-even day never blocks', () => {
+		expect(checkDailyLoss(3n * SOL, SOL)).toBeNull();
+		expect(checkDailyLoss(0n, SOL)).toBeNull();
+	});
+	it('a loss shallower than the limit passes', () => {
+		expect(checkDailyLoss(-1n * SOL, 2n * SOL)).toBeNull();
+	});
+	it('blocks once the net loss reaches the limit (inclusive)', () => {
+		const atCap = checkDailyLoss(-2n * SOL, 2n * SOL);
+		expect(atCap?.reason).toBe('daily_loss_limit');
+		const over = checkDailyLoss(-3n * SOL, 2n * SOL);
+		expect(over?.reason).toBe('daily_loss_limit');
+		expect(over.detail.loss_lamports).toBe((3n * SOL).toString());
+	});
+	it('accepts string / number net values (DB numeric text)', () => {
+		expect(checkDailyLoss('-2000000000', 1_000_000_000n)?.reason).toBe('daily_loss_limit');
+	});
+});
+
+describe('effectiveDailyLossLimitLamports (env band ∧ per-strategy, tighter wins)', () => {
+	const OLD = process.env.SNIPER_MAX_DAILY_LOSS_SOL;
+	afterEach(() => {
+		if (OLD == null) delete process.env.SNIPER_MAX_DAILY_LOSS_SOL;
+		else process.env.SNIPER_MAX_DAILY_LOSS_SOL = OLD;
+	});
+	it('null when neither env nor strategy sets a cap', () => {
+		delete process.env.SNIPER_MAX_DAILY_LOSS_SOL;
+		expect(effectiveDailyLossLimitLamports({})).toBeNull();
+	});
+	it('env floor alone protects an unconfigured strategy', () => {
+		process.env.SNIPER_MAX_DAILY_LOSS_SOL = '0.5';
+		expect(effectiveDailyLossLimitLamports({})).toBe(500_000_000n);
+	});
+	it('per-strategy alone applies when env is unset', () => {
+		delete process.env.SNIPER_MAX_DAILY_LOSS_SOL;
+		expect(effectiveDailyLossLimitLamports({ daily_loss_limit_lamports: '250000000' })).toBe(250_000_000n);
+	});
+	it('takes the tighter (smaller) of env and per-strategy', () => {
+		process.env.SNIPER_MAX_DAILY_LOSS_SOL = '1'; // 1e9
+		expect(effectiveDailyLossLimitLamports({ daily_loss_limit_lamports: '250000000' })).toBe(250_000_000n);
+		process.env.SNIPER_MAX_DAILY_LOSS_SOL = '0.1'; // 1e8
+		expect(effectiveDailyLossLimitLamports({ daily_loss_limit_lamports: '250000000' })).toBe(100_000_000n);
 	});
 });
 

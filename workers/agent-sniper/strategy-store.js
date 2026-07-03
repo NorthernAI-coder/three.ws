@@ -6,6 +6,34 @@ import { log } from './log.js';
 let _strategies = [];
 let _loadedAt = 0;
 
+function envPositiveNum(name) {
+	const raw = process.env[name];
+	if (raw == null || raw === '') return null;
+	const n = Number(raw);
+	return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/**
+ * The daily realized-loss cap (lamports) that actually applies to a strategy,
+ * combining the fleet-wide env floor with any per-strategy column by taking the
+ * TIGHTER (smaller) of the two — the same "safety band" shape as the market-cap
+ * floor/ceil. `SNIPER_MAX_DAILY_LOSS_SOL` set on the worker protects EVERY agent
+ * at once (including ones whose strategy predates the per-strategy column), which
+ * is the immediately-deployable lever. Returns null when neither is set (no cap).
+ *
+ * @param {{ daily_loss_limit_lamports?: string|number|null }} strat
+ * @returns {bigint|null}
+ */
+export function effectiveDailyLossLimitLamports(strat) {
+	const envSol = envPositiveNum('SNIPER_MAX_DAILY_LOSS_SOL');
+	const envLamports = envSol == null ? null : BigInt(Math.round(envSol * 1e9));
+	const raw = strat?.daily_loss_limit_lamports;
+	const stratLamports = raw == null || raw === '' ? null : BigInt(raw);
+	if (envLamports == null) return stratLamports;
+	if (stratLamports == null) return envLamports;
+	return envLamports < stratLamports ? envLamports : stratLamports;
+}
+
 /**
  * Active strategies for the worker's network: enabled, not killed, with a real
  * budget and a positive stop-loss. The stop-loss filter is the runtime half of
@@ -59,6 +87,28 @@ export async function getDailySpend(agentId, network) {
 		  AND status <> 'failed'
 	`;
 	return BigInt(r?.spent ?? '0');
+}
+
+/**
+ * Net realized P&L (lamports, SIGNED) for an agent over the trailing window —
+ * the denominator of the realized-loss circuit breaker. Negative = the agent is
+ * net down. Only positions the agent has actually exited count (realized, not
+ * mark-to-market), matching how the daily budget counts only committed spend.
+ *
+ * @param {string} agentId
+ * @param {string} network
+ * @param {number} sinceHours  trailing window (default 24h)
+ * @returns {Promise<bigint>} signed net realized lamports
+ */
+export async function getRealizedNetLamports(agentId, network, sinceHours = 24) {
+	const [r] = await sql`
+		SELECT coalesce(sum(realized_pnl_lamports), 0)::text AS net
+		FROM agent_sniper_positions
+		WHERE agent_id = ${agentId} AND network = ${network}
+		  AND realized_pnl_lamports IS NOT NULL
+		  AND coalesce(closed_at, opened_at) >= now() - (${sinceHours} || ' hours')::interval
+	`;
+	return BigInt(r?.net ?? '0');
 }
 
 /**

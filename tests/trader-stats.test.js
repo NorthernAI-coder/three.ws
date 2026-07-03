@@ -305,6 +305,38 @@ describe('strategy-origin records earn the same verified badge', () => {
 	});
 });
 
+describe('computeTraderMetrics — pnl_series (sparkline source)', () => {
+	it('is the cumulative realized-equity curve, oldest→newest, ending at realized P&L', () => {
+		const m = computeTraderMetrics(FIXTURE, { solUsd: 200 });
+		// Closes ordered A(+2) → B(−0.5) → C(+0.5) → D(+0.01): cumulative 2, 1.5, 2, 2.01.
+		expect(m.pnl_series).toEqual([2, 1.5, 2, 2.01]);
+		// Endpoint must equal the headline realized P&L so the sparkline can't lie.
+		expect(m.pnl_series[m.pnl_series.length - 1]).toBeCloseTo(m.realized_pnl_sol, 6);
+	});
+
+	it('is empty under two closed trades (renders the "no trend" placeholder)', () => {
+		const one = computeTraderMetrics(
+			[{ status: 'closed', mint: 'X', realized_pnl_lamports: String(SOL), realized_pnl_pct: 100,
+			   entry_quote_lamports: String(SOL), opened_at: '2026-01-01T00:00:00.000Z', closed_at: '2026-01-01T00:01:00.000Z' }],
+			{ solUsd: 200 },
+		);
+		expect(one.pnl_series).toEqual([]);
+		expect(computeTraderMetrics([], { solUsd: 200 }).pnl_series).toEqual([]);
+	});
+
+	it('downsamples to at most 24 points while preserving the final equity', () => {
+		const many = Array.from({ length: 60 }, (_, i) => ({
+			status: 'closed', mint: `M${i}`, realized_pnl_lamports: String(0.1 * SOL), realized_pnl_pct: 10,
+			entry_quote_lamports: String(SOL),
+			opened_at: `2026-01-01T00:${String(i).padStart(2, '0')}:00.000Z`,
+			closed_at: `2026-01-01T01:${String(i).padStart(2, '0')}:00.000Z`,
+		}));
+		const m = computeTraderMetrics(many, { solUsd: 200 });
+		expect(m.pnl_series.length).toBeLessThanOrEqual(24);
+		expect(m.pnl_series[m.pnl_series.length - 1]).toBeCloseTo(m.realized_pnl_sol, 4);
+	});
+});
+
 describe('windowStartIso', () => {
 	const NOW = Date.parse('2026-06-15T12:00:00.000Z');
 

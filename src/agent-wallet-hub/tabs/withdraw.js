@@ -21,6 +21,7 @@
 import { registerWalletTab } from '../registry.js';
 import { formatUsd, explorerTxUrl, explorerAddressUrl } from '../util.js';
 import { consumeCsrfToken } from '../../api.js';
+import { ensureRiskAck } from '../../shared/risk-ack.js';
 
 const SOL_ADDR_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
@@ -435,6 +436,7 @@ registerWalletTab({
 		async function submitWithdraw() {
 			const it = state.intent;
 			if (!it || state.phase === 'sending') return;
+			if (ctx.getNetwork() !== 'devnet' && !(await ensureRiskAck({ context: 'withdraw' }))) return;
 			state.phase = 'sending';
 			render();
 			const res = await call(base('withdraw'), {

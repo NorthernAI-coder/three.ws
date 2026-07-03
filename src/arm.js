@@ -2,6 +2,8 @@
 // Reuses the Oracle watch API: /api/agents, /api/oracle/watch, /api/oracle/test-alert.
 // Self-contained: no imports from oracle.js so this page stands on its own.
 
+import { ensureRiskAck } from './shared/risk-ack.js';
+
 const NETWORK = 'mainnet';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -399,6 +401,8 @@ async function loadWatch(agentId) {
 }
 
 async function saveWatch() {
+	// Arming in live mode commits the agent's real SOL — gate on the risk ack.
+	if (modeIsLive() && isOn('#armToggle') && !(await ensureRiskAck({ context: 'oracle-arm' }))) return;
 	const btn = $('#saveBtn');
 	btn.disabled = true; btn.textContent = 'Saving…';
 	const cats = $$('#catChips .cchip.on').map((b) => b.dataset.cat);

@@ -21,6 +21,8 @@
  *   if (result.ok) grantSpin();
  */
 
+import { ensureRiskAck } from './shared/risk-ack.js';
+
 const MEMO_PROGRAM_ID = 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr';
 
 // Lazy-load the Solana SDKs so they stay out of the initial bundle — Vite
@@ -103,6 +105,13 @@ export async function payWithToken({
 	wallet,
 	onStatus = () => {},
 }) {
+	// 0. Real funds — the user must have accepted the Risk Disclosure.
+	if (network !== 'devnet' && !(await ensureRiskAck({ context: 'token-pay' }))) {
+		throw Object.assign(new Error('Payment cancelled — risk acknowledgment declined.'), {
+			code: 'user_cancelled',
+		});
+	}
+
 	// 1. Quote
 	onStatus('quoting');
 	const quoteResp = await fetch('/api/token/quote', {

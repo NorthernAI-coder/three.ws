@@ -15,6 +15,7 @@
  */
 
 import { registerWalletTab } from '../registry.js';
+import { ensureRiskAck } from '../../shared/risk-ack.js';
 import {
 	searchBazaarServices,
 	previewX402,
@@ -496,6 +497,7 @@ registerWalletTab({
 			const sel = state.selected;
 			const p = state.preview;
 			if (!sel || !p || !p.payable) return;
+			if (!(await ensureRiskAck({ context: 'x402-pay' }))) return;
 			state.paying = true;
 			state.payError = null;
 			state.progress = [{ key: 'start', label: 'Submitting payment…', active: true }];

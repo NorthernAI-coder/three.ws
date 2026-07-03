@@ -24,6 +24,7 @@
 import { registerWalletTab } from '../registry.js';
 import { formatUsd, explorerTxUrl, shortAddress as shortAddr } from '../util.js';
 import { consumeCsrfToken } from '../../api.js';
+import { ensureRiskAck } from '../../shared/risk-ack.js';
 
 const SOL_ADDR_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const PREF_KEY = (agentId) => `awh:give:${agentId}`;
@@ -502,6 +503,7 @@ registerWalletTab({
 		async function submitDonation() {
 			const it = state.intent;
 			if (!it || state.phase === 'sending') return;
+			if (ctx.getNetwork() !== 'devnet' && !(await ensureRiskAck({ context: 'give' }))) return;
 			state.phase = 'sending';
 			render();
 			const res = await call(base('withdraw'), {
