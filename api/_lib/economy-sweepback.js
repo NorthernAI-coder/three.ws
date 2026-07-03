@@ -40,10 +40,16 @@ function num(envName, dflt) {
 
 /** Skip a SOL sweep smaller than this — moving dust costs more than it returns. */
 export const MIN_SWEEP_SOL = num('ECONOMY_SWEEPBACK_MIN_SOL', 0.01);
-/** Lamports a drained signer keeps to cover its own sweep transaction fees. */
-export const DRAIN_HEADROOM_LAMPORTS = 20_000;
-/** Most token accounts settled in one transaction (size + CU bound). */
-const TOKEN_ACCOUNTS_PER_TX = 6;
+/**
+ * Lamports a drained signer keeps: fees for its own sweep transactions PLUS the
+ * ~890,880-lamport rent-exempt minimum. The runtime rejects any transfer that
+ * leaves a system account above zero but below rent exemption
+ * (InsufficientFundsForRent), so a drain must leave at least this — 0.001 SOL —
+ * or the drain transaction itself would fail.
+ */
+export const DRAIN_HEADROOM_LAMPORTS = 1_000_000;
+/** Most token accounts settled in one transaction (tx size + CU bound). */
+const TOKEN_ACCOUNTS_PER_TX = 4;
 
 /**
  * Compute the guarded per-signer SOL sweep amounts. Pure — no RPC — so the plan
@@ -148,8 +154,9 @@ async function sweepTokenBalances({ connection, owner, network }) {
 /**
  * Execute the consolidation sweep across every configured registry signer.
  * Tokens first (their fees and rent refunds settle before the SOL read), then
- * SOL per the mode's plan. Duplicate pubkeys (fallback env vars resolving to
- * the same wallet) are swept once. Never throws for a business-rule stop.
+ * SOL per the mode's plan. Registry entries wired to the same physical wallet
+ * are swept once, with their guards merged conservatively (any-holds-tokens,
+ * highest float). Never throws for a business-rule stop.
  *
  * @param {object} args
  * @param {import('@solana/web3.js').Connection} args.connection
@@ -169,13 +176,18 @@ export async function sweepBack({ connection, mode = 'excess', includeTokens = t
 		/* balance context is best-effort; the sweep itself does not need it */
 	}
 
-	const seen = new Set();
 	const sweptSol = [];
 	const sweptTokens = [];
 	const failed = [];
 	const skipped = [];
 	const readErrors = [];
 
+	// Several registry entries can be WIRED to the same physical wallet (fallback
+	// env vars, or the operator assigning multiple slots to one key). Sweeping is
+	// per-wallet, so resolve everything first and merge aliases conservatively:
+	// the wallet holds tokens if ANY of its slots does, and its float is the
+	// HIGHEST float any slot requires.
+	const wallets = new Map();
 	for (const spec of SOLANA_SIGNERS) {
 		if (spec.isMaster || spec.network === 'devnet') continue;
 		const { keypair, configured, decodeError } = await loadSignerKeypair(spec);
@@ -189,30 +201,44 @@ export async function sweepBack({ connection, mode = 'excess', includeTokens = t
 			skipped.push({ name: spec.name, reason: 'is_master' });
 			continue;
 		}
-		if (seen.has(pubkey)) {
-			skipped.push({ name: spec.name, reason: 'duplicate_pubkey' });
-			continue;
+		const floorSol = spec.refillTo ?? spec.minSol * DEFAULT_REFILL_MULTIPLE;
+		const existing = wallets.get(pubkey);
+		if (existing) {
+			existing.names.push(spec.name);
+			existing.holdsTokens = existing.holdsTokens || Boolean(spec.holdsTokens);
+			existing.floorSol = Math.max(existing.floorSol, floorSol);
+		} else {
+			wallets.set(pubkey, {
+				pubkey,
+				keypair,
+				names: [spec.name],
+				holdsTokens: Boolean(spec.holdsTokens),
+				floorSol,
+			});
 		}
-		seen.add(pubkey);
+	}
 
-		// Tokens first. In excess mode a signer that operationally holds tokens
-		// (buyback USDC, withdrawal SPL float, …) keeps them; a drain takes all.
-		if (includeTokens && (mode === 'drain' || !spec.holdsTokens)) {
-			const tokens = await sweepTokenBalances({ connection, owner: keypair, network });
-			for (const t of tokens.swept) sweptTokens.push({ name: spec.name, pubkey, ...t });
-			for (const f of tokens.failed) failed.push({ name: spec.name, pubkey, sol: null, reason: `token ${f.mint}: ${f.reason}` });
+	for (const wallet of wallets.values()) {
+		const name = wallet.names.join('+');
+
+		// Tokens first. In excess mode a wallet that operationally holds tokens
+		// (buyback USDC, withdrawal SPL float, NFT collection) keeps them; a
+		// drain takes all.
+		if (includeTokens && (mode === 'drain' || !wallet.holdsTokens)) {
+			const tokens = await sweepTokenBalances({ connection, owner: wallet.keypair, network });
+			for (const t of tokens.swept) sweptTokens.push({ name, pubkey: wallet.pubkey, ...t });
+			for (const f of tokens.failed) failed.push({ name, pubkey: wallet.pubkey, sol: null, reason: `token ${f.mint}: ${f.reason}` });
 		}
 
 		let currentSol;
 		try {
-			currentSol = round((await connection.getBalance(keypair.publicKey, 'confirmed')) / LAMPORTS_PER_SOL);
+			currentSol = round((await connection.getBalance(wallet.keypair.publicKey, 'confirmed')) / LAMPORTS_PER_SOL);
 		} catch (e) {
-			readErrors.push({ name: spec.name, pubkey, reason: `rpc_error: ${e?.message}` });
+			readErrors.push({ name, pubkey: wallet.pubkey, reason: `rpc_error: ${e?.message}` });
 			continue;
 		}
-		const floorSol = spec.refillTo ?? spec.minSol * DEFAULT_REFILL_MULTIPLE;
 		const { plan, skipped: planSkipped } = planSweepback(
-			[{ name: spec.name, pubkey, currentSol, floorSol }],
+			[{ name, pubkey: wallet.pubkey, currentSol, floorSol: wallet.floorSol }],
 			{ mode },
 		);
 		skipped.push(...planSkipped);
@@ -220,10 +246,10 @@ export async function sweepBack({ connection, mode = 'excess', includeTokens = t
 			try {
 				const signature = await sendSol({
 					connection,
-					fromKeypair: keypair,
+					fromKeypair: wallet.keypair,
 					to: master,
 					lamports: Math.round(step.sol * LAMPORTS_PER_SOL),
-					memo: `three.ws sweepback ${spec.name} → economy-master`,
+					memo: `three.ws sweepback ${name} → economy-master`,
 					network,
 				});
 				sweptSol.push({ name: step.name, pubkey: step.pubkey, sol: step.sol, signature });
