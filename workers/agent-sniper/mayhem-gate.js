@@ -7,7 +7,7 @@
 // cached RPC read per mint, shared across every agent evaluating that mint).
 //
 // This wires the already-tested filter from @three-ws/agent-sniper
-// (packages/agent-sniper/scripts/mayhem-filter.js) into the DB-coupled worker's
+// (packages/agent-sniper/src/mayhem-filter.js) into the DB-coupled worker's
 // buy chokepoint (executor.executeBuy), so EVERY trigger path — new_mint, intel,
 // alpha, first_claim, radar, swarm — is covered, not just the standalone fleet.
 //
@@ -16,7 +16,7 @@
 //                             (default: allow-on-unknown, logged), so a flaky
 //                             RPC read can't silently halt all trading.
 
-import { createMayhemFilter } from '../../packages/agent-sniper/scripts/mayhem-filter.js';
+import { createMayhemFilter } from '../../packages/agent-sniper/src/mayhem-filter.js';
 import { log } from './log.js';
 
 /**
