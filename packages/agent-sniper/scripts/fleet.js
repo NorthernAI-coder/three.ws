@@ -31,7 +31,10 @@ import {
 } from '@solana/web3.js';
 import bs58 from 'bs58';
 
-import { presets } from '../src/index.js';
+import {
+	presets, createSniper, createMemoryStore, createSelfCustodyWallet,
+	createPumpClient, createWeb3Executor, createPumpPortalFeed,
+} from '../src/index.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
@@ -253,8 +256,30 @@ async function cmdRun(flags) {
 	console.log(`\n  Starting sniper — ${keys.agents.length} agents · ${mode.toUpperCase()} · ${keys.network} · ${perTrade} SOL/trade`);
 	console.log(`  RPC: ${rpcUrl ? rpcUrl.replace(/api-key=[^&]+/i, 'api-key=***') : 'default'}\n`);
 
-	const sniper = await presets.local({ network: keys.network, mode, rpcUrl, strategies, secrets });
-	await sniper.start();
+	// --serve mounts the package's own HTTP API + web console over THIS fleet's
+	// live sniper/store, so packages/agent-sniper/web/console.html (and the
+	// recorder's dashboard scene) shows our exact 33 agents, not a fresh engine.
+	let sniper;
+	if (flags.serve) {
+		const port = Number(flags.port) || 8787;
+		const store = createMemoryStore({ strategies });
+		const solana = await createPumpClient({ network: keys.network, rpcUrl });
+		sniper = createSniper({
+			config: { network: keys.network, mode, rpcUrl },
+			store,
+			wallet: createSelfCustodyWallet({ secrets }),
+			solana,
+			executor: createWeb3Executor(),
+			feed: createPumpPortalFeed({ network: keys.network }),
+		});
+		const { serve } = await import('../src/faces/api.js');
+		await serve({ sniper, store, adminToken: process.env.SNIPER_ADMIN_TOKEN }, { port });
+		sniper.__started = true; // serve() already called start()
+		console.log(`  Console + API on http://localhost:${port}/  (film this)\n`);
+	} else {
+		sniper = await presets.local({ network: keys.network, mode, rpcUrl, strategies, secrets });
+		await sniper.start();
+	}
 
 	const tick = setInterval(() => {
 		const s = sniper.stats();
