@@ -301,6 +301,11 @@ export const NAV_GROUPS = [
 				label: 'Intelligence',
 				items: [
 					{
+						title: 'Markets',
+						href: '/coins',
+						desc: 'Live global market data — top coins, prices, and a rich detail page for every asset',
+					},
+					{
 						title: 'Coin Intelligence',
 						href: '/coin-intel',
 						badge: 'Live',

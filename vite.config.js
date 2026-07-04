@@ -1341,6 +1341,12 @@ support: resolve(__dirname, 'pages/support.html'),
 						/^\/launches\/[1-9A-HJ-NP-Za-km-z]{32,44}\/?$/.test(path)
 					)
 						filePath = resolve(root, 'pages/launch-detail.html');
+					// /coin/:id  → global coin detail page (CoinGecko slug or Solana mint)
+					else if (
+						!filePath &&
+						/^\/coin\/[a-zA-Z0-9][a-zA-Z0-9_-]{0,99}\/?$/.test(path)
+					)
+						filePath = resolve(root, 'pages/coin.html');
 					// /@<handle>  → public live profile page
 					else if (!filePath && /^\/@[a-z0-9_-]{3,30}\/?$/i.test(path))
 						filePath = resolve(root, 'pages/handle.html');
