@@ -15,9 +15,11 @@
  *    which reads far more like a real firework than radial spokes.
  *  - user-launched fireworks: clicking open hero space fires a rocket that
  *    bursts right where you clicked, and a "🎆 Fireworks" chip injected into
- *    the hero's animation-chip row fires a staggered volley. The chip is a
- *    real button (keyboard + screen-reader reachable) and retires itself with
- *    the rest of the decorations, so no dead control ships out of season.
+ *    the hero's animation-chip row makes the hero avatar light a torch
+ *    (the torch-light clip) and fires a volley timed to the lighting. The
+ *    chip is a real button (keyboard + screen-reader reachable) and retires
+ *    itself with the rest of the decorations, so no dead control ships out
+ *    of season.
  *
  * Every passive layer is aria-hidden, pointer-events:none, and theme-aware.
  * Fireworks are skipped entirely for visitors who prefer reduced motion (the
@@ -236,17 +238,25 @@
 		sinceLaunch = 0; // the user just fired — hold the ambient schedule back
 	});
 
-	// A short staggered volley for the chip — real timers driving real rockets.
+	// A staggered volley for the chip — real timers driving real rockets. The
+	// hero avatar's torch-light clip runs ~4.4s: it dips the torch into the
+	// fire around 1.6s in and raises it burning near the end. Rockets need
+	// ~2s to climb, so launching on the dip ("lighting the fuse") makes the
+	// first bursts land right as the avatar lifts the lit torch. Without the
+	// avatar the fuse delay still reads naturally — fuses take a moment.
+	const FUSE_MS = 1600;
 	function volley() {
 		const n = 5 + ((Math.random() * 3) | 0);
-		for (let i = 0; i < n; i++) setTimeout(() => launch(), i * (130 + Math.random() * 120));
+		for (let i = 0; i < n; i++) setTimeout(() => launch(), FUSE_MS + i * (140 + Math.random() * 140));
 		sinceLaunch = 0;
 	}
 
 	// Inject a "🎆 Fireworks" chip into the hero's animation-chip row so the
-	// feature is discoverable and keyboard-reachable. It carries no data-anim,
-	// so the page's avatar-animation chip handler ignores it, and because it is
-	// only created inside the seasonal window it never ships as a dead button.
+	// feature is discoverable and keyboard-reachable. Its data-anim points at
+	// the torch-light clip, so the page's own avatar chip handler makes the
+	// hero avatar light a torch while this script fires the synced volley.
+	// The chip is only created inside the seasonal window, so it never ships
+	// as a dead button; the torch clip lives in the library year-round.
 	const chipRow = document.getElementById('hero-chips');
 	if (chipRow) {
 		style.textContent += `
@@ -261,7 +271,8 @@
 		const chip = document.createElement('button');
 		chip.type = 'button';
 		chip.className = 'hero-chip hero-chip--fireworks';
-		chip.setAttribute('aria-label', 'Light off a volley of fireworks');
+		chip.dataset.anim = 'torch-light';
+		chip.setAttribute('aria-label', 'Light the torch and set off a volley of fireworks');
 		chip.textContent = '🎆 Fireworks';
 		chip.addEventListener('click', volley);
 		chipRow.prepend(chip);
