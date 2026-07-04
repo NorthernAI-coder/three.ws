@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>A little Fourth of July on the homepage</title>
+			<link>https://three.ws/</link>
+			<guid isPermaLink="false">2026-07-04:A little Fourth of July on the homepage</guid>
+			<pubDate>Sat, 04 Jul 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Visit the homepage this week and you'll catch some quiet Independence Day touches: a thin red-white-and-blue line across the top of the page and the occasional tiny firework sparkling in the hero. Nothing loud — it keeps the site clean, respects reduced-motion settings, works in both light and dark themes, and retires itself automatically after July 5.</description>
+		</item>
+		<item>
 			<title>Deploys restored — the platform ships again, and builds are 4× lighter</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-07-04:Deploys restored — the platform ships again, and builds are 4× lighter</guid>
