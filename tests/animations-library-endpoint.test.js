@@ -11,7 +11,7 @@
  *   - non-GET → 405.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 const getObjectBuffer = vi.fn();
 vi.mock('../api/_lib/r2.js', () => ({ getObjectBuffer: (...a) => getObjectBuffer(...a) }));
@@ -45,8 +45,10 @@ const CLIP = {
 	url: 'https://cdn.example/animations/library/clips/mx-hip-hop-dancing.json',
 };
 
-beforeEach(() => getObjectBuffer.mockReset());
-
+// No beforeEach reset: every test installs its own mockResolvedValue/
+// mockRejectedValue, which fully replaces the previous implementation.
+// (vitest 4's mockReset() leaves the fn throwing the prior rejection value
+// during the reset window, which fails the rejection tests spuriously.)
 describe('GET /api/animations/library', () => {
 	it('returns an empty library when the manifest has not been uploaded yet', async () => {
 		const missing = Object.assign(new Error('no such key'), { name: 'NoSuchKey' });
