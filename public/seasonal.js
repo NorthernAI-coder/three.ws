@@ -7,9 +7,12 @@
  * Currently: Independence Day (July 1–5, viewer's local time).
  *  - a soft red/white/blue ribbon glow across the very top of the viewport
  *  - real launch-and-burst fireworks on a lightweight canvas confined to the
- *    page's `.hero` — rockets rise with a trail, then explode into a patriotic
- *    shower that falls and fades. Sparse by design (one rocket every few
- *    seconds) so it reads as celebratory, not busy.
+ *    page's `.hero`. Rockets rise, then explode in a strictly red/white/blue
+ *    palette. Every rocket picks a random effect (peony, ring, willow,
+ *    chrysanthemum, crackle, or comet), a random size, and a random color
+ *    scheme, so no two bursts look alike. The streaky trails come from the
+ *    canvas's own fading afterglow — natural motion blur, not drawn lines,
+ *    which reads far more like a real firework than radial spokes.
  *
  * Every layer is aria-hidden, pointer-events:none, and theme-aware. Fireworks
  * are skipped entirely for visitors who prefer reduced motion (the ribbon
@@ -78,16 +81,30 @@
 
 	const ctx = canvas.getContext('2d');
 
-	// Patriotic palette, theme-aware. Read once; re-read on theme flip.
-	const PALETTES = {
-		dark:  ['#ff5a5f', '#f4f6ff', '#6f8cff', '#ffd166'],
-		light: ['#d4373c', '#e6ecff', '#3452c7', '#e0a53b'],
-	};
-	let palette = PALETTES[document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark'];
-	const themeObserver = new MutationObserver(() => {
-		palette = PALETTES[document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark'];
-	});
+	// Strictly red / white / blue. Theme-aware so it reads on light or dark.
+	// On a light backdrop we draw normally (source-over); on dark we add light
+	// (lighter) so overlapping sparks glow. Colors re-read on a theme flip.
+	function colors() {
+		const light = document.documentElement.getAttribute('data-theme') === 'light';
+		return light
+			? { red: ['#c62828', '#e14b4b'], white: ['#7c86c4', '#9aa3d6'], blue: ['#2740b8', '#3f5ad6'], comp: 'source-over' }
+			: { red: ['#ff3b3b', '#ff6b6e'], white: ['#ffffff', '#eaeeff'], blue: ['#4d6bff', '#8aa2ff'], comp: 'lighter' };
+	}
+	let C = colors();
+	const themeObserver = new MutationObserver(() => { C = colors(); });
 	themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+	// A color scheme is a weighted bag of channels; each spark draws one.
+	const SCHEMES = [
+		['red', 'white', 'blue'],           // full patriotic mix
+		['red', 'red', 'white'],            // red-forward with white sparkle
+		['blue', 'blue', 'white'],          // blue-forward with white sparkle
+		['white', 'white', 'red', 'blue'],  // silver shell, colored flecks
+		['red', 'white', 'blue', 'blue'],
+	];
+	const rand = (a, b) => a + Math.random() * (b - a);
+	const pick = (arr) => arr[(Math.random() * arr.length) | 0];
+	function channelColor(ch) { const pair = C[ch] || C.white; return pair[(Math.random() * pair.length) | 0]; }
 
 	let dpr = Math.min(window.devicePixelRatio || 1, 2);
 	let W = 0, H = 0;
@@ -104,69 +121,126 @@
 
 	const rockets = [];   // rising trails
 	const sparks = [];    // exploded particles
-	const GRAVITY = 0.05;
-	const MAX_SPARKS = 320;
+	const MAX_SPARKS = 900;
 
 	function launch() {
 		if (W === 0 || H === 0) return;
-		const targetY = H * (0.16 + Math.random() * 0.34);
-		const x = W * (0.16 + Math.random() * 0.68);
+		const targetY = H * rand(0.10, 0.46);
+		const x = W * rand(0.12, 0.88);
+		const g = 0.05;
 		rockets.push({
 			x, y: H + 4,
-			vy: -(Math.sqrt(2 * GRAVITY * (H - targetY)) + 0.6),
-			color: palette[(Math.random() * palette.length) | 0],
+			vx: rand(-0.25, 0.25),
+			vy: -(Math.sqrt(2 * g * (H - targetY)) + rand(0.3, 0.9)),
+			g,
+			color: channelColor(pick(['red', 'white', 'blue'])),
 			trail: [],
 		});
 	}
 
-	function burst(x, y, color) {
-		const count = 26 + ((Math.random() * 16) | 0);
-		const speed = 1.6 + Math.random() * 1.1;
-		for (let i = 0; i < count; i++) {
-			const a = (Math.PI * 2 * i) / count + Math.random() * 0.16;
-			const s = speed * (0.55 + Math.random() * 0.6);
-			// Mostly the rocket's color, with a few white/gold accents for pop.
-			const c = Math.random() < 0.22 ? palette[(Math.random() * palette.length) | 0] : color;
-			sparks.push({
-				x, y,
-				vx: Math.cos(a) * s,
-				vy: Math.sin(a) * s,
-				life: 1, decay: 0.012 + Math.random() * 0.012,
-				color: c, r: 1.4 + Math.random() * 1.1,
-			});
+	// Effect presets. `size` is a per-firework multiplier that adds variety and
+	// makes some bursts noticeably bigger. Sparks are round dots; their streaks
+	// come from the global afterglow fade, so no effect draws long lines.
+	function burst(x, y) {
+		const effect = pick(['peony', 'ring', 'willow', 'chrysanthemum', 'crackle', 'comet']);
+		const scheme = pick(SCHEMES);
+		const size = rand(0.85, 1.8);
+		const emit = (opts) => {
+			sparks.push(Object.assign({
+				x, y, life: 1, twinkle: false, drag: 0.985, g: 0.05,
+				color: channelColor(pick(scheme)),
+			}, opts));
+		};
+
+		if (effect === 'ring') {
+			const n = 44 + ((Math.random() * 26) | 0);
+			const spd = rand(3.2, 4.6) * size;
+			for (let i = 0; i < n; i++) {
+				const a = (Math.PI * 2 * i) / n;
+				const s = spd * rand(0.94, 1.06);
+				emit({ vx: Math.cos(a) * s, vy: Math.sin(a) * s, decay: rand(0.012, 0.018), r: rand(1.4, 2.4), g: 0.03, drag: 0.985 });
+			}
+		} else if (effect === 'willow') {
+			// Slow, long-lived, heavy — droops under gravity and lingers, so the
+			// afterglow paints soft drooping streaks without any drawn lines.
+			const n = 36 + ((Math.random() * 26) | 0);
+			const spd = rand(2.2, 3.2) * size;
+			for (let i = 0; i < n; i++) {
+				const a = Math.random() * Math.PI * 2;
+				const s = spd * rand(0.5, 1);
+				emit({ vx: Math.cos(a) * s, vy: Math.sin(a) * s, decay: rand(0.006, 0.010), r: rand(1.6, 2.4), g: 0.09, drag: 0.975 });
+			}
+		} else if (effect === 'chrysanthemum') {
+			const n = 60 + ((Math.random() * 46) | 0);
+			const spd = rand(3, 4.6) * size;
+			for (let i = 0; i < n; i++) {
+				const a = Math.random() * Math.PI * 2;
+				const s = spd * Math.sqrt(rand(0.15, 1));
+				emit({ vx: Math.cos(a) * s, vy: Math.sin(a) * s, decay: rand(0.010, 0.016), r: rand(1.4, 2.3), g: 0.05, drag: 0.982 });
+			}
+		} else if (effect === 'crackle') {
+			const n = 55 + ((Math.random() * 45) | 0);
+			const spd = rand(2.4, 4.4) * size;
+			for (let i = 0; i < n; i++) {
+				const a = Math.random() * Math.PI * 2;
+				const s = spd * rand(0.3, 1);
+				emit({ vx: Math.cos(a) * s, vy: Math.sin(a) * s, decay: rand(0.016, 0.028), r: rand(1.2, 2), g: 0.05, drag: 0.98, twinkle: true });
+			}
+		} else if (effect === 'comet') {
+			// A few fast, fading sparks in random directions — short bright darts
+			// whose afterglow gives a clean comet streak, no fake rod.
+			const n = 10 + ((Math.random() * 8) | 0);
+			const spd = rand(3.4, 5) * size;
+			for (let i = 0; i < n; i++) {
+				const a = Math.random() * Math.PI * 2;
+				const s = spd * rand(0.7, 1);
+				emit({ vx: Math.cos(a) * s, vy: Math.sin(a) * s, decay: rand(0.012, 0.02), r: rand(1.8, 2.8), g: 0.06, drag: 0.97 });
+			}
+		} else { // peony — classic round burst
+			const n = 50 + ((Math.random() * 44) | 0);
+			const spd = rand(2.8, 4.8) * size;
+			for (let i = 0; i < n; i++) {
+				const a = Math.random() * Math.PI * 2;
+				const s = spd * Math.sqrt(rand(0.1, 1));
+				emit({ vx: Math.cos(a) * s, vy: Math.sin(a) * s, decay: rand(0.012, 0.018), r: rand(1.5, 2.7), g: 0.048, drag: 0.984 });
+			}
 		}
+
 		if (sparks.length > MAX_SPARKS) sparks.splice(0, sparks.length - MAX_SPARKS);
 	}
 
 	let raf = 0;
 	let sinceLaunch = 0;
-	let nextGap = 40; // frames until first rocket
+	let nextGap = 36; // frames until first rocket
 	let running = false;
 
 	function frame() {
 		if (!running) return;
 		raf = requestAnimationFrame(frame);
 
-		// Trails fade rather than hard-clear, for a soft afterglow.
+		// Sparks aren't cleared each frame — the canvas fades a little instead,
+		// leaving a short glowing tail behind every moving dot. This afterglow
+		// IS the firework streak; a gentler fade means longer, softer tails.
 		ctx.globalCompositeOperation = 'destination-out';
-		ctx.fillStyle = 'rgba(0,0,0,0.22)';
+		ctx.fillStyle = 'rgba(0,0,0,0.15)';
 		ctx.fillRect(0, 0, W, H);
-		ctx.globalCompositeOperation = 'lighter';
+		ctx.globalCompositeOperation = C.comp;
 
 		if (++sinceLaunch >= nextGap) {
 			sinceLaunch = 0;
-			nextGap = 150 + ((Math.random() * 130) | 0); // ~2.5–4.6s at 60fps
+			nextGap = 100 + ((Math.random() * 150) | 0); // ~1.7–4.2s at 60fps
 			launch();
-			if (Math.random() < 0.28) launch(); // occasional double
+			if (Math.random() < 0.35) launch();          // occasional double
+			if (Math.random() < 0.12) launch();          // rare triple
 		}
 
 		for (let i = rockets.length - 1; i >= 0; i--) {
 			const r = rockets[i];
-			r.x += (r.vx || 0);
+			r.x += r.vx;
 			r.y += r.vy;
-			r.vy += GRAVITY;
+			r.vy += r.g;
 			r.trail.push({ x: r.x, y: r.y });
-			if (r.trail.length > 8) r.trail.shift();
+			if (r.trail.length > 6) r.trail.shift();
 
 			ctx.beginPath();
 			for (let t = 0; t < r.trail.length; t++) {
@@ -174,13 +248,13 @@
 				if (t === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
 			}
 			ctx.strokeStyle = r.color;
-			ctx.globalAlpha = 0.7;
-			ctx.lineWidth = 1.6;
+			ctx.globalAlpha = 0.6;
+			ctx.lineWidth = 1.8;
 			ctx.stroke();
 			ctx.globalAlpha = 1;
 
 			if (r.vy >= -0.4) { // apex reached — explode
-				burst(r.x, r.y, r.color);
+				burst(r.x, r.y);
 				rockets.splice(i, 1);
 			}
 		}
@@ -189,11 +263,16 @@
 			const s = sparks[i];
 			s.x += s.vx;
 			s.y += s.vy;
-			s.vy += GRAVITY;
-			s.vx *= 0.985;
+			s.vy += s.g;
+			s.vx *= s.drag;
+			s.vy *= s.drag;
 			s.life -= s.decay;
 			if (s.life <= 0) { sparks.splice(i, 1); continue; }
-			ctx.globalAlpha = Math.max(0, s.life);
+
+			let alpha = s.life;
+			if (s.twinkle) alpha *= Math.random() < 0.5 ? 0.15 : 1;
+
+			ctx.globalAlpha = Math.max(0, alpha);
 			ctx.fillStyle = s.color;
 			ctx.beginPath();
 			ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
@@ -205,7 +284,7 @@
 	function start() {
 		if (running) return;
 		running = true;
-		sinceLaunch = 0; nextGap = 40;
+		sinceLaunch = 0; nextGap = 36;
 		raf = requestAnimationFrame(frame);
 	}
 	function stop() {
