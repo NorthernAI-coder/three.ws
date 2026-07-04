@@ -73,7 +73,7 @@ import {
 const log = logger('x402-ring-tick');
 
 const ORIGIN = () => env.APP_ORIGIN || 'https://three.ws';
-const RING_SETTLE_DEFAULT_PRICE = '35000000'; // $35.00 — mirrors ring-settle.js (RING_SETTLE_DEFAULT_PRICE_ATOMICS)
+const RING_SETTLE_DEFAULT_PRICE = '1000000'; // $1.00 — mirrors ring-settle.js (RING_SETTLE_DEFAULT_PRICE_ATOMICS)
 
 // Redis keys: a monotonic per-minute tick counter and the cheap-rotation cursor.
 // Independent of the volume loop's cursor so the two drivers rotate separately.

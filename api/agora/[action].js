@@ -28,6 +28,7 @@ import { createHash } from 'node:crypto';
 import { cors, json, method, error, wrap, serverError } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { sql } from '../_lib/db.js';
+import { isUuid } from '../_lib/validate.js';
 import { Bazaar, filterByMaxPrice, filterByNetwork } from '../_lib/x402/bazaar-client.js';
 import { assembleTaskLive } from '../_lib/agora-task-live.js';
 // Terminal-kind sets + type helpers are the labour engine's single source of
@@ -401,6 +402,10 @@ async function handlePassport(req, res) {
 	const q = req.query || {};
 	let row;
 	if (q.id) {
+		// agora_citizens.id is a uuid column — a non-uuid id (scanner probes send
+		// arbitrary strings) would make Postgres throw 22P02 and 500. Same outcome
+		// as a well-formed-but-unknown id: no such citizen.
+		if (!isUuid(String(q.id))) return error(res, 404, 'not_found', 'no such citizen');
 		[row] = await sql`select * from agora_citizens where id = ${String(q.id)} limit 1`;
 	} else if (q.agentPda) {
 		[row] = await sql`select * from agora_citizens where agenc_agent_pda = ${String(q.agentPda)} limit 1`;
