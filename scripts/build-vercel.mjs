@@ -238,18 +238,12 @@ try {
 	// @three-ws/agent-payments (not in its EXTERNALS), so the SDK dist must
 	// exist before esbuild resolves it — sdk-dist gates bundle-api; prebuild
 	// stays parallel.
-	phase(1, 'audit:deploy ∥ prebuild ∥ (sdk-dist → bundle-api)');
+	phase(1, 'audit:deploy ∥ prebuild ∥ (sdk-dist → bundle-api ∥ test:gate)');
 	await Promise.all([
 		// Fails in seconds on committed symlinks, unsatisfied peer deps, or
 		// undeclared api/ imports — the classes behind the 2026-06-11 outage —
 		// instead of 18 minutes into NFT tracing or, worse, at runtime.
 		run('audit:deploy', 'node scripts/audit-deploy-artifacts.mjs'),
-			// Critical-path test gate: a curated, offline-safe subset of money/auth
-			// unit tests (see scripts/test-gate.mjs). With GitHub Actions unavailable,
-			// this is the only place a regression in confirmation handling, the HTTP
-			// cache/error boundary, or custody spend guards fails the deploy instead
-			// of shipping. ~7s; the full suite still runs via `npm test` locally.
-			run('test:gate', 'node scripts/test-gate.mjs'),
 		// Solana address parity + on-chain provenance: fails the build on a
 		// hardcoded non-$THREE coin or a drifted program ID/mint across the repo,
 		// and confirms the canonical accounts are the right kind on mainnet
@@ -267,7 +261,24 @@ try {
 		// and mcpName mismatches at build time instead of on publish day.
 		run('audit:mcp', 'node scripts/audit-mcp-manifests.mjs'),
 		prebuild(),
-		ensureSDKDist().then(bundleApi),
+		// sdk-dist gates BOTH consumers of @three-ws/agent-payments: bundle-api
+		// inlines it (esbuild resolve), and test:gate's leaderboard test imports
+		// it (vite resolve). When postinstall's build-cache skips the SDK build
+		// (or a fresh install lands without dist), racing test:gate ahead of
+		// sdk-dist fails the deploy on "Failed to resolve entry" — deployment
+		// 516c557e7, 2026-07-03. Sequence it explicitly instead of relying on
+		// postinstall having built the dist.
+		ensureSDKDist().then(() =>
+			Promise.all([
+				bundleApi(),
+				// Critical-path test gate: a curated, offline-safe subset of money/auth
+				// unit tests (see scripts/test-gate.mjs). With GitHub Actions unavailable,
+				// this is the only place a regression in confirmation handling, the HTTP
+				// cache/error boundary, or custody spend guards fails the deploy instead
+				// of shipping. ~7s; the full suite still runs via `npm test` locally.
+				run('test:gate', 'node scripts/test-gate.mjs'),
+			]),
+		),
 	]);
 
 	// Phase 2: buildLib alone. avatar-sdk depends on dist-lib/agent-3d.js, and
