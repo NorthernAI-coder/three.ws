@@ -13,6 +13,7 @@
 
 import { Group, Vector3 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { getMeshoptDecoder } from '../viewer/internal.js';
 import { Box3, Mesh, CapsuleGeometry, SphereGeometry, MeshStandardMaterial } from 'three';
 import { AnimationManager } from '../animation-manager.js';
 
@@ -29,6 +30,8 @@ const NAMES = ['satoshi', 'anon', 'gm_ser', 'degenape', 'moonboy', 'pepe', 'wagm
 const LINES = ['gm ☀️', 'wen moon', 'lfg 🚀', 'wagmi', 'probably nothing', 'few understand', 'based', 'diamond hands 💎', 'ser…', 'this is the way', 'bullish af', 'vibes immaculate', 'we so back', 'iykyk', 'up only 📈'];
 
 const _gltf = new GLTFLoader();
+// three.ws GLBs may carry EXT_meshopt_compression — decoder required before load
+const _meshoptReady = getMeshoptDecoder().then((d) => _gltf.setMeshoptDecoder(d));
 let _defs = null;     // [idle, walk] animation defs
 let _emotes = null;   // a handful of emote defs
 let _avatars = null;  // pool of public-gallery GLB URLs ([] once the fetch settles)
@@ -65,6 +68,7 @@ async function loadAvatarPool() {
 // back to a simple stand-in so a wanderer is never invisible.
 async function buildAvatar(rig, anim, url) {
 	try {
+		await _meshoptReady;
 		const gltf = await _gltf.loadAsync(url || AVATAR_DEFAULT);
 		const model = gltf.scene;
 		model.traverse((n) => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = false; } });

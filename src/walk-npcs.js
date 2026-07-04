@@ -23,6 +23,7 @@
 
 import { Box3, Group, Vector3 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { getMeshoptDecoder } from './viewer/internal.js';
 import { clone as cloneSkinnedScene } from 'three/addons/utils/SkeletonUtils.js';
 import { AnimationManager } from './animation-manager.js';
 import { log } from './shared/log.js';
@@ -96,7 +97,10 @@ function loadTemplate(url) {
 	let p = _templateCache.get(url);
 	if (!p) {
 		const loader = new GLTFLoader();
-		p = loader.loadAsync(url).then((gltf) => gltf.scene);
+		p = getMeshoptDecoder()
+			.then((d) => loader.setMeshoptDecoder(d))
+			.then(() => loader.loadAsync(url))
+			.then((gltf) => gltf.scene);
 		_templateCache.set(url, p);
 	}
 	return p;

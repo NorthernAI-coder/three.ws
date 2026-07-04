@@ -22,6 +22,7 @@
 
 import { Color, EquirectangularReflectionMapping, GridHelper, Group, PMREMGenerator } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { getMeshoptDecoder } from './viewer/internal.js';
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 
 const MANIFEST_URL = '/environments/index.json';
@@ -29,6 +30,8 @@ const ASSET_BASE = '/environments/';
 
 let _manifestPromise = null;
 const _gltfLoader = new GLTFLoader();
+// three.ws GLBs may carry EXT_meshopt_compression — decoder required before load
+const _meshoptReady = getMeshoptDecoder().then((d) => _gltfLoader.setMeshoptDecoder(d));
 
 // Fetch + cache the environment manifest. Resolves to
 // { version, default, environments: [...] }. The promise is memoised so the
@@ -80,6 +83,7 @@ export async function loadEnvironmentScenery(meta, { heightAt } = {}) {
 		return { group, dispose: () => disposeGroup(group) };
 	}
 
+	await _meshoptReady;
 	const gltf = await _gltfLoader.loadAsync(ASSET_BASE + meta.scene);
 	const root = gltf.scene;
 	const snap = typeof heightAt === 'function';

@@ -25,6 +25,7 @@
 import * as THREE from 'three';
 import { createLogger } from './shared/log.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { getMeshoptDecoder } from './viewer/internal.js';
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
@@ -312,10 +313,12 @@ function toast(msg, duration = 2500) {
 
 // ── GLB loader ────────────────────────────────────────────────────────────────
 const gltfLoader = new GLTFLoader();
+// three.ws GLBs may carry EXT_meshopt_compression — decoder required before load
+const meshoptReady = getMeshoptDecoder().then((d) => gltfLoader.setMeshoptDecoder(d));
 
 function loadGLB(url, name, opts = {}) {
 	return new Promise((resolve, reject) => {
-		gltfLoader.load(url, (gltf) => {
+		meshoptReady.then(() => gltfLoader.load(url, (gltf) => {
 			const group = gltf.scene;
 			group.traverse((n) => {
 				if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; }
@@ -335,7 +338,7 @@ function loadGLB(url, name, opts = {}) {
 			const bones = [];
 			group.traverse((n) => { if (n.isBone) bones.push({ name: n.name, bone: n }); });
 			resolve({ group, gltf, bones });
-		}, undefined, reject);
+		}, undefined, reject));
 	});
 }
 

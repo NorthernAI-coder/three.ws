@@ -9,6 +9,7 @@
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { getMeshoptDecoder } from './viewer/internal.js';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -178,7 +179,8 @@ function partIdFor(obj) {
 function loadSegmentedModel(glbUrl, manifest) {
 	return new Promise((resolve, reject) => {
 		const loader = new GLTFLoader();
-		loader.load(
+		const meshoptReady = getMeshoptDecoder().then((d) => loader.setMeshoptDecoder(d));
+		meshoptReady.then(() => loader.load(
 			glbUrl,
 			(gltf) => {
 				clearModel();
@@ -232,7 +234,7 @@ function loadSegmentedModel(glbUrl, manifest) {
 			},
 			undefined,
 			(err) => reject(new Error(`Could not load the segmented model: ${err?.message || err}`)),
-		);
+		));
 	});
 }
 

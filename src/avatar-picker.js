@@ -137,9 +137,10 @@ const _thumbCache = new Map(); // glbUrl → data:image/png
 async function getOffscreenCtx() {
 	if (_offscreenCtx) return _offscreenCtx;
 	const [{ WebGLRenderer, Scene, PerspectiveCamera, AmbientLight, DirectionalLight, Box3, Vector3 },
-	       { GLTFLoader }] = await Promise.all([
+	       { GLTFLoader }, { getMeshoptDecoder }] = await Promise.all([
 		import('three'),
 		import('three/addons/loaders/GLTFLoader.js'),
+		import('./viewer/internal.js'),
 	]);
 	const cvs = document.createElement('canvas');
 	cvs.width = 256; cvs.height = 256;
@@ -158,7 +159,10 @@ async function getOffscreenCtx() {
 	const fill = new DirectionalLight(0xaaccff, 0.5);
 	fill.position.set(-2, 2, -1);
 	scene.add(fill);
-	_offscreenCtx = { renderer, camera, scene, loader: new GLTFLoader(), Box3, Vector3 };
+	const loader = new GLTFLoader();
+	// three.ws GLBs may carry EXT_meshopt_compression — decoder required before load
+	loader.setMeshoptDecoder(await getMeshoptDecoder());
+	_offscreenCtx = { renderer, camera, scene, loader, Box3, Vector3 };
 	return _offscreenCtx;
 }
 

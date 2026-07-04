@@ -23,6 +23,7 @@
  */
 
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { getMeshoptDecoder } from './viewer/internal.js';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { glbBlobToUsdzBlob } from './usdz-pipeline.js';
 
@@ -512,6 +513,7 @@ function encodeGlb(jsonBytes, binBytes) {
 
 async function loadGlb(blob) {
 	const loader = new GLTFLoader();
+	loader.setMeshoptDecoder(await getMeshoptDecoder());
 	const buf = await blob.arrayBuffer();
 	return new Promise((resolve, reject) => {
 		loader.parse(buf, '', resolve, reject);

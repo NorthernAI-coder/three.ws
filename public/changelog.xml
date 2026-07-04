@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>3D avatars load about 4x faster - and reliably everywhere</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-04:3D avatars load about 4x faster - and reliably everywhere</guid>
+			<pubDate>Sat, 04 Jul 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Seven of the heaviest built-in avatars were compressed from a combined 42 MB down to under 10 MB (76% smaller), so avatar pickers, NPC scenes, and the walk companion appear much sooner - especially on slower connections. Along the way we fixed a loading bug: a few pages, including the live agent-to-agent trade demo, could silently show placeholder capsule figures instead of the real 3D avatars. Every 3D surface on the site now decodes compressed avatars correctly.</description>
+		</item>
+		<item>
 			<title>A little Fourth of July on the homepage</title>
 			<link>https://three.ws/</link>
 			<guid isPermaLink="false">2026-07-04:A little Fourth of July on the homepage</guid>

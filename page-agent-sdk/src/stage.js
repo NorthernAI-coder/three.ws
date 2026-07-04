@@ -22,6 +22,17 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { buildMorphMap } from './lipsync.js';
 
+// Catalog rigs served by three.ws (e.g. cz.glb) carry EXT_meshopt_compression;
+// GLTFLoader throws "setMeshoptDecoder must be called" without a decoder.
+// Lazy + memoized so pages using only uncompressed rigs skip the wasm init.
+let _meshoptPromise = null;
+function getMeshoptDecoder() {
+	if (!_meshoptPromise) {
+		_meshoptPromise = import('three/addons/libs/meshopt_decoder.module.js').then((m) => m.MeshoptDecoder);
+	}
+	return _meshoptPromise;
+}
+
 const FRAMING = {
 	// [vertical fraction of model height to center on, distance multiplier]
 	bust: { center: 0.86, dist: 0.62, fov: 28 },
@@ -131,6 +142,7 @@ export class AvatarStage {
 	async load(url, opts = {}) {
 		const token = ++this._loadToken;
 		const loader = new GLTFLoader();
+		loader.setMeshoptDecoder(await getMeshoptDecoder());
 		const gltf = await loader.loadAsync(url);
 		if (token !== this._loadToken) return null; // superseded
 

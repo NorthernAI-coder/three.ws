@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { getMeshoptDecoder } from './viewer/internal.js';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 const BUYER_COL  = new THREE.Color(0x4589ff); // IBM blue
@@ -121,6 +122,9 @@ const gltfLoader = new GLTFLoader();
 const draco = new DRACOLoader();
 draco.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
 gltfLoader.setDRACOLoader(draco);
+// default.glb is meshopt-compressed — without this decoder every load threw
+// and the scene silently degraded to the capsule fallback figures.
+const meshoptReady = getMeshoptDecoder().then((d) => gltfLoader.setMeshoptDecoder(d));
 
 // Label tracking positions (above each avatar's head)
 const labelPos = {
@@ -157,7 +161,7 @@ function makeFallbackFigure(col) {
 }
 
 function loadAvatar(worldPos, col, yaw, onLoaded) {
-  gltfLoader.load(AVATAR_GLB, (gltf) => {
+  meshoptReady.then(() => gltfLoader.load(AVATAR_GLB, (gltf) => {
     const s = gltf.scene.clone(true);
     applyTint(s, col);
     s.position.copy(worldPos);
@@ -172,7 +176,7 @@ function loadAvatar(worldPos, col, yaw, onLoaded) {
     s.rotation.y = yaw;
     scene.add(s);
     onLoaded(s, new THREE.Vector3(worldPos.x, 2.15, worldPos.z));
-  });
+  }));
 }
 
 loadAvatar(BUYER_POS,  BUYER_COL,  0.12, (m, top) => { buyerMesh  = m; labelPos.buyer  = top; });
