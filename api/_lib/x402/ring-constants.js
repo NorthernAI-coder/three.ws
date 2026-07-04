@@ -9,21 +9,23 @@
 // can import it without dragging the pipeline's load-time deps in.
 
 /**
- * ring-settle default price in USDC atomic units ($35.00). Deliberately large so
- * the closed-loop ring carries real volume with FEW transactions (SOL fee scales
- * with tx count, not size). At the default one-settle-per-minute cadence this
- * targets ~$50k/day of settled ring volume (1440 ticks × $35). Lower it only if
- * you want more, smaller settlements; env `X402_PRICE_RING_SETTLE` overrides it.
+ * ring-settle default price in USDC atomic units ($1.00). The default must be
+ * affordable from the ring payer's REAL balance or every settle tick skips on
+ * `insufficient_payer_usdc` back-pressure and the whole visible ring economy
+ * flat-lines (this happened in production when the default was lifted to $35
+ * ahead of funding that never arrived). Scaling volume up is an env change, not
+ * a code change: fund the payer, then raise `X402_PRICE_RING_SETTLE` (and the
+ * caps below) together.
  */
-export const RING_SETTLE_DEFAULT_PRICE_ATOMICS = '35000000';
+export const RING_SETTLE_DEFAULT_PRICE_ATOMICS = '1000000';
 
 /**
- * Volume-loop per-run cap default in USDC atomic units ($40.00). Must stay
+ * Volume-loop per-run cap default in USDC atomic units ($1.10). Must stay
  * ≥ RING_SETTLE_DEFAULT_PRICE_ATOMICS or the config validator raises
  * `ring_price_exceeds_run_cap` and the ring skips ring-settle every tick. Env
  * `X402_VOLUME_PER_RUN_CAP_ATOMIC` overrides it.
  */
-export const VOLUME_PER_RUN_CAP_ATOMIC_DEFAULT = 40_000_000;
+export const VOLUME_PER_RUN_CAP_ATOMIC_DEFAULT = 1_100_000;
 
 /** Resolve the per-run cap, honoring the env override. */
 export function volumePerRunCapAtomic() {
