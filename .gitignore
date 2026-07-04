@@ -325,3 +325,8 @@ Screenshot 2026-07-02 at 3.18.08 PM.png
 .verify-runner.sh
 docs/content/social/x-article-backlog-leak.md
 .old-account-kms-envelopes.json
+
+# Bulk Mixamo library (multi-GB, fetched via npm run mixamo:download) —
+# mx-*.fbx are build-time retarget sources, never committed or deployed.
+animation-sources/mx-*.fbx
+scripts/mixamo-progress.json

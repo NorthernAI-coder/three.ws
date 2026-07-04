@@ -13,10 +13,15 @@
  *    scheme, so no two bursts look alike. The streaky trails come from the
  *    canvas's own fading afterglow — natural motion blur, not drawn lines,
  *    which reads far more like a real firework than radial spokes.
+ *  - user-launched fireworks: clicking open hero space fires a rocket that
+ *    bursts right where you clicked, and a "🎆 Fireworks" chip injected into
+ *    the hero's animation-chip row fires a staggered volley. The chip is a
+ *    real button (keyboard + screen-reader reachable) and retires itself with
+ *    the rest of the decorations, so no dead control ships out of season.
  *
- * Every layer is aria-hidden, pointer-events:none, and theme-aware. Fireworks
- * are skipped entirely for visitors who prefer reduced motion (the ribbon
- * still shows), and the animation pauses whenever the tab is hidden.
+ * Every passive layer is aria-hidden, pointer-events:none, and theme-aware.
+ * Fireworks are skipped entirely for visitors who prefer reduced motion (the
+ * ribbon still shows), and the animation pauses whenever the tab is hidden.
  */
 (() => {
 	const now = new Date();
@@ -122,16 +127,21 @@
 	const rockets = [];   // rising trails
 	const sparks = [];    // exploded particles
 	const MAX_SPARKS = 900;
+	const MAX_ROCKETS = 16;
 
-	function launch() {
+	// Ambient launches pick their own spot; user launches pass an aim point and
+	// the rocket's velocity is solved so its apex (the burst) lands there.
+	function launch(aimX, aimY) {
 		if (W === 0 || H === 0) return;
-		const targetY = H * rand(0.10, 0.46);
-		const x = W * rand(0.12, 0.88);
+		if (rockets.length >= MAX_ROCKETS) return;
+		const targetY = aimY != null ? aimY : H * rand(0.10, 0.46);
+		const x = aimX != null ? aimX + rand(-8, 8) : W * rand(0.12, 0.88);
 		const g = 0.05;
 		rockets.push({
 			x, y: H + 4,
 			vx: rand(-0.25, 0.25),
-			vy: -(Math.sqrt(2 * g * (H - targetY)) + rand(0.3, 0.9)),
+			// Aimed rockets get far less overshoot so the burst stays on the click.
+			vy: -(Math.sqrt(2 * g * (H - targetY)) + (aimY != null ? rand(0.05, 0.2) : rand(0.3, 0.9))),
 			g,
 			color: channelColor(pick(['red', 'white', 'blue'])),
 			trail: [],
@@ -207,6 +217,54 @@
 		}
 
 		if (sparks.length > MAX_SPARKS) sparks.splice(0, sparks.length - MAX_SPARKS);
+	}
+
+	// ── User-launched fireworks ─────────────────────────────────────
+	// Click (or tap) open hero space and a rocket bursts where you clicked.
+	// Interactive elements keep their jobs, and a camera drag on the 3D stage
+	// ends in a click event too — a small movement threshold filters those out.
+	const INTERACTIVE = 'a, button, input, select, textarea, lang-switcher, [role="button"]';
+	let downX = 0, downY = 0;
+	hero.addEventListener('pointerdown', (e) => { downX = e.clientX; downY = e.clientY; }, { passive: true });
+	hero.addEventListener('click', (e) => {
+		if (e.target.closest(INTERACTIVE)) return;
+		if (Math.hypot(e.clientX - downX, e.clientY - downY) > 6) return; // was a drag
+		const rect = hero.getBoundingClientRect();
+		const x = Math.min(Math.max(e.clientX - rect.left, 8), W - 8);
+		const y = Math.min(Math.max(e.clientY - rect.top, H * 0.06), H * 0.8);
+		launch(x, y);
+		sinceLaunch = 0; // the user just fired — hold the ambient schedule back
+	});
+
+	// A short staggered volley for the chip — real timers driving real rockets.
+	function volley() {
+		const n = 5 + ((Math.random() * 3) | 0);
+		for (let i = 0; i < n; i++) setTimeout(() => launch(), i * (130 + Math.random() * 120));
+		sinceLaunch = 0;
+	}
+
+	// Inject a "🎆 Fireworks" chip into the hero's animation-chip row so the
+	// feature is discoverable and keyboard-reachable. It carries no data-anim,
+	// so the page's avatar-animation chip handler ignores it, and because it is
+	// only created inside the seasonal window it never ships as a dead button.
+	const chipRow = document.getElementById('hero-chips');
+	if (chipRow) {
+		style.textContent += `
+			.hero-chip--fireworks {
+				border-color: color-mix(in srgb, var(--fw-blue) 55%, transparent);
+			}
+			.hero-chip--fireworks:hover, .hero-chip--fireworks:focus-visible {
+				border-color: var(--fw-red);
+				color: var(--fw-mid);
+			}
+		`;
+		const chip = document.createElement('button');
+		chip.type = 'button';
+		chip.className = 'hero-chip hero-chip--fireworks';
+		chip.setAttribute('aria-label', 'Light off a volley of fireworks');
+		chip.textContent = '🎆 Fireworks';
+		chip.addEventListener('click', volley);
+		chipRow.prepend(chip);
 	}
 
 	let raf = 0;

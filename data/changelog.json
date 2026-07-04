@@ -11126,6 +11126,15 @@
 				"infra",
 				"fix"
 			]
+		},
+		{
+			"date": "2026-07-04",
+			"title": "Light off your own fireworks on the homepage",
+			"summary": "The Fourth of July fireworks over the homepage hero are now yours to fire. Click or tap anywhere in the hero and a rocket streaks up and bursts right where you clicked, or hit the new 🎆 Fireworks chip next to the avatar animations for a full staggered volley. Every burst still picks its own effect, size, and red-white-blue color scheme, so no two look alike. The whole show packs itself away after July 5 and respects reduced-motion settings.",
+			"tags": [
+				"feature"
+			],
+			"link": "/"
 		}
 	]
 }
