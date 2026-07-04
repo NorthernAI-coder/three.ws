@@ -1,11 +1,21 @@
 {
-	"generated_at": "2026-07-03T23:56:32.955Z",
+	"generated_at": "2026-07-04T00:28:07.775Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-07-04",
+			"type": "update",
+			"title": "Four gestures return to the walk companion — nod, shrug, jog, celebrate",
+			"summary": "The gesture wheel regained four expressive moves that had been silently dropped: nod (a quick upper-body affirm), shrug, jog (a full-body run loop), and celebrate (a whole-body cheer). Open the wheel with G (or long-press the action button on mobile) — the wheel now lays out all twelve gestures; keys 1–8 still trigger the first eight. Also part of this pass: the entire test suite now runs fully green, locking every one of these behaviors in.",
+			"link": "/walk",
+			"tags": [
+				"fix"
+			]
+		},
 		{
 			"date": "2026-07-03",
 			"type": "launch",
