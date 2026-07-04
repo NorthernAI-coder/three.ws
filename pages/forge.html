@@ -1195,6 +1195,23 @@
 				border-color: var(--accent);
 				background: var(--accent-soft);
 			}
+			/* Independence Day presets (July 1–5) — soft red/white/blue edge so
+			   they read as seasonal alongside the library chips. Injected by
+			   forge.js only within the window; pinned across "More ideas". */
+			.chip--festive {
+				border-color: color-mix(in srgb, #6f8cff 55%, var(--stroke));
+				background: linear-gradient(
+					90deg,
+					color-mix(in srgb, #ff5a5f 10%, var(--surface-1)),
+					color-mix(in srgb, #6f8cff 10%, var(--surface-1))
+				);
+			}
+			.chip--festive::before {
+				content: '🎆 ';
+			}
+			.chip--festive:hover {
+				border-color: #ff5a5f;
+			}
 
 			/* Workspace / states ------------------------------------------ */
 			.stage {

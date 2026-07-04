@@ -233,7 +233,9 @@ function surprise() {
 
 function shuffleChips() {
 	if (!els.examples) return;
-	const chips = [...els.examples.querySelectorAll('.chip')];
+	// Seasonal presets (.chip--festive) are pinned — "More ideas" only rotates
+	// the regular library chips, never overwrites the festive prompts.
+	const chips = [...els.examples.querySelectorAll('.chip:not(.chip--festive)')];
 	if (!chips.length) return;
 	const current = new Set(chips.map((c) => c.textContent.trim()));
 	const fresh = pickDistinct(chips.length, current);
