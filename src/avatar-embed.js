@@ -168,15 +168,32 @@ async function main() {
 		log.warn('[avatar-embed] animation manifest load failed', err?.message);
 	}
 
-	// ?animation= / ?anim= — supports both manifest clip names and API clip ids/slugs.
+	// ?animation= / ?anim= — supports manifest clip names, full-library (R2)
+	// clip names, and API clip ids/slugs.
 	const startAnim = params.get('animation') || params.get('anim') || params.get('pose');
 	if (startAnim) {
 		const isApiId = /^[0-9a-f-]{36}$/i.test(startAnim) || startAnim.startsWith('user:');
 		if (isApiId) {
 			viewer.playAnimationById(startAnim.startsWith('user:') ? startAnim.slice(5) : startAnim)
 				.catch(() => animMgr.crossfadeTo('idle', 0.3).catch(() => {}));
-		} else {
+		} else if (animDefs.some((d) => d.name === startAnim)) {
 			animMgr.crossfadeTo(startAnim, 0.3).catch(() => {});
+		} else {
+			// Not in the curated manifest — resolve from the full motion library
+			// and register just the requested def (its url points at the R2 CDN).
+			(async () => {
+				try {
+					const res = await fetch('/api/animations/library');
+					if (res.ok) {
+						const data = await res.json();
+						const def = (data.clips || []).find((d) => d.name === startAnim);
+						if (def) animMgr.appendAnimationDefs([def]);
+					}
+				} catch (err) {
+					log.warn('[avatar-embed] library lookup failed', err?.message);
+				}
+				animMgr.crossfadeTo(startAnim, 0.3).catch(() => {});
+			})();
 		}
 	}
 

@@ -1,14 +1,18 @@
 // /animations — public animation gallery.
 //
-// Surfaces two sources in one searchable, filterable grid:
-//   • The built-in three.ws motion library (/animations/manifest.json) — the
-//     same curated clips the /pose studio ships with. Always present.
+// Surfaces three sources in one searchable, filterable grid:
 //   • Community clips published by three.ws users (GET /api/animations/clips
 //     ?include_public=true&visibility=public). Appear first, newest-first.
+//   • The built-in three.ws motion library (/animations/manifest.json) — the
+//     same curated clips the /pose studio ships with. Always present.
+//   • The full motion library (GET /api/animations/library) — the complete
+//     Mixamo-sourced catalog (~2,400 clips) hosted on the R2 CDN. Appears
+//     only once populated; the endpoint returns an empty list until the
+//     library pipeline (scripts/mixamo-all.mjs) has uploaded it.
 //
-// Both are normalized to one card shape, then filtered (search + loop/once) and
-// paginated entirely client-side — the library is small and bounded, so there's
-// no need to round-trip the server on every keystroke.
+// All are normalized to one card shape, then filtered (search + loop/once) and
+// paginated entirely client-side — even the full catalog is just a few hundred
+// KB of metadata, so there's no need to round-trip the server on every keystroke.
 //
 // Card actions:
 //   • Preview (hover/click) — inline <iframe> of the embed viewer playing the
@@ -19,6 +23,7 @@
 const PREVIEW_MODEL = '/avatars/cz.glb';
 const API_BASE = '/api/animations/clips';
 const MANIFEST_URL = '/animations/manifest.json';
+const LIBRARY_API = '/api/animations/library';
 const PAGE_SIZE = 24;
 // Cap community pagination so a large catalog can't stall first paint.
 const COMMUNITY_MAX = 300;
@@ -113,6 +118,29 @@ function normalizeLibraryClip(clip) {
 	};
 }
 
+// The full R2-hosted catalog. Empty (and therefore absent from the grid)
+// until the library pipeline has uploaded it.
+async function fetchFullLibrary() {
+	const res = await fetch(LIBRARY_API);
+	if (!res.ok) throw new Error(`HTTP ${res.status}`);
+	const data = await res.json();
+	return (Array.isArray(data.clips) ? data.clips : []).map(normalizeFullLibraryClip);
+}
+
+function normalizeFullLibraryClip(clip) {
+	return {
+		id: clip.name,
+		source: 'mixamo',
+		name: clip.label || clip.name,
+		loop: clip.loop !== false,
+		icon: clip.icon || '🎬',
+		tags: clip.category ? [clip.category] : [],
+		duration_ms: clip.duration ? Math.round(clip.duration * 1000) : null,
+		thumbnail_url: null,
+		price: null,
+	};
+}
+
 function normalizeCommunityClip(clip) {
 	return {
 		id: clip.id,
@@ -129,17 +157,24 @@ function normalizeCommunityClip(clip) {
 
 async function loadAll() {
 	showState('loading');
-	const [libRes, comRes] = await Promise.allSettled([fetchLibrary(), fetchCommunity()]);
+	const [libRes, comRes, fullRes] = await Promise.allSettled([
+		fetchLibrary(),
+		fetchCommunity(),
+		fetchFullLibrary(),
+	]);
 
-	if (libRes.status === 'rejected' && comRes.status === 'rejected') {
+	if (libRes.status === 'rejected' && comRes.status === 'rejected' && fullRes.status === 'rejected') {
 		showState('error');
 		return;
 	}
 
 	const library = libRes.status === 'fulfilled' ? libRes.value : [];
 	const community = comRes.status === 'fulfilled' ? comRes.value : [];
-	// Community clips lead (fresh, human-authored); the curated library follows.
-	state.all = [...community, ...library];
+	const full = fullRes.status === 'fulfilled' ? fullRes.value : [];
+	// Community clips lead (fresh, human-authored); the curated library follows;
+	// the full catalog trails, minus anything the curated set already surfaces.
+	const curatedNames = new Set(library.map((c) => c.id));
+	state.all = [...community, ...library, ...full.filter((c) => !curatedNames.has(c.id))];
 	state.loaded = true;
 	applyFilters();
 }
@@ -212,7 +247,8 @@ function buildCard(clip) {
 	const studioUrl = `/pose?anim=${encodeURIComponent(clip.id)}`;
 	const loopBadge = clip.loop;
 	const hasThumb = !!clip.thumbnail_url;
-	const sourceLabel = clip.source === 'community' ? 'Community' : 'Built-in';
+	const sourceLabel =
+		clip.source === 'community' ? 'Community' : clip.source === 'mixamo' ? 'Library' : 'Built-in';
 
 	card.innerHTML = `
 		<div class="ag-card-preview" role="button" tabindex="0"

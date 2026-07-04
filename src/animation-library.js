@@ -139,9 +139,29 @@ export class AnimationLibrary {
 	 */
 	async openByName(name) {
 		await this._ready;
-		const def = this._defs.find((d) => d.name === name);
+		let def = this._defs.find((d) => d.name === name);
+		if (!def) def = await this._lookupFullLibrary(name);
 		if (!def) throw new Error(`No built-in animation named “${name}”`);
 		return this.preview(def);
+	}
+
+	/**
+	 * Resolve a full-library clip def by name. The /animations gallery
+	 * deep-links R2-hosted clips (mx-* names) that aren't in the curated
+	 * manifest; their defs carry an absolute CDN url that preview()/_loadClip()
+	 * fetch like any other. Returns null when the library doesn't know the
+	 * name either (including before the library has been uploaded).
+	 * @param {string} name
+	 */
+	async _lookupFullLibrary(name) {
+		try {
+			const res = await fetch('/api/animations/library');
+			if (!res.ok) return null;
+			const data = await res.json();
+			return (data.clips || []).find((d) => d.name === name) || null;
+		} catch {
+			return null;
+		}
 	}
 
 	/** Called by the host when the active rig changes (avatar load / mannequin). */

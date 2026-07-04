@@ -185,6 +185,7 @@
 		"mixamo:catalog": "node scripts/mixamo-all.mjs --catalog",
 		"mixamo:download": "node scripts/mixamo-all.mjs --download",
 		"mixamo:all": "node scripts/mixamo-all.mjs",
+		"mixamo:upload": "node scripts/mixamo-all.mjs --upload",
 		"test": "vitest run && playwright test",
 		"test:core": "vitest run --maxWorkers=1",
 		"test:gate": "node scripts/test-gate.mjs",
