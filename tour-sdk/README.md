@@ -47,6 +47,9 @@ after load.
 Asset defaults point at the three.ws CDN, so the tag works with zero
 configuration. Building a store tour? See the step-by-step Shopify guide:
 [three.ws/tutorials/shopify-store-guide](https://three.ws/tutorials/shopify-store-guide).
+A complete runnable storefront demo ships with the package —
+[`examples/shopify-storefront.html`](./examples/shopify-storefront.html)
+(`npx serve tour-sdk`, then open `/examples/shopify-storefront.html`).
 
 ---
 

@@ -206,7 +206,10 @@ into the platform's "custom code / embed / footer scripts" slot:
 - **WordPress:** a "Custom HTML" block, or your theme's footer, or a headers-and-
   footers plugin.
 - **Webflow:** Project Settings → Custom Code → Footer Code.
-- **Shopify:** `theme.liquid`, before `</body>`.
+- **Shopify:** `theme.liquid`, before `</body>`. For the full store treatment —
+  a guide that walks the storefront and narrates it alongside this docked
+  narrator — follow the step-by-step tutorial:
+  [three.ws/tutorials/shopify-store-guide](https://three.ws/tutorials/shopify-store-guide).
 
 Pin a version for stability (e.g. `@three-ws/page-agent@0.1.0/dist/...`) so a
 future release can't change behavior under you.

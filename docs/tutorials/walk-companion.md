@@ -339,6 +339,7 @@ The leverage is composability: the same engine renders the corner mascot, the fu
 
 ## See also
 
+- [3D store guide for Shopify](/tutorials/shopify-store-guide) — the same engine as a guided tour: the avatar walks a storefront, spotlights sections, and narrates each one
 - [Walk docs](/docs/walk) — the full developer + user reference for the walking-avatar system
 - [Walk embed API](/docs/walk-embed-api) — interactive playground for the postMessage contract
 - [Swap your avatar in Studio](/docs/tutorials/swap-avatar-in-studio) — build the avatar that walks
