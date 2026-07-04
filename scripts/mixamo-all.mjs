@@ -22,14 +22,23 @@
  *     string the export API requires (raw arrays get HTTP 400).
  *
  *   Phase 3 — Integrate
- *     Reads the saved FBX files, cross-references the catalog for human-
- *     readable names, and upserts entries into scripts/animations.config.json.
- *     Picks a sensible icon and loop flag based on the animation category.
- *     Skips entries already in config.
+ *     Reads the saved mx-*.fbx files, cross-references the catalog for
+ *     human-readable names, and regenerates scripts/mixamo-library.config.json
+ *     (icon + loop flag inferred per clip). The curated set in
+ *     scripts/animations.config.json stays hand-managed and untouched —
+ *     the bulk library never ships in public/.
  *
  *   Phase 4 — Build
- *     Runs `npm run build:animations` which retargets every configured clip
- *     to the canonical skeleton and rewrites public/animations/manifest.json.
+ *     Retargets every library clip to the canonical skeleton via
+ *     scripts/build-animations.mjs with staging overrides, writing baked
+ *     clip JSONs to animation-sources/.library-clips/ (gitignored, ~3 GB
+ *     for the full catalog).
+ *
+ *   Phase 5 — Upload  (needs S3_* creds, see below)
+ *     Uploads baked clips to R2 under animations/library/clips/<name>.json
+ *     and publishes animations/library/manifest.json. Served to users via
+ *     GET /api/animations/library + the R2 CDN. Content-hash cached in
+ *     scripts/mixamo-upload-state.json — re-run uploads only changed clips.
  *
  * Usage:
  *   node scripts/mixamo-all.mjs              # run all phases
@@ -37,7 +46,12 @@
  *   node scripts/mixamo-all.mjs --download   # phases 1+2 (needs MIXAMO_TOKEN)
  *   node scripts/mixamo-all.mjs --integrate  # phases 1+3 (use saved sources)
  *   node scripts/mixamo-all.mjs --build      # phase 4 only
+ *   node scripts/mixamo-all.mjs --upload     # phase 5 only (needs S3_* creds)
  *   node scripts/mixamo-all.mjs --concurrency=5 --limit=50  # tuning flags
+ *
+ * Required for upload phase (same names the production API uses — pull with
+ * `vercel env pull .env.local`): S3_ENDPOINT, S3_ACCESS_KEY_ID,
+ * S3_SECRET_ACCESS_KEY, S3_BUCKET, S3_PUBLIC_DOMAIN.
  *
  * Required for download phase:
  *   MIXAMO_TOKEN in .env.local — either run node scripts/get-mixamo-token.mjs
@@ -77,10 +91,11 @@ const flags = Object.fromEntries(
 	}),
 );
 
-const RUN_CATALOG   = flags.catalog   || flags.download || flags.all || (!Object.keys(flags).length);
+const RUN_CATALOG   = flags.catalog   || flags.download || flags.integrate || flags.all || (!Object.keys(flags).length);
 const RUN_DOWNLOAD  = flags.download  || flags.all       || (!Object.keys(flags).length);
 const RUN_INTEGRATE = flags.integrate || flags.all       || (!Object.keys(flags).length);
 const RUN_BUILD     = flags.build     || flags.all       || (!Object.keys(flags).length);
+const RUN_UPLOAD    = flags.upload    || flags.all       || (!Object.keys(flags).length);
 // Serial by default — export status comes from the per-character monitor, so
 // parallel exports on the same character clobber each other's results.
 const CONCURRENCY   = Number(flags.concurrency) || 1;
@@ -89,8 +104,14 @@ const MAX_DOWNLOADS = flags.limit ? Number(flags.limit) : Infinity;
 // ── Paths ──────────────────────────────────────────────────────────────────
 const CATALOG_PATH  = join(__dirname, 'mixamo-catalog.json');
 const PROGRESS_PATH = join(__dirname, 'mixamo-progress.json');
-const CONFIG_PATH   = join(__dirname, 'animations.config.json');
 const SOURCES_DIR   = join(ROOT, 'animation-sources');
+
+// Bulk library outputs — all gitignored; the library ships via R2, not git.
+const LIBRARY_CONFIG_PATH   = join(__dirname, 'mixamo-library.config.json');
+const LIBRARY_STAGE_DIR     = join(ROOT, 'animation-sources/.library-clips');
+const LIBRARY_MANIFEST_PATH = join(LIBRARY_STAGE_DIR, 'manifest.json');
+const UPLOAD_STATE_PATH     = join(__dirname, 'mixamo-upload-state.json');
+const LIBRARY_R2_PREFIX     = 'animations/library';
 
 mkdirSync(SOURCES_DIR, { recursive: true });
 
@@ -452,75 +473,166 @@ async function downloadAll(catalog, token) {
 // PHASE 3 — INTEGRATE
 // ═══════════════════════════════════════════════════════════════════════════
 async function integrate(catalog) {
-	console.log('\n── Phase 3: Integrate into animations.config.json ────────');
+	console.log('\n── Phase 3: Generate library config ──────────────────────');
 
 	// Build a lookup: slug → catalog entry
 	const bySlug = new Map(catalog.map((a) => [`mx-${slugify(a.name)}.fbx`, a]));
 
-	// Read existing config
-	const config = JSON.parse(readFileSync(CONFIG_PATH, 'utf8'));
-	const existingNames = new Set(config.map((e) => e.name));
-	const existingSources = new Set(config.map((e) => e.source));
-
-	// Scan animation-sources/ for mx-*.fbx files
+	// Scan animation-sources/ for mx-*.fbx files. The library config is fully
+	// regenerated each run — it is derived data, never hand-edited. The curated
+	// scripts/animations.config.json is deliberately not touched.
 	const files = readdirSync(SOURCES_DIR).filter((f) => f.startsWith('mx-') && f.endsWith('.fbx'));
-	let added = 0;
 
-	for (const file of files) {
-		if (existingSources.has(file)) continue;
+	const entries = files
+		.map((file) => {
+			const anim = bySlug.get(file);
+			const label = anim?.name ?? file.replace(/^mx-/, '').replace(/\.fbx$/, '').replace(/-/g, ' ');
+			const entry = {
+				name: file.replace(/\.fbx$/, ''), // mx-<slug>, unique by construction
+				source: file,
+				label,
+				icon: iconFor(label),
+				loop: loopFor(label),
+			};
+			if (anim?.category) entry.category = anim.category;
+			return entry;
+		})
+		.sort((a, b) => a.name.localeCompare(b.name));
 
-		const anim = bySlug.get(file);
-		const label = anim?.name ?? file.replace(/^mx-/, '').replace(/\.fbx$/, '').replace(/-/g, ' ');
-		const baseName = `mx-${slugify(label)}`;
-
-		// Avoid duplicate names
-		let name = baseName;
-		let suffix = 1;
-		while (existingNames.has(name)) name = `${baseName}-${suffix++}`;
-
-		const entry = {
-			name,
-			source: file,
-			label,
-			icon: iconFor(label),
-			loop: loopFor(label),
-		};
-		if (anim?.category) entry.category = anim.category;
-
-		config.push(entry);
-		existingNames.add(name);
-		existingSources.add(file);
-		added++;
-	}
-
-	if (added > 0) {
-		writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
-		console.log(`  ✅ Added ${added} entries to animations.config.json (total: ${config.length})`);
-	} else {
-		console.log(`  No new entries to add (all mx-*.fbx already in config).`);
-	}
-	return added;
+	writeFileSync(LIBRARY_CONFIG_PATH, JSON.stringify(entries, null, 2));
+	console.log(`  ✅ ${entries.length} clips → scripts/mixamo-library.config.json`);
+	return entries.length;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// PHASE 4 — BUILD
+// PHASE 4 — BUILD (library staging, not the curated public set)
 // ═══════════════════════════════════════════════════════════════════════════
 async function build() {
-	console.log('\n── Phase 4: Build retargeted clips ────────────────────────');
-	console.log('  Running: npm run build:animations');
-	console.log('  (This retargets all configured FBX/GLB sources to the canonical skeleton)\n');
+	console.log('\n── Phase 4: Bake library clips (staging) ──────────────────');
+	if (!existsSync(LIBRARY_CONFIG_PATH)) {
+		console.log('  ⚠️  No library config — run the integrate phase first.');
+		return;
+	}
+	console.log('  Retargeting library FBX → animation-sources/.library-clips/\n');
 
-	const result = spawnSync('npm', ['run', 'build:animations'], {
-		cwd: ROOT,
-		stdio: 'inherit',
-		shell: true,
-	});
+	const result = spawnSync(process.execPath, [
+		join(__dirname, 'build-animations.mjs'),
+		'--config=scripts/mixamo-library.config.json',
+		'--out=animation-sources/.library-clips',
+		'--manifest=animation-sources/.library-clips/manifest.json',
+	], { cwd: ROOT, stdio: 'inherit' });
 
 	if (result.status !== 0) {
 		console.error(`\n  ❌ Build failed (exit ${result.status})`);
 		process.exit(result.status ?? 1);
 	}
-	console.log('\n  ✅ Build complete — manifest.json updated.');
+	console.log('\n  ✅ Library staging build complete.');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PHASE 5 — UPLOAD (R2)
+// ═══════════════════════════════════════════════════════════════════════════
+async function uploadLibrary() {
+	console.log('\n── Phase 5: Upload library to R2 ──────────────────────────');
+
+	// Same env names the production API uses (api/_lib/env.js), with the older
+	// R2_* names from earlier scripts accepted as fallback.
+	const accountId = loadEnv('R2_ACCOUNT_ID');
+	const endpoint = loadEnv('S3_ENDPOINT') || (accountId ? `https://${accountId}.r2.cloudflarestorage.com` : null);
+	const accessKeyId = loadEnv('S3_ACCESS_KEY_ID') || loadEnv('R2_ACCESS_KEY_ID');
+	const secretAccessKey = loadEnv('S3_SECRET_ACCESS_KEY') || loadEnv('R2_SECRET_ACCESS_KEY');
+	const bucket = loadEnv('S3_BUCKET') || loadEnv('R2_BUCKET');
+	const publicDomain = (loadEnv('S3_PUBLIC_DOMAIN') || '').replace(/\/+$/, '');
+
+	if (!endpoint || !accessKeyId || !secretAccessKey || !bucket || !publicDomain) {
+		console.log('  ⚠️  Storage creds missing — skipping upload.');
+		console.log('  Needs S3_ENDPOINT, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY, S3_BUCKET, S3_PUBLIC_DOMAIN.');
+		console.log('  Pull them with: vercel env pull .env.local');
+		return;
+	}
+	if (!existsSync(LIBRARY_MANIFEST_PATH)) {
+		console.log('  ⚠️  No staged library (animation-sources/.library-clips/manifest.json) — run the build phase first.');
+		return;
+	}
+
+	const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3');
+	const { createHash } = await import('node:crypto');
+	const client = new S3Client({
+		region: 'auto',
+		endpoint,
+		credentials: { accessKeyId, secretAccessKey },
+	});
+
+	const staged = JSON.parse(readFileSync(LIBRARY_MANIFEST_PATH, 'utf8'));
+	const state = existsSync(UPLOAD_STATE_PATH) ? JSON.parse(readFileSync(UPLOAD_STATE_PATH, 'utf8')) : {};
+	const saveState = () => writeFileSync(UPLOAD_STATE_PATH, JSON.stringify(state, null, 2));
+
+	let uploaded = 0, skipped = 0, failed = 0;
+	const clips = [];
+	const queue = [...staged];
+
+	async function worker() {
+		while (queue.length) {
+			const entry = queue.shift();
+			const file = join(LIBRARY_STAGE_DIR, `${entry.name}.json`);
+			if (!existsSync(file)) { failed++; console.warn(`  ❌ ${entry.name}: staged clip missing`); continue; }
+			const body = readFileSync(file);
+			const sha = createHash('sha1').update(body).digest('hex');
+			const key = `${LIBRARY_R2_PREFIX}/clips/${entry.name}.json`;
+
+			const clipMeta = {
+				name: entry.name,
+				label: entry.label,
+				icon: entry.icon,
+				loop: entry.loop !== false,
+				...(entry.category ? { category: entry.category } : {}),
+				...(entry.duration ? { duration: entry.duration } : {}),
+				bytes: body.length,
+				url: `${publicDomain}/${key}`,
+			};
+
+			if (state[entry.name] === sha) {
+				skipped++;
+				clips.push(clipMeta);
+				continue;
+			}
+			try {
+				await client.send(new PutObjectCommand({
+					Bucket: bucket,
+					Key: key,
+					Body: body,
+					ContentType: 'application/json',
+					CacheControl: 'public, max-age=86400',
+				}));
+				state[entry.name] = sha;
+				uploaded++;
+				clips.push(clipMeta);
+				if (uploaded % 25 === 0) { saveState(); process.stdout.write(`\r  ${uploaded} uploaded, ${skipped} unchanged…`); }
+			} catch (err) {
+				failed++;
+				console.warn(`\n  ❌ ${entry.name}: ${err.message}`);
+			}
+		}
+	}
+	await Promise.all(Array.from({ length: 8 }, worker));
+	saveState();
+
+	clips.sort((a, b) => a.name.localeCompare(b.name));
+	const manifest = {
+		generated_at: new Date().toISOString(),
+		total: clips.length,
+		clips,
+	};
+	await client.send(new PutObjectCommand({
+		Bucket: bucket,
+		Key: `${LIBRARY_R2_PREFIX}/manifest.json`,
+		Body: JSON.stringify(manifest),
+		ContentType: 'application/json',
+		CacheControl: 'public, max-age=300',
+	}));
+
+	console.log(`\n  ✅ Upload: ${uploaded} new/changed, ${skipped} unchanged, ${failed} failed`);
+	console.log(`  📋 ${LIBRARY_R2_PREFIX}/manifest.json → ${clips.length} clips live via /api/animations/library`);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -553,6 +665,10 @@ async function build() {
 
 	if (RUN_BUILD) {
 		await build();
+	}
+
+	if (RUN_UPLOAD) {
+		await uploadLibrary();
 	}
 
 	console.log('\n✅ Pipeline complete.');

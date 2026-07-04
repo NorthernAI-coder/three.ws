@@ -248,6 +248,23 @@
 				outline: 2px solid var(--accent);
 				outline-offset: 2px;
 			}
+			/* Independence Day presets (July 1–5) — a soft red/white/blue edge so
+			   they read as seasonal without shouting over the default examples.
+			   Injected by create-prompt.js only within the window. */
+			.example--festive {
+				border-color: color-mix(in srgb, #6f8cff 55%, var(--border-strong));
+				background: linear-gradient(
+					90deg,
+					color-mix(in srgb, #ff5a5f 10%, var(--panel)),
+					color-mix(in srgb, #6f8cff 10%, var(--panel))
+				);
+			}
+			.example--festive::before {
+				content: '🎆 ';
+			}
+			.example--festive:hover {
+				border-color: #ff5a5f;
+			}
 
 			.actions {
 				display: flex;

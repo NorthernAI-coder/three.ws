@@ -78,6 +78,32 @@ promptEl.addEventListener('keydown', (e) => {
 	}
 });
 
+// Independence Day (July 1–5, viewer's local time): prepend a set of themed
+// "Made in America" presets so the seasonal moment reaches the create flow, not
+// just the homepage. They self-retire outside the window — no dead copy ships
+// out of season — and are wired through the same generic handler below.
+(() => {
+	const now = new Date();
+	if (now.getMonth() !== 6 || now.getDate() > 5) return;
+	const container = document.querySelector('.examples');
+	if (!container) return;
+	const FESTIVE = [
+		'Uncle Sam in a star-spangled top hat and tailcoat, confident stance',
+		'A bald eagle mascot in a blue bomber jacket, wings folded, proud pose',
+		'Lady Liberty reimagined as a hero, flowing robe, torch raised high',
+		'A firework sparkler sprite, glowing red-white-and-blue trails, cheerful',
+	];
+	const frag = document.createDocumentFragment();
+	for (const text of FESTIVE) {
+		const btn = document.createElement('button');
+		btn.className = 'example example--festive';
+		btn.type = 'button';
+		btn.textContent = text;
+		frag.appendChild(btn);
+	}
+	container.prepend(frag);
+})();
+
 for (const chip of document.querySelectorAll('.example')) {
 	chip.addEventListener('click', () => {
 		promptEl.value = chip.textContent.trim();
