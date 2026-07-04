@@ -4674,6 +4674,10 @@
 	],
 	"crons": [
 		{
+			"path": "/api/cron/economy-tick",
+			"schedule": "* * * * *"
+		},
+		{
 			"path": "/api/cron/payment-session-sweep",
 			"schedule": "*/5 * * * *"
 		},
