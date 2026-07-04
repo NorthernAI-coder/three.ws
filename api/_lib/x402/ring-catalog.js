@@ -80,7 +80,7 @@ export const RING_CATALOG = [
 		path: '/api/x402/ring-settle',
 		method: 'POST',
 		body: () => ({ note: 'ring-cycle', seq: 1 }),
-		priceAtomicDefault: 35_000_000,
+		priceAtomicDefault: 1_000_000,
 		priceSlug: 'ring-settle',
 		tier: 'settle',
 		kind: 'settle',

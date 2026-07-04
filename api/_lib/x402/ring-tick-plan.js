@@ -26,19 +26,17 @@ export function ringTickConfig(e = process.env) {
 		// Paid calls to attempt per minute.
 		calls: Math.max(1, Math.floor(num(e.X402_RING_TICK_CALLS, 3))),
 		// Fire one ring-settle every Nth tick (0 disables the settle carrier).
-		// Default 1 = settle every minute — the throughput lever behind the
-		// ~$50k/day volume target (1440 ticks × the $35 ring-settle price).
-		settleEveryN: Math.max(0, Math.floor(num(e.X402_RING_SETTLE_EVERY_N_TICKS, 1))),
+		settleEveryN: Math.max(0, Math.floor(num(e.X402_RING_SETTLE_EVERY_N_TICKS, 5))),
 		// Spend ceiling for a single tick (atomics). Must fit a ring-settle tick:
-		// ring-settle price + (calls-1) cheap calls. Default $40 (covers the $35
-		// settle plus its cheap co-riders).
-		tickCapAtomic: num(e.X402_RING_TICK_CAP_ATOMIC, 40_000_000),
+		// ring-settle price + (calls-1) cheap calls. Default $1.10.
+		tickCapAtomic: num(e.X402_RING_TICK_CAP_ATOMIC, 1_100_000),
 		// Ring tick's OWN daily ceiling (atomics), summed from x402_autonomous_log
 		// rows tagged pipeline='ring-tick'. Separate from the autonomous loop's
-		// X402_AUTONOMOUS_DAILY_CAP_ATOMIC — the two budgets never touch. Default
-		// $60k: headroom above the ~$50k/day settle throughput so the daily cap is
-		// never the binding limit (funding + scheduler cadence are).
-		dailyCapAtomic: num(e.X402_RING_DAILY_CAP_ATOMIC, 60_000_000_000),
+		// X402_AUTONOMOUS_DAILY_CAP_ATOMIC — the two budgets never touch. Default $50.
+		// Scaling throughput up is an env change made TOGETHER with funding the
+		// payer — defaults must stay affordable from the ring's real balances or
+		// every tick skips on back-pressure and the ring flat-lines.
+		dailyCapAtomic: num(e.X402_RING_DAILY_CAP_ATOMIC, 50_000_000),
 		// Sponsor/payer SOL floor (lamports). Mirrors self-facilitator's
 		// SPONSOR_SOL_FLOOR_LAMPORTS default (0.02 SOL) — below it, settlement is
 		// paused, so we skip the tick rather than fire calls that will 502.
