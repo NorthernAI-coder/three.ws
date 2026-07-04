@@ -84,7 +84,10 @@ export function createWeb3Executor(opts = {}) {
 	return {
 		async submit({ connection, payer, instructions, confirmTimeoutMs, tipMode = 'off', onTip }) {
 			const start = Date.now();
-			const settleBudgetMs = settleBudgetMsOpt ?? Math.max(confirmTimeoutMs || 0, 90_000);
+			// Grace-sweep budget: how long to keep checking history for a landed tx
+			// after its blockhash expires before declaring it dead. Injectable so
+			// tests can shrink it; defaults to a generous window for degraded RPCs.
+			const graceMs = settleBudgetMsOpt ?? 12_000;
 			let useJito = tipMode === 'economy' || tipMode === 'turbo';
 			let tipLamports = 0n;
 			let tipIx = null;
@@ -93,8 +96,10 @@ export function createWeb3Executor(opts = {}) {
 				// Invoke the spend-guard veto with the real tip amount BEFORE it leaves
 				// the wallet. A throw drops us to the untipped standard route.
 				if (typeof onTip === 'function') {
+					// A veto (throw) means "don't tip" — drop to the untipped protected
+					// route, which the unified retry loop below runs when useJito is false.
 					try { await onTip(tipLamports, 'jito'); }
-					catch { tipLamports = 0n; tipIx = null; useJito = false; return await sendStandard(); }
+					catch { tipLamports = 0n; tipIx = null; useJito = false; }
 				}
 				tipIx = SystemProgram.transfer({
 					fromPubkey: payer.publicKey,
@@ -105,12 +110,16 @@ export function createWeb3Executor(opts = {}) {
 
 			let fallbackReason = null;
 
-			// Every signature this submit() ever broadcast. A confirm error does NOT
-			// mean the tx died — on a degraded RPC "blockheight exceeded"/timeouts
-			// fire for transactions that actually land. Each retry builds a FRESH
-			// blockhash (a different tx the chain will happily execute alongside the
-			// old one), so before any resend — and before any final throw — the sent
-			// set is swept: a landed attempt IS the result, never a reason to resend.
+			// Every distinct transaction ("generation") this submit() has broadcast.
+			// The duplicate-buy bug (found live 2026-07-03: 2–3 buys landed for one
+			// order under a degraded RPC) came from minting a FRESH-blockhash tx on
+			// each retry: a new signature the chain will execute ALONGSIDE the first,
+			// so when the RPC false-nulls the first tx's status the retry double-spends.
+			// The invariant that fixes it: within a generation's validity window we
+			// only ever REBROADCAST the same signed bytes (idempotent — the chain
+			// dedupes an identical signature, so a resend can never double-spend); a
+			// NEW generation is minted ONLY after the previous one is provably dead
+			// (blockhash expired AND absent from history across a grace sweep).
 			const sent = []; // { signature, lastValidBlockHeight }
 
 			async function landedAmongSent() {
@@ -126,44 +135,6 @@ export function createWeb3Executor(opts = {}) {
 				return null;
 			}
 
-			// Resolve the most recent attempt to landed (→ signature) or provably dead
-			// (→ null: its blockhash expired with no status on record). Until one of
-			// those is true the tx is IN FLIGHT and resending is a double-spend.
-			async function settleLastSent(deadlineMs) {
-				const last = sent[sent.length - 1];
-				if (!last) return { landed: null, dead: true };
-				while (Date.now() < deadlineMs) {
-					const landed = await landedAmongSent();
-					if (landed) return { landed, dead: false };
-					const height = await connection.getBlockHeight('confirmed').catch(() => null);
-					if (height != null && height > last.lastValidBlockHeight) return { landed: null, dead: true };
-					await sleep(1500);
-				}
-				return { landed: null, dead: false }; // unknown — caller must NOT resend
-			}
-
-			async function attemptSend(microLamports, viaJito) {
-				const { tx, blockhash, lastValidBlockHeight } = await buildSigned({ connection, payer, instructions, microLamports, tipIx: viaJito ? tipIx : null });
-				if (simulate) {
-					const sim = await connection.simulateTransaction(tx, { sigVerify: false, replaceRecentBlockhash: true });
-					if (sim.value.err) throw Object.assign(new Error(`simulation failed: ${JSON.stringify(sim.value.err)}`), { code: 'sim_failed', logs: sim.value.logs });
-				}
-				const raw = Buffer.from(tx.serialize());
-				// Record the signature BEFORE the network call. If the send throws after
-				// the tx already reached the chain (a Jito 200 whose body read failed, an
-				// RPC socket reset post-forward), settleLastSent still finds it instead of
-				// the fallback broadcasting a duplicate.
-				const signature = sigOf(tx);
-				sent.push({ signature, lastValidBlockHeight });
-				if (viaJito) {
-					await sendViaJito(raw.toString('base64'));
-				} else {
-					await connection.sendRawTransaction(raw, { skipPreflight: true, maxRetries: 0 });
-				}
-				await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
-				return signature;
-			}
-
 			function ambiguous(lastErr) {
 				const sigs = sent.map((s) => s.signature);
 				return Object.assign(
@@ -172,65 +143,129 @@ export function createWeb3Executor(opts = {}) {
 				);
 			}
 
-			async function sendStandard() {
-				let lastErr;
-				for (let i = 0; i < maxAttempts; i++) {
-					// A previous attempt may have landed despite its confirm error —
-					// return it instead of buying again.
-					const prior = await landedAmongSent();
-					if (prior) return { signature: prior, route: 'standard', tipLamports: 0n, priorityFeeMicroLamports: PRIORITY_FEE_MICROLAMPORTS.base * i, attempts: i, landedMs: Date.now() - start, fallbackReason };
-					const fee = PRIORITY_FEE_MICROLAMPORTS.base * (i + 1);
-					try {
-						const signature = await Promise.race([
-							attemptSend(fee, false),
-							timeout(confirmTimeoutMs),
-						]);
-						return { signature, route: 'standard', tipLamports: 0n, priorityFeeMicroLamports: fee, attempts: i + 1, landedMs: Date.now() - start, fallbackReason };
-					} catch (err) {
-						lastErr = err;
-						if (err?.code === 'sim_failed') throw err; // nothing was broadcast
-						// The attempt's tx may still be in flight. Only loop once it has
-						// landed (return it) or provably died (safe to resend).
-						const settled = await settleLastSent(Date.now() + settleBudgetMs);
-						if (settled.landed) return { signature: settled.landed, route: 'standard', tipLamports: 0n, priorityFeeMicroLamports: fee, attempts: i + 1, landedMs: Date.now() - start, fallbackReason };
-						if (!settled.dead) throw ambiguous(lastErr);
+			// After a blockhash expires, a tx that truly landed still shows up in
+			// history within a second or two; a degraded RPC just lags. Sweep a short
+			// grace window before ever concluding a tx is dead — this is the guard the
+			// old getBlockHeight-only check lacked, and the reason it double-spent.
+			async function graceSweep(signature, ms = graceMs) {
+				const deadline = Date.now() + ms;
+				while (Date.now() < deadline) {
+					const st = (await connection.getSignatureStatuses([signature], { searchTransactionHistory: true }).catch(() => null))?.value?.[0];
+					if (st && !st.err && (st.confirmationStatus === 'confirmed' || st.confirmationStatus === 'finalized')) return true;
+					if (st && st.err) return false; // definitively failed on-chain
+					await sleep(1500);
+				}
+				return false;
+			}
+
+			// Drive ONE generation: build+sign once, then (re)broadcast the same bytes
+			// on an interval and poll until it confirms, definitively fails, or its
+			// blockhash provably expires. Returns { signature } on land, { dead:true }
+			// when provably gone (safe to mint a new generation), or { dead:false,
+			// unknown:true } when the window elapsed without resolution (NEVER resend).
+			async function runGeneration(microLamports, viaJito) {
+				const { tx, lastValidBlockHeight } = await buildSigned({ connection, payer, instructions, microLamports, tipIx: viaJito ? tipIx : null });
+				if (simulate) {
+					const sim = await connection.simulateTransaction(tx, { sigVerify: false, replaceRecentBlockhash: true });
+					if (sim.value.err) throw Object.assign(new Error(`simulation failed: ${JSON.stringify(sim.value.err)}`), { code: 'sim_failed', logs: sim.value.logs });
+				}
+				const raw = Buffer.from(tx.serialize());
+				// Signature is fixed at signing — record it BEFORE any network call so a
+				// send that throws post-broadcast (Jito 200 with an unreadable body, an
+				// RPC socket reset after forwarding) can't hide a landed tx from us.
+				const signature = sigOf(tx);
+				sent.push({ signature, lastValidBlockHeight });
+
+				const deadline = Date.now() + Math.max(confirmTimeoutMs || 0, 15_000);
+				let lastBroadcast = 0;
+				let broadcastErr = null;
+				while (Date.now() < deadline) {
+					if (Date.now() - lastBroadcast > 2_000) {
+						try {
+							if (viaJito) await sendViaJito(raw.toString('base64'));
+							else await connection.sendRawTransaction(raw, { skipPreflight: true, maxRetries: 0 });
+						} catch (e) { broadcastErr = e; /* already-known / transient — keep polling the sig */ }
+						lastBroadcast = Date.now();
+					}
+					await sleep(1_200);
+					const st = (await connection.getSignatureStatuses([signature], { searchTransactionHistory: true }).catch(() => null))?.value?.[0];
+					if (st) {
+						if (st.err) throw Object.assign(new Error(`tx failed on-chain: ${JSON.stringify(st.err)}`), { code: 'tx_err', signature });
+						if (st.confirmationStatus === 'confirmed' || st.confirmationStatus === 'finalized') return { signature };
+					}
+					const height = await connection.getBlockHeight('confirmed').catch(() => null);
+					if (height != null && height > lastValidBlockHeight) {
+						if (await graceSweep(signature)) return { signature };
+						return { dead: true, broadcastErr };
 					}
 				}
-				const final = await landedAmongSent();
-				if (final) return { signature: final, route: 'standard', tipLamports: 0n, priorityFeeMicroLamports: PRIORITY_FEE_MICROLAMPORTS.base * maxAttempts, attempts: maxAttempts, landedMs: Date.now() - start, fallbackReason };
-				if (sent.length) throw ambiguous(lastErr);
-				throw lastErr;
+				return { dead: false, unknown: true, broadcastErr };
 			}
 
-			if (!useJito || !tipIx) return await sendStandard();
+			const result = (signature, route, fee, attempts, tip) => ({
+				signature, route, tipLamports: tip ?? 0n, priorityFeeMicroLamports: fee,
+				attempts, landedMs: Date.now() - start, fallbackReason,
+			});
 
-			// Jito path first; on any failure fall back to the standard RPC route.
-			const fee = tipMode === 'turbo' ? PRIORITY_FEE_MICROLAMPORTS.turbo : PRIORITY_FEE_MICROLAMPORTS.base;
-			try {
-				const signature = await Promise.race([attemptSend(fee, true), timeout(confirmTimeoutMs)]);
-				return { signature, route: 'jito', tipLamports, priorityFeeMicroLamports: fee, attempts: 1, landedMs: Date.now() - start, fallbackReason: null };
-			} catch (err) {
-				fallbackReason = `jito_failed:${err?.message || 'error'}`.slice(0, 120);
-				tipIx = null; // don't pay a tip on the non-Jito fallback
-				// The tipped tx may have been broadcast and still be in flight — settle
-				// it (landed → done; in-flight → ambiguous) before any fresh broadcast.
-				if (sent.length) {
-					const settled = await settleLastSent(Date.now() + settleBudgetMs);
-					if (settled.landed) return { signature: settled.landed, route: 'jito', tipLamports, priorityFeeMicroLamports: fee, attempts: 1, landedMs: Date.now() - start, fallbackReason: null };
-					if (!settled.dead) throw ambiguous(err);
+			// Unified retry: generation 0 rides Jito (when tipped); every later
+			// generation is the untipped protected route. A new generation is only
+			// reached after the prior is provably dead — the anti-duplicate gate.
+			let lastErr = null;
+			for (let attempt = 0; attempt < maxAttempts; attempt++) {
+				const prior = await landedAmongSent();
+				if (prior) return result(prior, sent.length > 1 ? 'protected' : (useJito && tipIx ? jitoRoute(tipMode) : 'standard'), PRIORITY_FEE_MICROLAMPORTS.base * Math.max(1, attempt), attempt, useJito ? tipLamports : 0n);
+
+				const viaJito = useJito && !!tipIx && attempt === 0;
+				const fee = viaJito
+					? (tipMode === 'turbo' ? PRIORITY_FEE_MICROLAMPORTS.turbo : PRIORITY_FEE_MICROLAMPORTS.base)
+					: PRIORITY_FEE_MICROLAMPORTS.base * (attempt + 1);
+
+				let gen;
+				try {
+					gen = await runGeneration(fee, viaJito);
+				} catch (err) {
+					if (err?.code === 'sim_failed') throw err; // nothing was broadcast
+					if (err?.code === 'tx_err') {
+						// This generation failed ON-CHAIN. A DIFFERENT prior generation
+						// might still have landed — return it rather than re-failing.
+						const p = await landedAmongSent();
+						if (p) return result(p, 'protected', fee, attempt + 1, viaJito ? tipLamports : 0n);
+						throw err; // terminal: the trade genuinely failed on-chain
+					}
+					lastErr = err;
+					const p = await landedAmongSent();
+					if (p) return result(p, viaJito ? jitoRoute(tipMode) : 'standard', fee, attempt + 1, viaJito ? tipLamports : 0n);
+					throw ambiguous(err); // in-flight & unknown — never resend
 				}
-				return await sendStandard();
+
+				if (gen.signature) {
+					const route = viaJito ? jitoRoute(tipMode) : (attempt === 0 ? 'standard' : 'protected');
+					return result(gen.signature, route, fee, attempt + 1, viaJito ? tipLamports : 0n);
+				}
+				if (viaJito && (gen.dead || gen.unknown)) {
+					// Jito generation didn't land — the remaining attempts are the
+					// untipped protected route. Record why, honestly.
+					fallbackReason = gen.broadcastErr ? `jito_failed:${(gen.broadcastErr.message || 'error').slice(0, 100)}` : 'jito_not_landed';
+					tipIx = null;
+				}
+				if (gen.unknown) throw ambiguous(gen.broadcastErr || lastErr); // window elapsed, unresolved — do NOT mint another
+				// gen.dead → provably gone; loop mints the next generation safely
 			}
+
+			const final = await landedAmongSent();
+			if (final) return result(final, 'protected', PRIORITY_FEE_MICROLAMPORTS.base * maxAttempts, maxAttempts, 0n);
+			if (sent.length) throw ambiguous(lastErr);
+			throw lastErr || new Error('no broadcast attempted');
 		},
 	};
 }
 
-function sleep(ms) {
-	return new Promise((r) => setTimeout(r, ms).unref?.());
+function jitoRoute(tipMode) {
+	return tipMode === 'turbo' ? 'jito_turbo' : 'jito';
 }
 
-function timeout(ms) {
-	return new Promise((_, reject) => setTimeout(() => reject(Object.assign(new Error('confirm timeout'), { code: 'confirm_timeout' })), ms).unref?.());
+function sleep(ms) {
+	return new Promise((r) => setTimeout(r, ms).unref?.());
 }
 
 export default createWeb3Executor;
