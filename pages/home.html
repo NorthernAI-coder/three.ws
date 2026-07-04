@@ -5372,6 +5372,12 @@
 			if (heroInner) {
 				heroInner.innerHTML = '';
 				const heroEl = spawnAgent(glb);
+				// Fade the hero in on agent:ready. Attached before the element is
+				// appended so the event can never be missed — a stage-level
+				// MutationObserver raced anything else that touched the stage first
+				// (e.g. seasonal.js injecting its Fireworks chip) and left the
+				// avatar stuck at opacity 0.
+				heroEl.addEventListener('agent:ready', () => heroEl.classList.add('loaded'), { once: true });
 				heroInner.appendChild(heroEl);
 				initHeroWalk(heroEl);
 				initHeroChips(heroEl);
@@ -6259,23 +6265,6 @@
 		const heroText = document.querySelector('.hero-text');
 		if (heroText) heroText.classList.add('entered');
 	});
-
-	// ── Hero agent loaded state ─────────────────────────────────────
-	{
-		const heroStage = document.getElementById('hero-stage');
-		if (heroStage) {
-			const checkLoaded = () => {
-				const agentEl = heroStage.querySelector('agent-3d');
-				if (!agentEl) return;
-				const markLoaded = () => { agentEl.classList.add('loaded'); };
-				agentEl.addEventListener('agent:ready', markLoaded, { once: true });
-				if (agentEl._viewer) markLoaded();
-			};
-			const mo = new MutationObserver(() => { checkLoaded(); mo.disconnect(); });
-			mo.observe(heroStage, { childList: true, subtree: true });
-			checkLoaded();
-		}
-	}
 
 	// ── 3D Stack section: mouse-tracked perspective + spotlight ─────
 	{
