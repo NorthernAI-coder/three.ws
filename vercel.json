@@ -4918,10 +4918,6 @@
 			"schedule": "* * * * *"
 		},
 		{
-			"path": "/api/cron/economy-tick",
-			"schedule": "* * * * *"
-		},
-		{
 			"path": "/api/cron/avatar-thumbnail-render",
 			"schedule": "*/10 * * * *"
 		},
