@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-07-04",
+			"title": "A little Fourth of July on the homepage",
+			"summary": "Visit the homepage this week and you'll catch some quiet Independence Day touches: a thin red-white-and-blue line across the top of the page and the occasional tiny firework sparkling in the hero. Nothing loud — it keeps the site clean, respects reduced-motion settings, works in both light and dark themes, and retires itself automatically after July 5.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/"
+		},
+		{
+			"date": "2026-07-04",
 			"title": "Four gestures return to the walk companion — nod, shrug, jog, celebrate",
 			"summary": "The gesture wheel regained four expressive moves that had been silently dropped: nod (a quick upper-body affirm), shrug, jog (a full-body run loop), and celebrate (a whole-body cheer). Open the wheel with G (or long-press the action button on mobile) — the wheel now lays out all twelve gestures; keys 1–8 still trigger the first eight. Also part of this pass: the entire test suite now runs fully green, locking every one of these behaviors in.",
 			"tags": [
