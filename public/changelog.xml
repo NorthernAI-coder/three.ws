@@ -55,6 +55,14 @@
 			<description>The gesture wheel regained four expressive moves that had been silently dropped: nod (a quick upper-body affirm), shrug, jog (a full-body run loop), and celebrate (a whole-body cheer). Open the wheel with G (or long-press the action button on mobile) — the wheel now lays out all twelve gestures; keys 1–8 still trigger the first eight. Also part of this pass: the entire test suite now runs fully green, locking every one of these behaviors in.</description>
 		</item>
 		<item>
+			<title>Fourth of July avatar presets in the create flow</title>
+			<link>https://three.ws/create/prompt</link>
+			<guid isPermaLink="false">2026-07-04:Fourth of July avatar presets in the create flow</guid>
+			<pubDate>Sat, 04 Jul 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The Independence Day moment now reaches avatar creation, not just the homepage. For July 1–5, the prompt page offers a set of festive one-tap presets — Uncle Sam, a bald-eagle mascot, a hero take on Lady Liberty, and a glowing red-white-and-blue firework sprite — so you can spin up a themed 3D avatar in a click. They retire themselves automatically once the holiday passes.</description>
+		</item>
+		<item>
 			<title>Global markets — live prices and a rich detail page for every coin</title>
 			<link>https://three.ws/coins</link>
 			<guid isPermaLink="false">2026-07-04:Global markets — live prices and a rich detail page for every coin</guid>

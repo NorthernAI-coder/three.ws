@@ -53,15 +53,29 @@ globalThis.FileReader = NodeFileReader;
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
 const ANIM_DIR = resolve(ROOT, 'public/animations');
+
+// CLI overrides let the bulk Mixamo library pipeline (scripts/mixamo-all.mjs)
+// bake into a staging dir for R2 upload without touching the curated public
+// set: --config=<path> --out=<dir> --manifest=<path> --url-prefix=<prefix>.
+// With no flags, behavior is unchanged (curated set → public/animations).
+const cliFlags = Object.fromEntries(
+	process.argv.slice(2).map((a) => {
+		const m = a.match(/^--([^=]+)(?:=(.*))?$/);
+		return m ? [m[1], m[2] ?? true] : [a, true];
+	}),
+);
+
 // FBX sources are build-time inputs only — kept out of public/ so they never
 // ship in the deploy bundle. GLB sources stay in public/animations (some are
 // also served at runtime).
 const SOURCES_DIR = resolve(ROOT, 'animation-sources');
-const OUT_DIR = resolve(ANIM_DIR, 'clips');
+const OUT_DIR = cliFlags.out ? resolve(ROOT, cliFlags.out) : resolve(ANIM_DIR, 'clips');
 const REFERENCE_GLB = resolve(ROOT, 'public/avatars/cz.glb');
-const CONFIG = resolve(__dirname, 'animations.config.json');
-const MANIFEST_OUT = resolve(ANIM_DIR, 'manifest.json');
-const HASH_CACHE = resolve(ANIM_DIR, 'clips/.input-hashes.json');
+const CONFIG = cliFlags.config ? resolve(ROOT, cliFlags.config) : resolve(__dirname, 'animations.config.json');
+const MANIFEST_OUT = cliFlags.manifest ? resolve(ROOT, cliFlags.manifest) : resolve(ANIM_DIR, 'manifest.json');
+const URL_PREFIX = typeof cliFlags['url-prefix'] === 'string' ? cliFlags['url-prefix'] : '/animations/clips/';
+const IS_CUSTOM_BUILD = !!(cliFlags.config || cliFlags.out || cliFlags.manifest);
+const HASH_CACHE = resolve(OUT_DIR, '.input-hashes.json');
 
 function hashFile(path) {
 	return createHash('sha1').update(readFileSync(path)).digest('hex');
@@ -234,10 +248,12 @@ async function main() {
 			const existing = JSON.parse(readFileSync(outPath, 'utf8'));
 			manifest.push({
 				name: def.name,
-				url: `/animations/clips/${outName}`,
+				url: `${URL_PREFIX}${outName}`,
 				label: def.label,
 				icon: def.icon,
 				loop: def.loop !== false,
+				...(def.category ? { category: def.category } : {}),
+				...(existing.duration ? { duration: existing.duration } : {}),
 			});
 			console.log(`[animations] CACHED ${def.name}`);
 			skipCount++;
@@ -290,10 +306,12 @@ async function main() {
 			hashCache[def.name] = cacheKey;
 			manifest.push({
 				name: def.name,
-				url: `/animations/clips/${outName}`,
+				url: `${URL_PREFIX}${outName}`,
 				label: def.label,
 				icon: def.icon,
 				loop: def.loop !== false,
+				...(def.category ? { category: def.category } : {}),
+				...(json.duration ? { duration: json.duration } : {}),
 			});
 			okCount++;
 			const droppedNote = dropped.length ? ` (dropped ${dropped.length} unknown bones)` : '';
@@ -313,7 +331,8 @@ async function main() {
 	if (okCount === 0) process.exit(1);
 
 	// Auto-patch home.html with the real clip count so copy is always accurate.
-	patchHomeClipCount(manifest.length);
+	// Staging builds (bulk library) don't describe the curated set — skip.
+	if (!IS_CUSTOM_BUILD) patchHomeClipCount(manifest.length);
 }
 
 function patchHomeClipCount(count) {

@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-07-04",
+			"title": "Fourth of July avatar presets in the create flow",
+			"summary": "The Independence Day moment now reaches avatar creation, not just the homepage. For July 1–5, the prompt page offers a set of festive one-tap presets — Uncle Sam, a bald-eagle mascot, a hero take on Lady Liberty, and a glowing red-white-and-blue firework sprite — so you can spin up a themed 3D avatar in a click. They retire themselves automatically once the holiday passes.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/create/prompt"
+		},
+		{
+			"date": "2026-07-04",
 			"title": "A little Fourth of July on the homepage",
 			"summary": "For Independence Day (July 1–5) the homepage wears a touch of red, white, and blue: a soft ribbon glow along the top of the page and real launch-and-burst fireworks that rise and shower over the hero. It's sparse and tasteful, respects your reduced-motion setting, pauses when the tab is in the background, and retires itself automatically once the holiday passes.",
 			"tags": [
