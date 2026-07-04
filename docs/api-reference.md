@@ -954,6 +954,116 @@ Each asset has its own SIWX grant key: the endpoint passes a `resourceUrlBuilder
 
 ---
 
+## Coin Market Data API
+
+Public, unauthenticated, CORS-open proxies over CoinGecko (plus a news
+aggregator) that power the [/coins](https://three.ws/coins) markets index and
+the `/coin/:id` detail pages. Responses are CDN-cached (30–300 s), so polling
+faster than the cache window returns the same payload. See
+[docs/coin-pages.md](coin-pages.md) for the product surface.
+
+### Coin detail
+
+```
+GET /api/coin/detail?id=<coingecko-id>
+GET /api/coin/detail?contract=<solana-mint>
+```
+
+**Query parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | string | CoinGecko coin id (lowercase slug). Required unless `contract` is given |
+| `contract` | string | Base58 Solana mint address — resolves via the contract lookup |
+
+**Response**
+
+```json
+{
+  "coin": {
+    "id": "…", "symbol": "…", "name": "…", "image": "https://…", "rank": 1,
+    "categories": ["…"],
+    "description": "plain text, HTML stripped server-side",
+    "links": { "homepage": "…", "twitter": "…", "reddit": "…", "telegram": "…", "github": "…", "explorers": ["…"] },
+    "platforms": { "<chain>": "<contract address>" },
+    "market": {
+      "price": 0, "market_cap": 0, "fdv": 0, "volume_24h": 0,
+      "high_24h": 0, "low_24h": 0, "change_24h_abs": 0,
+      "change_pct": { "h24": 0, "d7": 0, "d30": 0, "y1": 0 },
+      "circulating": 0, "total": 0, "max": 0,
+      "ath": 0, "ath_date": "…", "ath_change_pct": 0, "atl": 0, "atl_date": "…"
+    },
+    "last_updated": "…"
+  }
+}
+```
+
+Errors: `404 not_found` (unknown id/contract), `502 upstream_error`.
+
+---
+
+### Price series
+
+```
+GET /api/coin/ohlc?id=<coingecko-id>&days=<1|7|30|90|365>
+```
+
+Returns `{ "data": [[timestamp_ms, price], …], "days": 30 }` — close prices at
+upstream-chosen granularity (5-minutely for 1 day, hourly to 90 days, daily
+beyond).
+
+---
+
+### Markets table / coin search
+
+```
+GET /api/coin/markets?page=1&per_page=100     # ranked rows, 7d sparklines
+GET /api/coin/markets?q=<text>                # type-ahead search, top 10
+```
+
+Table rows: `{ id, symbol, name, image, rank, price, change_24h, change_7d,
+market_cap, volume_24h, sparkline: [number, …] }` (sparklines downsampled to
+≤32 points). Search results: `{ id, name, symbol, thumb, rank }`.
+
+---
+
+### Global market stats
+
+```
+GET /api/coin/global
+```
+
+**Response**
+
+```json
+{
+  "market": {
+    "market_cap_usd": 0, "volume_24h_usd": 0, "market_cap_change_pct_24h": 0,
+    "active_coins": 0,
+    "dominance": [{ "symbol": "…", "pct": 0 }]
+  },
+  "fear_greed": { "value": 0, "label": "…" }
+}
+```
+
+`dominance` holds the top-2 assets by market-cap share, largest first. Either
+half may be `null` if its upstream is briefly unavailable.
+
+---
+
+### Related news
+
+```
+GET /api/coin/news?q=<coin name>&limit=8
+```
+
+Returns `{ "articles": [{ title, link, description, image, source,
+published_at }], "source": "cryptocurrency.cv" | "rss" }`. Primary upstream is
+the cryptocurrency.cv aggregator; on failure it reads the same first-party RSS
+feeds directly (`source: "rss"`).
+
+---
+
 ## Config API
 
 ```
