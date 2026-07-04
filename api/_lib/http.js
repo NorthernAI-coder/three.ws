@@ -432,7 +432,14 @@ export function wrap(handler) {
 			// (api/cron/db-retention.js) rather than chase a phantom bug.
 			const dbFull = !dbDown && isDbCapacityError(err);
 			const dbDegraded = dbDown || dbFull;
-			const status = dbDegraded ? 503 : (err.status || 500);
+			// A missing env var (api/_lib/env.js `req()`) is a deployment-configuration
+			// gap, not a code bug: the endpoint is down until the operator sets the
+			// secret. Surface it as 503 not_configured with a deduped alert naming the
+			// exact var — instead of one generic "unhandled 5xx" + Sentry event per hit
+			// (the July 2026 siwe/siws nonce incident: JWT_SECRET unset → hundreds of
+			// anonymous 500s that never said which var was missing).
+			const missingEnv = !dbDegraded && /^Missing required env var: /.test(err?.message || '');
+			const status = dbDegraded || missingEnv ? 503 : (err.status || 500);
 			if (status >= 500) {
 				const ref = correlationId();
 				if (dbDegraded) {
@@ -444,6 +451,13 @@ export function wrap(handler) {
 					logDbUnavailableOnce(`${req.method} ${redactUrl(req.url)}`, err?.message || String(err));
 					sendOpsAlert(dbFull ? 'database at storage cap — retention needed' : 'database unavailable', `${err?.message || String(err)}\nref ${ref}`, {
 						signature: dbFull ? 'db:capacity' : 'db:unavailable',
+					});
+				} else if (missingEnv) {
+					// One concise line + one deduped alert per (route, var) — the fix is
+					// always the same: set the named var in the deployment env.
+					console.error(`[api] ${err.message} [ref ${ref}] — set it in the deployment env (${req.method} ${redactUrl(req.url)})`);
+					sendOpsAlert(`endpoint not configured: ${req.method} ${redactUrl(req.url)}`, `${err.message}\nSet the var in the Vercel env and redeploy.\nref ${ref}`, {
+						signature: `not-configured:${redactUrl(req.url)}:${err.message}`,
 					});
 				} else {
 					// Redact coordinates / device tokens so a 5xx on a geolocated read never
@@ -468,6 +482,14 @@ export function wrap(handler) {
 						// error page with their ref instead of a raw JSON blob. API and
 						// agent callers (no `Sec-Fetch-Mode: navigate`) keep the envelope.
 						redirect(res, serverErrorPageLocation(ref, req), 303);
+					} else if (missingEnv) {
+						// Don't name the missing var to the client — which secrets are
+						// unset is operator information; the ref ties it to the log line.
+						json(res, status, {
+							error: 'not_configured',
+							error_description: `this endpoint is not configured on this deployment — quote ref ${ref} to support`,
+							ref,
+						}, { 'cache-control': 'no-store' });
 					} else {
 						json(res, status, {
 							error: dbDegraded ? 'service_unavailable' : (err.code || 'internal_error'),

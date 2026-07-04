@@ -330,6 +330,7 @@
 
 		disconnectedCallback() {
 			this._destroyed = true;
+			if (avatarFrameIO) avatarFrameIO.unobserve(this);
 			window.removeEventListener('message', this._onMessage);
 			if (this._iframe) { this._iframe.remove(); this._iframe = null; }
 			if (this.bridge && typeof this.bridge.destroy === 'function') this.bridge.destroy();
@@ -410,10 +411,44 @@
 		}
 	}
 
+	// Boot avatar frames only when they approach the viewport, and unload
+	// non-driveable frames that scroll far away again. Every live frame is a
+	// full WebGL context plus a wasm decoder instance, so a long grid
+	// (dashboard avatars + infinite scroll) otherwise accumulates dozens of
+	// them until the renderer dies — the July 2026 "WebAssembly.instantiate():
+	// Out of memory" incident. `loading="lazy"` alone is not enough: Chromium's
+	// lazy-load distance thresholds boot iframes thousands of pixels before
+	// they are visible, and nothing ever unloads them.
+	var avatarFrameIO = typeof IntersectionObserver !== 'undefined'
+		? new IntersectionObserver(function (entries) {
+			entries.forEach(function (entry) {
+				if (entry.isIntersecting) bootAvatarFrame(entry.target);
+				else unloadAvatarFrame(entry.target);
+			});
+		}, { rootMargin: '300px' })
+		: null;
+
+	function bootAvatarFrame(el) {
+		if (!el._iframe || el._frameLive || !el._frameSrc) return;
+		el._frameLive = true;
+		el._iframe.src = el._frameSrc;
+		if (isAvatarDriveable(el)) upgradeAvatarToBridge(el);
+	}
+
+	function unloadAvatarFrame(el) {
+		// Driveable frames hold live conversational state — never unload them.
+		if (!el._iframe || !el._frameLive || isAvatarDriveable(el)) return;
+		el._frameLive = false;
+		el._resetReady();
+		el._iframe.src = 'about:blank';
+	}
+
 	function mountAvatarFrame(el) {
 		if (el._iframe) { el._iframe.remove(); el._iframe = null; }
 		if (el.bridge && typeof el.bridge.destroy === 'function') el.bridge.destroy();
 		el.bridge = null;
+		el._frameLive = false;
+		el._frameSrc = null;
 		var oldErr = el.shadowRoot.querySelector('.error');
 		if (oldErr) oldErr.remove();
 		el._resetReady();
@@ -424,9 +459,9 @@
 			return;
 		}
 		el._origin = new URL(src, location.href).origin;
+		el._frameSrc = src;
 
 		var iframe = document.createElement('iframe');
-		iframe.src = src;
 		iframe.allow = 'autoplay; camera; microphone; xr-spatial-tracking; clipboard-write';
 		if (isCrossOrigin(src)) {
 			iframe.setAttribute('sandbox', SANDBOX_VALUE);
@@ -438,7 +473,15 @@
 		el.shadowRoot.appendChild(iframe);
 		el._iframe = iframe;
 
-		if (isAvatarDriveable(el)) upgradeAvatarToBridge(el);
+		if (avatarFrameIO) {
+			// Re-arming after an attribute-change remount: unobserve first so the
+			// fresh observe() delivers an initial visibility callback (a repeated
+			// observe() on an already-tracked target is silently ignored).
+			avatarFrameIO.unobserve(el);
+			avatarFrameIO.observe(el);
+		} else {
+			bootAvatarFrame(el);
+		}
 	}
 
 	function resolveAvatarIframeSrc(el) {
