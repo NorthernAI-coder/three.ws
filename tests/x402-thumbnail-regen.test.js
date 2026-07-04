@@ -29,7 +29,7 @@ vi.mock('../api/_lib/db.js', () => {
 		}
 		return [];
 	});
-	return { sql };
+	return { sql, isDbUnavailableError: () => false, isDbCapacityError: () => false };
 });
 
 // ── mock payment client ─────────────────────────────────────────────────────

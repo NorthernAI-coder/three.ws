@@ -65,7 +65,7 @@ const h = vi.hoisted(() => {
 	return { store, fakeSql };
 });
 
-vi.mock('../api/_lib/db.js', () => ({ sql: h.fakeSql, sqlValues: () => {} }));
+vi.mock('../api/_lib/db.js', () => ({ sql: h.fakeSql, sqlValues: () => {}, isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 import {
 	genesisHash, canonicalizeEntry, computeEntryHash, buildChain, verifyChain,

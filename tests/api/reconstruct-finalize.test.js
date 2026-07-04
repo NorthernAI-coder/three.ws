@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ── mocks ──────────────────────────────────────────────────────────────────
 const sqlMock = vi.fn(async () => []);
-vi.mock('../../api/_lib/db.js', () => ({ sql: (...args) => sqlMock(...args) }));
+vi.mock('../../api/_lib/db.js', () => ({ sql: (...args) => sqlMock(...args), isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 const putObjectMock = vi.fn(async () => undefined);
 const publicUrlMock = vi.fn((key) => `https://cdn.test/${key}`);

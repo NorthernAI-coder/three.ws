@@ -12,6 +12,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const sqlMock = vi.fn();
 vi.mock('../../api/_lib/db.js', () => ({
 	sql: (...args) => sqlMock(...args),
+	isDbUnavailableError: () => false,
+	isDbCapacityError: () => false,
 }));
 
 const { assembleIntel } = await import('../../api/_lib/oracle/sources.js');

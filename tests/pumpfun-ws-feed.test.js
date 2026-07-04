@@ -11,7 +11,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const sqlCalls = [];
 const sqlMock = vi.fn(async (...a) => { sqlCalls.push(a); return []; });
-vi.mock('../api/_lib/db.js', () => ({ sql: sqlMock }));
+vi.mock('../api/_lib/db.js', () => ({ sql: sqlMock, isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 vi.mock('../api/_lib/env.js', () => ({
 	env: { DATABASE_URL: 'postgres://test', APP_ORIGIN: 'http://test' },

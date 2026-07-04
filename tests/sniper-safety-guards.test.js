@@ -16,7 +16,7 @@ vi.mock('../api/_lib/db.js', () => {
 		}
 		return Promise.resolve([]);
 	};
-	return { sql, LAMPORTS_PER_SOL: 1_000_000_000 };
+	return { sql, LAMPORTS_PER_SOL: 1_000_000_000, isDbUnavailableError: () => false, isDbCapacityError: () => false };
 });
 
 import { parseAgentIds } from '../workers/agent-sniper/config.js';

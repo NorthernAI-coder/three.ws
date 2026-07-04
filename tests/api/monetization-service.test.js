@@ -54,7 +54,7 @@ sqlMock.transaction = vi.fn((queries) => Promise.all(queries));
 
 // Mock db.js so importing the service never reaches Neon/env config — the
 // service's own queries run through the injected sqlMock instead.
-vi.mock('../../api/_lib/db.js', () => ({ sql: sqlMock }));
+vi.mock('../../api/_lib/db.js', () => ({ sql: sqlMock, isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 // ── Mock the lower-level helpers the service orchestrates ─────────────────────
 const purchaseConfirm = {

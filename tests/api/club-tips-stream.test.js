@@ -18,6 +18,8 @@ vi.mock('../../api/_lib/db.js', () => ({
 		sqlState.calls.push({ query, values });
 		return sqlState.queue.length === 0 ? [] : sqlState.queue.shift();
 	}),
+	isDbUnavailableError: () => false,
+	isDbCapacityError: () => false,
 }));
 
 const { default: handler } = await import('../../api/club/tips-stream.js');

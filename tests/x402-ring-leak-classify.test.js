@@ -21,6 +21,8 @@ vi.mock('../api/_lib/db.js', () => ({
 		sqlCalls.push({ text: strings.join('?'), values });
 		return sqlQueue.length ? sqlQueue.shift() : [];
 	}),
+	isDbUnavailableError: () => false,
+	isDbCapacityError: () => false,
 }));
 vi.mock('../api/_lib/alerts.js', () => ({ sendOpsAlert: vi.fn(async () => {}) }));
 

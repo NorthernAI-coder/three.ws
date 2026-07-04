@@ -10,6 +10,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const queue = [];
 vi.mock('../api/_lib/db.js', () => ({
 	sql: vi.fn(async () => (queue.length ? queue.shift() : [])),
+	isDbUnavailableError: () => false,
+	isDbCapacityError: () => false,
 }));
 
 // Auth: the test sets `session` / `bearer` per case.

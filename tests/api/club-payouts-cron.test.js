@@ -19,7 +19,7 @@ const sqlMock = vi.fn(async (strings, ...values) => {
 	return handler ? handler(values, call) : [];
 });
 
-vi.mock('../../api/_lib/db.js', () => ({ sql: sqlMock }));
+vi.mock('../../api/_lib/db.js', () => ({ sql: sqlMock, isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 vi.mock('../../api/_lib/env.js', () => ({
 	env: { APP_ORIGIN: 'http://localhost:3000' },

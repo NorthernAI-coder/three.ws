@@ -19,6 +19,8 @@ vi.mock('../../api/_lib/db.js', () => ({
 		if (next instanceof Error) throw next;
 		return next;
 	}),
+	isDbUnavailableError: () => false,
+	isDbCapacityError: () => false,
 }));
 
 vi.mock('../../api/_lib/rate-limit.js', () => ({

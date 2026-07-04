@@ -23,7 +23,7 @@ const sqlMock = vi.fn(() => {
 	return Promise.resolve(next);
 });
 
-vi.mock('../../api/_lib/db.js', () => ({ sql: sqlMock, isDbUnavailableError: () => false }));
+vi.mock('../../api/_lib/db.js', () => ({ sql: sqlMock, isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 const authState = {
 	session: null,

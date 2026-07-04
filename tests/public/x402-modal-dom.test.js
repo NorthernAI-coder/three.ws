@@ -55,6 +55,11 @@ describe('x402 payment modal — trust + a11y', () => {
 		window.phantom = { solana: { isPhantom: true } };
 		global.fetch = vi.fn(async () => stub402());
 		global.requestAnimationFrame = (cb) => setTimeout(() => cb(Date.now()), 0);
+		// The real-funds risk acknowledgment gates the pay flow before any
+		// signing/balance work. Its module import falls back to confirm() under
+		// jsdom; accept it so the flow under test (modal states) is reachable.
+		// The gate itself is covered by its own suite.
+		vi.stubGlobal('confirm', vi.fn(() => true));
 	});
 
 	afterEach(() => {

@@ -12,7 +12,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 const queue = [];
 vi.mock('../api/_lib/db.js', () => {
 	const sql = vi.fn(async () => (queue.length ? queue.shift() : []));
-	return { sql };
+	return { sql, isDbUnavailableError: () => false, isDbCapacityError: () => false };
 });
 // avatarThumb pulls in r2 publicUrl — stub it so a thumbnail key resolves to a
 // deterministic URL without real R2 config.

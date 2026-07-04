@@ -23,7 +23,7 @@ class FakeWS {
 FakeWS.instances = [];
 
 vi.mock('ws', () => ({ default: FakeWS }));
-vi.mock('../api/_lib/db.js', () => ({ sql: vi.fn(async () => []) }));
+vi.mock('../api/_lib/db.js', () => ({ sql: vi.fn(async () => []), isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 vi.mock('../api/_lib/env.js', () => ({
 	env: { DATABASE_URL: 'postgres://test', APP_ORIGIN: 'http://test' },
 }));

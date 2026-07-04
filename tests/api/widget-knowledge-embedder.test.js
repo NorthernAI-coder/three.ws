@@ -20,7 +20,7 @@ const sqlMock = vi.fn((strings, ...params) => {
 	return Promise.resolve(next ?? []);
 });
 sqlMock.transaction = vi.fn(async (queries) => Promise.all(queries));
-vi.mock('../../api/_lib/db.js', () => ({ sql: sqlMock }));
+vi.mock('../../api/_lib/db.js', () => ({ sql: sqlMock, isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 // Mutable embedding-provider state each test configures.
 const mockEmbedState = {

@@ -69,10 +69,12 @@ async function sendViaJito(rawBase64) {
 export function createWeb3Executor(opts = {}) {
 	const maxAttempts = Math.max(1, opts.maxAttempts ?? 3);
 	const simulate = opts.simulate !== false;
+	const settleBudgetMsOpt = opts.settleBudgetMs ?? null;
 
 	return {
 		async submit({ connection, payer, instructions, confirmTimeoutMs, tipMode = 'off', onTip }) {
 			const start = Date.now();
+			const settleBudgetMs = settleBudgetMsOpt ?? Math.max(confirmTimeoutMs || 0, 90_000);
 			let useJito = tipMode === 'economy' || tipMode === 'turbo';
 			let tipLamports = 0n;
 			let tipIx = null;
@@ -93,6 +95,43 @@ export function createWeb3Executor(opts = {}) {
 
 			let fallbackReason = null;
 
+			// Every signature this submit() ever broadcast. A confirm error does NOT
+			// mean the tx died — on a degraded RPC "blockheight exceeded"/timeouts
+			// fire for transactions that actually land. Each retry builds a FRESH
+			// blockhash (a different tx the chain will happily execute alongside the
+			// old one), so before any resend — and before any final throw — the sent
+			// set is swept: a landed attempt IS the result, never a reason to resend.
+			const sent = []; // { signature, lastValidBlockHeight }
+
+			async function landedAmongSent() {
+				if (!sent.length) return null;
+				const res = await connection.getSignatureStatuses(sent.map((s) => s.signature), { searchTransactionHistory: true }).catch(() => null);
+				const arr = res?.value || [];
+				for (let i = 0; i < arr.length; i++) {
+					const st = arr[i];
+					if (st && !st.err && (st.confirmationStatus === 'confirmed' || st.confirmationStatus === 'finalized')) {
+						return sent[i].signature;
+					}
+				}
+				return null;
+			}
+
+			// Resolve the most recent attempt to landed (→ signature) or provably dead
+			// (→ null: its blockhash expired with no status on record). Until one of
+			// those is true the tx is IN FLIGHT and resending is a double-spend.
+			async function settleLastSent(deadlineMs) {
+				const last = sent[sent.length - 1];
+				if (!last) return { landed: null, dead: true };
+				while (Date.now() < deadlineMs) {
+					const landed = await landedAmongSent();
+					if (landed) return { landed, dead: false };
+					const height = await connection.getBlockHeight('confirmed').catch(() => null);
+					if (height != null && height > last.lastValidBlockHeight) return { landed: null, dead: true };
+					await sleep(1500);
+				}
+				return { landed: null, dead: false }; // unknown — caller must NOT resend
+			}
+
 			async function attemptSend(microLamports, viaJito) {
 				const { tx, blockhash, lastValidBlockHeight } = await buildSigned({ connection, payer, instructions, microLamports, tipIx: viaJito ? tipIx : null });
 				if (simulate) {
@@ -103,16 +142,30 @@ export function createWeb3Executor(opts = {}) {
 				let signature;
 				if (viaJito) {
 					signature = await sendViaJito(raw.toString('base64'));
+					sent.push({ signature, lastValidBlockHeight });
 				} else {
 					signature = await connection.sendRawTransaction(raw, { skipPreflight: true, maxRetries: 0 });
+					sent.push({ signature, lastValidBlockHeight });
 				}
 				await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
 				return signature;
 			}
 
+			function ambiguous(lastErr) {
+				const sigs = sent.map((s) => s.signature);
+				return Object.assign(
+					new Error(`landing ambiguous after ${sent.length} broadcast(s) — verify before retrying: ${sigs.join(', ')}${lastErr ? ` (last error: ${lastErr.message})` : ''}`),
+					{ code: 'landing_ambiguous', sentSignatures: sigs },
+				);
+			}
+
 			async function sendStandard() {
 				let lastErr;
 				for (let i = 0; i < maxAttempts; i++) {
+					// A previous attempt may have landed despite its confirm error —
+					// return it instead of buying again.
+					const prior = await landedAmongSent();
+					if (prior) return { signature: prior, route: 'standard', tipLamports: 0n, priorityFeeMicroLamports: PRIORITY_FEE_MICROLAMPORTS.base * i, attempts: i, landedMs: Date.now() - start, fallbackReason };
 					const fee = PRIORITY_FEE_MICROLAMPORTS.base * (i + 1);
 					try {
 						const signature = await Promise.race([
@@ -120,8 +173,19 @@ export function createWeb3Executor(opts = {}) {
 							timeout(confirmTimeoutMs),
 						]);
 						return { signature, route: 'standard', tipLamports: 0n, priorityFeeMicroLamports: fee, attempts: i + 1, landedMs: Date.now() - start, fallbackReason };
-					} catch (err) { lastErr = err; }
+					} catch (err) {
+						lastErr = err;
+						if (err?.code === 'sim_failed') throw err; // nothing was broadcast
+						// The attempt's tx may still be in flight. Only loop once it has
+						// landed (return it) or provably died (safe to resend).
+						const settled = await settleLastSent(Date.now() + settleBudgetMs);
+						if (settled.landed) return { signature: settled.landed, route: 'standard', tipLamports: 0n, priorityFeeMicroLamports: fee, attempts: i + 1, landedMs: Date.now() - start, fallbackReason };
+						if (!settled.dead) throw ambiguous(lastErr);
+					}
 				}
+				const final = await landedAmongSent();
+				if (final) return { signature: final, route: 'standard', tipLamports: 0n, priorityFeeMicroLamports: PRIORITY_FEE_MICROLAMPORTS.base * maxAttempts, attempts: maxAttempts, landedMs: Date.now() - start, fallbackReason };
+				if (sent.length) throw ambiguous(lastErr);
 				throw lastErr;
 			}
 
@@ -135,10 +199,21 @@ export function createWeb3Executor(opts = {}) {
 			} catch (err) {
 				fallbackReason = `jito_failed:${err?.message || 'error'}`.slice(0, 120);
 				tipIx = null; // don't pay a tip on the non-Jito fallback
+				// The tipped tx may have been broadcast and still be in flight — settle
+				// it (landed → done; in-flight → ambiguous) before any fresh broadcast.
+				if (sent.length) {
+					const settled = await settleLastSent(Date.now() + settleBudgetMs);
+					if (settled.landed) return { signature: settled.landed, route: 'jito', tipLamports, priorityFeeMicroLamports: fee, attempts: 1, landedMs: Date.now() - start, fallbackReason: null };
+					if (!settled.dead) throw ambiguous(err);
+				}
 				return await sendStandard();
 			}
 		},
 	};
+}
+
+function sleep(ms) {
+	return new Promise((r) => setTimeout(r, ms).unref?.());
 }
 
 function timeout(ms) {

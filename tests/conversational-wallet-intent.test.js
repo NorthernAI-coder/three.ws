@@ -13,7 +13,7 @@ const THREE = 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
 
 // Stub the heavy server-only imports so importing the handler module is cheap and
 // side-effect-free. The pure functions under test don't call any of them.
-vi.mock('../api/_lib/db.js', () => ({ sql: vi.fn(async () => []) }));
+vi.mock('../api/_lib/db.js', () => ({ sql: vi.fn(async () => []), isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 vi.mock('../api/_lib/auth.js', () => ({
 	getSessionUser: vi.fn(), authenticateBearer: vi.fn(), extractBearer: vi.fn(),
 }));

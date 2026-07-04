@@ -27,6 +27,8 @@ vi.mock('../api/_lib/db.js', () => ({
 		if (q.includes('INSERT INTO agent_anomaly_events')) return [{ id: '99' }];
 		return [];
 	}),
+	isDbUnavailableError: () => false,
+	isDbCapacityError: () => false,
 }));
 
 const notifySpy = vi.fn(() => ({ id: 'n1' }));

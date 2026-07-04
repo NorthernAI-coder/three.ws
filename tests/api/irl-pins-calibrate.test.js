@@ -43,7 +43,7 @@ const sqlMock = vi.fn((strings, ...values) => {
 	// CREATE TABLE / ALTER TABLE / CREATE INDEX from ensureTable(), and anything else.
 	return Promise.resolve([]);
 });
-vi.mock('../../api/_lib/db.js', () => ({ sql: (...a) => sqlMock(...a) }));
+vi.mock('../../api/_lib/db.js', () => ({ sql: (...a) => sqlMock(...a), isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 // getSessionUser is overridden per-test to model authed vs anonymous callers.
 let sessionUser = null;

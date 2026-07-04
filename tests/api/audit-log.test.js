@@ -12,6 +12,8 @@ vi.mock('../../api/_lib/db.js', () => ({
 		(...args) => sqlMock(...args),
 		{ transaction: (...args) => sqlMock(...args) },
 	),
+	isDbUnavailableError: () => false,
+	isDbCapacityError: () => false,
 }));
 
 const getSessionUserMock = vi.fn();

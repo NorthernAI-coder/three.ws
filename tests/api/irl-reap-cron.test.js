@@ -10,7 +10,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 const sqlMock = vi.fn();
-vi.mock('../../api/_lib/db.js', () => ({ sql: sqlMock }));
+vi.mock('../../api/_lib/db.js', () => ({ sql: sqlMock, isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 vi.mock('../../api/_lib/env.js', () => ({ env: {} }));
 vi.mock('../../api/_lib/sentry.js', () => ({ captureException: vi.fn() }));
 vi.mock('../../api/_lib/alerts.js', () => ({ sendOpsAlert: vi.fn() }));

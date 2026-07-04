@@ -5,7 +5,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('../../api/_lib/db.js', () => ({ sql: vi.fn() }));
+vi.mock('../../api/_lib/db.js', () => ({ sql: vi.fn(), isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 vi.mock('../../api/_lib/watsonx.js', () => ({
 	watsonxConfig: vi.fn(),
 	watsonxEmbed: vi.fn(),

@@ -26,6 +26,8 @@ vi.mock('../../api/_lib/auth.js', () => ({
 const sqlState = { queue: [] };
 vi.mock('../../api/_lib/db.js', () => ({
 	sql: vi.fn(async () => (sqlState.queue.length ? sqlState.queue.shift() : [])),
+	isDbUnavailableError: () => false,
+	isDbCapacityError: () => false,
 }));
 
 vi.mock('../../api/_lib/rate-limit.js', () => ({

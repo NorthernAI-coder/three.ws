@@ -16,6 +16,8 @@ vi.mock('../api/_lib/db.js', () => ({
 		sqlState.calls.push({ query: strings.join('?'), values });
 		return sqlState.queue.length ? sqlState.queue.shift() : [];
 	}),
+	isDbUnavailableError: () => false,
+	isDbCapacityError: () => false,
 }));
 
 vi.mock('../api/_lib/avatar-wallet.js', () => ({

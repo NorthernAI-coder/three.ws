@@ -15,6 +15,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('../../api/_lib/db.js', () => ({
 	sql: vi.fn(async () => []),
 	isDbUnavailableError: () => false,
+	isDbCapacityError: () => false,
 }));
 
 const getAgentReputation = vi.fn();

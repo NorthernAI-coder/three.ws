@@ -54,7 +54,7 @@ const sqlMock = vi.fn((strings) => {
 	}
 	return Promise.resolve([]);
 });
-vi.mock('../../api/_lib/db.js', () => ({ sql: sqlMock }));
+vi.mock('../../api/_lib/db.js', () => ({ sql: sqlMock, isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 // Signed-in viewer for every probe.
 vi.mock('../../api/_lib/auth.js', () => ({

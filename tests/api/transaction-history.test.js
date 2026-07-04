@@ -21,7 +21,7 @@ const sqlMock = vi.fn((strings, ...values) => {
 	if (/'seller'::text AS role/.test(q)) return Promise.resolve(sellerRows);
 	return Promise.resolve([]);
 });
-vi.mock('../../api/_lib/db.js', () => ({ sql: sqlMock }));
+vi.mock('../../api/_lib/db.js', () => ({ sql: sqlMock, isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 let sessionUser = null;
 let bearerUser = null;

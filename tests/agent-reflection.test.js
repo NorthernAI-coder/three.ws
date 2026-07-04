@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock the data + LLM layers so we can drive runReflection deterministically.
 const sqlMock = vi.fn();
-vi.mock('../api/_lib/db.js', () => ({ sql: sqlMock }));
+vi.mock('../api/_lib/db.js', () => ({ sql: sqlMock, isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 class LlmUnavailableError extends Error {
 	constructor() {

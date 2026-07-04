@@ -32,7 +32,7 @@ vi.mock('../../api/_lib/usage.js', () => ({
 }));
 
 vi.mock('../../api/_lib/redis.js', () => ({ getRedis: () => null }));
-vi.mock('../../api/_lib/db.js', () => ({ sql: vi.fn(async () => []) }));
+vi.mock('../../api/_lib/db.js', () => ({ sql: vi.fn(async () => []), isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 // No shared platform wallet configured + no dev keypair file → loadAgentKeypair()
 // throws config-missing, which is the deterministic outcome we assert for the

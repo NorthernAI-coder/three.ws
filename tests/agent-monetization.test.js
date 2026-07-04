@@ -29,7 +29,7 @@ vi.mock('../api/_lib/db.js', () => {
 	// tagged-template calls have already executed (each shifting the queue) by the
 	// time the array literal is built, so awaiting them in order is faithful.
 	sql.transaction = (queries) => Promise.all(queries);
-	return { sql };
+	return { sql, isDbUnavailableError: () => false, isDbCapacityError: () => false };
 });
 
 vi.mock('../api/_lib/rate-limit.js', () => ({

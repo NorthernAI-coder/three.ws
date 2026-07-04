@@ -32,7 +32,7 @@ vi.mock('../../api/_lib/usage.js', () => ({
 	logger: () => ({ info: vi.fn(), warn: warnMock, error: vi.fn() }),
 	recordEvent: vi.fn(),
 }));
-vi.mock('../../api/_lib/db.js', () => ({ sql: vi.fn(async () => []) }));
+vi.mock('../../api/_lib/db.js', () => ({ sql: vi.fn(async () => []), isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 // A Redis client that is present (so readFeed takes the Redis branch) but whose
 // every command rejects the way a WRONGPASS-authenticated Upstash client does.

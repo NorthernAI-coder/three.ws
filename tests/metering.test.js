@@ -10,7 +10,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const queue = [];
 vi.mock('../api/_lib/db.js', () => {
 	const sql = vi.fn(async () => (queue.length ? queue.shift() : []));
-	return { sql };
+	return { sql, isDbUnavailableError: () => false, isDbCapacityError: () => false };
 });
 
 import { recordUsage, rollupInvoice, getReceipt, atomicsToUsd } from '../api/_lib/metering.js';

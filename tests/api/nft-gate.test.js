@@ -11,7 +11,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // ── Counting SQL stub for getUserSolanaWallets ───────────────────────────────
 let walletRows = [];
 const sql = vi.fn(async () => walletRows);
-vi.mock('../../api/_lib/db.js', () => ({ sql }));
+vi.mock('../../api/_lib/db.js', () => ({ sql, isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 const {
 	isValidSolanaAddress,

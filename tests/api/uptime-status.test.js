@@ -23,6 +23,14 @@ vi.mock('../../api/_lib/alerts.js', () => ({
 	sendOpsAlert: (...args) => sendOpsAlert(...args),
 }));
 
+// Internal subsystem health (db/ring/world checks) is covered by its own suite
+// (tests/subsystem-health.test.js). Mock it healthy here so this file stays a
+// deterministic test of the reachability pipeline: probes, storage shape,
+// aggregation math, and target alerting.
+vi.mock('../../api/_lib/ops/subsystem-health.js', () => ({
+	gatherSubsystemHealth: vi.fn(async () => ({ status: 'ok', degraded: [], subsystems: [] })),
+}));
+
 vi.mock('../../api/_lib/rate-limit.js', () => ({
 	limits: { publicIp: vi.fn(async () => ({ success: true })) },
 	clientIp: vi.fn(() => '127.0.0.1'),

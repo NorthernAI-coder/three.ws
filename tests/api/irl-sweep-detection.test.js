@@ -25,7 +25,7 @@ const alertSpy = vi.fn(async () => {});
 vi.mock('../../api/_lib/alerts.js', () => ({ sendOpsAlert: (...a) => alertSpy(...a) }));
 
 // Minimal stubs so importing the handler module doesn't touch real infra.
-vi.mock('../../api/_lib/db.js', () => ({ sql: vi.fn(async () => []) }));
+vi.mock('../../api/_lib/db.js', () => ({ sql: vi.fn(async () => []), isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 vi.mock('../../api/_lib/auth.js', () => ({ getSessionUser: vi.fn(async () => null) }));
 vi.mock('../../api/_lib/rate-limit.js', () => ({
 	limits: { publicIp: vi.fn(async () => ({ success: true })) },

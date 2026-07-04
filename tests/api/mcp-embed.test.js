@@ -25,6 +25,8 @@ vi.mock('../../api/_lib/db.js', () => ({
 		sqlState.calls.push({ query: Array.isArray(strings) ? strings.join('?') : String(strings), values });
 		return sqlState.queue.length ? sqlState.queue.shift() : [];
 	}),
+	isDbUnavailableError: () => false,
+	isDbCapacityError: () => false,
 }));
 
 // ── Rate limits ──────────────────────────────────────────────────────────────

@@ -45,7 +45,7 @@ vi.mock('../api/_lib/db.js', () => {
 		return state.sqlQueue.length ? state.sqlQueue.shift() : [];
 	});
 	sql.transaction = (qs) => Promise.all(qs);
-	return { sql };
+	return { sql, isDbUnavailableError: () => false, isDbCapacityError: () => false };
 });
 
 vi.mock('../api/_lib/agent-wallet.js', () => ({

@@ -53,7 +53,7 @@ const sqlMock = vi.fn(async (strings, ...values) => {
 	}
 	return [];
 });
-vi.mock('../api/_lib/db.js', () => ({ sql: (...a) => sqlMock(...a) }));
+vi.mock('../api/_lib/db.js', () => ({ sql: (...a) => sqlMock(...a), isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 // Auth: an authenticated session user for the poll handler.
 vi.mock('../api/_lib/auth.js', () => ({

@@ -21,7 +21,7 @@ import { describe, it, expect, beforeAll, vi } from 'vitest';
 
 // No DB is touched by the predicates under test; mock it so the import chain never
 // reaches for a real connection.
-vi.mock('../api/_lib/db.js', () => ({ sql: vi.fn(async () => []) }));
+vi.mock('../api/_lib/db.js', () => ({ sql: vi.fn(async () => []), isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 import {
 	normalizeCapabilityInput, signGrant, verifyGrant, canonicalScope,

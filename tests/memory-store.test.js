@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // ── Mocks ─────────────────────────────────────────────────────────────────
 // `sql` is a tagged template — mock it as a fn returning queued FIFO results.
 const sqlMock = vi.fn();
-vi.mock('../api/_lib/db.js', () => ({ sql: sqlMock }));
+vi.mock('../api/_lib/db.js', () => ({ sql: sqlMock, isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 // Control embedding configuration / vectors per test.
 const embeddingsConfigured = vi.fn(() => true);

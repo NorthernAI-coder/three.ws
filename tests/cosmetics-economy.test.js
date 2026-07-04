@@ -25,6 +25,8 @@ vi.mock('../api/_lib/db.js', () => ({
 		const h = sqlHandlers.shift();
 		return Promise.resolve(h ? h(text, values) : []);
 	},
+	isDbUnavailableError: () => false,
+	isDbCapacityError: () => false,
 }));
 
 const transferMock = vi.fn();

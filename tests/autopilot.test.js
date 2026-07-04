@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock the data + heavy infra layers so the pure logic is testable in isolation.
 const sqlMock = vi.fn();
-vi.mock('../api/_lib/db.js', () => ({ sql: sqlMock }));
+vi.mock('../api/_lib/db.js', () => ({ sql: sqlMock, isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 const llmConfiguredMock = vi.fn(() => false);
 const llmCompleteMock = vi.fn();

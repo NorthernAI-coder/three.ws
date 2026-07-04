@@ -19,7 +19,7 @@ vi.mock('../api/_lib/db.js', () => {
 	const queue = [];
 	const sql = vi.fn(async () => (queue.length ? queue.shift() : []));
 	sql.__queue = queue;
-	return { sql };
+	return { sql, isDbUnavailableError: () => false, isDbCapacityError: () => false };
 });
 
 // Module-level variable controlled per test so the Connection mock (a real
