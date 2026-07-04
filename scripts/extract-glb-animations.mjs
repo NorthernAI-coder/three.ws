@@ -251,7 +251,21 @@ for (const source of SOURCES) {
 		const name   = slug;
 
 		if (existingSources.has(filename)) {
-			console.log(`  ⏭  ${animName} → ${filename} (already in config)`);
+			// animation-sources/ is gitignored, so on a fresh checkout the config
+			// entry survives but its source file doesn't. Regenerate the file
+			// (without duplicating the config entry) so build:animations can bake it.
+			const outPath = join(SOURCES_DIR, filename);
+			if (existsSync(outPath)) {
+				console.log(`  ⏭  ${animName} → ${filename} (already in config)`);
+			} else {
+				try {
+					const extracted = extractAnimation(gltf, binData, i);
+					writeFileSync(outPath, extracted);
+					console.log(`  ♻️  ${animName} → ${filename} regenerated (${(extracted.length / 1024).toFixed(0)} KB)`);
+				} catch (err) {
+					console.error(`  ❌ Re-extract failed for ${animName}: ${err.message}`);
+				}
+			}
 			continue;
 		}
 		if (existingNames.has(name)) {
