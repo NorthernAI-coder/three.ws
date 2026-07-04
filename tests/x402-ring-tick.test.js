@@ -169,9 +169,10 @@ describe('ringTickConfig', () => {
 		const c = ringTickConfig();
 		expect(c.enabled).toBe(true);
 		expect(c.calls).toBe(3);
-		expect(c.settleEveryN).toBe(5);
-		expect(c.tickCapAtomic).toBe(1_100_000);
-		expect(c.dailyCapAtomic).toBe(50_000_000);
+		// settle every tick — the ~$50k/day throughput default (1440 ticks × $35 settle).
+		expect(c.settleEveryN).toBe(1);
+		expect(c.tickCapAtomic).toBe(40_000_000);
+		expect(c.dailyCapAtomic).toBe(60_000_000_000);
 	});
 
 	it('X402_RING_TICK_ENABLED=false disables it; other values keep it on', () => {
