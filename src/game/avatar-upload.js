@@ -13,6 +13,7 @@
 
 import { Box3, Vector3 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { getMeshoptDecoder } from '../viewer/internal.js';
 
 // Kept in sync with MAX_GLB_BYTES in api/avatar/presign-glb.js.
 export const MAX_GLB_BYTES = 16 * 1024 * 1024;
@@ -20,6 +21,8 @@ export const MAX_GLB_MB = MAX_GLB_BYTES / (1024 * 1024);
 
 const GLB_CONTENT_TYPE = 'model/gltf-binary';
 const _loader = new GLTFLoader();
+// three.ws GLBs may carry EXT_meshopt_compression — decoder required before load
+const _meshoptReady = getMeshoptDecoder().then((d) => _loader.setMeshoptDecoder(d));
 
 function disposeScene(scene) {
 	scene.traverse((n) => {
@@ -42,6 +45,7 @@ export async function validateGlb(file) {
 		throw new Error(`That .glb is ${(file.size / (1024 * 1024)).toFixed(1)} MB — the limit is ${MAX_GLB_MB} MB. Decimate the mesh or shrink textures and try again.`);
 	}
 
+	await _meshoptReady;
 	let gltf;
 	try {
 		gltf = await _loader.parseAsync(await file.arrayBuffer(), '');

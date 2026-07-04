@@ -5,6 +5,7 @@
 
 import { Vector3 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { getMeshoptDecoder } from '../viewer/internal.js';
 import { resolveURI } from '../ipfs.js';
 import { resolveSlot } from './animation-slots.js';
 import { log } from '../shared/log.js';
@@ -24,6 +25,8 @@ export class SceneController {
 	constructor(viewer) {
 		this.viewer = viewer;
 		this._loader = new GLTFLoader();
+		// three.ws GLBs may carry EXT_meshopt_compression — decoder required before load
+		this._meshoptReady = getMeshoptDecoder().then((d) => this._loader.setMeshoptDecoder(d));
 		this._userTarget = new Vector3(0, 1.6, 2); // approx user head position
 		this._animationMap = {};
 		this._group = null;
@@ -180,6 +183,7 @@ export class SceneController {
 	}
 
 	async loadClip(uri) {
+		await this._meshoptReady;
 		const resolved = resolveURI(uri);
 		return new Promise((resolve, reject) => {
 			this._loader.load(
@@ -192,6 +196,7 @@ export class SceneController {
 	}
 
 	async loadGLB(uri) {
+		await this._meshoptReady;
 		const resolved = resolveURI(uri);
 		return new Promise((resolve, reject) => {
 			this._loader.load(resolved, resolve, undefined, reject);

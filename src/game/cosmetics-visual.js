@@ -19,6 +19,7 @@ import {
 	AdditiveBlending, DoubleSide,
 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { getMeshoptDecoder } from '../viewer/internal.js';
 import { dracoLoader } from './avatar-rig.js';
 import { log } from '../shared/log.js';
 
@@ -26,13 +27,15 @@ import { log } from '../shared/log.js';
 // GLBs (which may be Draco-compressed) decode without a second decoder instance.
 const _loader = new GLTFLoader();
 _loader.setDRACOLoader(dracoLoader);
+// three.ws GLBs may carry EXT_meshopt_compression — decoder required before load
+const _meshoptReady = getMeshoptDecoder().then((d) => _loader.setMeshoptDecoder(d));
 
 // Cache each prop's loaded scene once; every wearer gets a deep clone so they
 // never share (and mutate) one another's meshes.
 const _propCache = new Map(); // url -> Promise<Object3D|null>
 function loadProp(url) {
 	if (!_propCache.has(url)) {
-		_propCache.set(url, _loader.loadAsync(url)
+		_propCache.set(url, _meshoptReady.then(() => _loader.loadAsync(url))
 			.then((g) => g.scene)
 			.catch((err) => { log.warn('[cosmetics] prop load failed:', url, err?.message); return null; }));
 	}

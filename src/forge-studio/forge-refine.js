@@ -15,6 +15,7 @@
 // geometry work is real synchronous compute behind a busy indicator.
 
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { getMeshoptDecoder } from '../viewer/internal.js';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { refineScene, REFINE_PRESETS, REFINE_PRESET_BY_KEY, specForPreset } from '../shared/mesh-refine.js';
 
@@ -39,6 +40,8 @@ if (resultPanel && viewer) {
 		injectPanel();
 
 	const loader = new GLTFLoader();
+	// three.ws GLBs may carry EXT_meshopt_compression — decoder required before load
+	const meshoptReady = getMeshoptDecoder().then((d) => loader.setMeshoptDecoder(d));
 	const exporter = new GLTFExporter();
 
 	let sourceUrl = ''; // the GLB this panel is refining (the forge result)
@@ -239,9 +242,9 @@ if (resultPanel && viewer) {
 		// Parse a *copy* of the buffer: GLTFLoader.parse can detach/consume the
 		// ArrayBuffer, and we keep the original for every subsequent re-run.
 		const copy = arrayBuffer.slice(0);
-		return new Promise((resolve, reject) => {
+		return meshoptReady.then(() => new Promise((resolve, reject) => {
 			loader.parse(copy, '', resolve, reject);
-		});
+		}));
 	}
 
 	function exportGlb(scene) {

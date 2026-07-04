@@ -10,6 +10,7 @@
 
 import { Box3, Group, Quaternion, Vector3 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { getMeshoptDecoder } from './viewer/internal.js';
 import { resolveURI } from './ipfs.js';
 import { collectSlotTargets } from './avatar-wardrobe.js';
 import { log } from './shared/log.js';
@@ -21,6 +22,8 @@ export class AccessoryManager {
 	constructor(viewer) {
 		this.viewer = viewer;
 		this._loader = new GLTFLoader();
+		// three.ws GLBs may carry EXT_meshopt_compression — decoder required before load
+		this._meshoptReady = getMeshoptDecoder().then((d) => this._loader.setMeshoptDecoder(d));
 		// id → { preset, object?: THREE.Group, morphs?: Array<{node,name,idx}> }
 		this._applied = new Map();
 		// material.uuid → original THREE.Color, captured the first time we tint a
@@ -162,6 +165,7 @@ export class AccessoryManager {
 	// ── Private ──────────────────────────────────────────────────────────────
 
 	async _applyGLB(preset) {
+		await this._meshoptReady;
 		let gltf;
 		try {
 			gltf = await _loadGLB(this._loader, preset.glbUrl);

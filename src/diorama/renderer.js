@@ -12,6 +12,7 @@
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { getMeshoptDecoder } from '../viewer/internal.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -433,6 +434,8 @@ export function createDioramaRenderer(container, opts = {}) {
 	const dracoLoader = new DRACOLoader().setDecoderPath(DRACO_PATH);
 	const gltfLoader = new GLTFLoader();
 	gltfLoader.setDRACOLoader(dracoLoader);
+	// three.ws GLBs may carry EXT_meshopt_compression — decoder required before load
+	const meshoptReady = getMeshoptDecoder().then((d) => gltfLoader.setMeshoptDecoder(d));
 
 	// controls
 	const controls = new OrbitControls(camera, renderer.domElement);
@@ -812,7 +815,7 @@ export function createDioramaRenderer(container, opts = {}) {
 			const seed = seeds.get(objectId);
 			if (seed) setSeedStatus(seed, 'forging');
 
-			gltfLoader.load(
+			meshoptReady.then(() => gltfLoader.load(
 				glbUrl,
 				(gltf) => {
 					try {
@@ -845,7 +848,7 @@ export function createDioramaRenderer(container, opts = {}) {
 					needsRender = true;
 					reject(err instanceof Error ? err : new Error(`Failed to load GLB: ${glbUrl}`));
 				},
-			);
+			));
 		});
 	}
 
@@ -1420,6 +1423,7 @@ export async function renderThumbnail(canvas, diorama) {
 	const dracoLoader = new DRACOLoader().setDecoderPath(DRACO_PATH);
 	const gltfLoader = new GLTFLoader();
 	gltfLoader.setDRACOLoader(dracoLoader);
+	gltfLoader.setMeshoptDecoder(await getMeshoptDecoder());
 	loaders.push(dracoLoader);
 
 	const forged = d.objects.filter((o) => o.glbUrl).slice(0, 8);

@@ -14,6 +14,7 @@ import {
 	LoopOnce,
 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { getMeshoptDecoder } from './viewer/internal.js';
 import { reserveWebGLContext } from './webgl-budget.js';
 import { log } from './shared/log.js';
 import { resolveDevR2Url } from './shared/dev-r2-proxy.js';
@@ -355,11 +356,13 @@ export function initAvatarDrop(sectionEl) {
 
 	timedFetch(`${location.origin}/api/avatars/${AVATAR_ID}`)
 		.then(r => r.json())
-		.then(d => {
+		.then(async d => {
 			const glb = resolveDevR2Url(d.avatar?.model_url || d.avatar?.url);
 			if (!glb) return;
 
-			new GLTFLoader().load(glb, gltf => {
+			const loader = new GLTFLoader();
+			loader.setMeshoptDecoder(await getMeshoptDecoder());
+			loader.load(glb, gltf => {
 				avatar = gltf.scene;
 				avatar.traverse(n => {
 					if (!rootBone && /^(Hips|Root|mixamorig:?Hips)$/i.test(n.name))

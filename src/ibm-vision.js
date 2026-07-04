@@ -12,6 +12,7 @@
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { getMeshoptDecoder } from './viewer/internal.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -378,7 +379,9 @@ function loadModel(url) {
 		disposeObject(modelRoot);
 		modelRoot = null;
 	}
-	gltfLoader().load(
+	const loader = gltfLoader();
+	// three.ws GLBs may carry EXT_meshopt_compression — decoder required before load
+	getMeshoptDecoder().then((d) => loader.setMeshoptDecoder(d)).then(() => loader.load(
 		url,
 		(gltf) => {
 			if (token !== loadToken) { disposeObject(gltf.scene); return; }
@@ -400,7 +403,7 @@ function loadModel(url) {
 				);
 			}
 		},
-	);
+	));
 }
 
 function frameModel(root) {

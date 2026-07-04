@@ -25,6 +25,7 @@ import {
 	Vector3, Box3,
 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { getMeshoptDecoder } from './viewer/internal.js';
 import { clone as cloneSkinnedScene } from 'three/addons/utils/SkeletonUtils.js';
 import { AnimationManager } from './animation-manager.js';
 import { createAgentScreenClient } from './shared/agent-screen-client.js';
@@ -56,6 +57,8 @@ const PAL = {
 
 // ── shared GLTF loader ───────────────────────────────────────────────────────
 const gltfLoader = new GLTFLoader();
+// three.ws GLBs may carry EXT_meshopt_compression — decoder required before load
+const meshoptReady = getMeshoptDecoder().then((d) => gltfLoader.setMeshoptDecoder(d));
 
 /**
  * Build a desk + monitor group and attach it to the scene. Returns a desk
@@ -148,7 +151,7 @@ function createDesk(scene, opts = {}) {
 	let avatarManager = null;
 
 	if (avatarUrl) {
-		gltfLoader.loadAsync(avatarUrl).then((gltf) => {
+		meshoptReady.then(() => gltfLoader.loadAsync(avatarUrl)).then((gltf) => {
 			const model = cloneSkinnedScene(gltf.scene);
 
 			// Scale and position: seated at the desk

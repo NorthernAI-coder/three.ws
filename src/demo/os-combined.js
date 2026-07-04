@@ -27,6 +27,7 @@ import {
 } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { getMeshoptDecoder } from '../viewer/internal.js';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { FilesetResolver, FaceLandmarker } from '@mediapipe/tasks-vision';
 import { TRIANGULATION } from './triangulation.js';
@@ -94,6 +95,7 @@ async function loadBody(url, label) {
 	setStatus(bodyStatus, `loading ${label || url}…`);
 	try {
 		const loader = new GLTFLoader();
+		loader.setMeshoptDecoder(await getMeshoptDecoder());
 		const gltf = await loader.loadAsync(url);
 		if (bodyRoot) {
 			viewer.scene.remove(bodyRoot);

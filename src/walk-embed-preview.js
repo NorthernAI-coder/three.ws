@@ -25,6 +25,7 @@ import {
 	WebGLRenderer,
 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { getMeshoptDecoder } from './viewer/internal.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import nipplejs from 'nipplejs';
 import { AnimationManager } from './animation-manager.js';
@@ -284,6 +285,7 @@ export function initWalkPreview(container) {
 			avatar = null;
 		}
 		const loader = new GLTFLoader();
+		loader.setMeshoptDecoder(await getMeshoptDecoder());
 		const gltf = await loader.loadAsync(AVATAR_URL);
 		const model = gltf.scene;
 		model.traverse((c) => {

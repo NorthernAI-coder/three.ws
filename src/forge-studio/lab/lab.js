@@ -20,6 +20,7 @@
 import * as THREE from 'three';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { getMeshoptDecoder } from '../../viewer/internal.js';
 import { GENERATORS } from './generators.js';
 import { meshToSplatBuffer } from './mesh-to-splat.js';
 import { launchTalk } from '../talk-launch.js';
@@ -254,6 +255,7 @@ async function exportGlb(object3d) {
 
 async function loadGlbScene(arrayBuffer) {
 	const loader = new GLTFLoader();
+	loader.setMeshoptDecoder(await getMeshoptDecoder());
 	const gltf = await loader.parseAsync(arrayBuffer, '');
 	return gltf.scene;
 }

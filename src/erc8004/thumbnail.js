@@ -20,6 +20,7 @@ import {
 	ACESFilmicToneMapping,
 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { getMeshoptDecoder } from '../viewer/internal.js';
 
 /**
  * Render a GLB/GLTF file to a PNG blob.
@@ -33,6 +34,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 export async function glbFileToThumbnail(file, { size = 512, background = '#1a1a1a' } = {}) {
 	const buffer = await file.arrayBuffer();
 	const loader = new GLTFLoader();
+	loader.setMeshoptDecoder(await getMeshoptDecoder());
 	const gltf = await new Promise((resolve, reject) => {
 		loader.parse(buffer, '', resolve, reject);
 	});

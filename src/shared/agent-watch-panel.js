@@ -20,6 +20,7 @@ import {
 	AmbientLight, DirectionalLight, Box3,
 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { getMeshoptDecoder } from '../viewer/internal.js';
 import { clone as cloneSkinnedScene } from 'three/addons/utils/SkeletonUtils.js';
 
 // Top-level endpoint — this is the real-time frame+log SSE stream.
@@ -1189,6 +1190,7 @@ class WatchPanel {
 
 		try {
 			const loader = new GLTFLoader();
+			loader.setMeshoptDecoder(await getMeshoptDecoder());
 			const gltf = await loader.loadAsync(this.avatarUrl);
 			if (this._destroyed) return;
 

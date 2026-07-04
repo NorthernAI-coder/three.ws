@@ -16,6 +16,7 @@ import {
 	Scene, PerspectiveCamera, WebGLRenderer, AmbientLight, DirectionalLight,
 	RingGeometry, Mesh, MeshBasicMaterial, Group,
 } from 'three';
+import { getMeshoptDecoder } from '../viewer/internal.js';
 
 // ── Agent voice (TTS) ────────────────────────────────────────────────────────
 let _voiceAudio = null;
@@ -293,7 +294,9 @@ export class WorldLineCeremony {
 			const cam = new PerspectiveCamera(35, 1, 0.1, 100);
 			cam.position.set(0, 1.4, 2.6);
 			const root = new Group(); scene.add(root);
-			const gltf = await new GLTFLoader().loadAsync(this.avatarUrl);
+			const loader = new GLTFLoader();
+			loader.setMeshoptDecoder(await getMeshoptDecoder());
+			const gltf = await loader.loadAsync(this.avatarUrl);
 			root.add(gltf.scene);
 			gltf.scene.position.y = -1.2;
 			let raf;
@@ -331,8 +334,11 @@ export class WorldLineCeremony {
 			reticle.visible = false; reticle.matrixAutoUpdate = false; scene.add(reticle);
 
 			const root = new Group(); root.visible = false; scene.add(root);
-			import('three/addons/loaders/GLTFLoader.js').then(({ GLTFLoader }) => {
-				if (this.avatarUrl) new GLTFLoader().loadAsync(this.avatarUrl).then((g) => root.add(g.scene)).catch(() => {});
+			import('three/addons/loaders/GLTFLoader.js').then(async ({ GLTFLoader }) => {
+				if (!this.avatarUrl) return;
+				const loader = new GLTFLoader();
+				loader.setMeshoptDecoder(await getMeshoptDecoder());
+				loader.loadAsync(this.avatarUrl).then((g) => root.add(g.scene)).catch(() => {});
 			});
 
 			const overlay = document.createElement('div');

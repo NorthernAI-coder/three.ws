@@ -25,6 +25,7 @@ import {
 	ACESFilmicToneMapping,
 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { getMeshoptDecoder } from './viewer/internal.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
@@ -36,6 +37,8 @@ const MANIFEST_URL = '/animations/manifest.json';
 
 const _loader = new GLTFLoader();
 _loader.setDRACOLoader(dracoLoader);
+// three.ws GLBs may carry EXT_meshopt_compression — decoder required before load
+const _meshoptReady = getMeshoptDecoder().then((d) => _loader.setMeshoptDecoder(d));
 
 /**
  * @typedef {{name:string,url:string,label:string,icon:string,loop:boolean}} PoseDef
@@ -135,6 +138,7 @@ export class PoseStage {
 		this._resizeObserver = new ResizeObserver(() => this._resize());
 		this._resizeObserver.observe(this.host);
 
+		await _meshoptReady;
 		const gltf = await _loader.loadAsync(this.glbUrl);
 		if (this._disposed) return { supported: false };
 		this.model = gltf.scene;

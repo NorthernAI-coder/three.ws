@@ -558,10 +558,11 @@ if (resultPanel && viewer && triggerBtn) {
 		if (wire.ready || wire.loading) return wire.ready;
 		wire.loading = true;
 		try {
-			const [THREE, { GLTFLoader }, { OrbitControls }] = await Promise.all([
+			const [THREE, { GLTFLoader }, { OrbitControls }, { getMeshoptDecoder }] = await Promise.all([
 				import('three'),
 				import('three/addons/loaders/GLTFLoader.js'),
 				import('three/addons/controls/OrbitControls.js'),
+				import('../viewer/internal.js'),
 			]);
 			wire.THREE = THREE;
 			wire.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -577,6 +578,7 @@ if (resultPanel && viewer && triggerBtn) {
 			wire.group = new THREE.Group();
 			wire.scene.add(wire.group);
 			wire._loader = new GLTFLoader();
+			wire._loader.setMeshoptDecoder(await getMeshoptDecoder());
 			sizeWireRenderer();
 			wire.ro = new ResizeObserver(sizeWireRenderer);
 			wire.ro.observe(wireOverlay);

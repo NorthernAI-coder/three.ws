@@ -20,6 +20,7 @@ import {
 	Vector3,
 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { getMeshoptDecoder } from '../viewer/internal.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const PUBLIC_STUDIO = 'https://m3-org.github.io/CharacterStudio';
@@ -129,6 +130,7 @@ async function renderPreview(blob) {
 	const url = URL.createObjectURL(blob);
 	try {
 		const loader = new GLTFLoader();
+		loader.setMeshoptDecoder(await getMeshoptDecoder());
 		const gltf = await loader.loadAsync(url);
 		gltf.scene.userData.kind = 'avatar';
 		scene.add(gltf.scene);

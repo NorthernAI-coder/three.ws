@@ -26,6 +26,7 @@ import {
 	PMREMGenerator,
 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { getMeshoptDecoder } from './viewer/internal.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 const CROSSFADE = 0.35;
@@ -71,6 +72,8 @@ export class Act2Viewer {
 		this._manifestPromise = null;
 
 		this._loader = new GLTFLoader();
+		// three.ws GLBs may carry EXT_meshopt_compression — decoder required before load
+		this._meshoptReady = getMeshoptDecoder().then((d) => this._loader.setMeshoptDecoder(d));
 		this._clock = new Timer();
 		this._modelYaw = 0;
 		this._modelFocusY = 1.0;
@@ -222,6 +225,7 @@ export class Act2Viewer {
 			this.clips.clear();
 		}
 
+		await this._meshoptReady;
 		const gltf = await this._loader.loadAsync(url);
 		this.model = gltf.scene;
 		this.scene.add(this.model);

@@ -148,17 +148,20 @@ export async function playForgeReveal({ container, glbUrl, waitFor }) {
 	activeCancel = cancel;
 
 	try {
-		const [THREE, { GLTFLoader }, { RoomEnvironment }] = await Promise.all([
+		const [THREE, { GLTFLoader }, { RoomEnvironment }, { getMeshoptDecoder }] = await Promise.all([
 			import('three'),
 			import('three/addons/loaders/GLTFLoader.js'),
 			import('three/addons/environments/RoomEnvironment.js'),
+			import('../viewer/internal.js'),
 		]);
 		if (cancelled) return null;
 
 		// Fetch + parse the GLB first — the overlay only ever appears with a
 		// model in hand, so a slow or failed load degrades to the plain viewer.
+		const loader = new GLTFLoader();
+		loader.setMeshoptDecoder(await getMeshoptDecoder());
 		const gltf = await Promise.race([
-			new GLTFLoader().loadAsync(glbUrl),
+			loader.loadAsync(glbUrl),
 			new Promise((resolve) => setTimeout(() => resolve(null), LOAD_TIMEOUT_MS)),
 		]);
 		if (!gltf || cancelled) return null;

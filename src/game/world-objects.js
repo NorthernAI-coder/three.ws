@@ -25,6 +25,7 @@ import {
 	CanvasTexture, SRGBColorSpace,
 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { getMeshoptDecoder } from '../viewer/internal.js';
 import { log } from '../shared/log.js';
 
 // Same lerp constant RemotePlayer uses, so objects glide between server updates
@@ -207,6 +208,8 @@ function propCrystal() {
 
 // ── GLB template cache (shared geometry/materials across instances) ──────────
 const _gltf = new GLTFLoader();
+// three.ws GLBs may carry EXT_meshopt_compression — decoder required before load
+const _meshoptReady = getMeshoptDecoder().then((d) => _gltf.setMeshoptDecoder(d));
 const _glbCache = new Map(); // url → { template, waiters:[] }
 
 function loadTemplate(url) {
@@ -214,12 +217,12 @@ function loadTemplate(url) {
 	if (rec) return rec;
 	rec = { template: null, waiters: [] };
 	_glbCache.set(url, rec);
-	_gltf.load(url, (gltf) => {
+	_meshoptReady.then(() => _gltf.load(url, (gltf) => {
 		const root = gltf.scene;
 		root.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
 		rec.template = root;
 		for (const w of rec.waiters.splice(0)) { try { w(root); } catch (e) { log.warn('[world-objects] glb waiter threw', e); } }
-	}, undefined, (err) => log.warn('[world-objects] GLB load failed', url, err?.message || err));
+	}, undefined, (err) => log.warn('[world-objects] GLB load failed', url, err?.message || err)));
 	return rec;
 }
 
