@@ -28,6 +28,17 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 const TAG = 'three-ws-viewer';
 
+// three.ws-served GLBs (and any gltf-transform-optimized asset) may carry
+// EXT_meshopt_compression; without a decoder GLTFLoader throws before parsing.
+// Lazy + memoized so uncompressed-only consumers never pay for the wasm init.
+let _meshoptPromise = null;
+function getMeshoptDecoder() {
+	if (!_meshoptPromise) {
+		_meshoptPromise = import('three/addons/libs/meshopt_decoder.module.js').then((m) => m.MeshoptDecoder);
+	}
+	return _meshoptPromise;
+}
+
 class ThreeWsViewerElement extends HTMLElement {
 	static get observedAttributes() {
 		return ['src', 'alt', 'background', 'wallet', 'agent-id', 'api-base'];
@@ -154,6 +165,7 @@ class ThreeWsViewerElement extends HTMLElement {
 		const token = ++this._loadToken;
 		const loader = new GLTFLoader();
 		try {
+			loader.setMeshoptDecoder(await getMeshoptDecoder());
 			const gltf = await loader.loadAsync(url);
 			if (token !== this._loadToken || !this._scene) return;
 			if (this._model) { this._scene.remove(this._model); this._disposeModel(this._model); }

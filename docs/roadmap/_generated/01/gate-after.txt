@@ -1,33 +1,14 @@
 
-> 3d-agent@1.5.2 gate
-> npm run test:gate && npm run audit:mcp && npm run audit:routes && npm run audit:handlers && npm run audit:pages && npm run audit:hidden-guard && npm run audit:x402-catalog && npm run audit:tokens
+> 3d-agent@1.5.2 audit:mcp-golden
+> node scripts/audit-mcp-golden.mjs
 
-
-> 3d-agent@1.5.2 test:gate
-> node scripts/test-gate.mjs
-
-[test-gate] running 7 critical-path test files…
-
- RUN  v4.1.9 /workspaces/three.ws
-
-
- Test Files  7 passed (7)
-      Tests  79 passed (79)
-   Start at  01:13:13
-   Duration  2.17s (transform 1.28s, setup 0ms, import 4.48s, tests 409ms, environment 1ms)
-
-[test-gate] ✓ all critical-path tests passed
-
-> 3d-agent@1.5.2 audit:mcp
-> node scripts/audit-mcp-manifests.mjs
-
-[audit:mcp] 15 MCP manifests consistent
+[audit:mcp-golden] 73 hosted MCP tool contracts match the golden fixture
 
 > 3d-agent@1.5.2 audit:routes
 > node scripts/verify-routes.mjs
 
 Route verify — 268 catalog pages, 1031 main routes, 1 post-filesystem routes.
-  modeled dist files: 1477 · canonical-covered: 268 · literal page routes checked for shadows: 421
+  modeled dist files: 1479 · canonical-covered: 268 · literal page routes checked for shadows: 421
   filesystem boundary (handle:filesystem) present: yes
 
 ℹ 1 advisory note(s):

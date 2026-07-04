@@ -244,6 +244,13 @@ export function solanaRpcEndpoints(network = 'mainnet', url = null) {
 		// keyless), so this set is curated to ones that actually respond — re-verify
 		// any that start cooling persistently in the failover logs.
 		'https://api.tatum.io/v3/blockchain/node/solana-mainnet',
+		// MagicBlock + Tatum's gateway host — two more keyless lanes verified live
+		// (getLatestBlockhash + sendTransaction enabled) on 2026-07-04 when the free
+		// pool was re-probed after a Helius plan lapsed mid-cycle. They deepen the
+		// keyless chain precisely for the "every paid key is exhausted" case; the
+		// classifyRpcBody guard still fails them over if either returns garbage.
+		'https://rpc.magicblock.app/mainnet',
+		'https://solana-mainnet.gateway.tatum.io',
 		'https://solana.therpc.io',
 		PUBLIC_MAINNET,
 		// .filter(isHttpUrl) is the hard guarantee: only a value `new Connection`

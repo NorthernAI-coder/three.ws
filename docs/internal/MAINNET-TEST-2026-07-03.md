@@ -25,7 +25,42 @@ Running log, newest last. ✅ pass · ❌ fail · ⚠ degraded/blocked (with rea
 
 **Test is BLOCKED at authentication.** No SOL spent beyond the inbound funding. Burner holds 0.759860663 SOL (recoverable in full minus a sweep fee).
 
-## Active production bug: wallet sign-in is down
+## ⛔ CORRECTED ROOT CAUSE — not the DB. Two production secrets are wrong, and 458 custodial wallets are locked.
+
+The owner supplied the prod `DATABASE_URL`. Direct inspection **disproved** the missing-tables hypothesis below and found the real cause:
+
+- `siws_nonces` / `siwe_nonces` **exist** on the prod DB, schema correct, and a direct `INSERT` **succeeds**. Not a DB/migration problem.
+- Vercel runtime logs for the 500 show the actual error:
+  `Error: Missing required env var: JWT_SECRET` at `get JWT_SECRET` → `handleNonce`.
+- Vercel env inspection (v9 API): **`JWT_SECRET` is present but EMPTY** (targets preview+production, type sensitive). The nonce handler calls `hmacSha256(env.JWT_SECRET, …)` for CSRF; the env getter treats empty as missing and throws → 500. Read endpoints that never touch `JWT_SECRET` keep working, which is why only auth broke.
+- **`WALLET_ENCRYPTION_KEY` is ABSENT** from prod env entirely. Custodial secret decryption ([api/_lib/secret-box.js](../../api/_lib/secret-box.js)) uses it for the v2 scheme and falls back to `JWT_SECRET` for v1 — but `JWT_SECRET` is empty too, so **both schemes are currently broken**.
+
+### Blast radius (verified read-only against prod DB + mainnet RPC)
+
+- **458 custodial agent wallets** hold an encrypted secret: **294 v1** (keyed off `JWT_SECRET`) + **164 v2** (keyed off `WALLET_ENCRYPTION_KEY`).
+- Right now **all 458 are undecryptable** → no agent can trade, withdraw, or pay.
+- **88 of them hold funds: 3.2428 SOL total** locked (native SOL only; SPL tokens/USDC/$THREE not counted, so true value is higher). Largest single: 0.320 SOL.
+
+### ⚠️ The dangerous part — do NOT set these to new values
+
+`JWT_SECRET` and `WALLET_ENCRYPTION_KEY` must be restored to their **exact original values**. Setting either to a freshly-generated secret makes the wallets encrypted under the old key **permanently undecryptable — the 3.24+ SOL is lost forever.** This is why I did not set them myself, and cannot: I don't have the originals, and guessing is catastrophic.
+
+Per the account-migration memo these two were restored from the old-account pull on 2026-07-03; they have since regressed (JWT_SECRET → empty, WALLET_ENCRYPTION_KEY → removed). Something overwrote them after that restore.
+
+### Fix (owner-only — needs the original secret values)
+
+1. Restore the **original** `JWT_SECRET` value to prod+preview (currently empty).
+2. Re-add the **original** `WALLET_ENCRYPTION_KEY` to prod (currently absent).
+3. Redeploy (env changes need a new deployment to take effect).
+4. Verify: `curl https://three.ws/api/auth/siws/nonce` → expect **200**.
+
+The DB and the site are otherwise healthy — this is purely the two secrets. Once restored, this test can run end-to-end with no further changes.
+
+---
+
+## (SUPERSEDED — kept for the record) Original hypothesis: missing nonce tables
+
+The reasoning below was my first hypothesis before I had DB access. **It was wrong** — the tables exist and inserts work. Left here to show the diagnostic path.
 
 `GET /api/auth/siws/nonce` and `GET /api/auth/siwe/nonce` both 500 on their `INSERT INTO {siws,siwe}_nonces`. This blocks **every wallet login on production** (Solana and Ethereum), not just this test.
 

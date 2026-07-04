@@ -29,8 +29,13 @@ three.ws is a large, live, single monorepo (see `STRUCTURE.md` for the full surf
 npm run gate
 ```
 This alias (added to `package.json`) runs the **offline-safe** checks only:
-`test:gate` (curated money/auth unit tests) + `audit:mcp` + `audit:routes` +
-`audit:handlers` + `audit:pages` + `audit:hidden-guard`. It is intentionally the
+`test:gate` (curated money/auth unit tests) + `test:gate-3d` (glb-canonicalize /
+animation-retarget / viewer-framing contract tests — the universal shared 3D
+cores) + `audit:mcp` + `audit:mcp-golden` (golden-snapshot tripwire over every
+hosted MCP tool contract; on an *intentional* contract change run
+`node scripts/audit-mcp-golden.mjs --update` and commit the fixture) +
+`audit:routes` + `audit:handlers` + `audit:pages` + `audit:hidden-guard` +
+`audit:x402-catalog` + `audit:tokens`. It is intentionally the
 *offline* subset — the project doctrine (see `scripts/test-gate.mjs`) keeps
 catalog/handler-heavy and browser specs in `npm test`, because importing a hosted
 MCP catalog pulls in DB/RPC clients that **block without live credentials** (an
