@@ -4,6 +4,10 @@
 
 Public history for [three.ws](https://three.ws), newest first. New pages come from `added` dates in data/pages.json; everything else is curated in data/changelog.json. Also available as [JSON](https://three.ws/changelog.json) and [RSS](https://three.ws/changelog.xml), live at [three.ws/changelog](https://three.ws/changelog).
 
+## 2026-07-04
+
+- **Four gestures return to the walk companion — nod, shrug, jog, celebrate** — The gesture wheel regained four expressive moves that had been silently dropped: nod (a quick upper-body affirm), shrug, jog (a full-body run loop), and celebrate (a whole-body cheer). Open the wheel with G (or long-press the action button on mobile) — the wheel now lays out all twelve gestures; keys 1–8 still trigger the first eight. Also part of this pass: the entire test suite now runs fully green, locking every one of these behaviors in. (`/walk`) `[fix]`
+
 ## 2026-07-03
 
 - **Docs · Claim Your Wallet & Trader Card** (`/docs/trader-card`) — Paste any Solana wallet for its on-chain pump.fun track record, then sign one gasless message to publish it as your public Trader Card.

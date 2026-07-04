@@ -2,6 +2,15 @@
 	"$comment": "Curated changelog entries for three.ws — the editorial layer of the public changelog. New PAGE launches are tracked automatically via the `added` field in data/pages.json; this file is for everything else holders care about: improvements, fixes, SDK releases, trading/payments capabilities, security work. scripts/build-page-index.mjs merges both sources into CHANGELOG.md, public/changelog.json, and public/changelog.xml. Newest first. Allowed tags: feature, improvement, fix, sdk, infra, docs, security. `link` is optional and must be a live three.ws path.",
 	"entries": [
 		{
+			"date": "2026-07-04",
+			"title": "Four gestures return to the walk companion — nod, shrug, jog, celebrate",
+			"summary": "The gesture wheel regained four expressive moves that had been silently dropped: nod (a quick upper-body affirm), shrug, jog (a full-body run loop), and celebrate (a whole-body cheer). Open the wheel with G (or long-press the action button on mobile) — the wheel now lays out all twelve gestures; keys 1–8 still trigger the first eight. Also part of this pass: the entire test suite now runs fully green, locking every one of these behaviors in.",
+			"tags": [
+				"fix"
+			],
+			"link": "/walk"
+		},
+		{
 			"date": "2026-07-03",
 			"title": "Every data feed now has free backups — one provider going down no longer takes a feature with it",
 			"summary": "The platform already rotated across multiple Solana RPC providers when one failed; that same resilience now covers the rest of the data it fetches. SOL/USD pricing tries four independent free sources (CoinGecko, Jupiter, Kraken, Coinbase) instead of one. Token stats on agent pages and the /coin3d viewer roll from DexScreener to GeckoTerminal to Jupiter. The real-time wallet trade monitor rotates across three free Solana WebSocket endpoints. Map place labels fall back across three geocoders. And the swap terminal on launch pages now rides the same multi-provider RPC rotation as the rest of the site. If a source is down or rate-limiting, the next one answers within seconds — you should simply never notice.",

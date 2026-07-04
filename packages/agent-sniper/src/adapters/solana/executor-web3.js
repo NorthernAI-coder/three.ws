@@ -14,6 +14,16 @@ import {
 	ComputeBudgetProgram, SystemProgram, PublicKey,
 	TransactionMessage, VersionedTransaction,
 } from '@solana/web3.js';
+import bs58 from 'bs58';
+
+// The transaction's signature is fixed the moment it's signed — it's the base58
+// of the first signature, computable with zero network I/O. Capturing it BEFORE
+// broadcasting is what makes a client-side send error non-duplicating: even if
+// sendViaJito/sendRawTransaction throws while the tx already reached the chain,
+// we still know exactly which signature to poll for.
+function sigOf(tx) {
+	return bs58.encode(tx.signatures[0]);
+}
 
 // Jito mainnet tip accounts (public, rotate by random pick). Block engine routes
 // a tx to a validator running Jito when it pays one of these.
@@ -139,13 +149,16 @@ export function createWeb3Executor(opts = {}) {
 					if (sim.value.err) throw Object.assign(new Error(`simulation failed: ${JSON.stringify(sim.value.err)}`), { code: 'sim_failed', logs: sim.value.logs });
 				}
 				const raw = Buffer.from(tx.serialize());
-				let signature;
+				// Record the signature BEFORE the network call. If the send throws after
+				// the tx already reached the chain (a Jito 200 whose body read failed, an
+				// RPC socket reset post-forward), settleLastSent still finds it instead of
+				// the fallback broadcasting a duplicate.
+				const signature = sigOf(tx);
+				sent.push({ signature, lastValidBlockHeight });
 				if (viaJito) {
-					signature = await sendViaJito(raw.toString('base64'));
-					sent.push({ signature, lastValidBlockHeight });
+					await sendViaJito(raw.toString('base64'));
 				} else {
-					signature = await connection.sendRawTransaction(raw, { skipPreflight: true, maxRetries: 0 });
-					sent.push({ signature, lastValidBlockHeight });
+					await connection.sendRawTransaction(raw, { skipPreflight: true, maxRetries: 0 });
 				}
 				await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
 				return signature;
