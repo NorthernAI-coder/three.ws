@@ -11063,6 +11063,15 @@
 				"improvement"
 			],
 			"link": "/oracle"
+		},
+		{
+			"date": "2026-07-04",
+			"title": "Deploys restored — the platform ships again, and builds are 4× lighter",
+			"summary": "three.ws was briefly unreachable while production moved to new infrastructure: every deploy was timing out at the build platform's 45-minute ceiling. The root cause is fixed — a monitoring SDK was being baked into every one of the platform's ~800 API functions, inflating the deploy payload to 2.3 GB; it now loads only where it is actually enabled, cutting that to 540 MB. Two smaller deploy blockers found along the way (a build-order race and two missing packages) are fixed too. The site is back, deploys complete with time to spare, and nothing about how you use the platform changes.",
+			"tags": [
+				"infra",
+				"fix"
+			]
 		}
 	]
 }
