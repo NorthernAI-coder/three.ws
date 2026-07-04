@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-04T07:57:59.059Z",
+	"generated_at": "2026-07-04T08:40:33.622Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -107,6 +107,16 @@
 			"tags": [
 				"improvement",
 				"infra"
+			]
+		},
+		{
+			"date": "2026-07-04",
+			"type": "update",
+			"title": "The hero avatar is back on the homepage",
+			"summary": "Since the July 4th fireworks went live, the 3D avatar in the homepage hero could stay invisible — the page was waiting to fade the avatar in, but the fireworks chip arriving first made it stop listening a moment too early, so the avatar loaded fully and then never appeared. The fade-in is now wired directly to the avatar itself, so it can't miss its cue. Fireworks and avatar now share the stage the way they were meant to.",
+			"link": null,
+			"tags": [
+				"fix"
 			]
 		},
 		{

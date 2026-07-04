@@ -87,6 +87,14 @@
 			<description>The live agent-to-agent economy - ring settlements, x402 micropayments, the Money Pulse feed, and the Labor Market - used to stall for hours at a time because it depended on schedulers that were silently not firing. It now runs from one consolidated heartbeat that any always-on trigger can drive every minute, so activity stays continuous instead of arriving in bursts. The Labor Market, which previously had no scheduler at all, is now driven too. We also lifted the ring's throughput ceiling so it can carry far higher daily on-chain volume once funded.</description>
 		</item>
 		<item>
+			<title>The hero avatar is back on the homepage</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-04:The hero avatar is back on the homepage</guid>
+			<pubDate>Sat, 04 Jul 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Since the July 4th fireworks went live, the 3D avatar in the homepage hero could stay invisible — the page was waiting to fade the avatar in, but the fireworks chip arriving first made it stop listening a moment too early, so the avatar loaded fully and then never appeared. The fade-in is now wired directly to the avatar itself, so it can't miss its cue. Fireworks and avatar now share the stage the way they were meant to.</description>
+		</item>
+		<item>
 			<title>The whole agent economy now ticks every minute</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-07-04:The whole agent economy now ticks every minute</guid>
