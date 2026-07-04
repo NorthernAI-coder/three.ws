@@ -2109,6 +2109,10 @@
 			"dest": "/api/x402-facilitator/[action]?action=$1"
 		},
 		{
+			"src": "/api/cron/(audit-log-cleanup|cleanup-csrf-tokens|club-payouts|cosmetic-splits-sweep|erc8004-crawl|expire-pending-purchases|fetch-x-metrics|index-delegations|irl-drops-refund|monetization-payouts|process-subscriptions|process-withdrawals|pump-agent-stats|pumpfun-graduations-sync|pumpfun-monitor|pumpfun-signals|run-buyback|run-coin-cycle|run-coin-payouts|run-dca|run-distribute-payments|run-subscriptions|run-three-buyback|run-x-scheduled-posts|run-x-triggers|settle-royalties|siwx-gc|solana-agents-crawl|solana-attest-event-cleanup|solana-attestations-crawl|treasury-autopilot|unstoppable-tick)",
+			"dest": "/api/cron/[name]?name=$1"
+		},
+		{
 			"src": "/api/agents/([^/]+)/wallet/([^/]+)",
 			"dest": "/api/agents/[id]"
 		},
