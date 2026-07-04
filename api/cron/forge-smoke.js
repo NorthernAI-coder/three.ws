@@ -57,12 +57,20 @@ function requireCron(req, res) {
 	return true;
 }
 
+// Never throws: a timeout or network failure comes back as status 0 so every
+// caller's non-200 branch reports it as a failed check instead of the
+// rejection escaping Promise.all and 500ing the whole cron run.
 async function fetchJson(url, options = {}, timeoutMs = 15_000) {
-	const res = await fetch(url, {
-		...options,
-		headers: { 'user-agent': 'threews-forge-smoke/1.0', ...options.headers },
-		signal: AbortSignal.timeout(timeoutMs),
-	});
+	let res;
+	try {
+		res = await fetch(url, {
+			...options,
+			headers: { 'user-agent': 'threews-forge-smoke/1.0', ...options.headers },
+			signal: AbortSignal.timeout(timeoutMs),
+		});
+	} catch (err) {
+		return { status: 0, body: { error: String(err?.message || err) } };
+	}
 	let body = null;
 	try {
 		body = await res.json();
@@ -75,12 +83,18 @@ async function fetchJson(url, options = {}, timeoutMs = 15_000) {
 // A generation only counts when the GLB exists AND starts with the binary
 // glTF magic — a 200 with an HTML error page must not pass.
 async function verifyGlb(glbUrl) {
-	const res = await fetch(glbUrl, {
-		headers: { range: 'bytes=0-3', 'user-agent': 'threews-forge-smoke/1.0' },
-		signal: AbortSignal.timeout(20_000),
-	});
-	if (!res.ok) return { ok: false, reason: `GLB fetch returned HTTP ${res.status}` };
-	const bytes = new Uint8Array(await res.arrayBuffer());
+	let res;
+	let bytes;
+	try {
+		res = await fetch(glbUrl, {
+			headers: { range: 'bytes=0-3', 'user-agent': 'threews-forge-smoke/1.0' },
+			signal: AbortSignal.timeout(20_000),
+		});
+		if (!res.ok) return { ok: false, reason: `GLB fetch returned HTTP ${res.status}` };
+		bytes = new Uint8Array(await res.arrayBuffer());
+	} catch (err) {
+		return { ok: false, reason: `GLB fetch failed: ${err?.message || err}` };
+	}
 	const magic = String.fromCharCode(...bytes.slice(0, 4));
 	if (magic !== 'glTF') return { ok: false, reason: `GLB magic bytes were "${magic}", not "glTF"` };
 	return { ok: true };

@@ -275,12 +275,13 @@ export class ArenaWorld {
 	// or stalls — so a crowd never ends up with a missing body.
 	async _makeAvatar(glbUrl, { fallback = '/avatars/mannequin.glb', timeout = 20000 } = {}) {
 		let gltf;
+		let loadedUrl = glbUrl;
 		try { gltf = await this._loadTemplateTimed(glbUrl, timeout); }
-		catch { gltf = await this._loadTemplate(fallback); }
+		catch { gltf = await this._loadTemplate(fallback); loadedUrl = fallback; }
 		// Clone so multiple agents can share one downloaded GLB.
 		const model = cloneSkeleton(gltf.scene);
 		model.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
-		return new ArenaAvatar(model, this._lib, this._loopByName, CLIPS);
+		return new ArenaAvatar(model, this._lib, this._loopByName, CLIPS, loadedUrl);
 	}
 
 	// ── Spawning ──────────────────────────────────────────────────────────────
@@ -876,7 +877,7 @@ export class ArenaWorld {
 // ── One avatar (agent or spectator) ──────────────────────────────────────────
 
 class ArenaAvatar {
-	constructor(model, lib, loopByName, clipMap) {
+	constructor(model, lib, loopByName, clipMap, avatarUrl = '') {
 		this.object = model;
 		this._clipMap = clipMap;
 		this._loopByName = loopByName;
@@ -885,7 +886,7 @@ class ArenaAvatar {
 		// Inject the shared canonical clips so attach() builds retargeted actions
 		// without re-fetching or re-parsing them.
 		for (const [name, clip] of lib.clips) this.anim.clips.set(name, clip);
-		this.anim.attach(model);
+		this.anim.attach(model, { avatarUrl });
 		this._configureLoops();
 		this._emoteTimer = 0;
 		this._moving = false;
