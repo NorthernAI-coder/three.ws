@@ -10,6 +10,7 @@ import {
 	onGate,
 	trackUpgradeConverted,
 } from './three-access.js';
+import { injectFestivePresets } from './shared/festive-presets.js';
 import { renderLock, lockStateFromAccess } from './three-lock.js';
 import { payForHighGeneration } from './forge-pay.js';
 import { initWalletButton, getConnectedWalletAddress } from './wallet.js';
@@ -2319,6 +2320,23 @@ els.examples.addEventListener('click', (e) => {
 	els.prompt.value = chip.textContent.trim();
 	els.prompt.focus();
 	submit();
+});
+
+// Independence Day (July 1–5): a few festive single-object prompts so the
+// seasonal moment reaches the Forge too. They carry the `.chip` class, so the
+// delegation above generates them one-click; the `.chip--festive` modifier both
+// styles them and keeps "More ideas" from shuffling their text away
+// (forge-prompt-studio.js excludes it). Self-retires out of season.
+injectFestivePresets({
+	container: els.examples,
+	chipClass: 'chip',
+	festiveClass: 'chip--festive',
+	prompts: [
+		'a bald eagle statue, wings spread, patriotic pose',
+		'a rippling American flag on a golden pole',
+		'a cracked liberty bell, aged bronze, wooden yoke',
+		'a glossy firework rocket, red white and blue',
+	],
 });
 
 // Quality tier + engine + BYOK key wiring.
