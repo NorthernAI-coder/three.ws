@@ -1107,6 +1107,14 @@
 					"added": "2026-06-15"
 				},
 				{
+					"path": "/coins",
+					"title": "Markets — Live Crypto Prices",
+					"description": "Live global cryptocurrency market data: total market cap, dominance, Fear & Greed, and the top coins with prices, 24h/7d moves, and 7d sparklines. Every coin links to a rich /coin/:id detail page with an interactive chart, market stats, related news, and official links.",
+					"priority": 0.8,
+					"changefreq": "hourly",
+					"added": "2026-07-04"
+				},
+				{
 					"path": "/constellation",
 					"title": "watsonx Constellation",
 					"description": "Live Solana tokens in a 3D galaxy, positioned in semantic space by IBM Granite embeddings on watsonx.ai. Click a star for a live IBM Granite analysis.",
