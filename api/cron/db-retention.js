@@ -78,6 +78,30 @@ const MAX_MINTS_PER_RUN = 40_000; // ceiling per tick across all batches
 const REGEN_STRIP_BATCH = 200;
 const REGEN_DELETE_BATCH = 500;
 const REGEN_MAX_ITERS = 40;
+const SERIES_BATCH = 5000; // rows per batch for time-keyed series prunes
+const SERIES_MAX_PER_RUN = 50_000; // per-table ceiling per tick
+const ORPHAN_BATCH = 5000; // orphaned satellite rows per table per tick
+
+// Time-keyed tables outside the mint-cascade family that still grow without
+// bound. Each is pruned by its own timestamp column on the shared valve
+// (window tightens to the floor under storage pressure). All names/columns are
+// fixed constants — never user input — so splicing them into SQL text is safe.
+//
+//   - pump_launch_snapshots: append-only jsonb time series (one row per paid
+//     snapshot, `launches` carries the full launch list) — July 2026 storage
+//     incident showed retention never touched it.
+//   - x402_autonomous_log: one row per autonomous x402 call, success AND
+//     failure, with jsonb response payloads. Money-adjacent (tx signatures),
+//     so it keeps the audit ledger's longer window.
+//   - sniper_coin_sentiment / token_intel_risk: keyed (mint, network) so they
+//     grow with the mint universe; their gates treat stale rows as absent, so
+//     rows past the firehose window are dead weight.
+const TIME_SERIES_TABLES = [
+	{ table: 'pump_launch_snapshots', tsColumn: 'ts', windowKind: 'firehose' },
+	{ table: 'x402_autonomous_log', tsColumn: 'ts', windowKind: 'audit' },
+	{ table: 'sniper_coin_sentiment', tsColumn: 'checked_at', windowKind: 'firehose' },
+	{ table: 'token_intel_risk', tsColumn: 'checked_at', windowKind: 'firehose' },
+];
 
 function clampInt(raw, min, max, dflt) {
 	const n = Number.parseInt(String(raw ?? ''), 10);
@@ -112,7 +136,7 @@ async function tableExists(name) {
 
 // ── A. Firehose retention (cascade prune older than cutoffDays) ───────────────
 async function pruneFirehose(cutoffDays) {
-	if (!(await tableExists('pump_coin_intel'))) return { mints: 0, perTable: {} };
+	if (!(await tableExists('pump_coin_intel'))) return { mints: 0, perTable: {}, liveSatellites: [] };
 
 	// Resolve satellite existence once (a fresh deploy may not have every table).
 	const liveSatellites = [];
@@ -145,7 +169,78 @@ async function pruneFirehose(cutoffDays) {
 		totalMints += mints.length;
 		if (olds.length < MINT_BATCH) break;
 	}
-	return { mints: totalMints, perTable };
+	return { mints: totalMints, perTable, liveSatellites };
+}
+
+// ── A2. Orphaned-satellite sweep ──────────────────────────────────────────────
+// The cascade prune only deletes satellite rows for mints it selects FROM
+// pump_coin_intel — satellite rows whose master row is already gone (written
+// after the master was pruned, or from a partial historical run) leak forever.
+// Sweep them with a bounded anti-join per satellite. DELETE settles xmax in
+// place, so this too is safe at the cap.
+async function pruneOrphanedSatellites(liveSatellites) {
+	if (!(await tableExists('pump_coin_intel'))) return {};
+	const perTable = {};
+	for (const t of liveSatellites) {
+		const del = await sql(
+			`DELETE FROM ${t} WHERE mint IN (
+				SELECT s.mint FROM ${t} s
+				LEFT JOIN pump_coin_intel p ON p.mint = s.mint
+				WHERE p.mint IS NULL
+				LIMIT $1
+			) RETURNING mint`,
+			[ORPHAN_BATCH],
+		);
+		if (del.length > 0) perTable[t] = del.length;
+	}
+	return perTable;
+}
+
+// ── A3. Time-keyed series retention ───────────────────────────────────────────
+async function pruneTimeSeries(cutoffs) {
+	const perTable = {};
+	for (const { table, tsColumn, windowKind } of TIME_SERIES_TABLES) {
+		if (!(await tableExists(table))) continue;
+		const cutoffDays = cutoffs[windowKind];
+		let deleted = 0;
+		const maxBatches = Math.ceil(SERIES_MAX_PER_RUN / SERIES_BATCH);
+		for (let i = 0; i < maxBatches; i++) {
+			// table/tsColumn are fixed constants from TIME_SERIES_TABLES; only the
+			// numeric bounds are parameters. Bounded subselect + DELETE works at cap.
+			const del = await sql(
+				`DELETE FROM ${table} WHERE ctid IN (
+					SELECT ctid FROM ${table}
+					WHERE ${tsColumn} < now() - $1 * interval '1 day'
+					LIMIT $2
+				) RETURNING 1`,
+				[cutoffDays, SERIES_BATCH],
+			);
+			deleted += del.length;
+			if (del.length < SERIES_BATCH) break;
+		}
+		if (deleted > 0) perTable[table] = deleted;
+	}
+	return perTable;
+}
+
+// ── Storage visibility ────────────────────────────────────────────────────────
+// When the branch is pinned above the high-water mark, the single most useful
+// diagnostic is WHERE the space lives. Report the largest relations so the ops
+// alert (and the cron's JSON body) names the offenders instead of just the total.
+async function topRelationsBySize(limit = 15) {
+	try {
+		const rows = await sql`
+			SELECT relname AS table, (pg_total_relation_size(c.oid) / 1048576.0)::numeric(10,1) AS mb
+			FROM pg_class c
+			JOIN pg_namespace n ON n.oid = c.relnamespace
+			WHERE n.nspname = 'public' AND c.relkind = 'r'
+			ORDER BY pg_total_relation_size(c.oid) DESC
+			LIMIT ${limit}
+		`;
+		return rows.map((r) => ({ table: r.table, mb: Number(r.mb) }));
+	} catch {
+		return []; // visibility is best-effort — never fails the prune
+	}
 }
 
 // ── B2. x402 payment audit-log retention ──────────────────────────────────────
@@ -267,25 +362,36 @@ export default wrapCron(async (req, res) => {
 	const auditCutoffDays = underPressure ? auditMinDays : auditDays;
 
 	const firehose = await pruneFirehose(cutoffDays);
+	const orphans = await pruneOrphanedSatellites(firehose.liveSatellites);
+	const series = await pruneTimeSeries({ firehose: cutoffDays, audit: auditCutoffDays });
 	const audit = await pruneAuditLog(auditCutoffDays);
 	const regen = await pruneRegenJobs();
 
 	// VACUUM only tables we actually deleted from this tick.
 	const touched = Object.keys(firehose.perTable).filter((t) => firehose.perTable[t] > 0);
+	for (const t of Object.keys(orphans)) if (!touched.includes(t)) touched.push(t);
+	for (const t of Object.keys(series)) if (!touched.includes(t)) touched.push(t);
 	if (audit.deleted > 0) touched.push('x402_audit_log');
 	if (regen.deleted > 0 || regen.stripped > 0) touched.push('avatar_regen_jobs');
 	await vacuumTables(touched);
 
 	const sizeAfterMb = await dbSizeMb();
+	const topTables = await topRelationsBySize();
 
 	// One deduped signal when the valve engages so ops knows storage is tight and a
 	// Neon plan bump (for a longer history window) is worth considering. Neon's GC
 	// is not instant, so sizeAfter may still read high right after a prune — that's
 	// expected; the space returns within the branch's history-retention window.
 	if (underPressure) {
+		const seriesDeleted = Object.values(series).reduce((a, b) => a + b, 0);
+		const orphansDeleted = Object.values(orphans).reduce((a, b) => a + b, 0);
+		const topLine = topTables
+			.slice(0, 5)
+			.map((t) => `${t.table} ${t.mb}MB`)
+			.join(', ');
 		sendOpsAlert(
 			'db retention pressure valve engaged',
-			`db ${sizeBeforeMb}MB ≥ high-water ${highWaterMb}MB — tightened firehose retention to ${minDays}d; pruned ${firehose.mints} mints. Raise the Neon storage plan (or DB_RETENTION_HIGH_WATER_MB / PUMP_INTEL_RETENTION_DAYS) for a longer window.`,
+			`db ${sizeBeforeMb}MB ≥ high-water ${highWaterMb}MB — tightened firehose retention to ${minDays}d; pruned ${firehose.mints} mints, ${seriesDeleted} series rows, ${orphansDeleted} orphaned satellite rows. Largest tables: ${topLine || 'n/a'}. Raise the Neon storage plan (or DB_RETENTION_HIGH_WATER_MB / PUMP_INTEL_RETENTION_DAYS) for a longer window.`,
 			{ signature: 'db:retention-pressure' },
 		);
 	}
@@ -300,10 +406,13 @@ export default wrapCron(async (req, res) => {
 		cutoff_days: cutoffDays,
 		audit_retention_days: auditDays,
 		audit_cutoff_days: auditCutoffDays,
-		firehose,
+		firehose: { mints: firehose.mints, perTable: firehose.perTable },
+		orphans,
+		series,
 		audit,
 		regen,
 		vacuumed: touched,
+		top_tables: topTables,
 		took_ms: Date.now() - started,
 	});
 });
