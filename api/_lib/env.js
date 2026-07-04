@@ -325,6 +325,22 @@ export const env = {
 		return Math.min(30_000, Math.max(500, Math.round(n)));
 	},
 
+	// Largest value (serialized bytes) the cache will send to Upstash REST
+	// (api/_lib/cache.js). A multi-hundred-KB JSON body over REST is the classic
+	// guaranteed-timeout write: it can't complete inside CACHE_REDIS_CMD_TIMEOUT_MS
+	// from a non-co-located region, so it burns the SET failure streak and flaps
+	// the write-suppression gate all day (the July 2026 log export: ~1.9k SET
+	// timeouts in 10h). Values over the cap go to the in-memory fallback only.
+	// Clamped to [16KB, 8MB]; default 256KB — comfortably under Upstash's request
+	// limits and large enough for every legitimate cached payload observed.
+	get CACHE_REDIS_MAX_VALUE_BYTES() {
+		const raw = opt('CACHE_REDIS_MAX_VALUE_BYTES');
+		if (raw == null || String(raw).trim() === '') return 262_144;
+		const n = Number(raw);
+		if (!Number.isFinite(n)) return 262_144;
+		return Math.min(8_388_608, Math.max(16_384, Math.round(n)));
+	},
+
 	// ── Upstash quota-burn visibility (api/_lib/redis-usage.js) ──────────────
 	// The free plan ceils at 500k commands/month; when it is exhausted every
 	// critical limiter fails closed and all paid forge + x402 flows 503 (the

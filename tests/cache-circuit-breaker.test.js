@@ -103,4 +103,67 @@ describe('cache circuit breaker', () => {
 		await cacheGet('setgate:after-get');
 		expect(fetchMock.mock.calls.length).toBeGreaterThan(callsBefore); // GET still went out
 	});
+
+	it('keeps oversized values memory-only without burning the SET failure streak', async () => {
+		// A multi-hundred-KB JSON body over Upstash REST is a guaranteed timeout
+		// from a non-co-located region — sending it would poison the failure streak
+		// and flap the suppression gate (the July 2026 log export). The size guard
+		// must route it to memory without any network call or streak side effects.
+		vi.resetModules();
+		const { cacheGet, cacheSet } = await import('../api/_lib/cache.js');
+		const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ result: 'OK' }) }));
+		globalThis.fetch = fetchMock;
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+		const oversized = { blob: 'x'.repeat(300_000) }; // > 256KB default cap
+		await cacheSet('size:big', oversized, 30);
+		expect(fetchMock).not.toHaveBeenCalled(); // never sent to the network
+		// Near-term reads stay coherent via the read memo — no network round-trip.
+		expect(await cacheGet('size:big')).toEqual(oversized);
+		expect(fetchMock).not.toHaveBeenCalled();
+		const sizeWarnings = warn.mock.calls.filter((c) => String(c[0]).includes('memory-only'));
+		expect(sizeWarnings).toHaveLength(1);
+
+		// A normal-sized value still goes to Redis — the guard is per-value.
+		await cacheSet('size:small', { v: 1 }, 30);
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
+
+	it('escalates the suppression window on consecutive failed trial SETs', async () => {
+		// A chronically dead SET path must settle into long cooldowns (one trial
+		// per ~10 minutes), not re-arm the 60s window forever — the flapping that
+		// produced hundreds of degraded/recovered pairs per day in production.
+		vi.resetModules();
+		vi.useFakeTimers();
+		try {
+			const { cacheSet } = await import('../api/_lib/cache.js');
+			const fetchMock = vi.fn(async () => { throw new Error('The operation was aborted due to timeout'); });
+			globalThis.fetch = fetchMock;
+			vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+			// Trip the SET suppression gate (threshold 5).
+			for (let i = 0; i < 5; i++) await cacheSet(`esc:${i}`, { v: i }, 30);
+			const callsAtTrip = fetchMock.mock.calls.length;
+			expect(callsAtTrip).toBe(5);
+
+			// First window (60s): a trial goes out after it elapses and fails →
+			// the gate re-arms with an ESCALATED window (120s).
+			await vi.advanceTimersByTimeAsync(61_000);
+			await cacheSet('esc:trial-1', { v: 1 }, 30);
+			expect(fetchMock.mock.calls.length).toBe(callsAtTrip + 1);
+
+			// 61s later we are inside the escalated 120s window — no trial admitted.
+			await vi.advanceTimersByTimeAsync(61_000);
+			await cacheSet('esc:still-suppressed', { v: 1 }, 30);
+			expect(fetchMock.mock.calls.length).toBe(callsAtTrip + 1);
+
+			// Another 61s (122s total since re-arm) — the escalated window elapsed,
+			// the next trial is admitted.
+			await vi.advanceTimersByTimeAsync(61_000);
+			await cacheSet('esc:trial-2', { v: 1 }, 30);
+			expect(fetchMock.mock.calls.length).toBe(callsAtTrip + 2);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
 });

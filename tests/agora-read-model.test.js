@@ -232,14 +232,23 @@ describe('passport', () => {
 	});
 
 	it('404s an unknown citizen', async () => {
-		const { status, body } = await call('passport', { query: { id: 'ghost' } });
+		const { status, body } = await call('passport', { query: { id: '00000000-0000-4000-8000-00000000dead' } });
+		expect(status).toBe(404);
+		expect(body.error).toBe('not_found');
+	});
+
+	it('404s a non-uuid id without touching the database (probe strings must not 500)', async () => {
+		const { status, body } = await call('passport', { query: { id: 'verification-probe-citizen' } });
 		expect(status).toBe(404);
 		expect(body.error).toBe('not_found');
 	});
 
 	it('returns the projection + activity for a found citizen (on-chain best-effort, null pda ⇒ no RPC)', async () => {
+		// agora_citizens.id is a uuid column — the fixture must use one, matching
+		// what production Postgres would accept (a bare 'c1' throws 22P02 there).
+		const cid = '11111111-1111-4111-8111-111111111111';
 		H.passportRow = {
-			id: 'c1', kind: 'agent', display_name: 'Aria', profession: 'scribe', capability_bits: 4,
+			id: cid, kind: 'agent', display_name: 'Aria', profession: 'scribe', capability_bits: 4,
 			status: 'idle', agenc_agent_id: 'abc', agenc_agent_pda: null, agenc_cluster: 'devnet',
 			pos_x: 0, pos_z: 0, home_x: 0, home_z: 0, reputation: 3,
 			stake_lamports: 0, earned_three_atomic: 0, tasks_completed: 0, tasks_posted: 0,
@@ -250,7 +259,7 @@ describe('passport', () => {
 			tx_signature: 'sig', proof_hash: null, deliverable_url: null, rep_before: null, rep_after: 3,
 			created_at: '2026-07-02T00:00:00Z',
 		}];
-		const { status, body } = await call('passport', { query: { id: 'c1' } });
+		const { status, body } = await call('passport', { query: { id: cid } });
 		expect(status).toBe(200);
 		expect(body.ok).toBe(true);
 		expect(body.citizen.displayName).toBe('Aria');

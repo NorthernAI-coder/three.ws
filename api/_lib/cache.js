@@ -119,9 +119,16 @@ function redisCmdTimeoutMs() {
 // 3s-stall-plus-warning on every single request.
 const CIRCUIT_FAIL_THRESHOLD = 5;
 const CIRCUIT_COOLDOWN_MS = 60_000;
+// A chronically degraded store re-arms the fixed cooldown forever — one trial +
+// one open/close log pair per minute, hundreds per day (the July 2026 export:
+// 381 circuit opens in 10h). Escalate the cooldown ×2 per consecutive re-arm up
+// to a ceiling, so a store that stays down settles at one probe per 10 minutes
+// while a genuinely transient blip still recovers within the 60s base window.
+const COOLDOWN_MAX_MS = 600_000;
 let circuitFailures = 0;
 let circuitOpenUntil = 0; // epoch ms; 0 = closed
 let circuitTrialInFlight = false;
+let circuitRearms = 0; // consecutive re-opens without an intervening success
 
 // SET-path write suppression. The shared circuit breaker above keys off
 // CONSECUTIVE command failures across all ops, but the production failure mode is
@@ -140,6 +147,7 @@ const SET_FAIL_THRESHOLD = 5;
 const SET_SUPPRESS_MS = 60_000;
 let setFailures = 0;
 let setSuppressedUntil = 0; // epoch ms; 0 = writing normally
+let setRearms = 0; // consecutive suppression re-arms without a successful SET
 
 // Cumulative counters since this instance came up. Gauges (circuitOpen,
 // setSuppressed) say "is it degraded right now"; these totals give the health
@@ -173,13 +181,19 @@ function circuitRecordSuccess() {
 	circuitFailures = 0;
 	circuitOpenUntil = 0;
 	circuitTrialInFlight = false;
+	circuitRearms = 0;
+}
+
+function escalatedCooldownMs(baseMs, rearms) {
+	return Math.min(COOLDOWN_MAX_MS, baseMs * 2 ** Math.min(10, rearms));
 }
 
 function circuitRecordFailure() {
 	circuitTrialInFlight = false;
 	if (circuitOpenUntil !== 0) {
-		// A half-open trial failed — Redis still down, re-arm the cooldown.
-		circuitOpenUntil = Date.now() + CIRCUIT_COOLDOWN_MS;
+		// A half-open trial failed — Redis still down, re-arm an escalated cooldown.
+		circuitRearms++;
+		circuitOpenUntil = Date.now() + escalatedCooldownMs(CIRCUIT_COOLDOWN_MS, circuitRearms);
 		return;
 	}
 	circuitFailures++;
@@ -299,18 +313,35 @@ export async function cacheSet(key, value, ttlSeconds = 60) {
 	}
 	try {
 		const payload = JSON.stringify(value);
+		// An oversized value over Upstash REST is a guaranteed timeout from a
+		// non-co-located region: it can never finish inside the command deadline,
+		// so it would burn the failure streak and flap the suppression gate all
+		// day without ever landing. Keep it memory-only and leave the streak to
+		// reflect the store's real health.
+		if (payload.length > env.CACHE_REDIS_MAX_VALUE_BYTES) {
+			// Memo the value too: with Redis healthy a GET is a clean miss (null),
+			// not an error, so it would never consult the memory fallback — the memo
+			// is what keeps near-term reads coherent with this write.
+			memoPut(key, value);
+			warnThrottled('set-size', `[cache] value for "${key}" exceeds ${env.CACHE_REDIS_MAX_VALUE_BYTES} bytes — memory-only (raise CACHE_REDIS_MAX_VALUE_BYTES to override)`);
+			return memSet(key, value, ttlSeconds);
+		}
 		await redisCmd(['SET', key, payload, 'EX', String(ttlSeconds)]);
 		if (setSuppressedUntil !== 0) warnThrottled('set-gate', '[cache] redis SET recovered — resuming cache writes');
 		setFailures = 0;
 		setSuppressedUntil = 0;
+		setRearms = 0;
 		memoPut(key, value); // keep the memo coherent with what we just wrote
 	} catch (err) {
 		readMemo.delete(key);
 		memSet(key, value, ttlSeconds);
 		if (err?.circuitOpen) return; // shared breaker already logged the open transition
 		if (setSuppressedUntil !== 0) {
-			// A post-window trial failed — Redis writes still down, re-arm quietly.
-			setSuppressedUntil = now + SET_SUPPRESS_MS;
+			// A post-window trial failed — writes still down. Re-arm quietly with an
+			// escalated window so a chronically degraded store settles at one trial
+			// per 10 minutes instead of flapping every 60s.
+			setRearms++;
+			setSuppressedUntil = now + escalatedCooldownMs(SET_SUPPRESS_MS, setRearms);
 			return;
 		}
 		setFailures++;
