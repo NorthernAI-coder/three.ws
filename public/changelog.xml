@@ -23,6 +23,14 @@
 			<description>A guide avatar walks your Shopify storefront, spotlights the hero, bestsellers, and reviews, and narrates each one — two script tags in theme.liquid, free roam included.</description>
 		</item>
 		<item>
+			<title>30+ background jobs were unreachable in production — payouts, subscriptions, and buybacks are back</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-04:30+ background jobs were unreachable in production — payouts, subscriptions, and buybacks are back</guid>
+			<pubDate>Sat, 04 Jul 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>A routing gap meant every background job served by the shared cron dispatcher — payment distribution, subscription billing, royalty settlement, club and coin payouts, $THREE buybacks, and the pump.fun monitors — returned 404 in production while working fine in development. The route is fixed and a test now fails the suite if a new job is ever added without it. The x402 payment engine also no longer stalls when its wallet key is pasted into configuration with quotes, spaces, or line breaks — all common paste formats now load cleanly.</description>
+		</item>
+		<item>
 			<title>36 npm packages refreshed — every published SDK and MCP server now matches the platform</title>
 			<link>https://three.ws/tutorials/shopify-store-guide</link>
 			<guid isPermaLink="false">2026-07-04:36 npm packages refreshed — every published SDK and MCP server now matches the platform</guid>

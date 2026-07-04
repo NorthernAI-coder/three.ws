@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-07-04",
+			"title": "30+ background jobs were unreachable in production — payouts, subscriptions, and buybacks are back",
+			"summary": "A routing gap meant every background job served by the shared cron dispatcher — payment distribution, subscription billing, royalty settlement, club and coin payouts, $THREE buybacks, and the pump.fun monitors — returned 404 in production while working fine in development. The route is fixed and a test now fails the suite if a new job is ever added without it. The x402 payment engine also no longer stalls when its wallet key is pasted into configuration with quotes, spaces, or line breaks — all common paste formats now load cleanly.",
+			"tags": [
+				"fix",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-07-04",
 			"title": "36 npm packages refreshed — every published SDK and MCP server now matches the platform",
 			"summary": "A full audit of the @three-ws npm catalog found 36 packages whose published builds had fallen behind the platform — SDK improvements, MCP tool updates, and registry manifests that existed here but not on npm. All 36 are republished and current, including the core SDK, the page narrator, the React components, the Solana agent kit, and the full MCP server family. Two broken package builds were repaired along the way, and the Shopify store-guide tutorial now points at the fresh releases.",
 			"tags": [

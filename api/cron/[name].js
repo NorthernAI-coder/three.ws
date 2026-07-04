@@ -6,6 +6,15 @@
  * verbatim move of the original per-file handler body — no logic changes,
  * especially around auth / CRON_SECRET checks.
  *
+ * ROUTING — READ THIS BEFORE ADDING A HANDLER. This project uses a legacy
+ * `routes` array in vercel.json, which does NOT auto-route dynamic [name]
+ * segments: every job name in HANDLERS must ALSO appear in the explicit
+ * `/api/cron/(name-a|name-b|…)` → `/api/cron/[name]?name=$1` route there, or
+ * the job 404s in production while working fine in local dev. That exact gap
+ * silently killed all 30+ dispatcher jobs (payouts, subscriptions, buybacks,
+ * pumpfun monitors) until July 2026. tests/cron-dispatcher-routing.test.js
+ * fails the suite if the map and the route drift — keep both in sync.
+ *
  * Cron paths handled (kebab-case → handler):
  *   audit-log-cleanup             → handleAuditLogCleanup
  *   erc8004-crawl                 → handleErc8004Crawl

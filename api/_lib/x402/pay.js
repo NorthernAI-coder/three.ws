@@ -105,13 +105,48 @@ export function expectedFeeLamports({ selfPay, priorityMicrolamports = 0, cuLimi
 // Load the autonomous payer keypair. Seed wallet preferred; agent wallet is the
 // documented fallback. In non-prod a local test wallet file is honored so the
 // loop and manual tests can run without env wiring.
+// Decode a 64-byte Solana secret key from any of the encodings that end up in
+// env vars in practice: base58 (the canonical form), a JSON array of 64 ints
+// (Solana CLI keypair file pasted verbatim), or base64. Tolerates the paste
+// artifacts that broke production — surrounding quotes, whitespace, and
+// newlines — instead of letting bs58 throw "Non-base58 character" and silently
+// pausing every x402 engine on the ring. Returns null when nothing decodes.
+export function decodeSeedSecret(secret) {
+	const raw = String(secret ?? '').trim().replace(/^["']|["']$/g, '').trim();
+	if (!raw) return null;
+	if (raw.startsWith('[')) {
+		try {
+			const arr = JSON.parse(raw);
+			if (Array.isArray(arr) && arr.length === 64) return Uint8Array.from(arr);
+		} catch { /* fall through */ }
+		return null;
+	}
+	// Strip embedded whitespace/newlines (multi-line paste) before decoding.
+	const compact = raw.replace(/\s+/g, '');
+	try {
+		const bytes = bs58.decode(compact);
+		if (bytes.length === 64) return bytes;
+	} catch { /* try base64 next */ }
+	try {
+		const buf = Buffer.from(compact, 'base64');
+		// Buffer.from is lenient — require a clean round-trip so a mistyped
+		// base58 string can't half-decode into 64 garbage bytes.
+		if (buf.length === 64 && buf.toString('base64').replace(/=+$/, '') === compact.replace(/=+$/, '')) {
+			return Uint8Array.from(buf);
+		}
+	} catch { /* undecodable */ }
+	return null;
+}
+
 export function loadSeedKeypair() {
-	const b58 = process.env.X402_SEED_SOLANA_SECRET_BASE58
+	const secret = process.env.X402_SEED_SOLANA_SECRET_BASE58
 		|| process.env.X402_AGENT_SOLANA_SECRET_BASE58;
-	if (b58) {
-		const raw = bs58.decode(b58);
-		if (raw.length !== 64) throw new Error(`seed keypair: expected 64 bytes, got ${raw.length}`);
-		return Keypair.fromSecretKey(raw);
+	if (secret) {
+		const bytes = decodeSeedSecret(secret);
+		if (!bytes) {
+			throw new Error('x402 pay: seed keypair undecodable — X402_SEED_SOLANA_SECRET_BASE58 must be 64 bytes as base58, base64, or a JSON array of 64 ints');
+		}
+		return Keypair.fromSecretKey(bytes);
 	}
 	if (process.env.NODE_ENV !== 'production') {
 		try {
