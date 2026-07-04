@@ -825,6 +825,12 @@ URL: https://three.ws/coin-intel
 
 Every pump.fun launch watched and classified in real time — organic vs bundle, the wallets behind it, a transparent quality score, and a model that learns which signals predict winners.
 
+### Markets — Live Crypto Prices
+
+URL: https://three.ws/coins
+
+Live global cryptocurrency market data: total market cap, dominance, Fear & Greed, and the top coins with prices, 24h/7d moves, and 7d sparklines. Every coin links to a rich /coin/:id detail page with an interactive chart, market stats, related news, and official links.
+
 ### watsonx Constellation
 
 URL: https://three.ws/constellation

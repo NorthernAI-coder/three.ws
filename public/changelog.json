@@ -1,11 +1,21 @@
 {
-	"generated_at": "2026-07-04T04:57:04.706Z",
+	"generated_at": "2026-07-04T05:07:28.444Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-07-04",
+			"type": "launch",
+			"title": "Markets — Live Crypto Prices",
+			"summary": "Live global cryptocurrency market data: total market cap, dominance, Fear & Greed, and the top coins with prices, 24h/7d moves, and 7d sparklines. Every coin links to a rich /coin/:id detail page with an interactive chart, market stats, related news, and official links.",
+			"link": "/coins",
+			"tags": [
+				"launch"
+			]
+		},
 		{
 			"date": "2026-07-04",
 			"type": "update",
@@ -46,6 +56,16 @@
 			"link": "/walk",
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-07-04",
+			"type": "update",
+			"title": "Global markets — live prices and a rich detail page for every coin",
+			"summary": "three.ws now covers the whole market, not just pump.fun launches. The new Markets page shows global market cap, dominance, the Fear & Greed index, and the top coins with live prices, 24h/7d moves, and 7-day sparklines — sortable, searchable, and paginated. Click any coin (or visit /coin/<id> directly) for a rich profile: interactive price chart across five time ranges, full market stats including all-time high and low, related news from live sources, a plain-language about section, official links, and contract addresses. Solana coins cross-link straight into Alpha Copilot and the live trade feed.",
+			"link": "/coins",
+			"tags": [
+				"feature"
 			]
 		},
 		{

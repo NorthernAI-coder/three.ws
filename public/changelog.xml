@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Markets — Live Crypto Prices</title>
+			<link>https://three.ws/coins</link>
+			<guid isPermaLink="false">2026-07-04:Markets — Live Crypto Prices</guid>
+			<pubDate>Sat, 04 Jul 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Live global cryptocurrency market data: total market cap, dominance, Fear &amp; Greed, and the top coins with prices, 24h/7d moves, and 7d sparklines. Every coin links to a rich /coin/:id detail page with an interactive chart, market stats, related news, and official links.</description>
+		</item>
+		<item>
 			<title>3D avatars load about 4x faster - and reliably everywhere</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-07-04:3D avatars load about 4x faster - and reliably everywhere</guid>
@@ -37,6 +45,14 @@
 			<pubDate>Sat, 04 Jul 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>The gesture wheel regained four expressive moves that had been silently dropped: nod (a quick upper-body affirm), shrug, jog (a full-body run loop), and celebrate (a whole-body cheer). Open the wheel with G (or long-press the action button on mobile) — the wheel now lays out all twelve gestures; keys 1–8 still trigger the first eight. Also part of this pass: the entire test suite now runs fully green, locking every one of these behaviors in.</description>
+		</item>
+		<item>
+			<title>Global markets — live prices and a rich detail page for every coin</title>
+			<link>https://three.ws/coins</link>
+			<guid isPermaLink="false">2026-07-04:Global markets — live prices and a rich detail page for every coin</guid>
+			<pubDate>Sat, 04 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>three.ws now covers the whole market, not just pump.fun launches. The new Markets page shows global market cap, dominance, the Fear &amp; Greed index, and the top coins with live prices, 24h/7d moves, and 7-day sparklines — sortable, searchable, and paginated. Click any coin (or visit /coin/&lt;id&gt; directly) for a rich profile: interactive price chart across five time ranges, full market stats including all-time high and low, related news from live sources, a plain-language about section, official links, and contract addresses. Solana coins cross-link straight into Alpha Copilot and the live trade feed.</description>
 		</item>
 		<item>
 			<title>The agent economy now runs from a single always-on heartbeat</title>
