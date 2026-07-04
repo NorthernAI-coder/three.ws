@@ -1,0 +1,658 @@
+{
+	"api/_mcp-studio/tools.js": [
+		{
+			"name": "forge_avatar",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": "ref:GEN_ANNOTATIONS",
+			"schemaHash": "d0b27741c3cf"
+		},
+		{
+			"name": "forge_free",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": "ref:GEN_ANNOTATIONS",
+			"schemaHash": "324b0832b9e2"
+		},
+		{
+			"name": "mesh_forge",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": "ref:GEN_ANNOTATIONS",
+			"schemaHash": "8282c22b2dc6"
+		},
+		{
+			"name": "rig_mesh",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": "ref:GEN_ANNOTATIONS",
+			"schemaHash": "69bf89c0d2be"
+		},
+		{
+			"name": "text_to_avatar",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": "ref:GEN_ANNOTATIONS",
+			"schemaHash": "dfba7138f9a1"
+		}
+	],
+	"api/_mcp/tools/agents.js": [
+		{
+			"name": "call_agent",
+			"descHead": "Send a message to another three.ws agent and get its response. Use this ",
+			"descHash": "3d9116ed9950",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "944e8f9d1ef7"
+		},
+		{
+			"name": "identity_check",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "4b32993a5276"
+		},
+		{
+			"name": "register_agent",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "a5ae268bcb2d"
+		}
+	],
+	"api/_mcp/tools/animations.js": [
+		{
+			"name": "apply_animation",
+			"descHead": "Retarget a curated animation preset onto a caller-supplied rigged humano",
+			"descHash": "e42328286a5c",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "ae2a6528b1ba"
+		},
+		{
+			"name": "list_animations",
+			"descHead": "List the curated, retargetable animation presets in the three.ws library",
+			"descHash": "97f136897e7b",
+			"annotations": {
+				"readOnlyHint": true,
+				"destructiveHint": false,
+				"idempotentHint": true,
+				"openWorldHint": false
+			},
+			"schemaHash": "1f6841da513b"
+		},
+		{
+			"name": "text_to_animation",
+			"descHead": "Generate a brand-new motion from a natural-language prompt (e.g. \"waving",
+			"descHash": "e69992039d1a",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "a72f659ddf98"
+		}
+	],
+	"api/_mcp/tools/avatars.js": [
+		{
+			"name": "delete_avatar",
+			"descHead": "Soft-delete an avatar you own. Requires avatars:delete scope.",
+			"descHash": "7e867ad19f8c",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "15b6f07fa18e"
+		},
+		{
+			"name": "get_avatar",
+			"descHead": "Fetch a single avatar by id or by owner+slug. Returns metadata and a mod",
+			"descHash": "7d13b04e4e9a",
+			"annotations": "ref:READ_ANNOTATIONS",
+			"schemaHash": "613746a8df6f"
+		},
+		{
+			"name": "list_my_avatars",
+			"descHead": "List the authenticated user's avatars. Returns id, name, slug, size, vis",
+			"descHash": "63b8ad84489b",
+			"annotations": "ref:READ_ANNOTATIONS",
+			"schemaHash": "9e46bf1d5ddb"
+		},
+		{
+			"name": "render_avatar",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": "ref:READ_ANNOTATIONS",
+			"schemaHash": "f6112443c499"
+		},
+		{
+			"name": "render_avatar_image",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": true,
+				"openWorldHint": true
+			},
+			"schemaHash": "37a7804715a6"
+		},
+		{
+			"name": "search_public_avatars",
+			"descHead": "Search the public avatar gallery. Useful for finding characters to rende",
+			"descHash": "50269f56daf0",
+			"annotations": "ref:READ_ANNOTATIONS",
+			"schemaHash": "5d9b231c5a24"
+		}
+	],
+	"api/_mcp/tools/embed.js": [
+		{
+			"name": "get_embed_code",
+			"descHead": "Return a ready-to-paste <iframe> embed snippet (plus shareable URL, oEmb",
+			"descHash": "757acd12b3f0",
+			"annotations": {
+				"readOnlyHint": true,
+				"destructiveHint": false,
+				"idempotentHint": true,
+				"openWorldHint": true
+			},
+			"schemaHash": "19fef9f6debc"
+		}
+	],
+	"api/_mcp/tools/memory.js": [
+		{
+			"name": "forget",
+			"descHead": "Delete a memory you own by its id.",
+			"descHash": "c7a3d36e6024",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "755f21dddd24"
+		},
+		{
+			"name": "recall",
+			"descHead": "Retrieve the most relevant memories for a query from one of your agents.",
+			"descHash": "2f63c3847d9b",
+			"annotations": {
+				"readOnlyHint": true,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "ff6704725285"
+		},
+		{
+			"name": "remember",
+			"descHead": "Store a long-term memory for one of your agents. Use for durable facts: ",
+			"descHash": "ae6892ef85bb",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "8033e83ac438"
+		}
+	],
+	"api/_mcp/tools/models.js": [
+		{
+			"name": "inspect_model",
+			"descHead": "Parse a remote GLB or glTF and return structural stats: scene/node/mesh ",
+			"descHash": "b8209ee26651",
+			"annotations": "ref:INSPECTION_ANNOTATIONS",
+			"schemaHash": "508ba4931749"
+		},
+		{
+			"name": "optimize_model",
+			"descHead": "Inspect the model and return actionable suggestions for reducing size an",
+			"descHash": "6aae82cc8273",
+			"annotations": "ref:INSPECTION_ANNOTATIONS",
+			"schemaHash": "508ba4931749"
+		},
+		{
+			"name": "validate_model",
+			"descHead": "Run the Khronos glTF-Validator against a remote GLB or glTF URL. Returns",
+			"descHash": "1ad7ca463dbe",
+			"annotations": "ref:INSPECTION_ANNOTATIONS",
+			"schemaHash": "ec4de14d2fb0"
+		}
+	],
+	"api/_mcp/tools/oracle.js": [
+		{
+			"name": "oracle_arm_watch",
+			"descHead": "Arm your agent to automatically act on Oracle conviction signals. Once a",
+			"descHash": "d659c5146b5d",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": true,
+				"openWorldHint": false
+			},
+			"schemaHash": "2fd3f728039c"
+		},
+		{
+			"name": "oracle_coin",
+			"descHead": "Get Oracle's full conviction verdict for a specific pump.fun coin by min",
+			"descHash": "b2e49ba1236a",
+			"annotations": "ref:LIVE_ANNOTATIONS",
+			"schemaHash": "e49439fea65e"
+		},
+		{
+			"name": "oracle_top_plays",
+			"descHead": "Get the current top pump.fun launches ranked by Oracle conviction score.",
+			"descHash": "61cecaf86ed6",
+			"annotations": "ref:LIVE_ANNOTATIONS",
+			"schemaHash": "e6121e0129f6"
+		},
+		{
+			"name": "oracle_watch_status",
+			"descHead": "Check your agent's current Oracle watch configuration and its realized t",
+			"descHash": "9edf65c96476",
+			"annotations": {
+				"readOnlyHint": true,
+				"destructiveHint": false,
+				"idempotentHint": true,
+				"openWorldHint": false
+			},
+			"schemaHash": "7187ef4e7b09"
+		}
+	],
+	"api/_mcp/tools/pumpfun.js": [
+		{
+			"name": "pumpfun_creator_intel",
+			"descHead": "Reputation profile for a pump.fun creator wallet: prior launches, gradua",
+			"descHash": "11009779c558",
+			"annotations": "ref:LIVE_FEED_ANNOTATIONS",
+			"schemaHash": "d70ded99f0a8"
+		},
+		{
+			"name": "pumpfun_recent_claims",
+			"descHead": "Fetch the most recent pump.fun GitHub social-fee claim events with full ",
+			"descHash": "cb6200c9fb5a",
+			"annotations": "ref:LIVE_FEED_ANNOTATIONS",
+			"schemaHash": "167128e5fd74"
+		},
+		{
+			"name": "pumpfun_recent_graduations",
+			"descHead": "Tokens that recently graduated from the bonding curve to PumpAMM, with c",
+			"descHash": "caf218a6cdd6",
+			"annotations": "ref:LIVE_FEED_ANNOTATIONS",
+			"schemaHash": "167128e5fd74"
+		},
+		{
+			"name": "pumpfun_token_intel",
+			"descHead": "Full intel on a pump.fun token: graduation status, bonding-curve progres",
+			"descHash": "d1119e50045e",
+			"annotations": "ref:LIVE_FEED_ANNOTATIONS",
+			"schemaHash": "f98dc82b28e7"
+		}
+	],
+	"api/_mcp/tools/solana.js": [
+		{
+			"name": "solana_agent_attestations",
+			"descHead": "List recent on-chain attestations about a Solana-registered agent (feedb",
+			"descHash": "2c83176df84d",
+			"annotations": "ref:ATTESTATION_READ_ANNOTATIONS",
+			"schemaHash": "19470067c940"
+		},
+		{
+			"name": "solana_agent_passport",
+			"descHead": "Full discovery card for a Solana agent: identity (Metaplex Core asset), ",
+			"descHash": "6320bafe75df",
+			"annotations": "ref:ATTESTATION_READ_ANNOTATIONS",
+			"schemaHash": "dab5747d2c2b"
+		},
+		{
+			"name": "solana_agent_reputation",
+			"descHead": "Computed reputation summary for a Solana-registered three.ws agent. Retu",
+			"descHash": "5c3aa420b75e",
+			"annotations": "ref:ATTESTATION_READ_ANNOTATIONS",
+			"schemaHash": "72791cf29a31"
+		}
+	],
+	"api/_mcp/tools/trader.js": [
+		{
+			"name": "copy_status",
+			"descHead": "List all your active copy-trading subscriptions, with sizing config, exe",
+			"descHash": "d18378cae20d",
+			"annotations": {
+				"readOnlyHint": true,
+				"destructiveHint": false,
+				"idempotentHint": true,
+				"openWorldHint": false
+			},
+			"schemaHash": "e478f4f47bac"
+		},
+		{
+			"name": "copy_subscribe",
+			"descHead": "Set up non-custodial copy-trading: mirror a leader agent's future pump.f",
+			"descHash": "d4c0a89a60dd",
+			"annotations": "ref:WRITE",
+			"schemaHash": "4371f009b2b2"
+		},
+		{
+			"name": "trader_leaderboard",
+			"descHead": "Get the top pump.fun traders on three.ws ranked by composite TraderScore",
+			"descHash": "51e91774fd99",
+			"annotations": "ref:LIVE",
+			"schemaHash": "ab27ab6634a8"
+		},
+		{
+			"name": "trader_profile",
+			"descHead": "Get the full, verifiable track record for a specific pump.fun agent trad",
+			"descHash": "aaff472b3eae",
+			"annotations": "ref:LIVE",
+			"schemaHash": "4dc84b2cce04"
+		}
+	],
+	"api/_mcp3d/tools/studio.js": [
+		{
+			"name": "auto_rig_model",
+			"descHead": "Turn a static GLB mesh into an animation-ready character: adds a humanoi",
+			"descHash": "832b32ab5642",
+			"annotations": "ref:GENERATIVE_ANNOTATIONS",
+			"schemaHash": "7009c009db7d"
+		},
+		{
+			"name": "capture_scene",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": "ref:GENERATIVE_ANNOTATIONS",
+			"schemaHash": "dc76eb022976"
+		},
+		{
+			"name": "create_agent_persona",
+			"descHead": "Turn a generated GLB into a NAMED, persistent agent body — a \"persona\" t",
+			"descHash": "716809d092b0",
+			"annotations": "ref:PERSONA_CREATE_ANNOTATIONS",
+			"schemaHash": "7d650a9be810"
+		},
+		{
+			"name": "direct_prompt",
+			"descHead": "Rewrite a rough idea into an optimized text_to_3d prompt using IBM Grani",
+			"descHash": "1e1c7ac5025f",
+			"annotations": "ref:GENERATIVE_ANNOTATIONS",
+			"schemaHash": "2d5958c4b914"
+		},
+		{
+			"name": "generate_material",
+			"descHead": "Generate a physically-based (PBR) glTF 2.0 material from a text descript",
+			"descHash": "50c812e688fc",
+			"annotations": "ref:GENERATIVE_ANNOTATIONS",
+			"schemaHash": "e146204d56d4"
+		},
+		{
+			"name": "generation_status",
+			"descHead": "Poll a text_to_3d or image_to_3d job by its job_id. While running it rep",
+			"descHash": "2fdc15375822",
+			"annotations": {
+				"readOnlyHint": true,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "2d3db883d926"
+		},
+		{
+			"name": "get_agent_persona",
+			"descHead": "Bring back a previously minted persona by its persona_id — the SAME body",
+			"descHash": "04388b6c47b0",
+			"annotations": "ref:PERSONA_READ_ANNOTATIONS",
+			"schemaHash": "b8451da964a3"
+		},
+		{
+			"name": "image_to_3d",
+			"descHead": "Reconstruct a textured 3D model (GLB) from a reference image using the t",
+			"descHash": "cf4145f4d88b",
+			"annotations": "ref:GENERATIVE_ANNOTATIONS",
+			"schemaHash": "02b319a19d1c"
+		},
+		{
+			"name": "persona_say",
+			"descHead": "Make a persona PERFORM a reply: the body lip-syncs the text and shows th",
+			"descHash": "7ce7c147f8f6",
+			"annotations": "ref:PERSONA_SAY_ANNOTATIONS",
+			"schemaHash": "497937ffa9cc"
+		},
+		{
+			"name": "pose_model",
+			"descHead": "Map a natural-language pose description to a deterministic pose-studio s",
+			"descHash": "f90f437e72b1",
+			"annotations": {
+				"readOnlyHint": true,
+				"destructiveHint": false,
+				"idempotentHint": true,
+				"openWorldHint": false
+			},
+			"schemaHash": "5659e1a9db1c"
+		},
+		{
+			"name": "preview_3d",
+			"descHead": "Render any public GLB URL as an inline <model-viewer> HTML artifact — or",
+			"descHash": "ed4b123a6d3e",
+			"annotations": {
+				"readOnlyHint": true,
+				"destructiveHint": false,
+				"idempotentHint": true,
+				"openWorldHint": true
+			},
+			"schemaHash": "ad6b903dc3c5"
+		},
+		{
+			"name": "remesh_model",
+			"descHead": "Process an existing GLB/OBJ/STL/PLY mesh: fix holes and degenerate geome",
+			"descHash": "47b083320257",
+			"annotations": "ref:GENERATIVE_ANNOTATIONS",
+			"schemaHash": "c0c577c37614"
+		},
+		{
+			"name": "remove_background",
+			"descHead": "Strip the background from a photo or illustration with the three.ws back",
+			"descHash": "3334882948e5",
+			"annotations": "ref:GENERATIVE_ANNOTATIONS",
+			"schemaHash": "137e26fac1e6"
+		},
+		{
+			"name": "retexture_model",
+			"descHead": "Generate a fresh texture for an untextured or poorly-textured GLB with t",
+			"descHash": "6cc85e4e6fb7",
+			"annotations": "ref:GENERATIVE_ANNOTATIONS",
+			"schemaHash": "43f9aed91920"
+		},
+		{
+			"name": "retexture_region",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": "ref:GENERATIVE_ANNOTATIONS",
+			"schemaHash": "b7bf7bb6cf9e"
+		},
+		{
+			"name": "save_avatar",
+			"descHead": "Persist a generated GLB (e.g. the glb_url returned by generation_status)",
+			"descHash": "de0ef1a0a729",
+			"annotations": "ref:GENERATIVE_ANNOTATIONS",
+			"schemaHash": "ae4e2c32ab4f"
+		},
+		{
+			"name": "segment_model",
+			"descHead": "Segment a GLB/OBJ/STL/PLY mesh into meaningful parts with clean boundari",
+			"descHash": "be034074eec2",
+			"annotations": "ref:GENERATIVE_ANNOTATIONS",
+			"schemaHash": "0bf100913339"
+		},
+		{
+			"name": "stylize_model",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": "ref:GENERATIVE_ANNOTATIONS",
+			"schemaHash": "4fd28829ddac"
+		},
+		{
+			"name": "text_to_3d",
+			"descHead": "Turn a text description into a textured 3D model (GLB). Runs a fast text",
+			"descHash": "8d96a3f07c0f",
+			"annotations": "ref:GENERATIVE_ANNOTATIONS",
+			"schemaHash": "764012918b1c"
+		}
+	],
+	"api/_mcpagent/tools.js": [
+		{
+			"name": "find_services",
+			"descHead": "Search the live x402 facilitator network for paid services (HTTP APIs an",
+			"descHash": "10b9605cf0c4",
+			"annotations": {
+				"readOnlyHint": true,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "c2ce8b0c47c9"
+		},
+		{
+			"name": "monetize_endpoint",
+			"descHead": "Put a price on an upstream API your agent already serves and publish it ",
+			"descHash": "43e54e8d4142",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "ba14c8f9eb27"
+		},
+		{
+			"name": "pay_and_call",
+			"descHead": "Call a paid x402 endpoint and settle the USDC payment automatically from",
+			"descHash": "590dd66c69e6",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "9c9654820288"
+		},
+		{
+			"name": "provision_wallet",
+			"descHead": "Create (or return) the custodial Solana wallet for one of your agents so",
+			"descHash": "aea787e2cec2",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "575d608cdcde"
+		},
+		{
+			"name": "wallet_status",
+			"descHead": "Show the signed-in user's three.ws agent wallet: address, SOL and USDC b",
+			"descHash": "e8cef61875a7",
+			"annotations": {
+				"readOnlyHint": true,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "b3761fba59a0"
+		}
+	],
+	"api/_mcpbazaar/tools.js": [
+		{
+			"name": "bazaar_service_details",
+			"descHead": "Resolve the current live price of a single x402 service by its resource ",
+			"descHash": "32ef6c0a06fd",
+			"annotations": "ref:DISCOVERY_ANNOTATIONS",
+			"schemaHash": "8b343836306d"
+		},
+		{
+			"name": "browse_services",
+			"descHead": "List paid agent services from the live x402 facilitator network without ",
+			"descHash": "5f4946b4f7d3",
+			"annotations": "ref:DISCOVERY_ANNOTATIONS",
+			"schemaHash": "24d42c431f67"
+		},
+		{
+			"name": "get_service",
+			"descHead": "Resolve a single x402 service by its resource URL (and tool_name for MCP",
+			"descHash": "b38eb5052ab1",
+			"annotations": "ref:DISCOVERY_ANNOTATIONS",
+			"schemaHash": "8b343836306d"
+		},
+		{
+			"name": "search_services",
+			"descHead": "Ranked search across the live x402 facilitator network for paid agent se",
+			"descHash": "7e71185f12b2",
+			"annotations": "ref:DISCOVERY_ANNOTATIONS",
+			"schemaHash": "b9757f337ea2"
+		}
+	],
+	"api/_mcpibm/tools.js": [
+		{
+			"name": "ibm_granite_analyze",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": "ref:generativeAnnotations",
+			"schemaHash": "d52c3000def8"
+		},
+		{
+			"name": "ibm_granite_chat",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": "ref:generativeAnnotations",
+			"schemaHash": "ddda8f410a4c"
+		},
+		{
+			"name": "ibm_granite_code",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": "ref:generativeAnnotations",
+			"schemaHash": "727fb084f050"
+		},
+		{
+			"name": "ibm_granite_embed",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": "ref:deterministicAnnotations",
+			"schemaHash": "dab504ead530"
+		},
+		{
+			"name": "ibm_granite_forecast",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": "ref:generativeAnnotations",
+			"schemaHash": "ca5737f97470"
+		},
+		{
+			"name": "ibm_granite_getting_started",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": "dynamic",
+			"schemaHash": "77bf1a795265"
+		}
+	]
+}
