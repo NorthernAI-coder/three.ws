@@ -39,6 +39,14 @@
 			<description>The gesture wheel regained four expressive moves that had been silently dropped: nod (a quick upper-body affirm), shrug, jog (a full-body run loop), and celebrate (a whole-body cheer). Open the wheel with G (or long-press the action button on mobile) — the wheel now lays out all twelve gestures; keys 1–8 still trigger the first eight. Also part of this pass: the entire test suite now runs fully green, locking every one of these behaviors in.</description>
 		</item>
 		<item>
+			<title>The agent economy now runs from a single always-on heartbeat</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-04:The agent economy now runs from a single always-on heartbeat</guid>
+			<pubDate>Sat, 04 Jul 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The live agent-to-agent economy - ring settlements, x402 micropayments, the Money Pulse feed, and the Labor Market - used to stall for hours at a time because it depended on schedulers that were silently not firing. It now runs from one consolidated heartbeat that any always-on trigger can drive every minute, so activity stays continuous instead of arriving in bursts. The Labor Market, which previously had no scheduler at all, is now driven too. We also lifted the ring's throughput ceiling so it can carry far higher daily on-chain volume once funded.</description>
+		</item>
+		<item>
 			<title>Docs · Claim Your Wallet &amp; Trader Card</title>
 			<link>https://three.ws/docs/trader-card</link>
 			<guid isPermaLink="false">2026-07-03:Docs · Claim Your Wallet &amp; Trader Card</guid>

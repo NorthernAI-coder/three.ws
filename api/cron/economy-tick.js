@@ -35,12 +35,60 @@ const ORIGIN = () => (env.APP_ORIGIN || 'https://three.ws').replace(/\/+$/, '');
 // The engines that make the agent economy move. `path` is invoked with the same
 // `Authorization: Bearer $CRON_SECRET` header Vercel Cron would send. `label` is
 // for the summary. Order is best-effort only — all fire concurrently.
+//
+// EVERY engine below is internally cadence-gated and spend-capped (per-tick caps,
+// per-endpoint cooldowns, hourly/daily ceilings, "already ran today" guards,
+// treasury floors, circuit breakers). Firing them all every minute is therefore
+// safe by design: an engine whose native cadence isn't due simply records a clean
+// `skipped` run and returns cheaply. That is the whole point — the economy is
+// *invoked* every minute; each engine decides whether this is its minute to act.
+// Do NOT thin this list to "save" invocations: an engine left out here is an
+// engine that silently never runs, because it lives past Vercel's 40-cron cutoff.
 const TARGETS = [
+	// ── Payments & x402 (agent-to-agent USDC) ──────────────────────────────
 	{ label: 'ring-tick', path: '/api/cron/x402-ring-tick', method: 'GET' },
 	{ label: 'x402-seed', path: '/api/cron/x402-seed-cron', method: 'GET' },
 	{ label: 'x402-autonomous', path: '/api/cron/x402-autonomous-loop', method: 'GET' },
+	{ label: 'ring-leak-scan', path: '/api/cron/x402-ring-leak-scan', method: 'GET' },
+	{ label: 'wallets-leak-scan', path: '/api/cron/wallets-leak-scan', method: 'GET' },
+	{ label: 'distribute-payments', path: '/api/cron/run-distribute-payments', method: 'GET' },
+	{ label: 'payment-session-sweep', path: '/api/cron/payment-session-sweep', method: 'GET' },
+	// ── Money Pulse, Labor Market & delegation (tips, autonomous spend, hiring) ─
 	{ label: 'money-pulse', path: '/api/cron/pulse-tick', method: 'GET' },
 	{ label: 'labor-market', path: '/api/labor/tick', method: 'POST' },
+	{ label: 'index-delegations', path: '/api/cron/index-delegations', method: 'GET' },
+	// ── Coin launches (pump.fun) ───────────────────────────────────────────
+	{ label: 'launcher', path: '/api/cron/launcher-tick', method: 'GET' },
+	{ label: 'launcher-claimer', path: '/api/cron/launcher-claimer', method: 'GET' },
+	{ label: 'coin-intel', path: '/api/cron/coin-intel-observe', method: 'GET' },
+	{ label: 'pumpfun-monitor', path: '/api/cron/pumpfun-monitor', method: 'GET' },
+	{ label: 'pumpfun-graduations', path: '/api/cron/pumpfun-graduations-sync', method: 'GET' },
+	{ label: 'coin-cycle', path: '/api/cron/run-coin-cycle', method: 'GET' },
+	{ label: 'coin-payouts', path: '/api/cron/run-coin-payouts', method: 'GET' },
+	// ── Autonomous / copy / strategy trading ───────────────────────────────
+	{ label: 'copy-fanout', path: '/api/cron/copy-fanout', method: 'GET' },
+	{ label: 'mirror-fanout', path: '/api/cron/mirror-fanout', method: 'GET' },
+	{ label: 'signal-fanout', path: '/api/cron/signal-fanout', method: 'GET' },
+	{ label: 'strategy-fanout', path: '/api/cron/strategy-fanout', method: 'GET' },
+	{ label: 'dca', path: '/api/cron/run-dca', method: 'GET' },
+	// ── Tips, payouts, subscriptions, royalties ────────────────────────────
+	{ label: 'club-payouts', path: '/api/cron/club-payouts', method: 'GET' },
+	{ label: 'subscriptions', path: '/api/cron/run-subscriptions', method: 'GET' },
+	{ label: 'process-subscriptions', path: '/api/cron/process-subscriptions', method: 'GET' },
+	{ label: 'settle-royalties', path: '/api/cron/settle-royalties', method: 'GET' },
+	{ label: 'cosmetic-splits', path: '/api/cron/cosmetic-splits-sweep', method: 'GET' },
+	// ── $THREE buyback (revenue → buy → treasury) ──────────────────────────
+	{ label: 'buyback', path: '/api/cron/run-buyback', method: 'GET' },
+	{ label: 'three-buyback', path: '/api/cron/run-three-buyback', method: 'GET' },
+	// ── Funding root, treasury autopilot & reconciliation ──────────────────
+	{ label: 'treasury-topup', path: '/api/cron/treasury-topup', method: 'GET' },
+	{ label: 'treasury-autopilot', path: '/api/cron/treasury-autopilot', method: 'GET' },
+	{ label: 'treasury-sweepback', path: '/api/cron/treasury-sweepback', method: 'GET' },
+	{ label: 'economy-reconcile', path: '/api/cron/economy-reconcile', method: 'GET' },
+	{ label: 'reflect-sweep', path: '/api/cron/reflect-sweep', method: 'GET' },
+	// ── $THREE market & holder state ───────────────────────────────────────
+	{ label: 'three-market-refresh', path: '/api/cron/three-market-refresh', method: 'GET' },
+	{ label: 'three-holders-snapshot', path: '/api/cron/three-holders-snapshot', method: 'GET' },
 ];
 
 const CALL_TIMEOUT_MS = 60_000;

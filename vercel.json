@@ -6,7 +6,7 @@
 		"NODE_OPTIONS": "--no-deprecation"
 	},
 	"functions": {
-		"api/cron/{copy-fanout,mirror-fanout,signal-fanout,three-holders-snapshot,x402-autonomous-loop,pulse-tick,coin-intel-observe,launcher-tick,reflect-sweep,solana-autodeploy,db-retention}.js": {
+		"api/cron/{economy-tick,copy-fanout,mirror-fanout,signal-fanout,three-holders-snapshot,x402-autonomous-loop,pulse-tick,coin-intel-observe,launcher-tick,reflect-sweep,solana-autodeploy,db-retention}.js": {
 			"maxDuration": 120
 		},
 		"api/cron/{strategy-fanout,gmgn-seed}.js": {
@@ -4918,24 +4918,12 @@
 			"schedule": "* * * * *"
 		},
 		{
-			"path": "/api/cron/x402-seed-cron",
-			"schedule": "* * * * *"
-		},
-		{
-			"path": "/api/cron/x402-autonomous-loop",
-			"schedule": "*/5 * * * *"
-		},
-		{
-			"path": "/api/cron/x402-ring-tick",
+			"path": "/api/cron/economy-tick",
 			"schedule": "* * * * *"
 		},
 		{
 			"path": "/api/cron/avatar-thumbnail-render",
 			"schedule": "*/10 * * * *"
-		},
-		{
-			"path": "/api/cron/pulse-tick",
-			"schedule": "*/2 * * * *"
 		},
 		{
 			"path": "/api/cron/coin-intel-observe",

@@ -1,73 +1,89 @@
-# Economy heartbeat (external cron failover)
+# Economy heartbeat (single-URL driver)
 
-Every scheduled job on the platform — the circulation engine tick, the x402
-seed and autonomous loops, treasury top-ups, payouts, sweeps, reconciliation —
-is a Vercel Cron entry in `vercel.json` calling an authed `/api/cron/*`
-endpoint. That makes Vercel's scheduler a single point of failure: if the
-Vercel project stops firing crons (account block, paused project, migration),
-every money rail halts at once while the deployed site keeps serving traffic.
-That exact failure happened on 2026-06-29 and flatlined the Money Pulse.
+Every scheduled job on the platform — the circulation engine tick, the x402 seed
+and autonomous loops, the ring settlement tick, the Labor Market, treasury
+top-ups, payouts, sweeps, reconciliation — is an authed `/api/cron/*` endpoint.
+The whole **agent-to-agent economy** comes down to a handful of them being hit
+every minute. When nothing hits them, the economy flat-lines while the site keeps
+serving traffic.
 
-The heartbeat removes that single point of failure. It is a second, independent
-scheduler that drives the same endpoints on the same schedules from GitHub
-Actions.
+Two schedulers can drive those endpoints, and both have failed in practice:
 
-## Pieces
+- **Vercel Cron** is the intended primary, but `vercel.json` declares far more
+  cron entries than Vercel schedules per project (Pro caps at 40; Hobby runs 2,
+  once per day). Everything past the cap is silently never scheduled — including
+  the economy ticks.
+- **GitHub Actions** was the documented failover. It is **permanently
+  unavailable on this account** (billing lock); every run fails to start.
 
-| Piece | Path |
-| --- | --- |
-| Scheduler script | `scripts/economy-heartbeat.mjs` |
-| GitHub Actions workflow | `.github/workflows/economy-heartbeat.yml` |
-| Schedule source of truth | the `crons` array in `vercel.json` (never duplicated) |
+The result was an economy that only moved when a deploy happened to nudge it,
+then went dark for hours to days.
 
-The script reads `vercel.json`, wakes at each UTC minute boundary for
-`DURATION_MINUTES` (default 5), and fires every cron whose schedule matches
-that minute — concurrently, with the same `Authorization: Bearer $CRON_SECRET`
-header Vercel sends. The workflow runs it every 5 minutes with queued,
-never-cancelled runs, so minute-level crons (`x402-seed-cron`) still tick every
-minute despite GitHub's 5-minute scheduler floor.
+## The fix: one endpoint, one external trigger
 
-## Activation
+`GET|POST /api/cron/economy-tick` ([api/cron/economy-tick.js](../api/cron/economy-tick.js))
+is a single dispatcher that fans out — concurrently, with the same
+`Authorization: Bearer $CRON_SECRET` header Vercel would send — to every engine
+that makes the economy move:
 
-One step: add the repo secret `CRON_SECRET` (Settings → Secrets and variables →
-Actions) with the same value as the `CRON_SECRET` env var on the Vercel
-project. Until the secret exists, every run exits idle with a warning and
-touches nothing.
+| Engine | Endpoint | Drives |
+| --- | --- | --- |
+| Ring tick | `/api/cron/x402-ring-tick` | ring settlements / Agent Economy Volume |
+| x402 seed | `/api/cron/x402-seed-cron` | x402 micropayment activity feed |
+| Autonomous loop | `/api/cron/x402-autonomous-loop` | catalog spend (signals, audits) |
+| Money Pulse | `/api/cron/pulse-tick` | the live wallet-activity feed |
+| Labor Market | `/api/labor/tick` | bounty bids, awards, settlements |
+
+Every target engine is internally idempotent — per-tick spend caps, per-endpoint
+cooldowns, and daily ceilings absorb over-calling — so it is safe to fire
+`economy-tick` every minute (or more often) regardless of each engine's native
+cadence. The dispatcher never moves money itself; it only invokes the engines
+that do, over their existing authenticated path. It returns a per-engine summary
+(status + each engine's own skip reason) and a `502` only when **every** engine
+fails (bad secret / origin down), so an external scheduler's own alerting catches
+a real economy-wide outage.
+
+## Driving it (pick one — none use GitHub)
+
+The whole economy now needs exactly one thing: something hitting
+`https://three.ws/api/cron/economy-tick` every minute with the cron bearer.
+
+1. **External HTTP cron (fastest, zero infra).** A service like cron-job.org or
+   EasyCron: URL `https://three.ws/api/cron/economy-tick`, interval 1 minute,
+   add header `Authorization: Bearer <CRON_SECRET>`. Done in two minutes, no code.
+2. **Upstash QStash (you already run Upstash Redis).** Register a schedule that
+   POSTs the same URL every minute with the bearer header. Reliable, retried,
+   dashboard-visible.
+3. **Vercel Cron.** Already wired as one entry in `vercel.json`
+   (`* * * * *`). This only fires if the project's total cron count is within the
+   plan cap — trim `vercel.json` below 40 entries (or move to a plan that allows
+   more) for Vercel to schedule it.
+4. **Always-on host.** `scripts/economy-heartbeat.mjs` still works as a
+   long-running pinger on any small VM (Fly.io / Railway / a box):
+   `CRON_SECRET=… node scripts/economy-heartbeat.mjs` reads `vercel.json` and
+   fires every due cron each minute — not just the economy ones.
+
+## Manual / one-off
+
+```bash
+# Fire one economy tick by hand (server-side does the fan-out):
+curl -sS https://three.ws/api/cron/economy-tick -H "Authorization: Bearer $CRON_SECRET"
+
+# Drive ALL vercel.json crons from anywhere for 10 minutes (superset of the economy):
+CRON_SECRET=… DURATION_MINUTES=10 node scripts/economy-heartbeat.mjs
+```
 
 ## Safety properties
 
-- **No new money paths.** The heartbeat only calls the same authed cron
-  endpoints Vercel calls. All spend caps, registry allowlists, and ledger
+- **No new money paths.** `economy-tick` only calls the same authed cron
+  endpoints Vercel would. All spend caps, registry allowlists, and ledger
   recording live server-side and apply identically.
-- **Double-scheduling is harmless.** While Vercel crons are healthy the
-  endpoints simply tick more often; every engine enforces per-tick and daily
-  caps, so leave the heartbeat enabled permanently as insurance.
-- **Undeployed endpoints are tolerated.** A cron present in the repo's
-  `vercel.json` but missing from the deployed build reports `missing 404` and
-  never fails the run.
-- **Loud on real outage.** A run fails only when every attempted call fails —
-  bad secret or site down — so a red workflow means a genuine problem.
-
-## Manual runs
-
-```bash
-# One-off from anywhere (also how the workflow_dispatch trigger works):
-CRON_SECRET=… node scripts/economy-heartbeat.mjs
-
-# Longer run, economy rails only:
-CRON_SECRET=… DURATION_MINUTES=10 ONLY='pulse|x402|treasury|economy' node scripts/economy-heartbeat.mjs
-```
-
-## Caveats
-
-- GitHub's scheduler is best-effort; runs can start several minutes late under
-  load. High-frequency crons self-heal on the next window, but a cron pinned to
-  one exact minute per day (e.g. `45 9 * * *`) can miss its minute on a badly
-  delayed run — fire it via `workflow_dispatch` with an `only` filter if it
-  matters that day.
-- The heartbeat is a failover, not the fix. When Vercel cron scheduling is
-  down, restore it — the platform's primary scheduler should be the deploy
-  target itself.
+- **Over-calling is harmless.** Every engine enforces per-tick and daily caps and
+  per-endpoint cooldowns, so a 1-minute trigger driving 5-minute engines just
+  no-ops the extra calls.
+- **Undeployed endpoints are tolerated.** A target missing from the deployed
+  build reports `status: 404` and never stops the others.
 
 Related: [circulation engine](circulation-engine.md) ·
+[x402 ring economy](x402-ring-economy.md) ·
 [economy funding root](economy-master.md) · [money map](money-map.md)
