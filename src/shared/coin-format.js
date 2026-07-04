@@ -60,7 +60,8 @@ export function formatChartTick(ts, days) {
 	if (Number.isNaN(d.getTime())) return '';
 	if (days <= 1) return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 	if (days <= 90) return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-	return d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+	// "Mar '26", not "Mar 26" — a bare 2-digit year reads as a day of month.
+	return `${d.toLocaleDateString('en-US', { month: 'short' })} '${String(d.getFullYear() % 100).padStart(2, '0')}`;
 }
 
 /** Relative age: "3m ago", "2h ago", "5d ago". Falls back to a short date past 14 days. */
