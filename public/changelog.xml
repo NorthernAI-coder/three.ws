@@ -23,6 +23,14 @@
 			<description>A guide avatar walks your Shopify storefront, spotlights the hero, bestsellers, and reviews, and narrates each one — two script tags in theme.liquid, free roam included.</description>
 		</item>
 		<item>
+			<title>36 npm packages refreshed — every published SDK and MCP server now matches the platform</title>
+			<link>https://three.ws/tutorials/shopify-store-guide</link>
+			<guid isPermaLink="false">2026-07-04:36 npm packages refreshed — every published SDK and MCP server now matches the platform</guid>
+			<pubDate>Sat, 04 Jul 2026 12:00:00 GMT</pubDate>
+			<category>sdk</category>
+			<description>A full audit of the @three-ws npm catalog found 36 packages whose published builds had fallen behind the platform — SDK improvements, MCP tool updates, and registry manifests that existed here but not on npm. All 36 are republished and current, including the core SDK, the page narrator, the React components, the Solana agent kit, and the full MCP server family. Two broken package builds were repaired along the way, and the Shopify store-guide tutorial now points at the fresh releases.</description>
+		</item>
+		<item>
 			<title>3D avatars load about 4x faster - and reliably everywhere</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-07-04:3D avatars load about 4x faster - and reliably everywhere</guid>

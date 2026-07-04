@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-07-04",
+			"title": "36 npm packages refreshed — every published SDK and MCP server now matches the platform",
+			"summary": "A full audit of the @three-ws npm catalog found 36 packages whose published builds had fallen behind the platform — SDK improvements, MCP tool updates, and registry manifests that existed here but not on npm. All 36 are republished and current, including the core SDK, the page narrator, the React components, the Solana agent kit, and the full MCP server family. Two broken package builds were repaired along the way, and the Shopify store-guide tutorial now points at the fresh releases.",
+			"tags": [
+				"sdk",
+				"improvement"
+			],
+			"link": "/tutorials/shopify-store-guide"
+		},
+		{
+			"date": "2026-07-04",
 			"title": "Agent economy back online, with a public heartbeat you can watch",
 			"summary": "The live agent-to-agent economy (ring settlements, tips, the Money Pulse feed) stalled after settlement defaults were raised roughly 35× ahead of wallet funding that never arrived — every per-minute tick paused itself on an affordability check. Defaults are back to funded levels, and a tick that can afford tips but not the big settlement now keeps the small payments flowing instead of going silent. You can also now watch the economy's pulse directly: the status page (and /api/status) shows the per-minute heartbeat with each engine's last run and skip reason.",
 			"tags": [

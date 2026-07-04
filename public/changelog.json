@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-04T22:01:41.514Z",
+	"generated_at": "2026-07-04T22:35:52.837Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -24,6 +24,17 @@
 			"link": "/tutorials/shopify-store-guide",
 			"tags": [
 				"launch"
+			]
+		},
+		{
+			"date": "2026-07-04",
+			"type": "update",
+			"title": "36 npm packages refreshed — every published SDK and MCP server now matches the platform",
+			"summary": "A full audit of the @three-ws npm catalog found 36 packages whose published builds had fallen behind the platform — SDK improvements, MCP tool updates, and registry manifests that existed here but not on npm. All 36 are republished and current, including the core SDK, the page narrator, the React components, the Solana agent kit, and the full MCP server family. Two broken package builds were repaired along the way, and the Shopify store-guide tutorial now points at the fresh releases.",
+			"link": "/tutorials/shopify-store-guide",
+			"tags": [
+				"sdk",
+				"improvement"
 			]
 		},
 		{
