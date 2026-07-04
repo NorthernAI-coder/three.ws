@@ -4,7 +4,7 @@ This is the end-to-end view of how a text prompt or image becomes a rigged,
 animated 3D avatar on three.ws — from generation, through auto-rigging, to the
 universal animation system that drives any humanoid skeleton. It ties together the
 individual tool docs ([Avatar creation](avatar-creation.md),
-[Character Studio](character-studio.md), [Animations](animations.md),
+[Avatar Studio](character-studio.md), [Animations](animations.md),
 [3D asset pipeline](3d-asset-pipeline.md)) into one map.
 
 ---
@@ -75,7 +75,7 @@ A finished avatar is a GLB (plus optional rig + clips) viewable in the three.ws
 viewer, embeddable as a web component, and attachable to an agent. Paid
 generation/editing is metered per call over x402; the free studio lane requires no
 account. See [Avatar creation](avatar-creation.md) and
-[Character Studio](character-studio.md) for the authoring UIs, and
+[Avatar Studio](character-studio.md) for the authoring UIs, and
 [Mesh editing tools](mcp-tools.md) for retexture / stylize / remesh / segment /
 pose operations.
 

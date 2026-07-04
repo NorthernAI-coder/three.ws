@@ -19,7 +19,7 @@ vi.mock('../api/_lib/db.js', () => {
 		sqlCalls.push({ query, values });
 		return sqlHandler(query, values) ?? [];
 	});
-	return { sql };
+	return { sql, isDbUnavailableError: () => false, isDbCapacityError: () => false };
 });
 
 const { getFlag, isFlagEnabled, setFlag, listFlags, __clearFlagCache } = await import('../api/_lib/flags.js');

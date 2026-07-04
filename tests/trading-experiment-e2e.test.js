@@ -34,11 +34,17 @@ describe('entry gate — 10k–100k mcap, socials, no serial launchers', () => {
 	it('ACCEPTS a $50k mint with socials', () => {
 		expect(scoreMint(goodMint(), STRAT).pass).toBe(true);
 	});
+	// The mcap-band reasons carry the observed value for the decision journal
+	// (e.g. "mc_below_min:5000<10000") — assert on the reason code, not the payload.
 	it('REJECTS below $10k (mc_below_min)', () => {
-		expect(scoreMint(goodMint({ market_cap_usd: 5_000 }), STRAT).reasons).toContain('mc_below_min');
+		expect(scoreMint(goodMint({ market_cap_usd: 5_000 }), STRAT).reasons).toContainEqual(
+			expect.stringMatching(/^mc_below_min\b/),
+		);
 	});
 	it('REJECTS above $100k (mc_above_max)', () => {
-		expect(scoreMint(goodMint({ market_cap_usd: 150_000 }), STRAT).reasons).toContain('mc_above_max');
+		expect(scoreMint(goodMint({ market_cap_usd: 150_000 }), STRAT).reasons).toContainEqual(
+			expect.stringMatching(/^mc_above_max\b/),
+		);
 	});
 	it('REJECTS a no-socials launch', () => {
 		expect(scoreMint(goodMint({ twitter: null }), STRAT).reasons).toContain('no_socials');

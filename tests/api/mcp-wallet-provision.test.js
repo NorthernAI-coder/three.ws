@@ -18,6 +18,8 @@ vi.mock('../../api/_lib/db.js', () => ({
 		if (q.includes('agent_identities')) return dbState.agentRow ? [dbState.agentRow] : [];
 		return [];
 	}),
+	isDbUnavailableError: () => false,
+	isDbCapacityError: () => false,
 }));
 
 // ── Wallet custody layer ─────────────────────────────────────────────────────

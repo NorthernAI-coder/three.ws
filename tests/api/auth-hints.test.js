@@ -15,6 +15,8 @@ process.env.X402_ALLOW_MEMORY_FALLBACK ||= '1';
 // hits jwtVerify directly (no DB).
 vi.mock('../../api/_lib/db.js', () => ({
 	sql: vi.fn(async () => []),
+	isDbUnavailableError: () => false,
+	isDbCapacityError: () => false,
 }));
 
 // SIWX storage stub — record nonces in memory so duplicate-nonce checks work.

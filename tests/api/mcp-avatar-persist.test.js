@@ -26,7 +26,7 @@ vi.mock('../../api/_lib/ssrf-guard.js', async (importOriginal) => {
 });
 
 // ── DB (no Postgres in unit tests) ──────────────────────────────────────────
-vi.mock('../../api/_lib/db.js', () => ({ sql: vi.fn(async () => []) }));
+vi.mock('../../api/_lib/db.js', () => ({ sql: vi.fn(async () => []), isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 // ── Rate limits ─────────────────────────────────────────────────────────────
 vi.mock('../../api/_lib/rate-limit.js', () => ({

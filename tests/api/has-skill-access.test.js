@@ -19,6 +19,8 @@ vi.mock('../../api/_lib/db.js', () => ({
 		sqlState.calls.push({ query: strings.join('?'), values });
 		return sqlState.queue.length ? sqlState.queue.shift() : [];
 	}),
+	isDbUnavailableError: () => false,
+	isDbCapacityError: () => false,
 }));
 
 const { hasSkillAccess, consumeTrialUse } = await import('../../api/_lib/skill-access.js');

@@ -6,6 +6,8 @@ vi.mock('../api/_lib/db.js', () => ({
 		json: (v) => v,
 		end: vi.fn(async () => {}),
 	}),
+	isDbUnavailableError: () => false,
+	isDbCapacityError: () => false,
 }));
 
 // Paths are relative to this file (tests/), so ../src/ → src/ at repo root.

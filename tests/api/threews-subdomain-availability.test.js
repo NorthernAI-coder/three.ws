@@ -10,7 +10,7 @@
 import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 
 const sqlMock = vi.fn();
-vi.mock('../../api/_lib/db.js', () => ({ sql: (...a) => sqlMock(...a) }));
+vi.mock('../../api/_lib/db.js', () => ({ sql: (...a) => sqlMock(...a), isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 vi.mock('../../api/_lib/rate-limit.js', () => ({
 	limits: { authIp: vi.fn(async () => ({ success: true })) },

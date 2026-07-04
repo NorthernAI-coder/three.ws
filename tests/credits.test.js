@@ -19,6 +19,8 @@ vi.mock('../api/_lib/db.js', () => ({
 		const next = db.queue.length ? db.queue.shift() : [];
 		return next instanceof Error ? Promise.reject(next) : Promise.resolve(next);
 	},
+	isDbUnavailableError: () => false,
+	isDbCapacityError: () => false,
 }));
 
 vi.mock('../api/_lib/three-tier.js', () => ({

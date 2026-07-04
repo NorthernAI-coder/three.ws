@@ -33,7 +33,7 @@ vi.mock('../api/_lib/redis.js', () => ({
 	getRedis: () => fakeRedis,
 	isRedisAuthError: () => false,
 }));
-vi.mock('../api/_lib/db.js', () => ({ sql: (...args) => sqlImpl(...args) }));
+vi.mock('../api/_lib/db.js', () => ({ sql: (...args) => sqlImpl(...args), isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 // Pass-through retry wrapper so the direct-insert path actually calls sql.
 vi.mock('../api/_lib/db-retry.js', () => ({ withDbRetry: (run) => run() }));
 

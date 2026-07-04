@@ -1201,7 +1201,7 @@ const SELF_ENDPOINTS = [
 	},
 	// ── Skill Marketplace: Canary Execute (USE-058) ───────────────────────────
 	// Pays $0.001 USDC every 5 minutes to POST /api/x402/skill-marketplace with
-	// mode:"canary_execute" / skill_id:"echo_test". The endpoint exercises the
+	// mode:"canary_execute" / skill:"echo_test". The endpoint exercises the
 	// skill execution path in-process (no external I/O) and returns within the
 	// 2-second SLA. If executed===false or latency_ms > 2000, the slow flag
 	// fires and ops can investigate skill execution performance before users do.
@@ -1210,14 +1210,14 @@ const SELF_ENDPOINTS = [
 		name: 'Skill Marketplace: Canary Execute (echo_test)',
 		path: '/api/x402/skill-marketplace',
 		method: 'POST',
-		body: { mode: 'canary_execute', skill_id: 'echo_test' },
+		body: { mode: 'canary_execute', skill: 'echo_test' },
 		cooldown_s: 300,
 		priority: 52,
 		pipeline: 'health',
 		enabled: true,
 		extractSignal: (r) => ({
 			executed: r?.executed === true,
-			skill_id: r?.skill_id ?? 'echo_test',
+			skill: r?.skill ?? 'echo_test',
 			latency_ms: r?.latency_ms ?? null,
 			output: r?.output ?? null,
 			slow: typeof r?.latency_ms === 'number' && r.latency_ms > 2000,

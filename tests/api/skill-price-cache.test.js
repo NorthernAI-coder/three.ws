@@ -34,7 +34,7 @@ const sql = vi.fn(async (_strings, ...values) => {
 	dbHits.set(agentId, (dbHits.get(agentId) || 0) + 1);
 	return pricesByAgent.get(agentId) ?? [];
 });
-vi.mock('../../api/_lib/db.js', () => ({ sql }));
+vi.mock('../../api/_lib/db.js', () => ({ sql, isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 const { getSkillPrices, getSkillPrice, invalidateSkillPriceCache, skillPriceMap } = await import(
 	'../../api/_lib/skill-price-cache.js'

@@ -23,6 +23,8 @@ vi.mock('../api/_lib/db.js', () => ({
 		sqlState.calls.push({ query: strings.join('?'), values });
 		return sqlState.queue.length ? sqlState.queue.shift() : [];
 	}),
+	isDbUnavailableError: () => false,
+	isDbCapacityError: () => false,
 }));
 
 const walletState = { price: 150, balances: { sol: 0, usdc: 0 }, priceThrows: false };

@@ -30,7 +30,7 @@ const sqlMock = vi.fn((strings) => {
 	if (/FROM usage_events/i.test(q)) return Promise.resolve([{ total: 7 }]);
 	return Promise.resolve([]);
 });
-vi.mock('../../api/_lib/db.js', () => ({ sql: sqlMock }));
+vi.mock('../../api/_lib/db.js', () => ({ sql: sqlMock, isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 // The skill-price cache is the primary fault we inject: getSkillPrices rejects.
 let skillPricesThrows = true;

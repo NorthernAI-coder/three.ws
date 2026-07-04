@@ -26,22 +26,22 @@ describe('walk-gestures — clip availability', () => {
 		}
 	});
 
-	it('loop gestures are the held ones (dance, sit, talking)', () => {
+	it('loop gestures are the held ones (dance, jog, sit, talking)', () => {
 		const looping = GESTURE_NAMES.filter((n) => GESTURES[n].loop);
-		expect(looping.sort()).toEqual(['dance', 'sit', 'talking']);
+		expect(looping.sort()).toEqual(['dance', 'jog', 'sit', 'talking']);
 	});
 
-	it('full-body gestures (sit, dance) take over the base layer; the rest overlay', () => {
+	it('full-body gestures (celebrate, dance, jog, shrug, sit) take over the base layer; the rest overlay', () => {
 		const full = GESTURE_NAMES.filter((n) => GESTURES[n].layer === 'full');
-		expect(full.sort()).toEqual(['dance', 'sit']);
+		expect(full.sort()).toEqual(['celebrate', 'dance', 'jog', 'shrug', 'sit']);
 		const upper = GESTURE_NAMES.filter((n) => GESTURES[n].layer === 'upper');
-		expect(upper).toEqual(['wave', 'point', 'cheer', 'agree', 'disagree', 'talking']);
+		expect(upper).toEqual(['wave', 'point', 'cheer', 'agree', 'disagree', 'talking', 'nod']);
 	});
 });
 
 describe('walk-gestures — wheel order', () => {
-	it('GESTURE_ORDER lists all eight gestures exactly once', () => {
-		expect(GESTURE_ORDER.length).toBe(8);
+	it('GESTURE_ORDER lists every gesture exactly once (first eight = quick keys 1–8)', () => {
+		expect(GESTURE_ORDER.length).toBe(GESTURE_NAMES.length);
 		expect([...GESTURE_ORDER].sort()).toEqual([...GESTURE_NAMES].sort());
 	});
 

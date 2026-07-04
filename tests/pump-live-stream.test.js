@@ -13,7 +13,7 @@ vi.mock('../api/_lib/env.js', () => ({
 
 // Heavy Solana SDK imports not needed for this handler — stub them out.
 vi.mock('../api/_lib/pump.js', () => ({}));
-vi.mock('../api/_lib/db.js', () => ({ sql: vi.fn() }));
+vi.mock('../api/_lib/db.js', () => ({ sql: vi.fn(), isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 vi.mock('../api/_lib/auth.js', () => ({
 	getSessionUser: vi.fn(async () => null),
 	authenticateBearer: vi.fn(async () => null),

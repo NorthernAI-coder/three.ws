@@ -30,6 +30,8 @@ vi.mock('../../api/_lib/db.js', () => ({
 		if (result instanceof Error) return Promise.reject(result);
 		return Promise.resolve(result);
 	}),
+	isDbUnavailableError: () => false,
+	isDbCapacityError: () => false,
 }));
 
 // Importing the module triggers the paidEndpoint call → captures the spec.

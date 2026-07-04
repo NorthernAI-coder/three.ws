@@ -9,6 +9,8 @@ process.env.JWT_SECRET ||= 'test-auth-helpers-secret-at-least-32ch';
 // db.js is lazy (Proxy), but mock it to prevent accidental real connections.
 vi.mock('../../api/_lib/db.js', () => ({
 	sql: vi.fn(async () => []),
+	isDbUnavailableError: () => false,
+	isDbCapacityError: () => false,
 }));
 
 const { mintAccessToken, authenticateBearer, csrfTokenFor, verifyCsrfToken } =

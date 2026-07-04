@@ -40,7 +40,7 @@ const sqlMock = vi.fn((strings, ...values) => {
 	// CREATE TABLE / ALTER TABLE / CREATE INDEX from ensureTable(), and anything else.
 	return Promise.resolve([]);
 });
-vi.mock('../../api/_lib/db.js', () => ({ sql: (...a) => sqlMock(...a) }));
+vi.mock('../../api/_lib/db.js', () => ({ sql: (...a) => sqlMock(...a), isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 // Anonymous by default (the common IRL placement); a test can flip to a session.
 let sessionUser = null;

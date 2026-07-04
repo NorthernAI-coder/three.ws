@@ -23,6 +23,8 @@ vi.mock('../api/_lib/db.js', () => ({
 		if (/sum\(usd\)/.test(q)) return [{ usd: 0 }];
 		return [];
 	}),
+	isDbUnavailableError: () => false,
+	isDbCapacityError: () => false,
 }));
 
 const authState = { session: { id: 'owner-1' } };

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 
 // Mock db.js to prevent DB connection on import
-vi.mock('../../api/_lib/db.js', () => ({ sql: vi.fn() }));
+vi.mock('../../api/_lib/db.js', () => ({ sql: vi.fn(), isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 import {
 	defaultEmbedPolicy,

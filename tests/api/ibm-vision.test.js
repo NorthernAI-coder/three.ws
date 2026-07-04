@@ -34,6 +34,8 @@ vi.mock('../../api/_lib/rate-limit.js', () => ({
 
 vi.mock('../../api/_lib/db.js', () => ({
 	sql: vi.fn(async () => state.dbRows),
+	isDbUnavailableError: () => false,
+	isDbCapacityError: () => false,
 }));
 
 vi.mock('../../api/_lib/watsonx.js', () => ({

@@ -18,7 +18,7 @@ vi.mock('../../api/_lib/auth.js', () => ({
 	hasScope: () => false,
 }));
 
-vi.mock('../../api/_lib/db.js', () => ({ sql: vi.fn(async () => []) }));
+vi.mock('../../api/_lib/db.js', () => ({ sql: vi.fn(async () => []), isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 vi.mock('../../api/_lib/rate-limit.js', () => ({
 	limits: { upload: vi.fn(async () => ({ success: true, reset: Date.now() + 3_600_000 })) },

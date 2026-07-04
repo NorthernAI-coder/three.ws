@@ -7,7 +7,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 const sqlMock = vi.fn();
-vi.mock('../../api/_lib/db.js', () => ({ sql: (...a) => sqlMock(...a) }));
+vi.mock('../../api/_lib/db.js', () => ({ sql: (...a) => sqlMock(...a), isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 const getSessionUserMock = vi.fn();
 vi.mock('../../api/_lib/auth.js', () => ({

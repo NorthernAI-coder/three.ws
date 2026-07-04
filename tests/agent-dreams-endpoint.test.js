@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const sqlMock = vi.fn();
-vi.mock('../api/_lib/db.js', () => ({ sql: sqlMock }));
+vi.mock('../api/_lib/db.js', () => ({ sql: sqlMock, isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 const getSessionUserMock = vi.fn();
 const authenticateBearerMock = vi.fn();

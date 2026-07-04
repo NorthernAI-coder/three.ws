@@ -21,6 +21,8 @@ vi.mock('../../api/_lib/db.js', () => ({
 		if (sqlState.queue.length === 0) return [];
 		return sqlState.queue.shift();
 	}),
+	isDbUnavailableError: () => false,
+	isDbCapacityError: () => false,
 }));
 
 vi.mock('../../api/_lib/rate-limit.js', () => ({

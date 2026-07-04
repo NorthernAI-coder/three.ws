@@ -27,7 +27,7 @@ vi.mock('../../api/_lib/rate-limit.js', () => ({
 }));
 
 const sqlMock = vi.fn();
-vi.mock('../../api/_lib/db.js', () => ({ sql: (...a) => sqlMock(...a) }));
+vi.mock('../../api/_lib/db.js', () => ({ sql: (...a) => sqlMock(...a), isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 const getObjectBufferMock = vi.fn();
 vi.mock('../../api/_lib/r2.js', () => ({

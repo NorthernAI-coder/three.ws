@@ -14,7 +14,7 @@ const sql = vi.fn(async (strings, ...values) => {
 	};
 	return wallets[id] ? [wallets[id]] : [];
 });
-vi.mock('../api/_lib/db.js', () => ({ sql }));
+vi.mock('../api/_lib/db.js', () => ({ sql, isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 // agent-labor: real pure math, spies for the DB ops.
 const claimSettle = vi.fn();

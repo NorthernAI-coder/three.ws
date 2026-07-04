@@ -45,6 +45,8 @@ vi.mock('../api/_lib/db.js', () => ({
 		if (/count\(\*\)/.test(q)) return [{ n: sqlState.openTrades }];
 		return [];
 	}),
+	isDbUnavailableError: () => false,
+	isDbCapacityError: () => false,
 }));
 
 vi.mock('../api/_lib/avatar-wallet.js', () => ({

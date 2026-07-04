@@ -43,7 +43,7 @@ let providerThrows = false;
 
 const payX402 = vi.fn();
 
-vi.mock('../../api/_lib/db.js', () => ({ sql: (...a) => sql(...a) }));
+vi.mock('../../api/_lib/db.js', () => ({ sql: (...a) => sql(...a), isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 vi.mock('../../api/_lib/ssrf.js', () => ({
 	assertPublicHttpsUrl: vi.fn(async (u) => u),
 	SsrfError: class SsrfError extends Error {},

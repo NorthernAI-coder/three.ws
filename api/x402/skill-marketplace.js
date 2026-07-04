@@ -1,6 +1,6 @@
 // GET  /api/x402/skill-marketplace?skill=<name>&limit=<n>
 // POST /api/x402/skill-marketplace { mode: "price_distribution" }
-// POST /api/x402/skill-marketplace { mode: "canary_execute", skill_id: "echo_test" }
+// POST /api/x402/skill-marketplace { mode: "canary_execute", skill: "echo_test" }
 // POST /api/x402/skill-marketplace { mode: "popular", limit: <n> }
 //
 // Paid endpoint cataloged by the CDP x402 Bazaar. For $0.001 USDC the server
@@ -125,9 +125,9 @@ const POST_INPUT_SCHEMA = {
 				'"price_distribution" returns min/max/median prices, ' +
 				'"popular" returns the most-purchased skills over the last 7 days.',
 		},
-		skill_id: {
+		skill: {
 			type: 'string',
-			description: 'Listing id to smoke-test when mode="canary_execute".',
+			description: 'Skill name to smoke-test when mode="canary_execute".',
 		},
 		limit: { type: 'integer', minimum: 1, maximum: 100, default: 10 },
 	},
@@ -291,22 +291,22 @@ async function computePriceDistribution() {
 // echo_test proves the skill execution path responds within the 2 s SLA.
 // The operation is intentionally synchronous — any latency here is endpoint
 // overhead, not I/O. The autonomous loop asserts latency_ms < 2000.
-function runCanaryExecute(skillId) {
+function runCanaryExecute(skillName) {
 	const t0 = Date.now();
 	const supported = ['echo_test'];
-	if (!supported.includes(skillId)) {
+	if (!supported.includes(skillName)) {
 		return {
 			executed: false,
-			skill_id: skillId,
+			skill: skillName,
 			latency_ms: Date.now() - t0,
 			output: null,
-			error: 'unsupported_skill_id',
+			error: 'unsupported_skill',
 			supported,
 			ts: new Date().toISOString(),
 		};
 	}
-	const output = `echo:${skillId}:ok`;
-	return { executed: true, skill_id: skillId, latency_ms: Date.now() - t0, output, ts: new Date().toISOString() };
+	const output = `echo:${skillName}:ok`;
+	return { executed: true, skill: skillName, latency_ms: Date.now() - t0, output, ts: new Date().toISOString() };
 }
 
 // ── Popular-skills query (POST mode="popular") ────────────────────────────────
@@ -392,8 +392,8 @@ const postEndpoint = paidEndpoint({
 		const body = req.body || {};
 		const mode = body.mode ? String(body.mode).trim() : null;
 		if (mode === 'canary_execute') {
-			const skillId = body.skill_id ? String(body.skill_id).trim() : 'echo_test';
-			return runCanaryExecute(skillId);
+			const skillName = body.skill ? String(body.skill).trim() : 'echo_test';
+			return runCanaryExecute(skillName);
 		}
 		if (mode === 'price_distribution') {
 			return computePriceDistribution();

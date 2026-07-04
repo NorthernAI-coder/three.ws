@@ -32,6 +32,8 @@ vi.mock('../api/_lib/db.js', () => ({
 	sql: () => Promise.resolve([
 		{ name: 'Drool Lord', symbol: 'DROOL', mint: 'MINT111', kind: 'trend', trigger_source: 'knowyourmeme', trigger_detail: { top_narrative: 'drooling cat' }, created_at: '2026-06-27T00:00:00Z' },
 	]),
+	isDbUnavailableError: () => false,
+	isDbCapacityError: () => false,
 }));
 
 import handler from '../api/launcher/trends.js';

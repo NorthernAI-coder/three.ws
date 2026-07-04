@@ -15,6 +15,8 @@ vi.mock('../../api/_lib/db.js', () => ({
 		calls.push({ q, values });
 		return state.hit ? [state.hit] : [];
 	}),
+	isDbUnavailableError: () => false,
+	isDbCapacityError: () => false,
 }));
 
 const { resolveRecipient } = await import('../../api/_lib/resolve-recipient.js');

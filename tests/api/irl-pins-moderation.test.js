@@ -28,7 +28,7 @@ const sqlMock = vi.fn((strings) => {
 	// ensureTable DDL + anything else.
 	return Promise.resolve([]);
 });
-vi.mock('../../api/_lib/db.js', () => ({ sql: (...a) => sqlMock(...a) }));
+vi.mock('../../api/_lib/db.js', () => ({ sql: (...a) => sqlMock(...a), isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 let sessionUser = null;
 vi.mock('../../api/_lib/auth.js', () => ({

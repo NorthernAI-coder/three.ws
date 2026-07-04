@@ -19,6 +19,8 @@ vi.mock('../api/_lib/qstash.js', () => ({
 // (the failure mode db-retry's deadline exists to abandon).
 vi.mock('../api/_lib/db.js', () => ({
 	sql: () => new Promise(() => {}),
+	isDbUnavailableError: () => false,
+	isDbCapacityError: () => false,
 }));
 
 import { recordEvent } from '../api/_lib/usage.js';

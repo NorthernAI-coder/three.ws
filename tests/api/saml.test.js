@@ -9,6 +9,8 @@ process.env.JWT_SECRET ||= 'test-saml-secret-at-least-32-characters';
 
 vi.mock('../../api/_lib/db.js', () => ({
 	sql: vi.fn(async () => []),
+	isDbUnavailableError: () => false,
+	isDbCapacityError: () => false,
 }));
 
 const saml = await import('../../api/_lib/saml.js');

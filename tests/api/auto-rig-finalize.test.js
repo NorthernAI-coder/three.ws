@@ -77,7 +77,7 @@ const sqlMock = vi.fn(async (strings, ...values) => {
 	}
 	return [];
 });
-vi.mock('../../api/_lib/db.js', () => ({ sql: (...a) => sqlMock(...a) }));
+vi.mock('../../api/_lib/db.js', () => ({ sql: (...a) => sqlMock(...a), isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 const putObjectMock = vi.fn(async () => undefined);
 vi.mock('../../api/_lib/r2.js', () => ({

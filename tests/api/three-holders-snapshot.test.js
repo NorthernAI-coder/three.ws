@@ -7,7 +7,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const h = { sql: vi.fn() };
-vi.mock('../../api/_lib/db.js', () => ({ sql: (...a) => h.sql(...a) }));
+vi.mock('../../api/_lib/db.js', () => ({ sql: (...a) => h.sql(...a), isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 vi.mock('../../api/_lib/coin/holders.js', () => ({ fetchHolderBalances: vi.fn() }));
 vi.mock('../../api/_lib/token/config.js', () => ({ TOKEN_MINT: 'THREEsynthetic1111111111111111111111111111' }));
 

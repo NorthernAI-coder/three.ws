@@ -27,7 +27,7 @@ const sqlMock = vi.fn((strings) => {
 	if (/FROM agent_identities/i.test(q)) return Promise.resolve(agentRow ? [agentRow] : []);
 	return Promise.resolve([]);
 });
-vi.mock('../../api/_lib/db.js', () => ({ sql: sqlMock }));
+vi.mock('../../api/_lib/db.js', () => ({ sql: sqlMock, isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 // Anonymous viewer: every auth probe returns null.
 vi.mock('../../api/_lib/auth.js', () => ({

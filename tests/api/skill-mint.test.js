@@ -20,6 +20,7 @@ vi.mock('../../api/_lib/db.js', () => ({
 		return sqlState.queue.shift();
 	}),
 	isDbUnavailableError: () => false,
+	isDbCapacityError: () => false,
 }));
 
 const rlState = { success: true };

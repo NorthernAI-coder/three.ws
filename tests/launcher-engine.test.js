@@ -28,7 +28,7 @@ vi.mock('../api/_lib/db.js', () => {
 			: [];
 		return Promise.resolve(rows);
 	};
-	return { sql, isDbUnavailableError: () => false };
+	return { sql, isDbUnavailableError: () => false, isDbCapacityError: () => false };
 });
 
 vi.mock('../api/_lib/launcher-funding.js', () => ({

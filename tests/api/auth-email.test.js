@@ -22,6 +22,7 @@ vi.mock('../../api/_lib/db.js', () => ({
 	// http.js's wrap() calls this on every thrown error to decide 503-vs-500.
 	// The queued test errors are ordinary failures, never DB-down sentinels.
 	isDbUnavailableError: () => false,
+	isDbCapacityError: () => false,
 }));
 
 const rlState = { success: true };

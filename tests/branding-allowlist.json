@@ -383,5 +383,15 @@
 		"pattern": "characterstudio-docs",
 		"file": "docs/character-studio.md",
 		"reason": "Required MIT upstream attribution — link to the upstream CharacterStudio asset-authoring docs (m3-org.github.io/characterstudio-docs); preserved so contributors can find the original vertex/UV conventions."
+	},
+	{
+		"pattern": "Mixamo, Avaturn, Unreal",
+		"file": "docs/avatar-pipeline.md",
+		"reason": "Factual list of third-party rig-name conventions glb-canonicalize.js recognizes (Mixamo, Avaturn, Unreal, VRM, Daz, MakeHuman, ...) — interoperability documentation, not brand promotion."
+	},
+	{
+		"pattern": "avaturn_seed",
+		"file": "docs/ops/runtime-flags.md",
+		"reason": "Literal runtime flag key `avaturn_seed` (with its `AVATURN_SEED_ENABLED` env fallback and avaturn-seed-cron.js path) in ops code samples and the flags table — technical identifiers, not user-facing brand copy."
 	}
 ]

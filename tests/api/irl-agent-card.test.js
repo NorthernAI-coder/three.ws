@@ -47,7 +47,7 @@ const sqlMock = vi.fn((strings) => {
 });
 // The handler uses `.catch(() => [])` on the agent + services queries, so the mock
 // must expose `.catch`. Returning a real Promise (above) already does.
-vi.mock('../../api/_lib/db.js', () => ({ sql: (...a) => sqlMock(...a) }));
+vi.mock('../../api/_lib/db.js', () => ({ sql: (...a) => sqlMock(...a), isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 vi.mock('../../api/_lib/rate-limit.js', () => ({
 	limits: { publicIp: vi.fn(async () => ({ success: true })) },

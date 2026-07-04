@@ -22,7 +22,7 @@ const sql = vi.fn(async (strings, ...vals) => {
 	if (/from avatar_regen_jobs/i.test(q)) return sqlState.inFlight; // the select; insert uses "into"
 	return [];
 });
-vi.mock('../api/_lib/db.js', () => ({ sql: (...a) => sql(...a) }));
+vi.mock('../api/_lib/db.js', () => ({ sql: (...a) => sql(...a), isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 // Provider: rerig-capable, with a spy on submit.
 const submit = vi.fn(async () => ({ extJobId: 'ext-job-123' }));

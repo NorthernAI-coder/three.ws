@@ -56,7 +56,7 @@ function fakeSql(strings, ...vals) {
 	}
 	return Promise.resolve([]); // CREATE TABLE / ALTER / INDEX
 }
-vi.mock('../api/_lib/db.js', () => ({ sql: (s, ...v) => fakeSql(s, ...v) }));
+vi.mock('../api/_lib/db.js', () => ({ sql: (s, ...v) => fakeSql(s, ...v), isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 // ── Mock checkout + dance-tip endpoints ──────────────────────────────────────
 function solanaAccept() {

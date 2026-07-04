@@ -25,6 +25,8 @@ vi.mock('../../api/_lib/db.js', () => ({
 		if (/update\s+skill_purchases\s+set\s+tx_signature/i.test(q)) return [{ id: PUR.id }];
 		return [];
 	}),
+	isDbUnavailableError: () => false,
+	isDbCapacityError: () => false,
 }));
 
 vi.mock('../../api/_lib/evm-payment-verify.js', () => ({

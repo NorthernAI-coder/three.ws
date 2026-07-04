@@ -13,6 +13,8 @@ vi.mock('../../api/_lib/sentry.js', () => ({ captureException: () => {} }));
 // test non-deterministically.
 vi.mock('../../api/_lib/db.js', () => ({
 	sql: () => { throw new Error('no database in test'); },
+	isDbUnavailableError: () => false,
+	isDbCapacityError: () => false,
 }));
 
 import healthz, { _resetResendCache, _resetMonitorCache, _resetX402Cache } from '../../api/healthz.js';

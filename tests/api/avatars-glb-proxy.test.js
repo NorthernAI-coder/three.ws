@@ -26,6 +26,8 @@ vi.mock('../../api/_lib/sentry.js', () => ({ captureException: () => {} }));
 // short-circuited later than expected. Fail loudly if one is reached.
 vi.mock('../../api/_lib/db.js', () => ({
 	sql: () => { throw new Error('DB should not be queried on a routing-only path'); },
+	isDbUnavailableError: () => false,
+	isDbCapacityError: () => false,
 }));
 vi.mock('../../api/_lib/r2.js', () => ({
 	r2: { send: () => { throw new Error('R2 should not be hit on a routing-only path'); } },

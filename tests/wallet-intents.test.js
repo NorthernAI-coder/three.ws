@@ -18,7 +18,7 @@ import { describe, it, expect, vi } from 'vitest';
 const THREE = 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
 const ADDR = '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU';
 
-vi.mock('../api/_lib/db.js', () => ({ sql: vi.fn(async () => []) }));
+vi.mock('../api/_lib/db.js', () => ({ sql: vi.fn(async () => []), isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 vi.mock('../api/_lib/avatar-wallet.js', () => ({
 	solUsdPrice: vi.fn(async () => 150), sendSol: vi.fn(async () => 'sig'), explorerTxUrl: vi.fn(() => 'https://x'),
 }));

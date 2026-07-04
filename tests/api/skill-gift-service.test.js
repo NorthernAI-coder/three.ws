@@ -32,7 +32,7 @@ const sqlMock = vi.fn((strings, ...values) => {
 	return Promise.resolve(respond(q));
 });
 sqlMock.transaction = vi.fn((queries) => Promise.all(queries));
-vi.mock('../../api/_lib/db.js', () => ({ sql: sqlMock }));
+vi.mock('../../api/_lib/db.js', () => ({ sql: sqlMock, isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 const purchaseConfirm = {
 	confirmSkillPurchase: vi.fn(async () => ({ status: 'confirmed', tx_signature: 'SIG' })),

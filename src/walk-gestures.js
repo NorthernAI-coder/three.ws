@@ -23,10 +23,12 @@
 import { AnimationStateMachine, GESTURES, GESTURE_NAMES } from './animation-state-machine.js';
 import { log } from './shared/log.js';
 
-// Display order around the wheel (8 slots → a clean octagon) and for the 1–8
-// quick keys / quick tray.
+// Display order around the wheel (the ring lays out any count evenly) and for
+// the quick keys / quick tray — only the first eight get quick keys 1–8; the
+// rest are reachable from the wheel and window.walk.playGesture(name).
 export const GESTURE_ORDER = Object.freeze([
 	'wave', 'dance', 'sit', 'point', 'cheer', 'agree', 'disagree', 'talking',
+	'nod', 'shrug', 'jog', 'celebrate',
 ]);
 
 // Long-press threshold (ms) before the touch action button opens the wheel.

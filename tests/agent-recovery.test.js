@@ -8,7 +8,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 
-vi.mock('../api/_lib/db.js', () => ({ sql: vi.fn(async () => []) }));
+vi.mock('../api/_lib/db.js', () => ({ sql: vi.fn(async () => []), isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 vi.mock('../api/_lib/audit.js', () => ({ logAudit: vi.fn() }));
 vi.mock('../api/_lib/notify.js', () => ({ insertNotification: vi.fn() }));
 vi.mock('../api/_lib/agent-trade-guards.js', () => ({ recordCustodyEvent: vi.fn(async () => 1) }));

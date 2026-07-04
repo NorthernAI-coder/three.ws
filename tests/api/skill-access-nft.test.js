@@ -9,7 +9,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 let priceRow; // the row returned by the first SELECT in hasSkillAccess
 const sql = vi.fn(async () => (priceRow ? [priceRow] : []));
-vi.mock('../../api/_lib/db.js', () => ({ sql }));
+vi.mock('../../api/_lib/db.js', () => ({ sql, isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 
 const userHoldsCollection = vi.fn();
 vi.mock('../../api/_lib/nft-gate.js', () => ({ userHoldsCollection }));

@@ -14,7 +14,7 @@ const h = vi.hoisted(() => ({
 	state: { botEnabled: true },
 }));
 
-vi.mock('../api/_lib/db.js', () => ({ sql: (...a) => h.sql(...a) }));
+vi.mock('../api/_lib/db.js', () => ({ sql: (...a) => h.sql(...a), isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 vi.mock('../api/_lib/pumpfun-mcp.js', () => ({
 	pumpfunMcp: {
 		recentClaims: (...a) => h.recentClaims(...a),

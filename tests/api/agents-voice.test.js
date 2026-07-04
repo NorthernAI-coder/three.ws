@@ -62,6 +62,8 @@ vi.mock('../../api/_lib/db.js', () => ({
 		}
 		return Promise.resolve([]);
 	}),
+	isDbUnavailableError: () => false,
+	isDbCapacityError: () => false,
 }));
 
 // ── ElevenLabs mock ───────────────────────────────────────────────────────────

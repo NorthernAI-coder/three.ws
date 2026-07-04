@@ -8,7 +8,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const queue = [];
 vi.mock('../api/_lib/db.js', () => {
 	const sql = vi.fn(async () => (queue.length ? queue.shift() : []));
-	return { sql };
+	return { sql, isDbUnavailableError: () => false, isDbCapacityError: () => false };
 });
 // payments.js also imports these; stub so the module loads without a live RPC.
 vi.mock('../api/_lib/solana/connection.js', () => ({ solanaConnection: vi.fn() }));

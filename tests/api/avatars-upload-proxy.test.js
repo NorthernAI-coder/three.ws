@@ -10,7 +10,7 @@ import { Readable } from 'node:stream';
 
 vi.mock('../../api/_lib/zauth.js', () => ({ instrument: () => {}, drain: async () => {} }));
 vi.mock('../../api/_lib/sentry.js', () => ({ captureException: () => {} }));
-vi.mock('../../api/_lib/db.js', () => ({ sql: () => Promise.resolve([]) }));
+vi.mock('../../api/_lib/db.js', () => ({ sql: () => Promise.resolve([]), isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 vi.mock('../../api/_lib/usage.js', () => ({ recordEvent: () => {} }));
 
 vi.mock('../../api/_lib/auth.js', () => ({

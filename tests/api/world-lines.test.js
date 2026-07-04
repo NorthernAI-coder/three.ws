@@ -121,7 +121,7 @@ const fakeSql = vi.fn(async (strings, ...values) => {
 	return [];
 });
 
-vi.mock('../../api/_lib/db.js', () => ({ sql: fakeSql }));
+vi.mock('../../api/_lib/db.js', () => ({ sql: fakeSql, isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 vi.mock('../../api/_lib/env.js', () => ({ env: {} }));
 vi.mock('../../api/_lib/sentry.js', () => ({ captureException: vi.fn() }));
 vi.mock('../../api/_lib/alerts.js', () => ({ sendOpsAlert: vi.fn() }));

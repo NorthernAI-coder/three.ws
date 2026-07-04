@@ -58,7 +58,7 @@ let payX402Impl = async () => ({
 const payX402 = vi.fn((...a) => payX402Impl(...a));
 const bootstrapSolanaContext = vi.fn(async () => ({ buyer: {}, conn: {}, blockhash: 'bh', mintInfo: { decimals: 6 } }));
 
-vi.mock('../../api/_lib/db.js', () => ({ sql: (...a) => sql(...a) }));
+vi.mock('../../api/_lib/db.js', () => ({ sql: (...a) => sql(...a), isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 vi.mock('../../api/_lib/env.js', () => ({
 	env: { APP_ORIGIN: 'https://three.ws', X402_ASSET_MINT_SOLANA: 'USDCmint', SOLANA_RPC_URL: 'http://rpc' },
 }));

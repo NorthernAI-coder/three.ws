@@ -4,7 +4,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 // stub the DB the same lightweight way the engine test does — we only exercise the
 // pure env-parsing helper here, never a query.
 import { vi } from 'vitest';
-vi.mock('../api/_lib/db.js', () => ({ sql: () => Promise.resolve([]), isDbUnavailableError: () => false }));
+vi.mock('../api/_lib/db.js', () => ({ sql: () => Promise.resolve([]), isDbUnavailableError: () => false, isDbCapacityError: () => false }));
 vi.mock('../api/_lib/launcher-funding.js', () => ({
 	masterBalanceSol: vi.fn(), dailySpentSol: vi.fn(), fundAgentForLaunch: vi.fn(),
 }));
