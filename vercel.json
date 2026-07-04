@@ -865,6 +865,14 @@
 			"dest": "/coin-intel.html"
 		},
 		{
+			"src": "/coins/?",
+			"dest": "/coins.html"
+		},
+		{
+			"src": "/coin/([a-zA-Z0-9][a-zA-Z0-9_-]{0,99})/?",
+			"dest": "/coin.html"
+		},
+		{
 			"src": "/compose/?",
 			"dest": "/compose.html"
 		},

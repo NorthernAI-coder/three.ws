@@ -1,7 +1,9 @@
 // GET /api/coin/detail?id=<coingecko-id>
+// GET /api/coin/detail?contract=<solana-mint>
 // ---------------------------------------------------------------------------
 // Rich profile for one coin — powers the /coin/:id detail page (adopted from
-// the cryptocurrency.cv coin pages). Proxies CoinGecko /coins/{id}, slims the
+// the cryptocurrency.cv coin pages). Proxies CoinGecko /coins/{id} (or the
+// Solana contract lookup when the page is given a mint address), slims the
 // multi-hundred-KB upstream payload to exactly what the page renders, and
 // sanitizes the description to plain text server-side so the client never
 // touches upstream HTML. Cached in-memory 60s + CDN s-maxage.
@@ -9,6 +11,8 @@
 import { cors, json, method, wrap, error, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { geckoFetch, isPlausibleCoinId, htmlToText } from '../_lib/coingecko.js';
+
+const MINT_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 const str = (v) => (typeof v === 'string' && v.trim() ? v.trim() : null);
@@ -74,21 +78,29 @@ export default wrap(async (req, res) => {
 	const rl = await limits.publicIp(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl);
 
-	const id = (new URL(req.url, 'http://x').searchParams.get('id') || '').trim().toLowerCase();
-	if (!isPlausibleCoinId(id)) {
+	const params = new URL(req.url, 'http://x').searchParams;
+	const contract = (params.get('contract') || '').trim();
+	const id = (params.get('id') || '').trim().toLowerCase();
+	if (contract && !MINT_RE.test(contract)) {
+		return error(res, 400, 'bad_contract', 'contract must be a base58 Solana address (32–44 chars)');
+	}
+	if (!contract && !isPlausibleCoinId(id)) {
 		return error(res, 400, 'bad_id', 'id must be a CoinGecko coin id (lowercase slug)');
 	}
 
 	try {
-		const raw = await geckoFetch(
-			`/coins/${id}?localization=false&tickers=false&market_data=true&community_data=false&developer_data=false&sparkline=false`,
-			{ ttlMs: 60_000 },
-		);
+		const raw = contract
+			? await geckoFetch(`/coins/solana/contract/${contract}`, { ttlMs: 60_000 })
+			: await geckoFetch(
+					`/coins/${id}?localization=false&tickers=false&market_data=true&community_data=false&developer_data=false&sparkline=false`,
+					{ ttlMs: 60_000 },
+				);
 		return json(res, 200, { coin: shape(raw) }, {
 			'cache-control': 'public, max-age=30, s-maxage=60, stale-while-revalidate=300',
 		});
 	} catch (err) {
-		if (err?.status === 404) return error(res, 404, 'not_found', `no coin with id "${id}"`);
+		if (err?.status === 404)
+			return error(res, 404, 'not_found', `no coin found for "${contract || id}"`);
 		return error(res, 502, 'upstream_error', 'coin data is unavailable right now — retry shortly');
 	}
 });
