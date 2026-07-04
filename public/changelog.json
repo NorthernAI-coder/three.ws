@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-04T06:20:12.980Z",
+	"generated_at": "2026-07-04T07:22:19.810Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -74,6 +74,16 @@
 			"title": "Global markets — live prices and a rich detail page for every coin",
 			"summary": "three.ws now covers the whole market, not just pump.fun launches. The new Markets page shows global market cap, dominance, the Fear & Greed index, and the top coins with live prices, 24h/7d moves, and 7-day sparklines — sortable, searchable, and paginated. Click any coin (or visit /coin/<id> directly) for a rich profile: interactive price chart across five time ranges, full market stats including all-time high and low, related news from live sources, a plain-language about section, official links, and contract addresses. Solana coins cross-link straight into Alpha Copilot and the live trade feed.",
 			"link": "/coins",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-07-04",
+			"type": "update",
+			"title": "Light off your own fireworks on the homepage",
+			"summary": "The Fourth of July fireworks over the homepage hero are now yours to fire. Click or tap anywhere in the hero and a rocket streaks up and bursts right where you clicked, or hit the new 🎆 Fireworks chip next to the avatar animations for a full staggered volley. Every burst still picks its own effect, size, and red-white-blue color scheme, so no two look alike. The whole show packs itself away after July 5 and respects reduced-motion settings.",
+			"link": "/",
 			"tags": [
 				"feature"
 			]
