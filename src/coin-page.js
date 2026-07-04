@@ -25,12 +25,15 @@ const TIME_RANGES = [
 
 const $ = (id) => document.getElementById(id);
 
-function coinIdFromPath() {
-	const m = location.pathname.match(/^\/coin\/([a-z0-9][a-z0-9_-]{0,99})\/?$/i);
-	return m ? m[1].toLowerCase() : null;
-}
-
 const MINT_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
+// A CoinGecko slug (lowercase) or a Solana mint (case-sensitive base58) —
+// the detail endpoint resolves either.
+function coinIdFromPath() {
+	const m = location.pathname.match(/^\/coin\/([a-zA-Z0-9][a-zA-Z0-9_-]{0,99})\/?$/);
+	if (!m) return null;
+	return MINT_RE.test(m[1]) ? m[1] : m[1].toLowerCase();
+}
 
 // ── Fetch helpers ───────────────────────────────────────────────────────────
 
@@ -480,7 +483,8 @@ async function main() {
 
 	let coin;
 	try {
-		({ coin } = await getJson(`/api/coin/detail?id=${encodeURIComponent(id)}`));
+		const param = MINT_RE.test(id) ? `contract=${encodeURIComponent(id)}` : `id=${encodeURIComponent(id)}`;
+		({ coin } = await getJson(`/api/coin/detail?${param}`));
 	} catch (err) {
 		main_.removeAttribute('aria-busy');
 		if (err.status === 404 || err.status === 400) renderNotFound(id);
