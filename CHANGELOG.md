@@ -6,6 +6,7 @@ Public history for [three.ws](https://three.ws), newest first. New pages come fr
 
 ## 2026-07-04
 
+- **Deploys restored — the platform ships again, and builds are 4× lighter** — three.ws was briefly unreachable while production moved to new infrastructure: every deploy was timing out at the build platform's 45-minute ceiling. The root cause is fixed — a monitoring SDK was being baked into every one of the platform's ~800 API functions, inflating the deploy payload to 2.3 GB; it now loads only where it is actually enabled, cutting that to 540 MB. Two smaller deploy blockers found along the way (a build-order race and two missing packages) are fixed too. The site is back, deploys complete with time to spare, and nothing about how you use the platform changes. `[infra, fix]`
 - **Four gestures return to the walk companion — nod, shrug, jog, celebrate** — The gesture wheel regained four expressive moves that had been silently dropped: nod (a quick upper-body affirm), shrug, jog (a full-body run loop), and celebrate (a whole-body cheer). Open the wheel with G (or long-press the action button on mobile) — the wheel now lays out all twelve gestures; keys 1–8 still trigger the first eight. Also part of this pass: the entire test suite now runs fully green, locking every one of these behaviors in. (`/walk`) `[fix]`
 
 ## 2026-07-03
