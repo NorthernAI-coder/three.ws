@@ -419,6 +419,18 @@
 				</p>
 				<div class="st-sublist" id="st-sublist"></div>
 			</section>
+
+			<!-- Agent-economy heartbeat — hidden until the API returns an economy
+			     block (older deploys / pre-first-tick omit it). -->
+			<section id="st-economy" aria-label="Agent economy heartbeat" hidden>
+				<h2 class="st-subhead">Agent economy heartbeat</h2>
+				<p class="st-subnote">
+					The per-minute tick that drives every agent-to-agent engine — ring
+					settlements, the Money Pulse, the Labor Market, launches, payouts.
+					Each engine reports ran, skipped (with its own reason), or failed.
+				</p>
+				<div class="st-sublist" id="st-econlist"></div>
+			</section>
 		</main>
 
 		<script type="module">
@@ -429,6 +441,8 @@
 			const list = document.getElementById('st-services');
 			const subsWrap = document.getElementById('st-subsystems');
 			const subsList = document.getElementById('st-sublist');
+			const econWrap = document.getElementById('st-economy');
+			const econList = document.getElementById('st-econlist');
 			const summaryEl = document.getElementById('st-summary');
 			const kpiUptime = document.getElementById('st-kpi-uptime');
 			const kpiServices = document.getElementById('st-kpi-services');
@@ -499,9 +513,47 @@
 					.join('');
 			}
 
+			function renderEconomy(econ) {
+				// Older API shapes / pre-first-tick omit the block — keep it hidden then.
+				if (!econ || !Array.isArray(econ.engines) || econ.engines.length === 0) {
+					econWrap.hidden = true;
+					return;
+				}
+				econWrap.hidden = false;
+				const ageMin = econ.tickedAt ? Math.max(0, Math.round((Date.now() - econ.tickedAt) / 60000)) : null;
+				const head = econ.stale
+					? `<div class="st-sub" data-state="down">
+							<span class="st-dot" data-state="down" aria-hidden="true"></span>
+							<span class="st-sub-name">Heartbeat</span>
+							<span class="st-sub-state">stalled</span>
+							<span class="st-sub-detail">last tick ${ageMin == null ? 'never' : `${ageMin} min ago`} — engines below reflect the last run, not the present</span>
+						</div>`
+					: `<div class="st-sub" data-state="ok">
+							<span class="st-dot" data-state="ok" aria-hidden="true"></span>
+							<span class="st-sub-name">Heartbeat</span>
+							<span class="st-sub-state">ticking</span>
+							<span class="st-sub-detail">last tick ${ageMin === 0 ? 'under a minute' : `${ageMin} min`} ago · ${econ.fired} engines ok · ${econ.failed} failing</span>
+						</div>`;
+				const rows = econ.engines
+					.map((e) => {
+						const state = e.ok ? 'ok' : 'down';
+						const word = e.ok ? (e.skipped ? 'skipped' : 'ran') : 'failed';
+						const detail = e.reason || e.error || '';
+						return `<div class="st-sub" data-state="${esc(state)}">
+							<span class="st-dot" data-state="${esc(state)}" aria-hidden="true"></span>
+							<span class="st-sub-name">${esc(e.label)}</span>
+							<span class="st-sub-state">${esc(word)}</span>
+							${detail ? `<span class="st-sub-detail">${esc(detail)}</span>` : ''}
+						</div>`;
+					})
+					.join('');
+				econList.innerHTML = head + rows;
+			}
+
 			function render(data) {
 				renderSummary(data);
 				renderSubsystems(data.subsystems);
+				renderEconomy(data.economy);
 				const probed = data.services.filter((s) => s.operational !== null);
 				const down = probed.filter((s) => !s.operational);
 				// Degraded internal dependencies (from the subsystems block) that the

@@ -27,6 +27,7 @@ import { json, method, wrapCron } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
 import { logger } from '../_lib/usage.js';
+import { cacheSet } from '../_lib/cache.js';
 
 const log = logger('economy-tick');
 
@@ -88,7 +89,10 @@ const TARGETS = [
 	{ label: 'reflect-sweep', path: '/api/cron/reflect-sweep', method: 'GET' },
 	// ── $THREE market & holder state ───────────────────────────────────────
 	{ label: 'three-market-refresh', path: '/api/cron/three-market-refresh', method: 'GET' },
-	{ label: 'three-holders-snapshot', path: '/api/cron/three-holders-snapshot', method: 'GET' },
+	// three-holders-snapshot is deliberately NOT a target: it has its own */5
+	// vercel cron, and driving it from this every-minute tick as well multiplied
+	// the Helius DAS walk ~6× — the sustained 429 storm in the July 2026 log
+	// export (≈400 rate-limit deferrals in 10h). One scheduler owns that scan.
 ];
 
 const CALL_TIMEOUT_MS = 60_000;
@@ -128,8 +132,11 @@ async function fireTarget(origin, secret, target) {
 			ok: res.ok,
 			status: res.status,
 			ms: Date.now() - started,
-			// Surface the engine's own skip reason so the summary is diagnostic.
-			...(body && typeof body === 'object' && body.reason ? { reason: body.reason } : {}),
+			// Surface the engine's own skip reason so the summary is diagnostic. Some
+			// engines (circulation) return the reason string IN `skipped` rather than
+			// a separate `reason` field — keep the string, don't flatten it away.
+			...(body && typeof body === 'object' && (body.reason || typeof body.skipped === 'string')
+				? { reason: String(body.reason || body.skipped).slice(0, 200) } : {}),
 			...(body && typeof body === 'object' && body.skipped ? { skipped: true } : {}),
 		};
 	} catch (err) {
@@ -157,6 +164,15 @@ export default wrapCron(async (req, res) => {
 	const failed = results.filter((r) => !r.ok).length;
 
 	log.info('economy_tick_complete', { origin, fired, failed, results });
+
+	// Park the summary where the public /api/status endpoint can read it (its
+	// `economy` section). Every past economy stall was diagnosed hours late, from
+	// the symptom (a dead Money Pulse feed) instead of the cause, because the
+	// heartbeat's liveness and each engine's skip reason were invisible from
+	// outside. Per-engine label/ok/status/reason only — no wallets, no amounts, no
+	// secrets. A cache fault never fails the tick.
+	await cacheSet('economy:last-tick', { t: Date.now(), fired, failed, engines: results }, 24 * 60 * 60)
+		.catch(() => {});
 
 	// 200 as long as at least one engine responded OK; 502 only on a total outage
 	// (bad secret / origin down / every engine failing) so an external scheduler's

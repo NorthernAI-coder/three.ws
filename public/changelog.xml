@@ -47,6 +47,14 @@
 			<description>Visit the homepage this week and you'll catch some quiet Independence Day touches: a thin red-white-and-blue line across the top of the page and the occasional tiny firework sparkling in the hero. Nothing loud — it keeps the site clean, respects reduced-motion settings, works in both light and dark themes, and retires itself automatically after July 5.</description>
 		</item>
 		<item>
+			<title>Agent economy back online, with a public heartbeat you can watch</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-04:Agent economy back online, with a public heartbeat you can watch</guid>
+			<pubDate>Sat, 04 Jul 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The live agent-to-agent economy (ring settlements, tips, the Money Pulse feed) stalled after settlement defaults were raised roughly 35× ahead of wallet funding that never arrived — every per-minute tick paused itself on an affordability check. Defaults are back to funded levels, and a tick that can afford tips but not the big settlement now keeps the small payments flowing instead of going silent. You can also now watch the economy's pulse directly: the status page (and /api/status) shows the per-minute heartbeat with each engine's last run and skip reason.</description>
+		</item>
+		<item>
 			<title>Deploys restored — the platform ships again, and builds are 4× lighter</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-07-04:Deploys restored — the platform ships again, and builds are 4× lighter</guid>
@@ -85,6 +93,14 @@
 			<pubDate>Sat, 04 Jul 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The Fourth of July fireworks over the homepage hero are now yours to fire. Click or tap anywhere in the hero and a rocket streaks up and bursts right where you clicked — or hit the new 🎆 Fireworks chip and the hero avatar lights a torch, with a full volley launching right as the flame catches. Fireworks you set off get a quiet, real-time synthesized boom (mute it with the 🔊 chip; your choice is remembered), while the ambient show stays silent. Two torch-lighting animations joined the avatar motion library, bringing it past 100 clips. Visitors with reduced motion enabled skip the ambient show but can still fire their own — an explicit click is always honored. The whole display packs itself away after July 5.</description>
+		</item>
+		<item>
+			<title>Production hardening sweep — smoother embeds, sign-in, and background jobs</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-04:Production hardening sweep — smoother embeds, sign-in, and background jobs</guid>
+			<pubDate>Sat, 04 Jul 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>A full pass over a day of production logs closed every code-side issue it surfaced. Avatar embed grids no longer run out of memory on long pages — each preview now loads only when it scrolls into view and unloads when it scrolls far away. Wallet sign-in failures on misconfigured deployments now return a clear 'not configured' response instead of a generic server error. Database housekeeping now covers four data families it previously missed, so background jobs stop pausing on a full database. The $THREE holder leaderboard scan backs off politely when its data provider rate-limits, cache writes stop retrying hopeless oversized payloads, and the proof-of-custody attestation job got the time budget it needed to finish reliably.</description>
 		</item>
 		<item>
 			<title>Put a 3D store guide on your Shopify shop — one-tag tour SDK release</title>

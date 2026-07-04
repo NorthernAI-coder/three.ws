@@ -74,6 +74,27 @@ The whole economy now needs exactly one thing: something hitting
    `CRON_SECRET=… node scripts/economy-heartbeat.mjs` reads `vercel.json` and
    fires every due cron each minute — not just the economy ones.
 
+## Watching it — the public heartbeat status
+
+Every tick parks its fan-out summary in the cache (`economy:last-tick`), and the
+public status feed exposes it — no auth needed:
+
+```bash
+curl -s https://three.ws/api/status | jq .economy
+```
+
+- `tickedAt` / `stale` — when the last tick ran; `stale: true` (older than ~3
+  minutes) means **the heartbeat itself is dead** (scheduler not firing), which
+  used to be invisible from outside until the Money Pulse feed went quiet hours
+  later.
+- `fired` / `failed` — how many engines responded OK vs errored on that tick.
+- `engines[]` — per-engine `label`, `ok`, `status`, and the engine's own
+  `reason` when it skipped (e.g. `settle_unaffordable`, `disabled`, a treasury
+  floor) — the cause, not just the symptom.
+
+The same data renders as the **Agent economy heartbeat** section on
+[/status](https://three.ws/status).
+
 ## Manual / one-off
 
 ```bash

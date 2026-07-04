@@ -54,13 +54,17 @@ export default wrap(async (req, res) => {
 	const rl = await limits.publicIp(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl);
 
-	const [snapshots, daily, subsystemsSnap] = await Promise.all([
+	const [snapshots, daily, subsystemsSnap, economySnap] = await Promise.all([
 		cacheGet('uptime:snapshots'),
 		cacheGet('uptime:daily'),
 		// Parked by api/cron/uptime-check.js every 5 min. We read the cron's
 		// snapshot rather than re-gathering live so this public, cacheable endpoint
 		// never fires a DB ping per request. null until the first post-deploy tick.
 		cacheGet('uptime:subsystems'),
+		// Parked by api/cron/economy-tick.js every minute: the agent-economy
+		// heartbeat's last fan-out, per-engine ok/skip reason. null until the first
+		// tick — and a STALE `t` here is itself the diagnosis (scheduler dead).
+		cacheGet('economy:last-tick'),
 	]);
 	const snaps = Array.isArray(snapshots) ? snapshots : [];
 	const days = Array.isArray(daily) ? daily : [];
@@ -188,6 +192,27 @@ export default wrap(async (req, res) => {
 							status: s.status,
 							detail: s.detail ?? null,
 							hint: s.hint ?? null,
+						})),
+					}
+				: null,
+			// Agent-economy heartbeat: the last economy-tick fan-out (per-engine
+			// ok/skip reason), parked every minute by api/cron/economy-tick.js.
+			// `stale` (tickedAt > 3 min old) means the heartbeat itself is dead —
+			// the exact failure mode that used to be invisible from outside. Null
+			// until the first post-deploy tick.
+			economy: economySnap && typeof economySnap === 'object'
+				? {
+						tickedAt: economySnap.t ?? null,
+						stale: economySnap.t ? Date.now() - economySnap.t > 3 * 60_000 : true,
+						fired: economySnap.fired ?? 0,
+						failed: economySnap.failed ?? 0,
+						engines: (economySnap.engines || []).map((e) => ({
+							label: e.label,
+							ok: e.ok === true,
+							status: e.status ?? null,
+							...(e.skipped ? { skipped: true } : {}),
+							...(e.reason ? { reason: e.reason } : {}),
+							...(e.error ? { error: e.error } : {}),
 						})),
 					}
 				: null,

@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
 	ringTickConfig,
 	planTick,
+	planBackpressure,
 	minUsdcForTick,
 	dailyRemaining,
 	tickBudget,
@@ -132,6 +133,55 @@ describe('ring-tick back-pressure', () => {
 	});
 });
 
+// ── Degrade: settle-unaffordable falls back to a cheap-only tick ─────────────────
+describe('ring-tick planBackpressure — settle-unaffordable degrade', () => {
+	const FLOOR = 20_000_000; // 0.02 SOL
+	const SETTLE = 1_000_000; // $1.00
+	const base = { solLamports: 50_000_000, floorLamports: FLOOR, ringSettlePriceAtomic: SETTLE };
+
+	it('an affordable settle tick proceeds unchanged', () => {
+		const r = planBackpressure({ ...base, isSettleTick: true, usdcAtomic: 5_000_000 });
+		expect(r.settleTick).toBe(true);
+		expect(r.degraded).toBe(false);
+		expect(r.backpressure.ok).toBe(true);
+	});
+
+	it('settle price above payer USDC degrades to a cheap-only tick (never a dead tick)', () => {
+		// $0.50 in the wallet: can't cover the $1.00 settle, easily covers tips.
+		const r = planBackpressure({ ...base, isSettleTick: true, usdcAtomic: 500_000 });
+		expect(r.settleTick).toBe(false);
+		expect(r.degraded).toBe(true);
+		expect(r.backpressure.ok).toBe(true);
+		expect(r.minUsdcAtomic).toBe(20_000); // re-assessed against tip headroom
+	});
+
+	it('below even the tip headroom → still a hard skip', () => {
+		const r = planBackpressure({ ...base, isSettleTick: true, usdcAtomic: 1_000 });
+		expect(r.settleTick).toBe(false);
+		expect(r.degraded).toBe(false);
+		expect(r.backpressure.ok).toBe(false);
+		expect(r.backpressure.reason).toBe('insufficient_payer_usdc');
+	});
+
+	it('SOL floor and RPC faults never degrade — the whole tick skips', () => {
+		const floor = planBackpressure({ ...base, isSettleTick: true, solLamports: 1_000, usdcAtomic: 5_000_000 });
+		expect(floor.settleTick).toBe(true); // decision untouched; the skip is the outcome
+		expect(floor.degraded).toBe(false);
+		expect(floor.backpressure.reason).toBe('sponsor_sol_floor');
+
+		const rpc = planBackpressure({ ...base, isSettleTick: true, solLamports: Number.NaN, usdcAtomic: 5_000_000 });
+		expect(rpc.degraded).toBe(false);
+		expect(rpc.backpressure.reason).toBe('rpc_balance_unavailable');
+	});
+
+	it('a non-settle tick is passed through verbatim', () => {
+		const r = planBackpressure({ ...base, isSettleTick: false, usdcAtomic: 500_000 });
+		expect(r.settleTick).toBe(false);
+		expect(r.degraded).toBe(false);
+		expect(r.backpressure.ok).toBe(true);
+	});
+});
+
 // ── Config gate: run only on a clean (no-error) envelope ────────────────────────
 describe('ring-tick config gate', () => {
 	it('blocks when any ERROR-severity finding exists', () => {
@@ -169,10 +219,9 @@ describe('ringTickConfig', () => {
 		const c = ringTickConfig();
 		expect(c.enabled).toBe(true);
 		expect(c.calls).toBe(3);
-		// settle every tick — the ~$50k/day throughput default (1440 ticks × $35 settle).
-		expect(c.settleEveryN).toBe(1);
-		expect(c.tickCapAtomic).toBe(40_000_000);
-		expect(c.dailyCapAtomic).toBe(60_000_000_000);
+		expect(c.settleEveryN).toBe(5);
+		expect(c.tickCapAtomic).toBe(1_100_000);
+		expect(c.dailyCapAtomic).toBe(50_000_000);
 	});
 
 	it('X402_RING_TICK_ENABLED=false disables it; other values keep it on', () => {

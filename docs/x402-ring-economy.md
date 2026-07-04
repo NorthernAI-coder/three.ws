@@ -433,10 +433,28 @@ per-run cap — is now **impossible to hit quietly** three ways:
 ### Back-pressure, never a retry-storm
 
 Before paying, the tick pre-flights the payer's SOL and USDC balances. Below the
-facilitator SOL floor (`X402_SPONSOR_SOL_FLOOR_LAMPORTS`, default 0.02 SOL),
-insufficient payer USDC, or an RPC fault → the whole tick **skips** with a
-structured `x402_autonomous_log` row and **one throttled ops alert** (max 1/hour per
-reason via `sendOpsAlert`). It never fires settlements that would 502 in a loop.
+facilitator SOL floor (`X402_SPONSOR_SOL_FLOOR_LAMPORTS`, default 0.02 SOL) or on
+an RPC fault → the whole tick **skips** with a structured `x402_autonomous_log`
+row and **one throttled ops alert** (max 1/hour per reason via `sendOpsAlert`).
+It never fires settlements that would 502 in a loop.
+
+An **unaffordable settle degrades instead of killing the tick**: when the payer
+holds enough USDC for tips but not for the ring-settle price (e.g. the price was
+raised ahead of funding), the tick drops the settle carrier and fires cheap-only
+calls, logs `ring_tick_settle_unaffordable`, and raises one throttled
+`ring-tick:settle_unaffordable` ops alert until the payer is funded. The ring
+stays visibly alive on tips; the funding gap stays loud. Only a payer that can't
+even cover tip headroom hard-skips (`insufficient_payer_usdc`). Decision logic:
+`planBackpressure()` in
+[api/_lib/x402/ring-tick-plan.js](../api/_lib/x402/ring-tick-plan.js).
+
+**Never raise the settle price ahead of funding.** The defaults ($1.00 settle,
+$1.10 tick cap, $50/day) are sized to the ring's real balances. Scaling to higher
+daily volume is an env change (`X402_PRICE_RING_SETTLE`,
+`X402_RING_TICK_CAP_ATOMIC`, `X402_RING_DAILY_CAP_ATOMIC`,
+`X402_RING_SETTLE_EVERY_N_TICKS`) made **together with funding the payer wallet**
+— in July 2026 a defaults-only lift to $35/settle put every tick into
+back-pressure and flat-lined the visible ring economy for hours.
 
 ## Agents in the ring — buyers with names, not a cron
 
