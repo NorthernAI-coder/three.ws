@@ -34,6 +34,18 @@ const MEMO_PROGRAM_ID = new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfc
 const ANCHOR_KIND = 'threews.custody.v1';
 const TX_TIMEOUT_MS = 20_000;
 
+// Wall-clock budget for the snapshot phase (balance + ledger-head reads). When
+// public RPC is rate-limited, the rotating fetch can sweep the whole endpoint
+// chain per read — sequential and unbounded, N wallets × sweep once blew clean
+// past the function's maxDuration and 504'd the cron (July 2026). Wallets not
+// read before the deadline are skipped this epoch exactly like an RPC failure:
+// never attested with a guessed balance, picked up again next epoch. Budget +
+// TX_TIMEOUT_MS + persistence must stay under the route's maxDuration (120s).
+const SNAPSHOT_BUDGET_MS = 80_000;
+// Read balances in small concurrent batches: enough to cut wall-clock ~5×,
+// small enough not to worsen the very 429s the rotating fetch is dodging.
+const BALANCE_READ_CONCURRENCY = 5;
+
 // The balances are read on the network the custodial wallets actually operate on
 // (mainnet). The root commitment is a hash with no value, so it is anchored on
 // the cheaper devnet by default — still a real, independently-fetchable on-chain
@@ -124,32 +136,48 @@ export async function runAttestationEpoch({ anchor = true } = {}) {
 	const epochNum = Number(epoch);
 
 	// Build leaves in a stable order (wallets are already ordered by agent id).
+	// Reads run in small concurrent batches under a wall-clock budget; results
+	// are assembled in the original wallet order so the tree stays deterministic.
+	const deadline = startedAt + SNAPSHOT_BUDGET_MS;
 	const leaves = [];
 	let totalLamports = 0n;
 	let rpcFailures = 0;
-	for (const w of wallets) {
-		const lamports = await readLamports(conn, w.address);
-		// An RPC failure must not silently attest a wrong (zero) balance. Skip the
-		// wallet this epoch rather than committing an unverifiable leaf; it is
-		// included again next epoch once RPC recovers.
-		if (lamports == null) { rpcFailures++; continue; }
-		const balanceLamports = String(lamports);
-		const ledgerHead = await ledgerHeadFor(w.agentId, SNAPSHOT_NETWORK);
-		const leafHash = await computeLeafHash({
-			agentId: w.agentId,
-			address: w.address,
-			balanceLamports,
-			ledgerHead,
-			epoch: epochNum,
-		});
-		leaves.push({
-			agentId: w.agentId,
-			address: w.address,
-			balanceLamports,
-			ledgerHead,
-			leafHash,
-		});
-		totalLamports += BigInt(lamports);
+	for (let i = 0; i < wallets.length; i += BALANCE_READ_CONCURRENCY) {
+		if (Date.now() >= deadline) {
+			// Out of snapshot time — skip the remaining wallets this epoch (same
+			// contract as an RPC failure: never attest a balance we didn't read).
+			rpcFailures += wallets.length - i;
+			break;
+		}
+		const batch = wallets.slice(i, i + BALANCE_READ_CONCURRENCY);
+		const results = await Promise.all(batch.map(async (w) => {
+			const lamports = await readLamports(conn, w.address);
+			// An RPC failure must not silently attest a wrong (zero) balance. Skip
+			// the wallet this epoch rather than committing an unverifiable leaf; it
+			// is included again next epoch once RPC recovers.
+			if (lamports == null) return null;
+			const balanceLamports = String(lamports);
+			const ledgerHead = await ledgerHeadFor(w.agentId, SNAPSHOT_NETWORK);
+			const leafHash = await computeLeafHash({
+				agentId: w.agentId,
+				address: w.address,
+				balanceLamports,
+				ledgerHead,
+				epoch: epochNum,
+			});
+			return {
+				agentId: w.agentId,
+				address: w.address,
+				balanceLamports,
+				ledgerHead,
+				leafHash,
+			};
+		}));
+		for (const leaf of results) {
+			if (leaf == null) { rpcFailures++; continue; }
+			leaves.push(leaf);
+			totalLamports += BigInt(leaf.balanceLamports);
+		}
 	}
 
 	const tree = await buildMerkleTree(leaves.map((l) => l.leafHash));

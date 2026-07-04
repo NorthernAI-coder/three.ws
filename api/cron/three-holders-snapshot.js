@@ -22,6 +22,15 @@ import { constantTimeEquals } from '../_lib/crypto.js';
 import { refreshThreeHolderSnapshot } from '../_lib/coin/three-holders.js';
 import { isRpcRateLimited } from '../_lib/coin/holders.js';
 import { isDbUnavailableError } from '../_lib/db.js';
+import { cacheGet, cacheSet } from '../_lib/cache.js';
+
+// After a rate-limited scan, hold off further refresh attempts for this long.
+// The per-page retries inside fetchHolderBalances already burn ~90s against a
+// throttled Helius before giving up; retrying again on the very next tick just
+// extends the throttle window. The snapshot serves stale-but-good data in the
+// meantime, so a pause costs nothing but ends the 429 storm.
+const RATE_LIMIT_COOLDOWN_KEY = 'three-holders:rate-limit-cooldown';
+const RATE_LIMIT_COOLDOWN_S = 600;
 
 // Vercel cron invokes with `Authorization: Bearer <CRON_SECRET>`; manual probes
 // may use `X-Cron-Secret: <CRON_SECRET>`. Accept either, constant-time.
@@ -47,6 +56,11 @@ export default wrapCron(async (req, res) => {
 		// No key → the snapshot can't refresh; the public reads keep serving the
 		// last good snapshot (or live-fall-back) and degrade gracefully.
 		return json(res, 200, { ok: false, reason: 'HELIUS_API_KEY unset', refreshed: false });
+	}
+
+	const cooling = await cacheGet(RATE_LIMIT_COOLDOWN_KEY);
+	if (cooling) {
+		return json(res, 200, { ok: true, refreshed: false, skipped: 'rate_limit_cooldown' });
 	}
 
 	const started = Date.now();
@@ -79,6 +93,11 @@ export default wrapCron(async (req, res) => {
 			|| /terminated|fetch failed|ECONNRESET|ETIMEDOUT|EAI_AGAIN|socket hang up|429|rate.?limit|too many requests|network|password authentication failed|table unavailable/i.test(msg);
 		if (transient) console.warn('[three-holders-snapshot] refresh deferred (transient upstream):', msg);
 		else console.error('[three-holders-snapshot] refresh failed:', msg);
+		// A throttle means Helius needs breathing room, not an immediate retry —
+		// park the refresh for the cooldown window so successive ticks skip cheaply.
+		if (isRpcRateLimited(err) || /429|rate.?limit|too many requests/i.test(msg)) {
+			await cacheSet(RATE_LIMIT_COOLDOWN_KEY, { at: Date.now() }, RATE_LIMIT_COOLDOWN_S);
+		}
 		return json(res, 200, { ok: false, refreshed: false, error: msg });
 	}
 });

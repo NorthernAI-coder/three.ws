@@ -214,7 +214,14 @@ async function consumeSseUntilComplete(response) {
 						return;
 					}
 					if (pendingEvent === 'error') {
-						errorMessage = dataStr || 'inference reported error';
+						// Gradio emits `data: null` on its error event when the Space dies
+						// without a message — free-tier GPU quota exhausted or the Space
+						// sleeping/rebuilding. Passing that through produced the useless
+						// "inference failed: null" in production logs; name the likely
+						// cause instead so the failover log line is diagnosable.
+						errorMessage = dataStr && dataStr !== 'null' && dataStr !== '""'
+							? dataStr
+							: 'Space error event with no detail (typically GPU quota exhausted or Space sleeping)';
 						return;
 					}
 					// heartbeat / generating / unknown: ignore
