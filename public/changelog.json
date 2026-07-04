@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-04T09:29:09.609Z",
+	"generated_at": "2026-07-04T21:51:09.061Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -60,6 +60,17 @@
 		{
 			"date": "2026-07-04",
 			"type": "update",
+			"title": "Agent economy back online, with a public heartbeat you can watch",
+			"summary": "The live agent-to-agent economy (ring settlements, tips, the Money Pulse feed) stalled after settlement defaults were raised roughly 35× ahead of wallet funding that never arrived — every per-minute tick paused itself on an affordability check. Defaults are back to funded levels, and a tick that can afford tips but not the big settlement now keeps the small payments flowing instead of going silent. You can also now watch the economy's pulse directly: the status page (and /api/status) shows the per-minute heartbeat with each engine's last run and skip reason.",
+			"link": null,
+			"tags": [
+				"fix",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-04",
+			"type": "update",
 			"title": "Deploys restored — the platform ships again, and builds are 4× lighter",
 			"summary": "three.ws was briefly unreachable while production moved to new infrastructure: every deploy was timing out at the build platform's 45-minute ceiling. The root cause is fixed — a monitoring SDK was being baked into every one of the platform's ~800 API functions, inflating the deploy payload to 2.3 GB; it now loads only where it is actually enabled, cutting that to 540 MB. Two smaller deploy blockers found along the way (a build-order race and two missing packages) are fixed too. The site is back, deploys complete with time to spare, and nothing about how you use the platform changes.",
 			"link": null,
@@ -106,6 +117,17 @@
 			"link": "/",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-07-04",
+			"type": "update",
+			"title": "Production hardening sweep — smoother embeds, sign-in, and background jobs",
+			"summary": "A full pass over a day of production logs closed every code-side issue it surfaced. Avatar embed grids no longer run out of memory on long pages — each preview now loads only when it scrolls into view and unloads when it scrolls far away. Wallet sign-in failures on misconfigured deployments now return a clear 'not configured' response instead of a generic server error. Database housekeeping now covers four data families it previously missed, so background jobs stop pausing on a full database. The $THREE holder leaderboard scan backs off politely when its data provider rate-limits, cache writes stop retrying hopeless oversized payloads, and the proof-of-custody attestation job got the time budget it needed to finish reliably.",
+			"link": null,
+			"tags": [
+				"fix",
+				"infra"
 			]
 		},
 		{

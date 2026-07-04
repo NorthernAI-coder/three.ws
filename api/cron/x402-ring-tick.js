@@ -64,9 +64,8 @@ import {
 import {
 	ringTickConfig,
 	planTick,
-	minUsdcForTick,
+	planBackpressure,
 	tickBudget,
-	assessBackpressure,
 	gateOnRingConfig,
 } from '../_lib/x402/ring-tick-plan.js';
 
@@ -234,18 +233,9 @@ export default wrapCron(async (req, res) => {
 		return json(res, 200, { ok: false, skipped: true, reason: `rpc_preflight_failed: ${err?.message}`, run_id: runId });
 	}
 
-	// ── Plan this tick (durable cadence counters) ──────────────────────────────
+	// ── Cadence intent for this tick (durable counter) ─────────────────────────
 	const tickSeq = await nextTickSeq(redis);
-	const isSettleTick = cfg.settleEveryN > 0 && (tickSeq % cfg.settleEveryN === 0) && !!RING_SETTLE_ENDPOINT;
-	const cheapNeeded = Math.max(0, cfg.calls - (isSettleTick ? 1 : 0));
-	const cheapStart = await reserveCheapCursor(redis, cheapNeeded);
-	const plan = planTick({
-		tickSeq,
-		calls: cfg.calls,
-		settleEveryN: RING_SETTLE_ENDPOINT ? cfg.settleEveryN : 0,
-		cheapCount: CHEAP_ENDPOINTS.length,
-		cheapStart,
-	});
+	const wantSettle = cfg.settleEveryN > 0 && (tickSeq % cfg.settleEveryN === 0) && !!RING_SETTLE_ENDPOINT;
 
 	// ── Back-pressure pre-flight (never fire calls that will 502) ──────────────
 	const ringSettlePriceAtomic = Number(priceFor('ring-settle', RING_SETTLE_DEFAULT_PRICE));
@@ -261,23 +251,52 @@ export default wrapCron(async (req, res) => {
 		usdcAtomic = Number((await getAccount(conn, payerAta)).amount);
 	} catch { usdcAtomic = Number.isFinite(solLamports) ? 0 : Number.NaN; }
 
-	const minUsdc = minUsdcForTick({ isSettleTick: plan.isSettleTick, ringSettlePriceAtomic });
-	const bp = assessBackpressure({
-		solLamports, usdcAtomic, floorLamports: cfg.solFloorLamports, minUsdcAtomic: minUsdc,
+	// Settle-unaffordable degrades to a cheap-only tick (tips keep the ring alive);
+	// SOL-floor and RPC faults still skip the whole tick — settlement is unsafe there.
+	const pbp = planBackpressure({
+		isSettleTick: wantSettle, solLamports, usdcAtomic,
+		floorLamports: cfg.solFloorLamports, ringSettlePriceAtomic,
 	});
+	const bp = pbp.backpressure;
 	if (!bp.ok) {
 		await recordSkip(runId, origin, bp.reason, {
 			detail: bp.detail, sol_lamports: Number.isFinite(solLamports) ? solLamports : null,
-			usdc_atomic: Number.isFinite(usdcAtomic) ? usdcAtomic : null, min_usdc_atomic: minUsdc,
+			usdc_atomic: Number.isFinite(usdcAtomic) ? usdcAtomic : null, min_usdc_atomic: pbp.minUsdcAtomic,
 		});
 		await sendOpsAlert(
 			`x402 ring tick paused: ${bp.reason}`,
-			`sol=${solLamports} usdc=${usdcAtomic} floor=${cfg.solFloorLamports} min_usdc=${minUsdc}`,
+			`sol=${solLamports} usdc=${usdcAtomic} floor=${cfg.solFloorLamports} min_usdc=${pbp.minUsdcAtomic}`,
 			{ signature: `ring-tick:${bp.reason}` },
 		);
 		log.warn('ring_tick_backpressure', { reason: bp.reason, detail: bp.detail });
 		return json(res, 200, { ok: true, skipped: true, reason: bp.reason, run_id: runId });
 	}
+	if (pbp.degraded) {
+		// The funding gap must stay loud even though the tick proceeds: one
+		// throttled ops alert + a structured log row per degraded tick.
+		await sendOpsAlert(
+			'x402 ring tick degraded: settle_unaffordable',
+			`ring-settle price ${ringSettlePriceAtomic} exceeds payer USDC ${usdcAtomic}; firing cheap-only ticks until the payer is funded`,
+			{ signature: 'ring-tick:settle_unaffordable' },
+		);
+		log.warn('ring_tick_settle_unaffordable', {
+			ring_settle_price_atomic: ringSettlePriceAtomic,
+			usdc_atomic: Number.isFinite(usdcAtomic) ? usdcAtomic : null,
+		});
+	}
+
+	// ── Plan this tick (cursor reserved AFTER the degrade decision so the
+	// reservation matches the cheap slots actually fired) ──────────────────────
+	const cheapNeeded = Math.max(0, cfg.calls - (pbp.settleTick ? 1 : 0));
+	const cheapStart = await reserveCheapCursor(redis, cheapNeeded);
+	const plan = planTick({
+		tickSeq,
+		calls: cfg.calls,
+		// Force the post-degrade decision: 1 → every tick settles, 0 → none does.
+		settleEveryN: pbp.settleTick ? 1 : 0,
+		cheapCount: CHEAP_ENDPOINTS.length,
+		cheapStart,
+	});
 
 	// ── Daily cap ──────────────────────────────────────────────────────────────
 	let dailySpent = 0;
@@ -340,7 +359,7 @@ export default wrapCron(async (req, res) => {
 
 	log.info('ring_tick_complete', {
 		run_id: runId, tick_seq: tickSeq, settle_tick: plan.isSettleTick,
-		calls, paid, errors, spent_usdc: (spent / 1e6).toFixed(4),
+		degraded: pbp.degraded, calls, paid, errors, spent_usdc: (spent / 1e6).toFixed(4),
 		payer: payer.publicKey.toBase58(),
 	});
 
@@ -349,6 +368,7 @@ export default wrapCron(async (req, res) => {
 		run_id: runId,
 		tick_seq: tickSeq,
 		settle_tick: plan.isSettleTick,
+		...(pbp.degraded ? { degraded: true, reason: 'settle_unaffordable' } : {}),
 		calls,
 		paid,
 		errors,

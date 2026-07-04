@@ -99,6 +99,30 @@ export function assessBackpressure({ solLamports, usdcAtomic, floorLamports, min
 	return { ok: true, reason: null };
 }
 
+// ── Degrade: cheap-only tick when the settle is unaffordable ────────────────────
+// A settle tick whose payer can't cover the ring-settle price used to skip the
+// WHOLE tick — including the cheap tips/services that ride alongside it — so an
+// underfunded payer flat-lined every visible ring activity until someone funded
+// it. Instead: keep the hard skip for SOL-floor and RPC faults (settlement is
+// genuinely unsafe there), but when the ONLY problem is that the settle price
+// exceeds the payer's USDC, drop the settle carrier and re-assess as a cheap-only
+// tick. The loop stays visibly alive on tips; `degraded: true` tells the caller
+// to surface the funding gap (log + throttled ops alert), not hide it.
+// Pure: same inputs → same decision. Returns { settleTick, backpressure, degraded,
+// minUsdcAtomic } — `backpressure` is the FINAL assessment for the tick as planned.
+export function planBackpressure({
+	isSettleTick, solLamports, usdcAtomic, floorLamports, ringSettlePriceAtomic, tipHeadroomAtomic = 20_000,
+}) {
+	const minUsdc = minUsdcForTick({ isSettleTick, ringSettlePriceAtomic, tipHeadroomAtomic });
+	const bp = assessBackpressure({ solLamports, usdcAtomic, floorLamports, minUsdcAtomic: minUsdc });
+	if (bp.ok || !isSettleTick || bp.reason !== 'insufficient_payer_usdc') {
+		return { settleTick: isSettleTick, backpressure: bp, degraded: false, minUsdcAtomic: minUsdc };
+	}
+	const minCheap = minUsdcForTick({ isSettleTick: false, ringSettlePriceAtomic, tipHeadroomAtomic });
+	const cheapBp = assessBackpressure({ solLamports, usdcAtomic, floorLamports, minUsdcAtomic: minCheap });
+	return { settleTick: false, backpressure: cheapBp, degraded: cheapBp.ok, minUsdcAtomic: minCheap };
+}
+
 // ── Config gate ─────────────────────────────────────────────────────────────────
 // validateRingConfig() returns findings [{ code, severity, message, fix }].
 // The tick runs only when there are no ERROR-severity findings — those mean

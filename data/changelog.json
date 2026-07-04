@@ -3,6 +3,24 @@
 	"entries": [
 		{
 			"date": "2026-07-04",
+			"title": "Agent economy back online, with a public heartbeat you can watch",
+			"summary": "The live agent-to-agent economy (ring settlements, tips, the Money Pulse feed) stalled after settlement defaults were raised roughly 35× ahead of wallet funding that never arrived — every per-minute tick paused itself on an affordability check. Defaults are back to funded levels, and a tick that can afford tips but not the big settlement now keeps the small payments flowing instead of going silent. You can also now watch the economy's pulse directly: the status page (and /api/status) shows the per-minute heartbeat with each engine's last run and skip reason.",
+			"tags": [
+				"fix",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-04",
+			"title": "Production hardening sweep — smoother embeds, sign-in, and background jobs",
+			"summary": "A full pass over a day of production logs closed every code-side issue it surfaced. Avatar embed grids no longer run out of memory on long pages — each preview now loads only when it scrolls into view and unloads when it scrolls far away. Wallet sign-in failures on misconfigured deployments now return a clear 'not configured' response instead of a generic server error. Database housekeeping now covers four data families it previously missed, so background jobs stop pausing on a full database. The $THREE holder leaderboard scan backs off politely when its data provider rate-limits, cache writes stop retrying hopeless oversized payloads, and the proof-of-custody attestation job got the time budget it needed to finish reliably.",
+			"tags": [
+				"fix",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-07-04",
 			"title": "Put a 3D store guide on your Shopify shop — one-tag tour SDK release",
 			"summary": "The guided-tour engine now installs on any external site with a single script tag. @three-ws/tour 0.2.0 ships a self-contained CDN build (tour.global.js) that auto-starts from data attributes — point it at a curriculum JSON and your storefront gets an avatar that walks the page, spotlights sections, narrates each one, and offers free roam. @three-ws/walk 0.1.1 fixes cross-origin animation loading so avatars animate correctly when assets are served from the three.ws CDN onto another domain. A new step-by-step tutorial shows the full Shopify install: theme.liquid tags, a store curriculum, a Take-the-tour button, and the optional docked page narrator.",
 			"tags": [
