@@ -15,7 +15,42 @@ This is the engine behind the guided tour on [three.ws](https://three.ws).
 
 ---
 
-## Install
+## One-tag install (CDN)
+
+No bundler, no import map — one script tag on any site you can edit
+(including a Shopify `theme.liquid`, a WordPress theme, or plain HTML):
+
+```html
+<script src="https://unpkg.com/@three-ws/tour/dist/tour.global.js"
+        data-tour
+        data-curriculum="https://your-cdn.example.com/tour/curriculum.json"
+        defer></script>
+```
+
+`tour.global.js` is a self-contained IIFE (Three.js and `@three-ws/walk`
+inlined) exposed as `window.ThreeWsTour`. With `data-tour` it auto-creates a
+tour from the tag's attributes, exposes it as `window.__featureTour`, calls
+`bootstrap()` (so `?tour=start` deep links work), and turns every
+`[data-tour-start]` element on the page into a start button
+(`data-tour-start="quick"` for the Quick track) — including elements added
+after load.
+
+| Attribute | Default | Maps to |
+| --- | --- | --- |
+| `data-curriculum` | — (required) | `curriculum` URL |
+| `data-avatar` | `realistic-female` | `guideAvatarId` |
+| `data-asset-base` | `https://three.ws` | `assetBase` |
+| `data-manifest-url` | `https://three.ws/animations/manifest.json` | `manifestUrl` |
+| `data-tts-endpoint` | off (paced captions) | `ttsEndpoint` |
+| `data-autostart` | off | `full` \| `quick` — start on load |
+
+Asset defaults point at the three.ws CDN, so the tag works with zero
+configuration. Building a store tour? See the step-by-step Shopify guide:
+[three.ws/tutorials/shopify-store-guide](https://three.ws/tutorials/shopify-store-guide).
+
+---
+
+## Install (npm)
 
 ```bash
 npm install @three-ws/tour @three-ws/walk three
