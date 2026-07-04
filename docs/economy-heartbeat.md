@@ -26,13 +26,20 @@ is a single dispatcher that fans out — concurrently, with the same
 `Authorization: Bearer $CRON_SECRET` header Vercel would send — to every engine
 that makes the economy move:
 
-| Engine | Endpoint | Drives |
+| Group | Endpoints | Drives |
 | --- | --- | --- |
-| Ring tick | `/api/cron/x402-ring-tick` | ring settlements / Agent Economy Volume |
-| x402 seed | `/api/cron/x402-seed-cron` | x402 micropayment activity feed |
-| Autonomous loop | `/api/cron/x402-autonomous-loop` | catalog spend (signals, audits) |
-| Money Pulse | `/api/cron/pulse-tick` | the live wallet-activity feed |
-| Labor Market | `/api/labor/tick` | bounty bids, awards, settlements |
+| Payments & x402 | `x402-ring-tick`, `x402-seed-cron`, `x402-autonomous-loop`, `x402-ring-leak-scan`, `wallets-leak-scan`, `run-distribute-payments`, `payment-session-sweep` | ring settlements, micropayment feed, catalog spend, leak scans, payout distribution |
+| Money Pulse, Labor & delegation | `pulse-tick`, `/api/labor/tick`, `index-delegations` | live wallet-activity feed, bounty bids/awards/settlements, agent hiring/delegation |
+| Coin launches (pump.fun) | `launcher-tick`, `launcher-claimer`, `coin-intel-observe`, `pumpfun-monitor`, `pumpfun-graduations-sync`, `run-coin-cycle`, `run-coin-payouts` | autonomous minting, fee claims, launch intel, graduation sync, coin lifecycle + payouts |
+| Autonomous / copy / strategy trading | `copy-fanout`, `mirror-fanout`, `signal-fanout`, `strategy-fanout`, `run-dca` | copy trading, signal/strategy execution, DCA |
+| Tips, payouts, subscriptions, royalties | `club-payouts`, `run-subscriptions`, `process-subscriptions`, `settle-royalties`, `cosmetic-splits-sweep` | tipping payouts, subscription billing, royalty + cosmetic-split settlement |
+| $THREE buyback | `run-buyback`, `run-three-buyback` | revenue → buy → treasury (internally gated hourly/daily) |
+| Funding, treasury & reconcile | `treasury-topup`, `treasury-autopilot`, `treasury-sweepback`, `economy-reconcile`, `reflect-sweep` | master-wallet funding root, treasury autopilot, tamper reconciliation |
+| $THREE market & holders | `three-market-refresh`, `three-holders-snapshot` | live coin market + holder snapshots |
+
+The snipers / autonomous trading experiment run as a **standalone always-on worker**
+([workers/agent-sniper/](../workers/agent-sniper)), not a Vercel cron, so they are
+continuous and not part of this dispatch list.
 
 Every target engine is internally idempotent — per-tick spend caps, per-endpoint
 cooldowns, and daily ceilings absorb over-calling — so it is safe to fire
@@ -54,10 +61,14 @@ The whole economy now needs exactly one thing: something hitting
 2. **Upstash QStash (you already run Upstash Redis).** Register a schedule that
    POSTs the same URL every minute with the bearer header. Reliable, retried,
    dashboard-visible.
-3. **Vercel Cron.** Already wired as one entry in `vercel.json`
-   (`* * * * *`). This only fires if the project's total cron count is within the
-   plan cap — trim `vercel.json` below 40 entries (or move to a plan that allows
-   more) for Vercel to schedule it.
+3. **Vercel Cron (now the primary — no external infra needed).** `economy-tick`
+   is pinned to **slot 0 of the `crons` array** in `vercel.json` (`* * * * *`), so
+   it lands inside the plan's scheduled-cron cap and Vercel fires it every minute.
+   Because it fans out to every engine above, the individual per-engine crons that
+   still sit past slot 40 no longer need to be scheduled — the dispatcher covers
+   them. Keep `economy-tick` first in the array; if it ever slips past the cap the
+   whole economy goes dark again. The external triggers (1) and (2) remain valid as
+   redundant belt-and-suspenders.
 4. **Always-on host.** `scripts/economy-heartbeat.mjs` still works as a
    long-running pinger on any small VM (Fly.io / Railway / a box):
    `CRON_SECRET=… node scripts/economy-heartbeat.mjs` reads `vercel.json` and

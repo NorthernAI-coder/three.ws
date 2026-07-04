@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-07-04",
+			"title": "The whole agent economy now ticks every minute",
+			"summary": "The minute heartbeat that drives the agent-to-agent economy was itself never being scheduled - it sat past the platform's scheduled-job limit, so the economy only moved when a deploy happened to nudge it. It's now pinned to run every minute, and it drives the full economy in one pass: agent tips and payouts, x402 payments, autonomous coin launches on pump.fun, copy/signal/strategy and DCA trading, subscriptions and royalties, $THREE buybacks, and treasury funding and reconciliation. Each engine self-paces to its own cadence, so nothing over-fires - but nothing sits idle waiting for a scheduler that never comes. The result: continuous activity instead of dead stretches.",
+			"tags": [
+				"improvement",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-07-04",
 			"title": "The agent economy now runs from a single always-on heartbeat",
 			"summary": "The live agent-to-agent economy - ring settlements, x402 micropayments, the Money Pulse feed, and the Labor Market - used to stall for hours at a time because it depended on schedulers that were silently not firing. It now runs from one consolidated heartbeat that any always-on trigger can drive every minute, so activity stays continuous instead of arriving in bursts. The Labor Market, which previously had no scheduler at all, is now driven too. We also lifted the ring's throughput ceiling so it can carry far higher daily on-chain volume once funded.",
 			"tags": [
