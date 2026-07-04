@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en" class="cv-page">
+	<head>
+		<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Coin · three.ws</title>
+		<meta
+			name="description"
+			content="Live price, interactive chart, market stats, related news, and links for any cryptocurrency — a rich detail page for every coin."
+		/>
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="three.ws" />
+		<meta property="og:url" content="https://three.ws/coins" />
+		<meta property="og:title" content="Coin · three.ws" />
+		<meta
+			property="og:description"
+			content="Live price, interactive chart, market stats, related news, and links for any cryptocurrency."
+		/>
+		<meta property="og:image" content="https://three.ws/og-image.png" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:site" content="@trythreews" />
+		<meta name="twitter:title" content="Coin · three.ws" />
+		<meta
+			name="twitter:description"
+			content="Live price, interactive chart, market stats, related news, and links for any cryptocurrency."
+		/>
+		<meta name="twitter:image" content="https://three.ws/og-image.png" />
+		<meta name="theme-color" content="#09090b" />
+		<link rel="icon" href="/favicon.ico" sizes="any" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="manifest" href="/site.webmanifest" />
+		<link rel="stylesheet" href="/fonts/fonts.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/src/coin-pages.css" />
+		<link rel="stylesheet" href="/footer.css" />
+	</head>
+	<body>
+		<header><div id="nav-container"></div></header>
+		<script src="/nav.js"></script>
+
+		<main class="cv-container" id="cv-main" aria-busy="true">
+			<!-- Breadcrumbs -->
+			<nav class="cv-crumbs" aria-label="Breadcrumb">
+				<a href="/">Home</a>
+				<span class="sep" aria-hidden="true">›</span>
+				<a href="/coins">Markets</a>
+				<span class="sep" aria-hidden="true">›</span>
+				<span class="here" id="cv-crumb-name">…</span>
+			</nav>
+
+			<!-- Coin header: icon, name, symbol, rank, price, change chips. -->
+			<section id="cv-head" aria-label="Coin overview"></section>
+
+			<!-- Interactive price chart with time-range selector. -->
+			<section id="cv-chart" aria-label="Price chart"></section>
+
+			<!-- Market stats grid. -->
+			<section id="cv-stats" class="cv-section" aria-label="Market stats"></section>
+
+			<!-- Related news from the live aggregator. -->
+			<section id="cv-news" class="cv-section" aria-label="Related news"></section>
+
+			<!-- About / description. -->
+			<section id="cv-about" class="cv-section" aria-label="About this coin"></section>
+
+			<!-- Official links + explorers + contracts. -->
+			<section id="cv-links" class="cv-section" aria-label="Links"></section>
+
+			<p class="cv-updated" id="cv-updated" hidden></p>
+		</main>
+
+		<script type="module" src="/src/coin-page.js"></script>
+		<script src="/brand.js" defer></script>
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
+	</body>
+</html>
