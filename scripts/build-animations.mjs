@@ -128,6 +128,22 @@ function collectBoneNames(root) {
 	return names;
 }
 
+// A humanoid hips position track in meters never exceeds ~2m of magnitude;
+// centimeter-authored rigs (Mixamo FBX, three.js Soldier/Michelle GLBs) sit
+// around 100. Anything past this threshold is unambiguously centimeter data.
+const HIPS_CM_THRESHOLD = 10;
+
+function hipsLooksCentimeterScale(clip) {
+	for (const track of clip.tracks) {
+		const stripped = track.name.replace(MIXAMO_PREFIX, '');
+		if (!stripped.endsWith('Hips.position')) continue;
+		for (const v of track.values) {
+			if (Math.abs(v) > HIPS_CM_THRESHOLD) return true;
+		}
+	}
+	return false;
+}
+
 /**
  * Retarget a single clip from a Mixamo skeleton to the canonical Avaturn rig.
  *
@@ -277,7 +293,12 @@ async function main() {
 				failCount++;
 				continue;
 			}
-			const { clip, matched, total, dropped } = retargetClip(sourceClip, bones, { scaleHips: !isGlb });
+			// FBX (Mixamo) hips are always centimeter-baked; GLB sources are
+			// usually meter-scale Avaturn exports — but not always (the three.js
+			// Soldier GLBs are cm-authored), so detect from the data instead of
+			// trusting the extension.
+			const scaleHips = !isGlb || hipsLooksCentimeterScale(sourceClip);
+			const { clip, matched, total, dropped } = retargetClip(sourceClip, bones, { scaleHips });
 			const matchPct = (matched / total) * 100;
 			if (matchPct < 60) {
 				console.warn(
@@ -325,6 +346,33 @@ async function main() {
 	}
 
 	saveHashCache(hashCache);
+
+	// Regression guard: refuse to publish a manifest that silently drops clips
+	// which are still configured and shipped in the previous manifest. A clip
+	// legitimately removed from the config may disappear; a configured clip
+	// that stops building is a build failure, not a fact to record. (This
+	// exact failure shipped once: gitignored FBX sources were missing on a
+	// fresh checkout and 11 live clips vanished from the manifest.)
+	if (existsSync(MANIFEST_OUT)) {
+		const prevNames = new Set(
+			JSON.parse(readFileSync(MANIFEST_OUT, 'utf8')).map((c) => c.name),
+		);
+		const builtNames = new Set(manifest.map((c) => c.name));
+		const regressed = config
+			.map((d) => d.name)
+			.filter((n) => prevNames.has(n) && !builtNames.has(n));
+		if (regressed.length) {
+			console.error(
+				`\n[animations] ABORT: ${regressed.length} previously published clip(s) failed to build and would be dropped from the manifest:`,
+			);
+			for (const n of regressed) console.error(`[animations]   - ${n}`);
+			console.error(
+				'[animations] Fix: run `npm run extract:animations` to regenerate extracted sources, restore the missing FBX in animation-sources/, or remove the entry from scripts/animations.config.json if the clip is truly retired. The existing manifest was left untouched.',
+			);
+			process.exit(1);
+		}
+	}
+
 	writeFileSync(MANIFEST_OUT, JSON.stringify(manifest, null, '\t') + '\n');
 	console.log(`\n[animations] wrote manifest with ${manifest.length} clips → ${MANIFEST_OUT}`);
 	console.log(`[animations] ${okCount} ok (${skipCount} cached), ${failCount} failed`);

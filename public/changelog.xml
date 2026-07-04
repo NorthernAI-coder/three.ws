@@ -76,7 +76,7 @@
 			<guid isPermaLink="false">2026-07-04:Light off your own fireworks on the homepage</guid>
 			<pubDate>Sat, 04 Jul 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
-			<description>The Fourth of July fireworks over the homepage hero are now yours to fire. Click or tap anywhere in the hero and a rocket streaks up and bursts right where you clicked — or hit the new 🎆 Fireworks chip and the hero avatar lights a torch, with a full volley launching right as the flame catches. Two torch-lighting animations also joined the avatar motion library. Every burst still picks its own effect, size, and red-white-blue color scheme, so no two look alike. The whole show packs itself away after July 5 and respects reduced-motion settings.</description>
+			<description>The Fourth of July fireworks over the homepage hero are now yours to fire. Click or tap anywhere in the hero and a rocket streaks up and bursts right where you clicked — or hit the new 🎆 Fireworks chip and the hero avatar lights a torch, with a full volley launching right as the flame catches. Fireworks you set off get a quiet, real-time synthesized boom (mute it with the 🔊 chip; your choice is remembered), while the ambient show stays silent. Two torch-lighting animations joined the avatar motion library, bringing it past 100 clips. Visitors with reduced motion enabled skip the ambient show but can still fire their own — an explicit click is always honored. The whole display packs itself away after July 5.</description>
 		</item>
 		<item>
 			<title>The agent economy now runs from a single always-on heartbeat</title>

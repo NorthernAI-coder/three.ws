@@ -4,189 +4,216 @@
 		"url": "/animations/clips/idle.json",
 		"label": "Idle",
 		"icon": "🧍",
-		"loop": true
+		"loop": true,
+		"duration": 15.800000190734863
 	},
 	{
 		"name": "lookdown",
 		"url": "/animations/clips/lookdown.json",
 		"label": "Look Down",
 		"icon": "👀",
-		"loop": true
+		"loop": true,
+		"duration": 4.766666889190674
 	},
 	{
 		"name": "covereyes",
 		"url": "/animations/clips/covereyes.json",
 		"label": "Cover Eyes",
 		"icon": "🙈",
-		"loop": true
+		"loop": true,
+		"duration": 7.300000190734863
 	},
 	{
 		"name": "facepalm",
 		"url": "/animations/clips/facepalm.json",
 		"label": "Facepalm",
 		"icon": "🤦",
-		"loop": false
+		"loop": false,
+		"duration": 4.199999809265137
 	},
 	{
 		"name": "av-idle-breath",
 		"url": "/animations/clips/av-idle-breath.json",
 		"label": "Idle Breath",
 		"icon": "🧘",
-		"loop": true
+		"loop": true,
+		"duration": 8.066666603088379
 	},
 	{
 		"name": "av-waiting",
 		"url": "/animations/clips/av-waiting.json",
 		"label": "Waiting",
 		"icon": "🕰️",
-		"loop": true
+		"loop": true,
+		"duration": 44.766666412353516
 	},
 	{
 		"name": "av-superhero-jump",
 		"url": "/animations/clips/av-superhero-jump.json",
 		"label": "Superhero Jump",
 		"icon": "🦸",
-		"loop": false
+		"loop": false,
+		"duration": 2
 	},
 	{
 		"name": "av-walk-crouching",
 		"url": "/animations/clips/av-walk-crouching.json",
 		"label": "Walk Crouching",
 		"icon": "🚶",
-		"loop": true
+		"loop": true,
+		"duration": 1.3666666746139526
 	},
 	{
 		"name": "av-arm-flex",
 		"url": "/animations/clips/av-arm-flex.json",
 		"label": "Arm Flex",
 		"icon": "💪",
-		"loop": false
+		"loop": false,
+		"duration": 4.366666793823242
 	},
 	{
 		"name": "av-boxer-dance",
 		"url": "/animations/clips/av-boxer-dance.json",
 		"label": "Boxer Dance",
 		"icon": "🥊",
-		"loop": true
+		"loop": true,
+		"duration": 9.866666793823242
 	},
 	{
 		"name": "av-brag-claps",
 		"url": "/animations/clips/av-brag-claps.json",
 		"label": "Brag & Clap",
 		"icon": "👏",
-		"loop": false
+		"loop": false,
+		"duration": 10
 	},
 	{
 		"name": "av-flexing-arm",
 		"url": "/animations/clips/av-flexing-arm.json",
 		"label": "Flex Arm",
 		"icon": "💪",
-		"loop": false
+		"loop": false,
+		"duration": 6.933333396911621
 	},
 	{
 		"name": "av-vtubing",
 		"url": "/animations/clips/av-vtubing.json",
 		"label": "VTubing",
 		"icon": "📹",
-		"loop": true
+		"loop": true,
+		"duration": 16.200000762939453
 	},
 	{
 		"name": "av-stand-crouch-stand",
 		"url": "/animations/clips/av-stand-crouch-stand.json",
 		"label": "Stand-Crouch-Stand",
 		"icon": "🦵",
-		"loop": false
+		"loop": false,
+		"duration": 4.199999809265137
 	},
 	{
 		"name": "av-smoking",
 		"url": "/animations/clips/av-smoking.json",
 		"label": "Smoking",
 		"icon": "🚬",
-		"loop": true
+		"loop": true,
+		"duration": 16.46666717529297
 	},
 	{
 		"name": "av-gymnastics-aerial",
 		"url": "/animations/clips/av-gymnastics-aerial.json",
 		"label": "Gymnastics",
 		"icon": "🤸",
-		"loop": false
+		"loop": false,
+		"duration": 3.866666555404663
 	},
 	{
 		"name": "av-idle-anim",
 		"url": "/animations/clips/av-idle-anim.json",
 		"label": "Idle (Avaturn)",
 		"icon": "🧍",
-		"loop": true
+		"loop": true,
+		"duration": 10.016666412353516
 	},
 	{
 		"name": "av-back-flip",
 		"url": "/animations/clips/av-back-flip.json",
 		"label": "Back Flip",
 		"icon": "🤸",
-		"loop": false
+		"loop": false,
+		"duration": 2.1666667461395264
 	},
 	{
 		"name": "av-idle-male",
 		"url": "/animations/clips/av-idle-male.json",
 		"label": "Male Idle",
 		"icon": "🚹",
-		"loop": true
+		"loop": true,
+		"duration": 0.0416666679084301
 	},
 	{
 		"name": "av-idle-female",
 		"url": "/animations/clips/av-idle-female.json",
 		"label": "Female Idle",
 		"icon": "🚺",
-		"loop": true
+		"loop": true,
+		"duration": 0.0416666679084301
 	},
 	{
 		"name": "av-chest-bump",
 		"url": "/animations/clips/av-chest-bump.json",
 		"label": "Chest Bump",
 		"icon": "🦍",
-		"loop": false
+		"loop": false,
+		"duration": 5.666666507720947
 	},
 	{
 		"name": "av-walk-feminine",
 		"url": "/animations/clips/av-walk-feminine.json",
 		"label": "Feminine Walk",
 		"icon": "🚶‍♀️",
-		"loop": true
+		"loop": true,
+		"duration": 1.1666666269302368
 	},
 	{
 		"name": "av-push-block",
 		"url": "/animations/clips/av-push-block.json",
 		"label": "Push Block",
 		"icon": "📦",
-		"loop": false
+		"loop": false,
+		"duration": 9.366666793823242
 	},
 	{
 		"name": "av-dance-shuffle",
 		"url": "/animations/clips/av-dance-shuffle.json",
 		"label": "Shuffle Dance",
 		"icon": "💃",
-		"loop": true
+		"loop": true,
+		"duration": 22.566667556762695
 	},
 	{
 		"name": "av-headbang",
 		"url": "/animations/clips/av-headbang.json",
 		"label": "Head Banging",
 		"icon": "🤘",
-		"loop": true
+		"loop": true,
+		"duration": 23.633333206176758
 	},
 	{
 		"name": "av-call-me",
 		"url": "/animations/clips/av-call-me.json",
 		"label": "Call Me",
 		"icon": "📞",
-		"loop": false
+		"loop": false,
+		"duration": 3.7666666507720947
 	},
 	{
 		"name": "av-chilling",
 		"url": "/animations/clips/av-chilling.json",
 		"label": "Chilling",
 		"icon": "😎",
-		"loop": true
+		"loop": true,
+		"duration": 10
 	},
 	{
 		"name": "av-pose1",
@@ -200,524 +227,599 @@
 		"url": "/animations/clips/av-muay-thai.json",
 		"label": "Muay Thai Combo",
 		"icon": "🥊",
-		"loop": false
+		"loop": false,
+		"duration": 5.699999809265137
 	},
 	{
 		"name": "av-banging-tunes",
 		"url": "/animations/clips/av-banging-tunes.json",
 		"label": "Banging Tunes",
 		"icon": "🎵",
-		"loop": true
+		"loop": true,
+		"duration": 6.766666889190674
 	},
 	{
 		"name": "av-celebrating",
 		"url": "/animations/clips/av-celebrating.json",
 		"label": "Celebrating",
 		"icon": "🎉",
-		"loop": false
+		"loop": false,
+		"duration": 4.5333333015441895
 	},
 	{
 		"name": "av-spy",
 		"url": "/animations/clips/av-spy.json",
 		"label": "Spy",
 		"icon": "🕵️",
-		"loop": true
+		"loop": true,
+		"duration": 4.266666889190674
 	},
 	{
 		"name": "av-cheering",
 		"url": "/animations/clips/av-cheering.json",
 		"label": "Cheering",
 		"icon": "📣",
-		"loop": false
+		"loop": false,
+		"duration": 6.766666889190674
 	},
 	{
 		"name": "av-joy",
 		"url": "/animations/clips/av-joy.json",
 		"label": "Joy",
 		"icon": "😊",
-		"loop": false
+		"loop": false,
+		"duration": 5.933333396911621
 	},
 	{
 		"name": "av-conductor",
 		"url": "/animations/clips/av-conductor.json",
 		"label": "Conductor",
 		"icon": "🎼",
-		"loop": true
+		"loop": true,
+		"duration": 6.266666889190674
 	},
 	{
 		"name": "av-listening-music",
 		"url": "/animations/clips/av-listening-music.json",
 		"label": "Listening To Music",
 		"icon": "🎧",
-		"loop": true
+		"loop": true,
+		"duration": 4.4666666984558105
 	},
 	{
 		"name": "av-leaning-wall",
 		"url": "/animations/clips/av-leaning-wall.json",
 		"label": "Leaning On Wall",
 		"icon": "🧱",
-		"loop": true
+		"loop": true,
+		"duration": 1.9166666269302368
 	},
 	{
 		"name": "av-rap-dance",
 		"url": "/animations/clips/av-rap-dance.json",
 		"label": "Rap Dancing",
 		"icon": "🎤",
-		"loop": true
+		"loop": true,
+		"duration": 18.549999237060547
 	},
 	{
 		"name": "dance",
 		"url": "/animations/clips/dance.json",
 		"label": "Dance",
 		"icon": "💃",
-		"loop": true
+		"loop": true,
+		"duration": 4.4666666984558105
 	},
 	{
 		"name": "twerk",
 		"url": "/animations/clips/twerk.json",
 		"label": "Dancing Twerk",
 		"icon": "💃",
-		"loop": true
+		"loop": true,
+		"duration": 5
 	},
 	{
 		"name": "celebrate",
 		"url": "/animations/clips/celebrate.json",
 		"label": "Celebrate",
 		"icon": "🎉",
-		"loop": false
+		"loop": false,
+		"duration": 1.8666666746139526
 	},
 	{
 		"name": "angry",
 		"url": "/animations/clips/angry.json",
 		"label": "Angry",
 		"icon": "😡",
-		"loop": false
+		"loop": false,
+		"duration": 19.16666603088379
 	},
 	{
 		"name": "defeated",
 		"url": "/animations/clips/defeated.json",
 		"label": "Defeated",
 		"icon": "😞",
-		"loop": false
+		"loop": false,
+		"duration": 6.733333110809326
 	},
 	{
 		"name": "dying",
 		"url": "/animations/clips/dying.json",
 		"label": "Dying",
 		"icon": "💀",
-		"loop": false
+		"loop": false,
+		"duration": 4.400000095367432
 	},
 	{
 		"name": "falling",
 		"url": "/animations/clips/falling.json",
 		"label": "Falling",
 		"icon": "🪂",
-		"loop": false
+		"loop": false,
+		"duration": 11.366666793823242
 	},
 	{
 		"name": "jump",
 		"url": "/animations/clips/jump.json",
 		"label": "Jump",
 		"icon": "🦘",
-		"loop": false
+		"loop": false,
+		"duration": 1.8666666746139526
 	},
 	{
 		"name": "kiss",
 		"url": "/animations/clips/kiss.json",
 		"label": "Kiss",
 		"icon": "💋",
-		"loop": false
+		"loop": false,
+		"duration": 7.066666603088379
 	},
 	{
 		"name": "pray",
 		"url": "/animations/clips/pray.json",
 		"label": "Pray",
 		"icon": "🙏",
-		"loop": false
+		"loop": false,
+		"duration": 6.866666793823242
 	},
 	{
 		"name": "reaction",
 		"url": "/animations/clips/reaction.json",
 		"label": "Reaction",
 		"icon": "😲",
-		"loop": false
+		"loop": false,
+		"duration": 1.8333333730697632
 	},
 	{
 		"name": "rumba",
 		"url": "/animations/clips/rumba.json",
 		"label": "Rumba",
 		"icon": "🕺",
-		"loop": true
+		"loop": true,
+		"duration": 2.366666555404663
 	},
 	{
 		"name": "silly",
 		"url": "/animations/clips/silly.json",
 		"label": "Silly Dance",
 		"icon": "🤪",
-		"loop": true
+		"loop": true,
+		"duration": 3.8333332538604736
 	},
 	{
 		"name": "sitclap",
 		"url": "/animations/clips/sitclap.json",
 		"label": "Sit Clap",
 		"icon": "👏",
-		"loop": false
+		"loop": false,
+		"duration": 5.666666507720947
 	},
 	{
 		"name": "sitlaugh",
 		"url": "/animations/clips/sitlaugh.json",
 		"label": "Sit Laugh",
 		"icon": "😂",
-		"loop": false
+		"loop": false,
+		"duration": 8.333333015441895
 	},
 	{
 		"name": "taunt",
 		"url": "/animations/clips/taunt.json",
 		"label": "Taunt",
 		"icon": "😝",
-		"loop": false
+		"loop": false,
+		"duration": 2.8333332538604736
 	},
 	{
 		"name": "thriller",
 		"url": "/animations/clips/thriller.json",
 		"label": "Thriller",
 		"icon": "🧟",
-		"loop": true
+		"loop": true,
+		"duration": 25.566667556762695
 	},
 	{
 		"name": "capoeira",
 		"url": "/animations/clips/capoeira.json",
 		"label": "Capoeira",
 		"icon": "🥋",
-		"loop": true
+		"loop": true,
+		"duration": 3.433333396911621
 	},
 	{
 		"name": "wave",
 		"url": "/animations/clips/wave.json",
 		"label": "Wave",
 		"icon": "👋",
-		"loop": false
+		"loop": false,
+		"duration": 1
 	},
 	{
 		"name": "walk",
 		"url": "/animations/clips/walk.json",
 		"label": "Walk",
 		"icon": "🚶",
-		"loop": true
+		"loop": true,
+		"duration": 0.9666666388511658
 	},
 	{
 		"name": "dodge",
 		"url": "/animations/clips/dodge.json",
 		"label": "Dodge",
 		"icon": "🤺",
-		"loop": false
+		"loop": false,
+		"duration": 1.4333332777023315
 	},
 	{
 		"name": "stepback",
 		"url": "/animations/clips/stepback.json",
 		"label": "Step Back",
 		"icon": "👣",
-		"loop": false
+		"loop": false,
+		"duration": 1.8333333730697632
 	},
 	{
 		"name": "shoved",
 		"url": "/animations/clips/shoved.json",
 		"label": "Shoved",
 		"icon": "💥",
-		"loop": false
+		"loop": false,
+		"duration": 4.5333333015441895
 	},
 	{
 		"name": "standup",
 		"url": "/animations/clips/standup.json",
 		"label": "Stand Up",
 		"icon": "⬆️",
-		"loop": false
+		"loop": false,
+		"duration": 2.566666603088379
 	},
 	{
 		"name": "header",
 		"url": "/animations/clips/header.json",
 		"label": "Header",
 		"icon": "⚽",
-		"loop": false
+		"loop": false,
+		"duration": 1.899999976158142
 	},
 	{
 		"name": "coverstand",
 		"url": "/animations/clips/coverstand.json",
 		"label": "Cover Stand",
 		"icon": "🛡️",
-		"loop": false
+		"loop": false,
+		"duration": 1.5
 	},
 	{
 		"name": "goalkeeper",
 		"url": "/animations/clips/goalkeeper.json",
 		"label": "Goalkeeper",
 		"icon": "🧤",
-		"loop": false
+		"loop": false,
+		"duration": 2.5999999046325684
 	},
 	{
 		"name": "jumpdown",
 		"url": "/animations/clips/jumpdown.json",
 		"label": "Jump Down",
 		"icon": "⬇️",
-		"loop": false
+		"loop": false,
+		"duration": 3.8333332538604736
 	},
 	{
 		"name": "jumpdown2",
 		"url": "/animations/clips/jumpdown2.json",
 		"label": "Jump Down 2",
 		"icon": "⬇️",
-		"loop": false
+		"loop": false,
+		"duration": 2.8333332538604736
 	},
 	{
 		"name": "jumpdown3",
 		"url": "/animations/clips/jumpdown3.json",
 		"label": "Jump Down 3",
 		"icon": "⬇️",
-		"loop": false
+		"loop": false,
+		"duration": 2.933333396911621
 	},
 	{
 		"name": "removing",
 		"url": "/animations/clips/removing.json",
 		"label": "Removing",
 		"icon": "🚗",
-		"loop": false
+		"loop": false,
+		"duration": 10.366666793823242
 	},
 	{
 		"name": "falltolanding",
 		"url": "/animations/clips/falltolanding.json",
 		"label": "Fall to Landing",
 		"icon": "🦅",
-		"loop": false
+		"loop": false,
+		"duration": 1.6166666746139526
 	},
 	{
 		"name": "downdog",
 		"url": "/animations/clips/downdog.json",
 		"label": "Downward Dog",
 		"icon": "🧘",
-		"loop": true
+		"loop": true,
+		"duration": 3
 	},
 	{
 		"name": "digging",
 		"url": "/animations/clips/digging.json",
 		"label": "Digging",
 		"icon": "⛏️",
-		"loop": true
+		"loop": true,
+		"duration": 4.833333492279053
 	},
 	{
 		"name": "farm-box-idle",
 		"url": "/animations/clips/farm-box-idle.json",
 		"label": "Box Idle",
 		"icon": "📦",
-		"loop": true
+		"loop": true,
+		"duration": 6.300000190734863
 	},
 	{
 		"name": "farm-box-walk",
 		"url": "/animations/clips/farm-box-walk.json",
 		"label": "Box Walk",
 		"icon": "📦",
-		"loop": true
+		"loop": true,
+		"duration": 1.2166666984558105
 	},
 	{
 		"name": "farm-box-turn",
 		"url": "/animations/clips/farm-box-turn.json",
 		"label": "Box Turn",
 		"icon": "📦",
-		"loop": false
+		"loop": false,
+		"duration": 1.5333333015441895
 	},
 	{
 		"name": "farm-kneeling-idle",
 		"url": "/animations/clips/farm-kneeling-idle.json",
 		"label": "Kneeling Idle",
 		"icon": "🧎",
-		"loop": true
+		"loop": true,
+		"duration": 4.25
 	},
 	{
 		"name": "farm-dig-plant",
 		"url": "/animations/clips/farm-dig-plant.json",
 		"label": "Dig & Plant Seeds",
 		"icon": "🌱",
-		"loop": false
+		"loop": false,
+		"duration": 5.483333110809326
 	},
 	{
 		"name": "farm-pull-plant",
 		"url": "/animations/clips/farm-pull-plant.json",
 		"label": "Pull Plant",
 		"icon": "🌿",
-		"loop": false
+		"loop": false,
+		"duration": 4.650000095367432
 	},
 	{
 		"name": "farm-plant-tree",
 		"url": "/animations/clips/farm-plant-tree.json",
 		"label": "Plant Tree",
 		"icon": "🌳",
-		"loop": false
+		"loop": false,
+		"duration": 9.266666412353516
 	},
 	{
 		"name": "farm-plant-a-plant",
 		"url": "/animations/clips/farm-plant-a-plant.json",
 		"label": "Plant a Plant",
 		"icon": "🪴",
-		"loop": false
+		"loop": false,
+		"duration": 7.550000190734863
 	},
 	{
 		"name": "farm-holding-walk",
 		"url": "/animations/clips/farm-holding-walk.json",
 		"label": "Holding Walk",
 		"icon": "🤲",
-		"loop": true
+		"loop": true,
+		"duration": 1.3666666746139526
 	},
 	{
 		"name": "farm-holding-turn-left",
 		"url": "/animations/clips/farm-holding-turn-left.json",
 		"label": "Holding Turn Left",
 		"icon": "↩️",
-		"loop": false
+		"loop": false,
+		"duration": 1.2000000476837158
 	},
 	{
 		"name": "farm-holding-turn-right",
 		"url": "/animations/clips/farm-holding-turn-right.json",
 		"label": "Holding Turn Right",
 		"icon": "↪️",
-		"loop": false
+		"loop": false,
+		"duration": 1.2833333015441895
 	},
 	{
 		"name": "farm-watering",
 		"url": "/animations/clips/farm-watering.json",
 		"label": "Watering",
 		"icon": "💧",
-		"loop": false
+		"loop": false,
+		"duration": 5.583333492279053
 	},
 	{
 		"name": "farm-pick-fruit",
 		"url": "/animations/clips/farm-pick-fruit.json",
 		"label": "Pick Fruit",
 		"icon": "🍎",
-		"loop": false
+		"loop": false,
+		"duration": 8
 	},
 	{
 		"name": "farm-cow-milking",
 		"url": "/animations/clips/farm-cow-milking.json",
 		"label": "Cow Milking",
 		"icon": "🐄",
-		"loop": false
+		"loop": false,
+		"duration": 4.5333333015441895
 	},
 	{
 		"name": "farm-wheelbarrow-idle",
 		"url": "/animations/clips/farm-wheelbarrow-idle.json",
 		"label": "Wheelbarrow Idle",
 		"icon": "🛒",
-		"loop": true
+		"loop": true,
+		"duration": 1.5
 	},
 	{
 		"name": "farm-wheelbarrow-walk",
 		"url": "/animations/clips/farm-wheelbarrow-walk.json",
 		"label": "Wheelbarrow Walk",
 		"icon": "🛒",
-		"loop": true
+		"loop": true,
+		"duration": 0.9666666388511658
 	},
 	{
 		"name": "farm-wheelbarrow-turn",
 		"url": "/animations/clips/farm-wheelbarrow-turn.json",
 		"label": "Wheelbarrow Turn",
 		"icon": "🛒",
-		"loop": false
+		"loop": false,
+		"duration": 1.0666667222976685
 	},
 	{
 		"name": "farm-wheelbarrow-dump",
 		"url": "/animations/clips/farm-wheelbarrow-dump.json",
 		"label": "Wheelbarrow Dump",
 		"icon": "🛒",
-		"loop": false
+		"loop": false,
+		"duration": 6.233333110809326
 	},
 	{
 		"name": "soldier-idle",
 		"url": "/animations/clips/soldier-idle.json",
 		"label": "Idle",
 		"icon": "🧍",
-		"loop": true
+		"loop": true,
+		"duration": 1.9666666984558105
 	},
 	{
 		"name": "soldier-run",
 		"url": "/animations/clips/soldier-run.json",
 		"label": "Run",
 		"icon": "🏃",
-		"loop": true
+		"loop": true,
+		"duration": 0.699999988079071
 	},
 	{
 		"name": "soldier-walk",
 		"url": "/animations/clips/soldier-walk.json",
 		"label": "Walk",
 		"icon": "🚶",
-		"loop": true
+		"loop": true,
+		"duration": 1.0333333015441895
 	},
 	{
 		"name": "michelle-samba-dance",
 		"url": "/animations/clips/michelle-samba-dance.json",
 		"label": "Samba Dance",
 		"icon": "💃",
-		"loop": true
+		"loop": true,
+		"duration": 18.233333587646484
 	},
 	{
 		"name": "xbot-agree",
 		"url": "/animations/clips/xbot-agree.json",
 		"label": "Agree",
 		"icon": "👍",
-		"loop": false
+		"loop": false,
+		"duration": 1.8333333730697632
 	},
 	{
 		"name": "xbot-head-shake",
 		"url": "/animations/clips/xbot-head-shake.json",
 		"label": "Head Shake",
 		"icon": "🙅",
-		"loop": false
+		"loop": false,
+		"duration": 2.566666603088379
 	},
 	{
 		"name": "xbot-idle",
 		"url": "/animations/clips/xbot-idle.json",
 		"label": "Idle (Xbot)",
 		"icon": "🧍",
-		"loop": true
+		"loop": true,
+		"duration": 2.5
 	},
 	{
 		"name": "xbot-run",
 		"url": "/animations/clips/xbot-run.json",
 		"label": "Run",
 		"icon": "🏃",
-		"loop": true
+		"loop": true,
+		"duration": 0.699999988079071
 	},
 	{
 		"name": "xbot-sad-pose",
 		"url": "/animations/clips/xbot-sad-pose.json",
 		"label": "Sad",
 		"icon": "😔",
-		"loop": true
+		"loop": true,
+		"duration": 0.06666667014360428
 	},
 	{
 		"name": "xbot-sneak-pose",
 		"url": "/animations/clips/xbot-sneak-pose.json",
 		"label": "Sneak",
 		"icon": "🕵️",
-		"loop": true
+		"loop": true,
+		"duration": 0.06666667014360428
 	},
 	{
 		"name": "xbot-walk",
 		"url": "/animations/clips/xbot-walk.json",
 		"label": "Walk (Xbot)",
 		"icon": "🚶",
-		"loop": true
+		"loop": true,
+		"duration": 0.9666666388511658
 	},
 	{
 		"name": "torch-light",
 		"url": "/animations/clips/torch-light.json",
 		"label": "Light Torch",
 		"icon": "🔥",
-		"loop": false
+		"loop": false,
+		"duration": 4.416666507720947
 	},
 	{
 		"name": "torch-light-wall",
 		"url": "/animations/clips/torch-light-wall.json",
 		"label": "Light Torch (Wall)",
 		"icon": "🕯️",
-		"loop": false
+		"loop": false,
+		"duration": 4.416666507720947
 	}
 ]
