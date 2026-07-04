@@ -329,4 +329,7 @@ docs/content/social/x-article-backlog-leak.md
 # Bulk Mixamo library (multi-GB, fetched via npm run mixamo:download) —
 # mx-*.fbx are build-time retarget sources, never committed or deployed.
 animation-sources/mx-*.fbx
+animation-sources/.library-clips/
 scripts/mixamo-progress.json
+scripts/mixamo-library.config.json
+scripts/mixamo-upload-state.json

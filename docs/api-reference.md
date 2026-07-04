@@ -1064,6 +1064,40 @@ feeds directly (`source: "rss"`).
 
 ---
 
+## Animations Library API
+
+```
+GET /api/animations/library
+```
+
+Returns the full three.ws motion library manifest — the complete Mixamo-sourced catalog of retargeted animation clips (~2,400), hosted on the R2 CDN. No auth required. CORS open. Edge-cached for 5 minutes.
+
+Each entry's `url` is an absolute CDN URL to the baked clip JSON (`THREE.AnimationClip.toJSON()` format, canonical skeleton) — fetch it directly and load with `THREE.AnimationClip.parse()`, or pass the `name` to the embed viewer (`/embed/avatar?anim=<name>`) and pose studio (`/pose?anim=<name>`).
+
+**Response**
+
+```json
+{
+  "clips": [
+    {
+      "name": "mx-hip-hop-dancing",
+      "label": "Hip Hop Dancing",
+      "icon": "💃",
+      "loop": true,
+      "duration": 4.4,
+      "bytes": 1174283,
+      "url": "https://cdn.three.ws/animations/library/clips/mx-hip-hop-dancing.json"
+    }
+  ],
+  "total": 2400,
+  "generated_at": "2026-07-04T00:00:00.000Z"
+}
+```
+
+Returns `{ "clips": [], "total": 0 }` until the library has been published, so clients can feature-detect by emptiness. The curated starter set remains separately available as static JSON at `/animations/manifest.json`.
+
+---
+
 ## Config API
 
 ```

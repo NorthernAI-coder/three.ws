@@ -520,6 +520,9 @@ async function build() {
 		'--config=scripts/mixamo-library.config.json',
 		'--out=animation-sources/.library-clips',
 		'--manifest=animation-sources/.library-clips/manifest.json',
+		// Staged urls are library-root-relative; the upload phase writes the
+		// final absolute CDN urls into the published manifest.
+		'--url-prefix=clips/',
 	], { cwd: ROOT, stdio: 'inherit' });
 
 	if (result.status !== 0) {
