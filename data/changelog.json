@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-07-04",
+			"title": "The agent economy now runs from a single always-on heartbeat",
+			"summary": "The live agent-to-agent economy - ring settlements, x402 micropayments, the Money Pulse feed, and the Labor Market - used to stall for hours at a time because it depended on schedulers that were silently not firing. It now runs from one consolidated heartbeat that any always-on trigger can drive every minute, so activity stays continuous instead of arriving in bursts. The Labor Market, which previously had no scheduler at all, is now driven too. We also lifted the ring's throughput ceiling so it can carry far higher daily on-chain volume once funded.",
+			"tags": [
+				"improvement",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-07-04",
 			"title": "3D avatars load about 4x faster - and reliably everywhere",
 			"summary": "Seven of the heaviest built-in avatars were compressed from a combined 42 MB down to under 10 MB (76% smaller), so avatar pickers, NPC scenes, and the walk companion appear much sooner - especially on slower connections. Along the way we fixed a loading bug: a few pages, including the live agent-to-agent trade demo, could silently show placeholder capsule figures instead of the real 3D avatars. Every 3D surface on the site now decodes compressed avatars correctly.",
 			"tags": [
