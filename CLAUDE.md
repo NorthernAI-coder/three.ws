@@ -188,6 +188,10 @@ When the user asks you to push (or to commit + push):
 
 Run both in the same step. If one fails, surface the error — do not silently leave the repos out of sync. Never force-push to either remote without an explicit request.
 
+## No GitHub Actions
+
+**We do not use GitHub Actions.** Do not create, edit, or rely on workflows under `.github/workflows/`. Automation runs elsewhere (Vercel deploys, workers, local scripts) — never propose a GitHub Actions workflow as the solution for CI, scheduling, or deployment.
+
 ## Git: NEVER pull or fetch from 3D-Agent
 
 **`threeD` (nirholas/3D-Agent) is a PUSH-ONLY mirror. NEVER run `git pull`, `git fetch`, or `git merge` from it.**
