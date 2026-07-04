@@ -3,8 +3,19 @@
 	"entries": [
 		{
 			"date": "2026-07-04",
-			"title": "Fourth of July avatar presets in the create flow",
-			"summary": "The Independence Day moment now reaches avatar creation, not just the homepage. For July 1–5, the prompt page offers a set of festive one-tap presets — Uncle Sam, a bald-eagle mascot, a hero take on Lady Liberty, and a glowing red-white-and-blue firework sprite — so you can spin up a themed 3D avatar in a click. They retire themselves automatically once the holiday passes.",
+			"title": "Put a 3D store guide on your Shopify shop — one-tag tour SDK release",
+			"summary": "The guided-tour engine now installs on any external site with a single script tag. @three-ws/tour 0.2.0 ships a self-contained CDN build (tour.global.js) that auto-starts from data attributes — point it at a curriculum JSON and your storefront gets an avatar that walks the page, spotlights sections, narrates each one, and offers free roam. @three-ws/walk 0.1.1 fixes cross-origin animation loading so avatars animate correctly when assets are served from the three.ws CDN onto another domain. A new step-by-step tutorial shows the full Shopify install: theme.liquid tags, a store curriculum, a Take-the-tour button, and the optional docked page narrator.",
+			"tags": [
+				"sdk",
+				"feature",
+				"docs"
+			],
+			"link": "/tutorials/shopify-store-guide"
+		},
+		{
+			"date": "2026-07-04",
+			"title": "Fourth of July presets across the create + forge flows",
+			"summary": "The Independence Day moment now reaches the creation tools, not just the homepage. For July 1–5, the avatar prompt page offers festive one-tap presets — Uncle Sam, a bald-eagle mascot, a hero take on Lady Liberty, and a glowing red-white-and-blue firework sprite — and the Forge adds matching props you can generate in a click: a bald-eagle statue, a rippling flag, a cracked liberty bell, and a firework rocket. On the Forge they stay pinned while 'More ideas' shuffles the regular prompts, and everything retires itself automatically once the holiday passes.",
 			"tags": [
 				"improvement"
 			],
@@ -11149,6 +11160,14 @@
 			"date": "2026-07-04",
 			"title": "The hero avatar is back on the homepage",
 			"summary": "Since the July 4th fireworks went live, the 3D avatar in the homepage hero could stay invisible — the page was waiting to fade the avatar in, but the fireworks chip arriving first made it stop listening a moment too early, so the avatar loaded fully and then never appeared. The fade-in is now wired directly to the avatar itself, so it can't miss its cue. Fireworks and avatar now share the stage the way they were meant to.",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-07-04",
+			"title": "Soldier, X Bot, and Michelle animations no longer float away",
+			"summary": "Eleven animation clips baked from centimeter-scale source models (the Soldier idle/run/walk set, the full X Bot set, and Michelle's samba) carried hip positions about 100× too large, which could send an avatar drifting far above the ground when one of them played directly. The animation build pipeline now detects centimeter-authored skeletons from the data itself instead of guessing from the file type, and all eleven clips have been rebaked at true meter scale.",
 			"tags": [
 				"fix"
 			]

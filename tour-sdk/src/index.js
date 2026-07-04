@@ -28,7 +28,7 @@ import { TourDirector } from './director.js';
 import { resolveTourConfig } from './config.js';
 import { createTourState } from './curriculum.js';
 
-export const VERSION = '0.1.0';
+export const VERSION = '0.2.0';
 
 /**
  * Create a tour controller. Returns a small object the host drives:

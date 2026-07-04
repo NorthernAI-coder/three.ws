@@ -5360,6 +5360,25 @@
 		if (!glb) throw new Error('no renderable avatar found');
 		return glb;
 	}
+	function showHeroFallback(heroInner) {
+		heroInner.innerHTML = '<div class="hero-stage-fallback" role="status">'
+			+ '<p>The live preview couldn’t load right now.</p>'
+			+ '<button type="button" class="btn btn--sm" id="hero-retry">Retry</button></div>';
+		heroInner.querySelector('#hero-retry')?.addEventListener('click', () => {
+			heroInner.innerHTML = '';
+			bootHeroAvatar();
+		});
+	}
+	// The <agent-3d> loader is a separate CDN script — if it fails (network
+	// blip, missing local dist-lib build in dev), the element never upgrades
+	// and the stage would sit silently black. Surface the designed fallback
+	// instead of nothing.
+	function agentElementDefined(timeoutMs) {
+		return Promise.race([
+			customElements.whenDefined('agent-3d').then(() => true),
+			new Promise((res) => setTimeout(() => res(false), timeoutMs)),
+		]);
+	}
 	async function bootHeroAvatar() {
 		const heroInner = document.getElementById('hero-stage-inner');
 		try {
@@ -5370,6 +5389,9 @@
 				glb = await resolveFeaturedGlb();
 			}
 			if (heroInner) {
+				if (!(await agentElementDefined(15000))) {
+					throw new Error('agent-3d element never registered — loader script failed');
+				}
 				heroInner.innerHTML = '';
 				const heroEl = spawnAgent(glb);
 				// Fade the hero in on agent:ready. Attached before the element is
@@ -5384,15 +5406,7 @@
 			}
 		} catch (e) {
 			console.warn('[home] avatar boot failed', e);
-			if (heroInner) {
-				heroInner.innerHTML = '<div class="hero-stage-fallback" role="status">'
-					+ '<p>The live preview couldn’t load right now.</p>'
-					+ '<button type="button" class="btn btn--sm" id="hero-retry">Retry</button></div>';
-				heroInner.querySelector('#hero-retry')?.addEventListener('click', () => {
-					heroInner.innerHTML = '';
-					bootHeroAvatar();
-				});
-			}
+			if (heroInner) showHeroFallback(heroInner);
 		}
 	}
 	bootHeroAvatar();

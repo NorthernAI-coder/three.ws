@@ -150,6 +150,16 @@
 			previewModel: '/animations/soldier.glb',
 			ctaPrimary: { label: 'Open Walk', href: '/walk' },
 		},
+		{
+			slug: 'shopify-store-guide',
+			tier: 'easy',
+			title: 'Add a 3D store guide to your Shopify theme',
+			blurb: 'A guide avatar walks your storefront, spotlights the hero, bestsellers, and reviews, and narrates each one — two script tags in theme.liquid, free roam included.',
+			builds: 'A 3D guided tour + page narrator running on your live Shopify store',
+			time: '20 min',
+			previewModel: '/avatars/realistic-female.glb',
+			ctaPrimary: { label: 'Read the tour SDK docs', href: 'https://www.npmjs.com/package/@three-ws/tour' },
+		},
 
 		/* ────────────────────────── MIDDLE ────────────────────────── */
 		{

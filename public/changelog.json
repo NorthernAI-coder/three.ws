@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-04T09:20:20.794Z",
+	"generated_at": "2026-07-04T09:29:09.609Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -12,6 +12,16 @@
 			"title": "Markets — Live Crypto Prices",
 			"summary": "Live global cryptocurrency market data: total market cap, dominance, Fear & Greed, and the top coins with prices, 24h/7d moves, and 7d sparklines. Every coin links to a rich /coin/:id detail page with an interactive chart, market stats, related news, and official links.",
 			"link": "/coins",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-07-04",
+			"type": "launch",
+			"title": "Tutorial · 3D Store Guide for Shopify",
+			"summary": "A guide avatar walks your Shopify storefront, spotlights the hero, bestsellers, and reviews, and narrates each one — two script tags in theme.liquid, free roam included.",
+			"link": "/tutorials/shopify-store-guide",
 			"tags": [
 				"launch"
 			]
@@ -71,8 +81,8 @@
 		{
 			"date": "2026-07-04",
 			"type": "update",
-			"title": "Fourth of July avatar presets in the create flow",
-			"summary": "The Independence Day moment now reaches avatar creation, not just the homepage. For July 1–5, the prompt page offers a set of festive one-tap presets — Uncle Sam, a bald-eagle mascot, a hero take on Lady Liberty, and a glowing red-white-and-blue firework sprite — so you can spin up a themed 3D avatar in a click. They retire themselves automatically once the holiday passes.",
+			"title": "Fourth of July presets across the create + forge flows",
+			"summary": "The Independence Day moment now reaches the creation tools, not just the homepage. For July 1–5, the avatar prompt page offers festive one-tap presets — Uncle Sam, a bald-eagle mascot, a hero take on Lady Liberty, and a glowing red-white-and-blue firework sprite — and the Forge adds matching props you can generate in a click: a bald-eagle statue, a rippling flag, a cracked liberty bell, and a firework rocket. On the Forge they stay pinned while 'More ideas' shuffles the regular prompts, and everything retires itself automatically once the holiday passes.",
 			"link": "/create/prompt",
 			"tags": [
 				"improvement"
@@ -96,6 +106,28 @@
 			"link": "/",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-07-04",
+			"type": "update",
+			"title": "Put a 3D store guide on your Shopify shop — one-tag tour SDK release",
+			"summary": "The guided-tour engine now installs on any external site with a single script tag. @three-ws/tour 0.2.0 ships a self-contained CDN build (tour.global.js) that auto-starts from data attributes — point it at a curriculum JSON and your storefront gets an avatar that walks the page, spotlights sections, narrates each one, and offers free roam. @three-ws/walk 0.1.1 fixes cross-origin animation loading so avatars animate correctly when assets are served from the three.ws CDN onto another domain. A new step-by-step tutorial shows the full Shopify install: theme.liquid tags, a store curriculum, a Take-the-tour button, and the optional docked page narrator.",
+			"link": "/tutorials/shopify-store-guide",
+			"tags": [
+				"sdk",
+				"feature",
+				"docs"
+			]
+		},
+		{
+			"date": "2026-07-04",
+			"type": "update",
+			"title": "Soldier, X Bot, and Michelle animations no longer float away",
+			"summary": "Eleven animation clips baked from centimeter-scale source models (the Soldier idle/run/walk set, the full X Bot set, and Michelle's samba) carried hip positions about 100× too large, which could send an avatar drifting far above the ground when one of them played directly. The animation build pipeline now detects centimeter-authored skeletons from the data itself instead of guessing from the file type, and all eleven clips have been rebaked at true meter scale.",
+			"link": null,
+			"tags": [
+				"fix"
 			]
 		},
 		{

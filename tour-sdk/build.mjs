@@ -39,6 +39,27 @@ const result = await build({
 	logLevel: 'info',
 });
 
+// Standalone IIFE for a plain CDN <script> — three and @three-ws/walk inlined
+// (walk resolved from the monorepo source so fixes ship together), exposed as
+// window.ThreeWsTour, with data-attribute auto-init (see src/global.js).
+await build({
+	entryPoints: [resolve(here, 'src/global.js')],
+	bundle: true,
+	format: 'iife',
+	globalName: 'ThreeWsTour',
+	minify: true,
+	sourcemap: true,
+	platform: 'browser',
+	target: 'es2020',
+	alias: { '@three-ws/walk': resolve(here, '../walk-sdk/src/index.js') },
+	// import.meta doesn't exist in an IIFE — pin the dev flag off explicitly.
+	define: { 'import.meta.env.DEV': 'false' },
+	outfile: resolve(outDir, 'tour.global.js'),
+	legalComments: 'none',
+	logLevel: 'info',
+	footer: { js: 'if(typeof window!=="undefined"){window.createFeatureTour=ThreeWsTour.createFeatureTour;}' },
+});
+
 writeFileSync(
 	resolve(outDir, 'style.css'),
 	'/* @three-ws/tour — styles are injected at runtime by the tour director and its UI modules. */\n',
@@ -47,4 +68,4 @@ writeFileSync(
 const out = Object.keys(result.metafile.outputs)
 	.map((p) => p.replace(/^.*tour-sdk\//, ''))
 	.sort();
-console.log('[tour-sdk] built:\n  ' + out.join('\n  '));
+console.log('[tour-sdk] built:\n  ' + out.join('\n  ') + '\n  dist/tour.global.js');
