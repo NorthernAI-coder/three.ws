@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-07-04",
+			"title": "A little Fourth of July on the homepage",
+			"summary": "For Independence Day (July 1–5) the homepage wears a touch of red, white, and blue: a soft ribbon glow along the top of the page and real launch-and-burst fireworks that rise and shower over the hero. It's sparse and tasteful, respects your reduced-motion setting, pauses when the tab is in the background, and retires itself automatically once the holiday passes.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/"
+		},
+		{
+			"date": "2026-07-04",
 			"title": "Global markets — live prices and a rich detail page for every coin",
 			"summary": "three.ws now covers the whole market, not just pump.fun launches. The new Markets page shows global market cap, dominance, the Fear & Greed index, and the top coins with live prices, 24h/7d moves, and 7-day sparklines — sortable, searchable, and paginated. Click any coin (or visit /coin/<id> directly) for a rich profile: interactive price chart across five time ranges, full market stats including all-time high and low, related news from live sources, a plain-language about section, official links, and contract addresses. Solana coins cross-link straight into Alpha Copilot and the live trade feed.",
 			"tags": [
