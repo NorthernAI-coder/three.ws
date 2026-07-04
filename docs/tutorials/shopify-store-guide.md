@@ -114,7 +114,7 @@ Save, open your storefront, click the button. The page dims, your hero gets a sp
 If you also want a narrator that reads the page aloud — product descriptions, headings, policies — add the page-agent tag next to the tour tag:
 
 ```html
-<script src="https://unpkg.com/@three-ws/page-agent@0.1.0/dist/page-agent.global.js"
+<script src="https://unpkg.com/@three-ws/page-agent@0.1.1/dist/page-agent.global.js"
         data-page-agent data-avatar="sol" defer></script>
 ```
 

@@ -5,8 +5,8 @@ import {
   Transaction,
   sendAndConfirmTransaction,
 } from '@solana/web3.js';
-import { Program, AnchorProvider, Wallet } from '@coral-xyz/anchor';
-import { IDL, AGENT_INVOCATION_PROGRAM_ID, type AgentInvocation } from './idl.js';
+import { Program, AnchorProvider, Wallet, type Idl } from '@coral-xyz/anchor';
+import { IDL, AGENT_INVOCATION_PROGRAM_ID } from './idl.js';
 
 export { IDL, AGENT_INVOCATION_PROGRAM_ID } from './idl.js';
 export type { AgentInvocation } from './idl.js';
@@ -77,8 +77,11 @@ export async function invokeSkill({
   const provider = new AnchorProvider(connection, new Wallet(invokerAuthority), {
     commitment: 'confirmed',
   });
-  const idl = { ...IDL, address: programId.toBase58() } as unknown as AgentInvocation;
-  const program = new Program<AgentInvocation>(idl, provider);
+  // Anchor 0.30+ camelCases the IDL at runtime (methods.invokeSkill), while our
+  // hand-maintained IDL literal keeps the on-chain snake_case names — so type
+  // the program against the generic Idl rather than the raw literal type.
+  const idl = { ...IDL, address: programId.toBase58() } as unknown as Idl;
+  const program = new Program(idl, provider);
 
   const instruction = await program.methods
     .invokeSkill(skillName, parameters)
