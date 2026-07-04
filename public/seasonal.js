@@ -16,21 +16,28 @@
  *  - user-launched fireworks: clicking open hero space fires a rocket that
  *    bursts right where you clicked, and a "🎆 Fireworks" chip injected into
  *    the hero's animation-chip row makes the hero avatar light a torch
- *    (the torch-light clip) and fires a volley timed to the lighting. The
- *    chip is a real button (keyboard + screen-reader reachable) and retires
- *    itself with the rest of the decorations, so no dead control ships out
- *    of season.
+ *    (the torch-light clip) and fires a volley timed to the lighting. User
+ *    bursts get a quiet procedural WebAudio boom (mutable via the 🔊 chip,
+ *    preference persisted). The chips are real buttons (keyboard + screen-
+ *    reader reachable) and retire with the rest of the decorations, so no
+ *    dead control ships out of season.
  *
  * Every passive layer is aria-hidden, pointer-events:none, and theme-aware.
- * Fireworks are skipped entirely for visitors who prefer reduced motion (the
- * ribbon still shows), and the animation pauses whenever the tab is hidden.
+ * Reduced motion suppresses the ambient show but honors explicit gestures —
+ * clicks still fire (the platform-wide userInitiated convention). The render
+ * loop parks whenever the tab is hidden, the hero is scrolled out of view,
+ * or (under reduced motion) the sky is clear.
  */
 (() => {
 	const now = new Date();
 	if (now.getMonth() !== 6 || now.getDate() > 5) return; // July 1–5 only
 	if (document.getElementById('seasonal-ribbon')) return;
 
-	const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+	// Live-tracked so flipping the OS setting mid-visit is honored immediately.
+	// Matches the platform convention (see element.js playClip): an explicit
+	// user gesture may animate; only ambient autoplay is suppressed.
+	const reducedMotionMq = window.matchMedia('(prefers-reduced-motion: reduce)');
+	let reducedMotion = reducedMotionMq.matches;
 
 	const style = document.createElement('style');
 	style.textContent = `
@@ -74,7 +81,9 @@
 	ribbon.setAttribute('aria-hidden', 'true');
 	document.body.appendChild(ribbon);
 
-	if (reducedMotion) return;
+	// Reduced motion does NOT bail here: the canvas and controls are still
+	// created so user-initiated fireworks work — only the ambient auto-launch
+	// schedule (in frame()) is suppressed while the preference is on.
 	const hero = document.querySelector('.hero');
 	if (!hero) return;
 
@@ -126,15 +135,88 @@
 	const ro = new ResizeObserver(resize);
 	ro.observe(hero);
 
+	// The render loop only runs while it can actually be seen: tab visible and
+	// the hero in the viewport. Under reduced motion it additionally requires
+	// live particles (a user just fired) — no ambient idle spinning.
+	let heroInView = true;
+	const io = new IntersectionObserver((entries) => {
+		heroInView = entries[0].isIntersecting;
+		updateRunning();
+	}, { threshold: 0.05 });
+	io.observe(hero);
+
+	function shouldRun() {
+		if (document.hidden || !heroInView) return false;
+		if (!reducedMotion) return true;
+		return rockets.length > 0 || sparks.length > 0;
+	}
+	function updateRunning() { if (shouldRun()) start(); else stop(); }
+
+	// ── Sound — user-launched bursts only ───────────────────────────
+	// A tiny procedural boom (filtered-noise thump with a crackle tail),
+	// synthesized with WebAudio per burst — no audio files. Ambient rockets
+	// stay silent; only fireworks a person set off get sound, and the context
+	// is created inside their click gesture so autoplay policy never blocks it.
+	const SOUND_KEY = 'threews-fireworks-sound';
+	const storage = {
+		get() { try { return localStorage.getItem(SOUND_KEY); } catch (_) { return null; } },
+		set(v) { try { localStorage.setItem(SOUND_KEY, v); } catch (_) { /* private mode */ } },
+	};
+	let soundOn = storage.get() !== 'off';
+	let ac = null;
+	function audioCtx() {
+		if (!ac) {
+			const AC = window.AudioContext || window.webkitAudioContext;
+			if (AC) ac = new AC();
+		}
+		if (ac && ac.state === 'suspended') ac.resume();
+		return ac;
+	}
+	function boom(size) {
+		const a = soundOn ? audioCtx() : null;
+		if (!a) return;
+		const dur = 0.6 + size * 0.25;
+		const buf = a.createBuffer(1, Math.ceil(a.sampleRate * dur), a.sampleRate);
+		const d = buf.getChannelData(0);
+		for (let i = 0; i < d.length; i++) {
+			const t = i / d.length;
+			// Cubic-decay thump; sparse spikes on the tail read as crackle.
+			d[i] = (Math.random() * 2 - 1) * ((1 - t) ** 3 + (Math.random() < 0.015 ? (1 - t) * 0.8 : 0));
+		}
+		const src = a.createBufferSource();
+		src.buffer = buf;
+		const lp = a.createBiquadFilter();
+		lp.type = 'lowpass';
+		lp.frequency.setValueAtTime(Math.min(1400, 800 * size), a.currentTime);
+		lp.frequency.exponentialRampToValueAtTime(160, a.currentTime + dur);
+		const gain = a.createGain();
+		gain.gain.setValueAtTime(Math.min(0.2, 0.12 * size), a.currentTime);
+		gain.gain.exponentialRampToValueAtTime(0.001, a.currentTime + dur);
+		src.connect(lp);
+		lp.connect(gain);
+		gain.connect(a.destination);
+		src.start();
+	}
+
 	const rockets = [];   // rising trails
 	const sparks = [];    // exploded particles
-	const MAX_SPARKS = 900;
-	const MAX_ROCKETS = 16;
+	// Scale the show to the device: few cores, little memory, or a coarse (touch)
+	// pointer get a lighter budget so weak hardware holds 60fps.
+	const LITE = (navigator.hardwareConcurrency || 8) <= 4
+		|| (navigator.deviceMemory || 8) <= 4
+		|| window.matchMedia('(pointer: coarse)').matches;
+	const COUNT = LITE ? 0.6 : 1;                 // per-burst particle multiplier
+	const MAX_SPARKS = LITE ? 500 : 900;
+	const MAX_ROCKETS = LITE ? 10 : 16;
+	const scaleN = (n) => Math.max(6, (n * COUNT) | 0);
 
 	// Ambient launches pick their own spot; user launches pass an aim point and
 	// the rocket's velocity is solved so its apex (the burst) lands there.
-	function launch(aimX, aimY) {
+	// `user` marks rockets fired by a person — their bursts get sound, and they
+	// may fly under reduced motion (explicit gesture), so they restart the loop.
+	function launch(aimX, aimY, user = aimY != null) {
 		if (W === 0 || H === 0) return;
+		if (document.hidden || !heroInView) return; // don't queue an unseen show
 		if (rockets.length >= MAX_ROCKETS) return;
 		const targetY = aimY != null ? aimY : H * rand(0.10, 0.46);
 		const x = aimX != null ? aimX + rand(-8, 8) : W * rand(0.12, 0.88);
@@ -145,18 +227,21 @@
 			// Aimed rockets get far less overshoot so the burst stays on the click.
 			vy: -(Math.sqrt(2 * g * (H - targetY)) + (aimY != null ? rand(0.05, 0.2) : rand(0.3, 0.9))),
 			g,
+			user,
 			color: channelColor(pick(['red', 'white', 'blue'])),
 			trail: [],
 		});
+		start();
 	}
 
 	// Effect presets. `size` is a per-firework multiplier that adds variety and
 	// makes some bursts noticeably bigger. Sparks are round dots; their streaks
 	// come from the global afterglow fade, so no effect draws long lines.
-	function burst(x, y) {
+	function burst(x, y, user) {
 		const effect = pick(['peony', 'ring', 'willow', 'chrysanthemum', 'crackle', 'comet']);
 		const scheme = pick(SCHEMES);
 		const size = rand(0.85, 1.8);
+		if (user) boom(size);
 		const emit = (opts) => {
 			sparks.push(Object.assign({
 				x, y, life: 1, twinkle: false, drag: 0.985, g: 0.05,
@@ -165,7 +250,7 @@
 		};
 
 		if (effect === 'ring') {
-			const n = 44 + ((Math.random() * 26) | 0);
+			const n = scaleN(44 + ((Math.random() * 26) | 0));
 			const spd = rand(3.2, 4.6) * size;
 			for (let i = 0; i < n; i++) {
 				const a = (Math.PI * 2 * i) / n;
@@ -175,7 +260,7 @@
 		} else if (effect === 'willow') {
 			// Slow, long-lived, heavy — droops under gravity and lingers, so the
 			// afterglow paints soft drooping streaks without any drawn lines.
-			const n = 36 + ((Math.random() * 26) | 0);
+			const n = scaleN(36 + ((Math.random() * 26) | 0));
 			const spd = rand(2.2, 3.2) * size;
 			for (let i = 0; i < n; i++) {
 				const a = Math.random() * Math.PI * 2;
@@ -183,7 +268,7 @@
 				emit({ vx: Math.cos(a) * s, vy: Math.sin(a) * s, decay: rand(0.006, 0.010), r: rand(1.6, 2.4), g: 0.09, drag: 0.975 });
 			}
 		} else if (effect === 'chrysanthemum') {
-			const n = 60 + ((Math.random() * 46) | 0);
+			const n = scaleN(60 + ((Math.random() * 46) | 0));
 			const spd = rand(3, 4.6) * size;
 			for (let i = 0; i < n; i++) {
 				const a = Math.random() * Math.PI * 2;
@@ -191,7 +276,7 @@
 				emit({ vx: Math.cos(a) * s, vy: Math.sin(a) * s, decay: rand(0.010, 0.016), r: rand(1.4, 2.3), g: 0.05, drag: 0.982 });
 			}
 		} else if (effect === 'crackle') {
-			const n = 55 + ((Math.random() * 45) | 0);
+			const n = scaleN(55 + ((Math.random() * 45) | 0));
 			const spd = rand(2.4, 4.4) * size;
 			for (let i = 0; i < n; i++) {
 				const a = Math.random() * Math.PI * 2;
@@ -201,7 +286,7 @@
 		} else if (effect === 'comet') {
 			// A few fast, fading sparks in random directions — short bright darts
 			// whose afterglow gives a clean comet streak, no fake rod.
-			const n = 10 + ((Math.random() * 8) | 0);
+			const n = scaleN(10 + ((Math.random() * 8) | 0));
 			const spd = rand(3.4, 5) * size;
 			for (let i = 0; i < n; i++) {
 				const a = Math.random() * Math.PI * 2;
@@ -209,7 +294,7 @@
 				emit({ vx: Math.cos(a) * s, vy: Math.sin(a) * s, decay: rand(0.012, 0.02), r: rand(1.8, 2.8), g: 0.06, drag: 0.97 });
 			}
 		} else { // peony — classic round burst
-			const n = 50 + ((Math.random() * 44) | 0);
+			const n = scaleN(50 + ((Math.random() * 44) | 0));
 			const spd = rand(2.8, 4.8) * size;
 			for (let i = 0; i < n; i++) {
 				const a = Math.random() * Math.PI * 2;
@@ -231,6 +316,7 @@
 	hero.addEventListener('click', (e) => {
 		if (e.target.closest(INTERACTIVE)) return;
 		if (Math.hypot(e.clientX - downX, e.clientY - downY) > 6) return; // was a drag
+		if (soundOn) audioCtx(); // unlock audio inside the user gesture
 		const rect = hero.getBoundingClientRect();
 		const x = Math.min(Math.max(e.clientX - rect.left, 8), W - 8);
 		const y = Math.min(Math.max(e.clientY - rect.top, H * 0.06), H * 0.8);
@@ -246,8 +332,9 @@
 	// avatar the fuse delay still reads naturally — fuses take a moment.
 	const FUSE_MS = 1600;
 	function volley() {
+		if (soundOn) audioCtx(); // unlock audio inside the user gesture
 		const n = 5 + ((Math.random() * 3) | 0);
-		for (let i = 0; i < n; i++) setTimeout(() => launch(), FUSE_MS + i * (140 + Math.random() * 140));
+		for (let i = 0; i < n; i++) setTimeout(() => launch(null, null, true), FUSE_MS + i * (140 + Math.random() * 140));
 		sinceLaunch = 0;
 	}
 
@@ -275,6 +362,27 @@
 		chip.setAttribute('aria-label', 'Light the torch and set off a volley of fireworks');
 		chip.textContent = '🎆 Fireworks';
 		chip.addEventListener('click', volley);
+
+		// Mute toggle for the burst sound. Persisted, so a visitor who mutes
+		// once stays muted across pages and visits (within the window).
+		const mute = document.createElement('button');
+		mute.type = 'button';
+		mute.className = 'hero-chip hero-chip--fireworks';
+		mute.setAttribute('aria-label', 'Firework sound');
+		const paintMute = () => {
+			mute.textContent = soundOn ? '🔊' : '🔇';
+			mute.setAttribute('aria-pressed', String(soundOn));
+			mute.title = soundOn ? 'Mute firework sound' : 'Unmute firework sound';
+		};
+		paintMute();
+		mute.addEventListener('click', () => {
+			soundOn = !soundOn;
+			storage.set(soundOn ? 'on' : 'off');
+			if (soundOn) audioCtx(); // unlock inside the gesture
+			paintMute();
+		});
+
+		chipRow.prepend(mute);
 		chipRow.prepend(chip);
 	}
 
@@ -295,7 +403,9 @@
 		ctx.fillRect(0, 0, W, H);
 		ctx.globalCompositeOperation = C.comp;
 
-		if (++sinceLaunch >= nextGap) {
+		// Ambient auto-launches — suppressed under reduced motion (the loop then
+		// only runs to finish rockets the user explicitly set off).
+		if (!reducedMotion && ++sinceLaunch >= nextGap) {
 			sinceLaunch = 0;
 			nextGap = 100 + ((Math.random() * 150) | 0); // ~1.7–4.2s at 60fps
 			launch();
@@ -323,7 +433,7 @@
 			ctx.globalAlpha = 1;
 
 			if (r.vy >= -0.4) { // apex reached — explode
-				burst(r.x, r.y);
+				burst(r.x, r.y, r.user);
 				rockets.splice(i, 1);
 			}
 		}
@@ -348,6 +458,10 @@
 			ctx.fill();
 		}
 		ctx.globalAlpha = 1;
+
+		// Under reduced motion the loop exists only to finish a user's rockets;
+		// once the sky is clear, park it until the next explicit launch.
+		if (reducedMotion && rockets.length === 0 && sparks.length === 0) stop();
 	}
 
 	function start() {
@@ -360,10 +474,28 @@
 		running = false;
 		if (raf) cancelAnimationFrame(raf);
 		raf = 0;
+		// Wipe the canvas so scrolling back doesn't flash a frozen mid-air frame.
+		ctx.setTransform(1, 0, 0, 1, 0, 0);
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 	}
 
-	document.addEventListener('visibilitychange', () => {
-		if (document.hidden) stop(); else start();
+	document.addEventListener('visibilitychange', updateRunning);
+	reducedMotionMq.addEventListener?.('change', (e) => {
+		reducedMotion = e.matches;
+		updateRunning();
 	});
-	if (!document.hidden) start();
+
+	// Lifecycle. On navigating away we park the loop and free the AudioContext
+	// (an open one blocks bfcache), nulling it so it's rebuilt on the next
+	// gesture if the page is restored. Observers persist across a bfcache round
+	// trip and are only disconnected on a real unload; pageshow resumes.
+	window.addEventListener('pagehide', (e) => {
+		stop();
+		if (ac) { try { ac.close(); } catch (_) { /* already closed */ } ac = null; }
+		if (!e.persisted) { io.disconnect(); ro.disconnect(); themeObserver.disconnect(); }
+	});
+	window.addEventListener('pageshow', updateRunning);
+
+	updateRunning();
 })();

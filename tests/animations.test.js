@@ -115,7 +115,15 @@ describe('animation clips', () => {
 	it('every clip parses as a valid AnimationClip', () => {
 		for (const { name, clip } of parsedClips) {
 			expect(clip.name, `${name}: clip.name`).toBe(name);
-			expect(clip.duration, `${name}: duration must be > 0`).toBeGreaterThan(0);
+			// Static poses (every track a single keyframe) legitimately have a
+			// zero or near-zero duration — the mixer holds the pose. Anything
+			// with real keyframe motion must have a positive duration.
+			const isStaticPose = clip.tracks.every((t) => t.times.length === 1);
+			if (isStaticPose) {
+				expect(clip.duration, `${name}: static pose duration`).toBeGreaterThanOrEqual(0);
+			} else {
+				expect(clip.duration, `${name}: duration must be > 0`).toBeGreaterThan(0);
+			}
 			expect(clip.tracks.length, `${name}: must have tracks`).toBeGreaterThan(0);
 		}
 	});
