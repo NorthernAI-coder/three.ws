@@ -3888,12 +3888,14 @@ const EXTERNAL_ENDPOINTS = [
 // volume without hammering one service. Override via env.
 export const MAX_PER_TICK = Number(process.env.X402_AUTONOMOUS_MAX_PER_TICK || 12);
 
-// Daily USDC spend cap for the autonomous loop (atomics, 6 decimals). Raised from
-// the demo default ($5) to $15 so the higher per-tick throughput isn't money-
-// starved mid-day. Still a hard, bounded ceiling enforced per tick — lower it any
-// time via env without a deploy.
-// Default: $15.00 = 15_000_000 atomics. Override via X402_AUTONOMOUS_DAILY_CAP_ATOMIC.
-export const DAILY_CAP_ATOMIC = Number(process.env.X402_AUTONOMOUS_DAILY_CAP_ATOMIC || 15_000_000);
+// Daily USDC spend cap for the autonomous loop (atomics, 6 decimals). This loop
+// pays external + self catalog endpoints (signals, audits, reputation) — separate
+// budget from the ring tick's ~$50k/day settle throughput. Set to $5k so the cap
+// is never the binding limit at platform scale; funding + per-endpoint cooldowns
+// govern real spend. Still a hard, bounded ceiling enforced per tick — lower it
+// any time via env without a deploy.
+// Default: $5,000.00 = 5_000_000_000 atomics. Override via X402_AUTONOMOUS_DAILY_CAP_ATOMIC.
+export const DAILY_CAP_ATOMIC = Number(process.env.X402_AUTONOMOUS_DAILY_CAP_ATOMIC || 5_000_000_000);
 
 export function getSelfRegistry() { return SELF_ENDPOINTS; }
 export function getExternalRegistry() { return EXTERNAL_ENDPOINTS; }
