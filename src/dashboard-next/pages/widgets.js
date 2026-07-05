@@ -405,12 +405,12 @@ function openEmbedPopover(anchor, widget) {
 			<div class="dn-wx-pop-title">Embed snippet</div>
 			<button class="dn-wx-pop-close" data-close type="button" aria-label="Close">×</button>
 		</div>
-		<div class="dn-wx-pop-tabs" role="tablist">
-			<button role="tab" data-tab="script" aria-selected="true">Script tag</button>
-			<button role="tab" data-tab="iframe" aria-selected="false">iframe</button>
-			<button role="tab" data-tab="webc" aria-selected="false">Web component</button>
+		<div class="dn-wx-pop-tabs" role="tablist" aria-label="Embed method">
+			<button type="button" role="tab" data-tab="script" aria-selected="true" aria-controls="dn-wx-code" tabindex="0">Script tag</button>
+			<button type="button" role="tab" data-tab="iframe" aria-selected="false" aria-controls="dn-wx-code" tabindex="-1">iframe</button>
+			<button type="button" role="tab" data-tab="webc" aria-selected="false" aria-controls="dn-wx-code" tabindex="-1">Web component</button>
 		</div>
-		<pre class="dn-wx-pop-code" data-code></pre>
+		<pre class="dn-wx-pop-code" id="dn-wx-code" role="region" aria-live="polite" aria-label="Embed snippet" tabindex="0" data-code></pre>
 		<div class="dn-wx-pop-foot">
 			<span class="dn-wx-pop-hint" data-hint>Easiest — auto-loads the runtime.</span>
 			<button class="dn-btn primary" data-copy type="button">Copy</button>
@@ -425,15 +425,33 @@ function openEmbedPopover(anchor, widget) {
 		webc: 'Use after loading /embed.js once on the page.',
 	};
 
+	const TAB_ORDER = ['script', 'iframe', 'webc'];
 	let activeTab = 'script';
 	const paint = () => {
 		codeEl.textContent = snippets[activeTab];
 		hintEl.textContent = HINTS[activeTab];
 		pop.querySelectorAll('[data-tab]').forEach((b) => {
-			b.setAttribute('aria-selected', b.dataset.tab === activeTab ? 'true' : 'false');
+			const sel = b.dataset.tab === activeTab;
+			b.setAttribute('aria-selected', sel ? 'true' : 'false');
+			b.tabIndex = sel ? 0 : -1;
 		});
 	};
 	paint();
+
+	// Arrow-key navigation across the tablist (roving tabindex + wrap).
+	pop.querySelector('.dn-wx-pop-tabs').addEventListener('keydown', (ev) => {
+		let next = null;
+		const i = TAB_ORDER.indexOf(activeTab);
+		if (ev.key === 'ArrowRight' || ev.key === 'ArrowDown') next = TAB_ORDER[(i + 1) % TAB_ORDER.length];
+		else if (ev.key === 'ArrowLeft' || ev.key === 'ArrowUp') next = TAB_ORDER[(i - 1 + TAB_ORDER.length) % TAB_ORDER.length];
+		else if (ev.key === 'Home') next = TAB_ORDER[0];
+		else if (ev.key === 'End') next = TAB_ORDER[TAB_ORDER.length - 1];
+		if (!next) return;
+		ev.preventDefault();
+		activeTab = next;
+		paint();
+		pop.querySelector(`[data-tab="${next}"]`)?.focus();
+	});
 
 	pop.addEventListener('click', async (ev) => {
 		const tab = ev.target.closest('[data-tab]');
@@ -442,10 +460,18 @@ function openEmbedPopover(anchor, widget) {
 			paint();
 			return;
 		}
-		if (ev.target.closest('[data-copy]')) {
+		const copyBtn = ev.target.closest('[data-copy]');
+		if (copyBtn) {
 			try {
 				await navigator.clipboard.writeText(snippets[activeTab]);
-				toast('Copied');
+				toast('Copied to clipboard');
+				const prev = copyBtn.textContent;
+				copyBtn.textContent = 'Copied ✓';
+				copyBtn.disabled = true;
+				setTimeout(() => {
+					copyBtn.textContent = prev;
+					copyBtn.disabled = false;
+				}, 1400);
 			} catch {
 				toast('Copy failed — select and copy manually', true);
 			}
@@ -615,8 +641,10 @@ function openTranscriptsModal(widget) {
 	};
 	const onEsc = (ev) => { if (ev.key === 'Escape') close(); };
 	document.addEventListener('keydown', onEsc, true);
-	root.querySelector('[data-close]').addEventListener('click', close);
+	const closeBtn = root.querySelector('[data-close]');
+	closeBtn.addEventListener('click', close);
 	root.querySelector('.dn-wx-modal-back').addEventListener('click', close);
+	closeBtn.focus({ preventScroll: true });
 
 	const threadsEl = root.querySelector('[data-slot="threads"]');
 	const detailEl = root.querySelector('[data-slot="detail"]');
@@ -728,8 +756,10 @@ function openKnowledgeModal(widget) {
 	};
 	const onEsc = (ev) => { if (ev.key === 'Escape') close(); };
 	document.addEventListener('keydown', onEsc, true);
-	root.querySelector('[data-close]').addEventListener('click', close);
+	const closeBtn = root.querySelector('[data-close]');
+	closeBtn.addEventListener('click', close);
 	root.querySelector('.dn-wx-modal-back').addEventListener('click', close);
+	closeBtn.focus({ preventScroll: true });
 
 	const body = root.querySelector('[data-slot="kb-body"]');
 
@@ -887,26 +917,12 @@ function skeletonGrid() {
 }
 
 function emptyState() {
-	return `
-		<div class="dn-empty" style="grid-column:1 / -1">
-			<h3>No widgets yet.</h3>
-			<p>Turn any avatar into an embeddable agent — from a brand widget to a talking guide.</p>
-			<a class="dn-btn primary" href="/widget-studio">Open widget studio</a>
-		</div>
-	`;
-}
-
-function errorBanner(err) {
-	const msg = esc(err?.message || 'Unable to load widgets right now.');
-	return `
-		<div class="dn-panel" style="grid-column:1 / -1;border-color:rgba(150,155,163,0.35);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
-			<div>
-				<div class="dn-panel-title" style="color:var(--nxt-danger)">Couldn't load widgets</div>
-				<div class="dn-panel-sub" style="margin:0">${msg}</div>
-			</div>
-			<button class="dn-btn" data-retry type="button">Retry</button>
-		</div>
-	`;
+	return emptyStateHTML({
+		icon: '🧩',
+		title: 'No widgets yet',
+		body: 'Turn any avatar into an embeddable agent — a brand widget, a talking guide, a support bot. Ship it as a script tag, iframe, or web component.',
+		actions: [{ label: 'Open widget studio', href: '/widget-studio', primary: true }],
+	});
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────
@@ -949,7 +965,8 @@ function injectStyles() {
 
 		.dn-wx-grid {
 			display: grid;
-			grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+			/* min() keeps a single column from forcing horizontal overflow at 320px. */
+			grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
 			gap: 14px;
 		}
 
@@ -958,8 +975,21 @@ function injectStyles() {
 			padding: 0;
 			overflow: hidden;
 			display: flex; flex-direction: column;
+			transition: border-color 0.15s ease, transform 0.15s ease;
 		}
-		.dn-wx-card:hover { border-color: var(--nxt-stroke-strong); }
+		.dn-wx-card:hover { border-color: var(--nxt-stroke-strong); transform: translateY(-2px); }
+
+		/* Focus-visible rings — every interactive control on the card + popovers. */
+		.dn-wx-card :focus-visible,
+		.dn-wx-menu button:focus-visible,
+		.dn-wx-pop-tabs button:focus-visible,
+		.dn-wx-pop-close:focus-visible,
+		.dn-wx-pop-code:focus-visible,
+		.dn-wx-pop-foot .dn-btn:focus-visible,
+		.dn-wx-tx-row:focus-visible {
+			outline: 2px solid var(--nxt-accent);
+			outline-offset: 2px;
+		}
 
 		.dn-wx-frame {
 			position: relative;
@@ -995,6 +1025,7 @@ function injectStyles() {
 			transition: background 0.12s ease;
 		}
 		.dn-wx-poster-play:hover { background: rgba(8,9,14,0.92); }
+		.dn-wx-poster-play:active { transform: translateX(-50%) scale(0.96); }
 		.dn-wx-poster-play svg { color: var(--nxt-accent); }
 
 		.dn-wx-body { padding: 12px 14px 14px; }
@@ -1035,6 +1066,9 @@ function injectStyles() {
 			z-index: 2;
 		}
 		.dn-wx-menu-btn:hover { color: var(--nxt-ink); background: rgba(8,9,14,0.88); }
+		.dn-wx-menu-btn:active { transform: scale(0.92); }
+		.dn-wx-menu button { transition: background 0.12s ease; }
+		.dn-wx-menu button:active { background: rgba(255,255,255,0.1); }
 
 		.dn-wx-menu {
 			position: absolute; z-index: 1000;
@@ -1264,6 +1298,21 @@ function injectStyles() {
 		@keyframes skeleton-pulse {
 			0%, 100% { opacity: 1; }
 			50% { opacity: 0.45; }
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			.dn-wx-card,
+			.dn-wx-frame iframe,
+			.dn-wx-poster,
+			.dn-wx-poster-play,
+			.dn-wx-menu-btn,
+			.dn-wx-menu button,
+			.dn-wx-popover,
+			.dn-wx-toast { transition: none !important; }
+			.dn-wx-card:hover,
+			.dn-wx-menu-btn:active,
+			.dn-wx-poster-play:active { transform: none; }
+			.dn-skeleton-line { animation: none; }
 		}
 	`;
 	const style = document.createElement('style');

@@ -254,7 +254,7 @@ const REP_CSS = `
 .irl-rep-chip.ok { color: var(--nxt-success, #4ade80); border-color: color-mix(in srgb, var(--nxt-success, #4ade80) 30%, transparent); }
 .irl-rep-chip.cred { color: #a78bfa; border-color: color-mix(in srgb, #a78bfa 30%, transparent); }
 .irl-rep-chip.bad { color: var(--nxt-danger, #f87171); border-color: color-mix(in srgb, var(--nxt-danger, #f87171) 30%, transparent); }
-.irl-rep-trend { margin-top: 12px; display: flex; flex-direction: column; gap: 3px; animation: irl-rep-in .2s ease both; }
+.irl-rep-trend { margin-top: 12px; display: flex; flex-direction: column; gap: 3px; }
 .irl-rep-spark { width: 100%; height: 34px; display: block; overflow: visible; }
 .irl-rep-spark-line { fill: none; stroke: var(--spark, var(--nxt-accent, #4ea1ff)); stroke-width: 1.6; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
 .irl-rep-spark-area { fill: var(--spark, var(--nxt-accent, #4ea1ff)); opacity: .1; }
@@ -265,6 +265,7 @@ const REP_CSS = `
 .irl-stat--btn .v { color: var(--nxt-accent, #4ea1ff); }
 @media (prefers-reduced-motion: no-preference) {
 	.irl-rep-section[data-reputation]:not([hidden]) .irl-rep-panel { animation: irl-rep-in .18s ease both; }
+	.irl-rep-trend { animation: irl-rep-in .2s ease both; }
 }
 @keyframes irl-rep-in { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
 `;

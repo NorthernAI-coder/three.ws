@@ -115,12 +115,17 @@ function writeTab(tab) {
 		writeTab(tab);
 		body.id = 'tab-body';
 		body.setAttribute('aria-labelledby', `tab-${tab}`);
-		tabBtns.forEach((b) => b.setAttribute('aria-selected', b.dataset.tab === tab ? 'true' : 'false'));
+		tabBtns.forEach((b) => {
+			const on = b.dataset.tab === tab;
+			b.setAttribute('aria-selected', on ? 'true' : 'false');
+			// Roving tabindex: only the active tab is in the sequential tab order;
+			// the arrow keys move focus between the rest.
+			b.tabIndex = on ? 0 : -1;
+		});
 		body.innerHTML = `
 			<div class="lib-loading">
-				<div class="dn-skeleton" style="height:48px;width:60%;border-radius:8px"></div>
-				<div class="dn-skeleton" style="height:140px;border-radius:10px"></div>
-				<div class="dn-skeleton" style="height:140px;border-radius:10px"></div>
+				${skeletonHTML(1, 'text')}
+				${skeletonHTML(3, 'row')}
 			</div>
 		`;
 		const render = RENDERERS[tab];
@@ -136,18 +141,33 @@ function writeTab(tab) {
 						: (status === 429 || /rate.?limit/i.test(raw))
 							? 'Slow down — try again in a moment.'
 							: raw.replace(/^HTTP\s+\d+\s*/i, '') || 'Unknown error.';
-				body.innerHTML = `
-					<div class="dn-empty">
-						<h3>Couldn't load this tab</h3>
-						<p>${esc(friendly)}</p>
-						<div style="margin-top:12px"><button class="dn-btn" type="button" id="lib-retry">Retry</button></div>
-					</div>
-				`;
-				body.querySelector('#lib-retry')?.addEventListener('click', () => activate(tab));
+				body.innerHTML = errorStateHTML({
+					title: "Couldn't load this tab",
+					body: esc(friendly),
+					scope: tab,
+				});
+				attachRetry(body, () => activate(tab));
 			});
 	}
 
 	tabBtns.forEach((b) => b.addEventListener('click', () => activate(b.dataset.tab)));
+
+	// Arrow-key navigation across the tablist (WAI-ARIA tabs pattern).
+	main.querySelector('.lib-tabstrip')?.addEventListener('keydown', (e) => {
+		if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+		const idx = tabBtns.findIndex((b) => b === document.activeElement);
+		if (idx === -1) return;
+		e.preventDefault();
+		let next = idx;
+		if (e.key === 'ArrowLeft') next = (idx - 1 + tabBtns.length) % tabBtns.length;
+		else if (e.key === 'ArrowRight') next = (idx + 1) % tabBtns.length;
+		else if (e.key === 'Home') next = 0;
+		else if (e.key === 'End') next = tabBtns.length - 1;
+		const btn = tabBtns[next];
+		btn.focus();
+		activate(btn.dataset.tab);
+	});
+
 	window.addEventListener('hashchange', () => activate(readTab()));
 
 	activate(readTab());

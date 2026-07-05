@@ -237,7 +237,7 @@ registerWalletTab({
 		function renderHero() {
 			const s = state.summary || {};
 			const frozen = s.frozen
-				? `<div class="wi-frozen"><span>🧊 Wallet is frozen — every autonomous spend is paused until you unfreeze it under Limits.</span></div>`
+				? `<div class="wi-frozen" role="status"><span>🧊 Wallet is frozen — every autonomous spend is paused until you unfreeze it under Limits.</span></div>`
 				: '';
 			return `<div class="wi-hero">
 				<div class="wi-hero-top">
@@ -344,14 +344,14 @@ registerWalletTab({
 		function renderCopilot() {
 			const log = state.copilot.map((m) => m.role === 'user'
 				? `<div class="wi-bubble user">${esc(m.text)}</div>`
-				: `<div class="wi-bubble bot">${esc(m.text)}<button class="spk" data-speak="${esc(m.text).slice(0, 0)}" data-i="${m.i}" title="Hear it">🔊</button></div>`).join('');
+				: `<div class="wi-bubble bot">${esc(m.text)}<button class="spk" type="button" data-speak data-i="${m.i}" title="Hear it" aria-label="Hear this answer read aloud">🔊</button></div>`).join('');
 			return `<div class="wi-card wi-copilot">
-				<h3>Ask your wallet</h3>
+				<h3 id="wi-ask-h">Ask your wallet</h3>
 				<p class="sub">“How am I doing?” · “What did my rules do this week?” — answered from your real balance + ledger. Never moves funds.</p>
-				<div class="log">${log}</div>
+				<div class="log" role="log" aria-live="polite" aria-label="Conversation with your wallet">${log || '<div class="wi-empty" style="padding:8px 0">Ask a question to see how your wallet is doing.</div>'}</div>
 				<div class="wi-compose">
-					<textarea class="wi-ta" id="wi-ask" style="min-height:42px" placeholder="How am I doing?"></textarea>
-					<button class="wi-btn" id="wi-ask-btn" ${state.asking ? 'disabled' : ''}>${state.asking ? '<span class="wi-spin"></span>' : 'Ask'}</button>
+					<textarea class="wi-ta" id="wi-ask" aria-labelledby="wi-ask-h" style="min-height:42px" placeholder="How am I doing?"></textarea>
+					<button class="wi-btn" id="wi-ask-btn" type="button" aria-label="Ask" ${state.asking ? 'disabled aria-busy="true"' : ''}>${state.asking ? '<span class="wi-spin" aria-hidden="true"></span>' : 'Ask'}</button>
 				</div>
 			</div>`;
 		}
@@ -404,7 +404,7 @@ registerWalletTab({
 			// A SOL destination that's still a name shouldn't reach arm — the server resolved it at compile.
 			const dest = d.intent.action?.destination;
 			if (dest && !SOL_ADDR_RE.test(dest) && !d.intent.action?.to_tipper) { ctx.toast('That destination didn’t resolve — edit the rule.'); return; }
-			const btn = panel.querySelector('#wi-arm'); if (btn) { btn.disabled = true; btn.innerHTML = '<span class="wi-spin"></span>Arming…'; }
+			const btn = panel.querySelector('#wi-arm'); if (btn) { btn.disabled = true; btn.setAttribute('aria-busy', 'true'); btn.innerHTML = '<span class="wi-spin" aria-hidden="true"></span>Arming…'; }
 			const res = await call(base(), { method: 'POST', body: { intent: d.intent, source_text: state.composer, public_trait: state.publishTrait, } });
 			if (destroyed) return;
 			if (!res.ok) { ctx.toast(res.message || 'Could not arm'); render(); return; }

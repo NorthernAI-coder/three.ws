@@ -20,6 +20,7 @@
 
 import { mountShell } from '../shell.js';
 import { requireUser, get, post, del, patch, esc, relTime, ApiError } from '../api.js';
+import { emptyStateHTML, errorStateHTML, ensureStateKitStyles, attachRetry } from '../../shared/state-kit.js';
 
 const MONO = `'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace`;
 
@@ -28,6 +29,10 @@ function toast(msg) {
 	if (!el) {
 		el = document.createElement('div');
 		el.id = 'dn-toast';
+		// role=status + polite live region so copy/save/revoke feedback is
+		// announced to screen readers, not just shown visually.
+		el.setAttribute('role', 'status');
+		el.setAttribute('aria-live', 'polite');
 		el.style.cssText = `
 			position:fixed;left:50%;bottom:32px;transform:translateX(-50%) translateY(20px);
 			background:rgba(20,21,28,0.95);border:1px solid var(--nxt-stroke-strong);
@@ -49,40 +54,48 @@ function toast(msg) {
 	}, 1800);
 }
 
+// Scoped styles for this page — the switch control and shared panel-header
+// layout. Uses only design tokens; injected once.
+function injectStyles() {
+	if (document.getElementById('set-css')) return;
+	const s = document.createElement('style');
+	s.id = 'set-css';
+	s.textContent = `
+		.set-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+		.set-toggle-row{display:flex;align-items:center;justify-content:space-between;gap:16px}
+		.set-toggle-text{min-width:0}
+		.set-toggle-label{font-size:13.5px;color:var(--nxt-ink);font-weight:500}
+		.set-toggle-desc{font-size:12.5px;color:var(--nxt-ink-dim);margin-top:2px;line-height:1.45}
+		.set-switch{position:relative;flex:0 0 auto;width:40px;height:24px;padding:0;border-radius:999px;
+			border:1px solid var(--nxt-stroke-strong);background:rgba(255,255,255,.06);cursor:pointer;
+			transition:background .18s ease,border-color .18s ease}
+		.set-switch:hover{border-color:var(--nxt-accent)}
+		.set-switch[aria-checked="true"]{background:var(--nxt-accent);border-color:var(--nxt-accent)}
+		.set-switch::after{content:"";position:absolute;top:50%;left:2px;transform:translateY(-50%);
+			width:18px;height:18px;border-radius:50%;background:var(--nxt-ink);
+			transition:transform .2s cubic-bezier(.4,0,.2,1),background .18s ease}
+		.set-switch[aria-checked="true"]::after{transform:translateY(-50%) translateX(16px);background:#000}
+		.set-switch:focus-visible{outline:none;box-shadow:0 0 0 3px var(--nxt-accent-soft)}
+		.set-theme-btn:focus-visible,.set-net-btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--nxt-accent-soft)}
+		@media (prefers-reduced-motion:reduce){.set-switch,.set-switch::after{transition:none}}
+	`;
+	document.head.appendChild(s);
+}
+
 (async function boot() {
 	try {
 		const main = await mountShell();
 		await requireUser();
+		ensureStateKitStyles();
+		injectStyles();
 
 		main.innerHTML = `
 			<h1 class="dn-h1">Settings</h1>
 			<p class="dn-h1-sub">Sessions, storage, usage, notifications, and preferences.</p>
-			<div data-slot="content" style="display:flex;flex-direction:column;gap:16px">
-				${Array.from({ length: 4 }).map(() => `<div class="dn-skeleton" style="height:120px;border-radius:12px"></div>`).join('')}
-			</div>
+			<div data-slot="content" style="display:flex;flex-direction:column;gap:16px"></div>
 		`;
 
-		const host = main.querySelector('[data-slot="content"]');
-
-		const [sessionsResp, notifResp, summaryResp, usageResp, prefsResp] = await Promise.all([
-			safeGet('/api/auth/sessions'),
-			safeGet('/api/notifications?limit=20'),
-			safeGet('/api/billing/summary'),
-			safeGet('/api/usage/summary'),
-			safeGet('/api/dashboard/prefs'),
-		]);
-
-		host.innerHTML = '';
-		host.appendChild(renderTheme());
-		host.appendChild(renderSessions(sessionsResp?.sessions || []));
-		host.appendChild(renderNotifications(notifResp));
-		host.appendChild(renderDefaultNetwork(prefsResp?.prefs || prefsResp || {}));
-		host.appendChild(renderStorage(summaryResp));
-		host.appendChild(renderLlmUsage(usageResp));
-		host.appendChild(renderVanityTools());
-		host.appendChild(renderPrefs(prefsResp?.prefs || prefsResp || {}));
-		host.appendChild(renderDataExport());
-		host.appendChild(renderAbout());
+		loadContent(main.querySelector('[data-slot="content"]'));
 	} catch (err) {
 		if (err instanceof ApiError && err.status === 401) {
 			location.href = `/login?return=${encodeURIComponent(location.pathname)}`;
@@ -92,35 +105,86 @@ function toast(msg) {
 	}
 })();
 
+// Load (or reload) every data-backed panel. Extracted so the per-panel error
+// states can offer a working Retry that re-fetches without a full page reload.
+async function loadContent(host) {
+	host.innerHTML = Array.from({ length: 4 })
+		.map(() => `<div class="dn-skeleton" style="height:120px;border-radius:12px"></div>`)
+		.join('');
+
+	const retry = () => loadContent(host);
+
+	const [sessionsResp, notifResp, summaryResp, usageResp, prefsResp] = await Promise.all([
+		safeGet('/api/auth/sessions'),
+		safeGet('/api/notifications?limit=20'),
+		safeGet('/api/billing/summary'),
+		safeGet('/api/usage/summary'),
+		safeGet('/api/dashboard/prefs'),
+	]);
+
+	const prefs = prefsResp.data?.prefs || prefsResp.data || {};
+
+	host.innerHTML = '';
+	host.appendChild(renderTheme());
+	host.appendChild(renderSessions(sessionsResp, retry));
+	host.appendChild(renderNotifications(notifResp, retry));
+	host.appendChild(renderDefaultNetwork(prefs));
+	host.appendChild(renderStorage(summaryResp, retry));
+	host.appendChild(renderLlmUsage(usageResp, retry));
+	host.appendChild(renderVanityTools());
+	host.appendChild(renderPrefs(prefs));
+	host.appendChild(renderDataExport());
+	host.appendChild(renderAbout());
+}
+
+// Returns { ok, data } so callers can tell a genuine fetch failure (show an
+// error state with Retry) apart from a successful-but-empty response (show an
+// empty state). The old swallow-to-null lost that distinction.
 async function safeGet(url) {
-	try { return await get(url); }
-	catch { return null; }
+	try { return { ok: true, data: await get(url) }; }
+	catch { return { ok: false, data: null }; }
 }
 
 // ── Sessions ───────────────────────────────────────────────────────────────
 
-function renderSessions(sessions) {
+function renderSessions(resp, onRetry) {
 	const panel = document.createElement('div');
 	panel.className = 'dn-panel';
+	panel.setAttribute('aria-label', 'Active sessions');
 
-	const now = new Date();
+	const failed = !resp.ok;
+	const sessions = resp.data?.sessions || [];
 
 	panel.innerHTML = `
-		<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+		<div class="set-panel-head">
 			<div>
 				<div class="dn-panel-title">Active sessions</div>
 				<div class="dn-panel-sub" style="margin:2px 0 0">Devices signed in to your account.</div>
 			</div>
-			${sessions.length > 1 ? `<button class="dn-btn danger" data-action="revoke-all">Revoke all other</button>` : ''}
+			${!failed && sessions.length > 1 ? `<button class="dn-btn danger" data-action="revoke-all">Revoke all other</button>` : ''}
 		</div>
 		<div data-slot="sessions-list"></div>
 	`;
 
 	const listHost = panel.querySelector('[data-slot="sessions-list"]');
 
+	if (failed) {
+		listHost.innerHTML = errorStateHTML({
+			title: "Couldn't load sessions",
+			body: 'We couldn’t reach the session service. Check your connection and try again.',
+		});
+		attachRetry(listHost, onRetry);
+		return panel;
+	}
+
 	function renderList(list) {
 		if (!list.length) {
-			listHost.innerHTML = `<div class="dn-empty" style="padding:24px"><h3>No session data</h3><p>Session tracking may not be enabled on this account.</p></div>`;
+			listHost.innerHTML = emptyStateHTML({
+				icon: '',
+				title: 'No active sessions',
+				body: 'Session tracking may not be enabled on this account.',
+				compact: true,
+			});
 			return;
 		}
 		listHost.innerHTML = list.map((s) => {
@@ -189,32 +253,48 @@ function renderSessions(sessions) {
 
 // ── Notifications ──────────────────────────────────────────────────────────
 
-function renderNotifications(resp) {
+function renderNotifications(resp, onRetry) {
 	const panel = document.createElement('div');
 	panel.className = 'dn-panel';
+	panel.setAttribute('aria-label', 'Notifications');
 
-	const notifications = resp?.notifications || [];
-	const unread = resp?.unread ?? notifications.filter((n) => !n.read_at).length;
+	const failed = !resp.ok;
+	const notifications = resp.data?.notifications || [];
+	const unread = resp.data?.unread ?? notifications.filter((n) => !n.read_at).length;
 
 	panel.innerHTML = `
-		<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+		<div class="set-panel-head">
 			<div>
-				<div class="dn-panel-title">Notifications ${unread > 0 ? `<span class="dn-tag warn" style="margin-left:6px">${unread} unread</span>` : ''}</div>
+				<div class="dn-panel-title">Notifications ${!failed && unread > 0 ? `<span class="dn-tag warn" style="margin-left:6px" data-slot="unread-badge">${unread} unread</span>` : ''}</div>
 				<div class="dn-panel-sub" style="margin:2px 0 0">Recent activity and platform messages.</div>
 			</div>
-			${unread > 0 ? `<button class="dn-btn" data-action="mark-all-read">Mark all read</button>` : ''}
+			${!failed && unread > 0 ? `<button class="dn-btn" data-action="mark-all-read">Mark all read</button>` : ''}
 		</div>
 		<div data-slot="notif-list"></div>
 	`;
 
 	const listHost = panel.querySelector('[data-slot="notif-list"]');
 
+	if (failed) {
+		listHost.innerHTML = errorStateHTML({
+			title: "Couldn't load notifications",
+			body: 'We couldn’t reach the notifications service. Try again in a moment.',
+		});
+		attachRetry(listHost, onRetry);
+		return panel;
+	}
+
 	if (!notifications.length) {
-		listHost.innerHTML = `<div class="dn-empty" style="padding:24px"><h3>No notifications</h3><p>You're all caught up.</p></div>`;
+		listHost.innerHTML = emptyStateHTML({
+			icon: '',
+			title: "You're all caught up",
+			body: 'New activity and platform messages will show up here.',
+			compact: true,
+		});
 	} else {
 		listHost.innerHTML = notifications.map((n) => `
-			<div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--nxt-stroke);opacity:${n.read_at ? '0.6' : '1'}">
-				<div style="flex:1">
+			<div class="set-notif-row" data-notif ${n.read_at ? '' : 'data-unread'} style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--nxt-stroke);opacity:${n.read_at ? '0.6' : '1'};transition:opacity .2s ease">
+				<div style="flex:1;min-width:0">
 					<div style="font-size:13.5px;font-weight:${n.read_at ? '400' : '500'};color:var(--nxt-ink)">${esc(n.title || n.message || 'Notification')}</div>
 					${n.body || n.description ? `<div style="font-size:12.5px;color:var(--nxt-ink-dim);margin-top:3px">${esc((n.body || n.description).slice(0, 160))}</div>` : ''}
 					<div style="font-size:12px;color:var(--nxt-ink-fade);margin-top:4px">${n.created_at ? esc(relTime(n.created_at)) : ''}</div>
@@ -232,8 +312,12 @@ function renderNotifications(resp) {
 			await post('/api/notifications/read-all', {});
 			toast('All notifications marked read');
 			btn.remove();
-			panel.querySelector('.dn-panel-title').innerHTML = 'Notifications';
-			listHost.querySelectorAll('[style]').forEach((el) => { el.style.opacity = '0.6'; });
+			panel.querySelector('[data-slot="unread-badge"]')?.remove();
+			// Fade only the rows that were unread — the read ones are already dim.
+			listHost.querySelectorAll('[data-unread]').forEach((el) => {
+				el.style.opacity = '0.6';
+				el.removeAttribute('data-unread');
+			});
 		} catch (err) {
 			toast(err?.message || 'Failed');
 			btn.disabled = false;
@@ -246,10 +330,28 @@ function renderNotifications(resp) {
 
 // ── Storage ────────────────────────────────────────────────────────────────
 
-function renderStorage(summary) {
+function renderStorage(resp, onRetry) {
 	const panel = document.createElement('div');
 	panel.className = 'dn-panel';
+	panel.setAttribute('aria-label', 'Storage');
 
+	if (!resp.ok) {
+		panel.innerHTML = `
+			<div style="margin-bottom:14px">
+				<div class="dn-panel-title">Storage</div>
+				<div class="dn-panel-sub" style="margin:2px 0 0">Disk usage across avatars and animation clips.</div>
+			</div>
+			<div data-slot="storage-err"></div>`;
+		const errHost = panel.querySelector('[data-slot="storage-err"]');
+		errHost.innerHTML = errorStateHTML({
+			title: "Couldn't load storage usage",
+			body: 'We couldn’t reach the billing service. Try again in a moment.',
+		});
+		attachRetry(errHost, onRetry);
+		return panel;
+	}
+
+	const summary = resp.data || {};
 	const usage = summary?.usage || {};
 	const quotas = summary?.quotas || {};
 	const totalBytes = usage.total_bytes ?? 0;
@@ -299,10 +401,28 @@ function fmtBytes(n) {
 
 // ── LLM usage ─────────────────────────────────────────────────────────────
 
-function renderLlmUsage(usageResp) {
+function renderLlmUsage(resp, onRetry) {
 	const panel = document.createElement('div');
 	panel.className = 'dn-panel';
+	panel.setAttribute('aria-label', 'LLM usage');
 
+	if (!resp.ok) {
+		panel.innerHTML = `
+			<div style="margin-bottom:14px">
+				<div class="dn-panel-title">LLM usage</div>
+				<div class="dn-panel-sub" style="margin:2px 0 0">AI inference calls your agents have made this month.</div>
+			</div>
+			<div data-slot="llm-err"></div>`;
+		const errHost = panel.querySelector('[data-slot="llm-err"]');
+		errHost.innerHTML = errorStateHTML({
+			title: "Couldn't load usage",
+			body: 'We couldn’t reach the usage service. Try again in a moment.',
+		});
+		attachRetry(errHost, onRetry);
+		return panel;
+	}
+
+	const usageResp = resp.data || {};
 	const llm = usageResp?.llm || usageResp || {};
 	const callsMonth = llm.calls_month ?? llm.llm_calls_month ?? null;
 	const tokensMonth = llm.tokens_month ?? llm.tokens_consumed ?? null;
@@ -314,7 +434,7 @@ function renderLlmUsage(usageResp) {
 			<div class="dn-panel-sub" style="margin:2px 0 0">AI inference calls your agents have made this month.</div>
 		</div>
 		${callsMonth == null && !byModel.length
-			? `<div class="dn-empty" style="padding:24px"><h3>No usage data</h3><p>LLM usage will appear here as your agents chat and reason.</p></div>`
+			? emptyStateHTML({ icon: '', title: 'No usage yet', body: 'LLM usage will appear here as your agents chat and reason.', compact: true })
 			: `
 				<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:${byModel.length ? '16px' : '0'}">
 					${callsMonth != null ? statBox('Calls this month', callsMonth.toLocaleString()) : ''}
@@ -405,11 +525,18 @@ function renderPrefs(prefs) {
 		</div>
 	`;
 
+	// role=switch buttons: click (and native Space/Enter on a <button>) flips state.
+	panel.querySelectorAll('.set-switch').forEach((sw) => {
+		sw.addEventListener('click', () => {
+			sw.setAttribute('aria-checked', sw.getAttribute('aria-checked') === 'true' ? 'false' : 'true');
+		});
+	});
+
 	panel.querySelector('[data-action="save-prefs"]').addEventListener('click', async (e) => {
 		const btn = e.currentTarget;
 		const newPrefs = {};
 		panel.querySelectorAll('[data-pref-key]').forEach((el) => {
-			newPrefs[el.dataset.prefKey] = el.checked;
+			newPrefs[el.dataset.prefKey] = el.getAttribute('aria-checked') === 'true';
 		});
 		btn.disabled = true;
 		btn.textContent = 'Saving…';
@@ -440,9 +567,10 @@ function renderTheme() {
 			<div class="dn-panel-title">Appearance</div>
 			<div class="dn-panel-sub" style="margin:2px 0 0">Choose your dashboard color scheme.</div>
 		</div>
-		<div style="display:flex;gap:10px;flex-wrap:wrap">
+		<div style="display:flex;gap:10px;flex-wrap:wrap" role="group" aria-label="Color scheme">
 			${['dark', 'light', 'auto'].map((t) => `
-				<button class="dn-btn ${t === stored ? 'primary' : ''}" data-theme="${t}" type="button"
+				<button class="dn-btn set-theme-btn ${t === stored ? 'primary' : ''}" data-theme="${t}" type="button"
+					aria-pressed="${t === stored}"
 					style="min-width:90px;justify-content:center;text-transform:capitalize">
 					${t === 'dark' ? '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M13.5 8.5a5.5 5.5 0 11-6-6 4.5 4.5 0 006 6z"/></svg>' : ''}
 					${t === 'light' ? '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="3"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.2 3.2l1.4 1.4M11.4 11.4l1.4 1.4M3.2 12.8l1.4-1.4M11.4 4.6l1.4-1.4"/></svg>' : ''}
@@ -477,7 +605,9 @@ function renderTheme() {
 			const theme = btn.dataset.theme;
 			applyTheme(theme);
 			panel.querySelectorAll('[data-theme]').forEach((b) => {
-				b.classList.toggle('primary', b.dataset.theme === theme);
+				const on = b.dataset.theme === theme;
+				b.classList.toggle('primary', on);
+				b.setAttribute('aria-pressed', String(on));
 			});
 			const hint = panel.querySelector('div:last-child');
 			hint.textContent = theme === 'auto'
@@ -503,13 +633,14 @@ function renderDefaultNetwork(prefs) {
 			<div class="dn-panel-title">Default payment network</div>
 			<div class="dn-panel-sub" style="margin:2px 0 0">Select the default blockchain for payments and token operations.</div>
 		</div>
-		<div style="display:flex;gap:10px;flex-wrap:wrap">
+		<div style="display:flex;gap:10px;flex-wrap:wrap" role="group" aria-label="Default payment network">
 			${[
 				{ value: 'solana', label: 'Solana', note: 'Fast, low-cost' },
 				{ value: 'base', label: 'Base', note: 'Low-fee EVM L2' },
 				{ value: 'polygon', label: 'Polygon', note: 'EVM L2' },
 			].map((n) => `
-				<button class="dn-btn ${n.value === current ? 'primary' : ''}" data-network="${n.value}" type="button"
+				<button class="dn-btn set-net-btn ${n.value === current ? 'primary' : ''}" data-network="${n.value}" type="button"
+					aria-pressed="${n.value === current}"
 					style="min-width:120px;flex-direction:column;align-items:center;gap:4px;padding:14px 16px">
 					<span style="font-weight:600;font-size:14px">${esc(n.label)}</span>
 					<span style="font-size:11px;color:${n.value === current ? 'rgba(0,0,0,0.6)' : 'var(--nxt-ink-fade)'}">${esc(n.note)}</span>
@@ -523,9 +654,11 @@ function renderDefaultNetwork(prefs) {
 			const network = btn.dataset.network;
 			localStorage.setItem('twx_default_network', network);
 			panel.querySelectorAll('[data-network]').forEach((b) => {
-				b.classList.toggle('primary', b.dataset.network === network);
+				const on = b.dataset.network === network;
+				b.classList.toggle('primary', on);
+				b.setAttribute('aria-pressed', String(on));
 				const sub = b.querySelector('span:last-child');
-				if (sub) sub.style.color = b.dataset.network === network ? 'rgba(0,0,0,0.6)' : 'var(--nxt-ink-fade)';
+				if (sub) sub.style.color = on ? 'rgba(0,0,0,0.6)' : 'var(--nxt-ink-fade)';
 			});
 			try {
 				await patch('/api/dashboard/prefs', { prefs: { default_network: network } });
@@ -655,14 +788,17 @@ function renderAbout() {
 }
 
 function prefToggle(key, label, description, checked) {
+	const labelId = `pref-${key}-label`;
+	const descId = `pref-${key}-desc`;
 	return `
-		<label style="display:flex;align-items:center;justify-content:space-between;gap:16px;cursor:pointer">
-			<div>
-				<div style="font-size:13.5px;color:var(--nxt-ink);font-weight:500">${esc(label)}</div>
-				<div style="font-size:12.5px;color:var(--nxt-ink-dim);margin-top:2px">${esc(description)}</div>
+		<div class="set-toggle-row">
+			<div class="set-toggle-text">
+				<div class="set-toggle-label" id="${labelId}">${esc(label)}</div>
+				<div class="set-toggle-desc" id="${descId}">${esc(description)}</div>
 			</div>
-			<input type="checkbox" data-pref-key="${esc(key)}" ${checked ? 'checked' : ''}
-				style="width:18px;height:18px;cursor:pointer;accent-color:var(--nxt-accent);flex-shrink:0" />
-		</label>
+			<button type="button" role="switch" class="set-switch" data-pref-key="${esc(key)}"
+				aria-checked="${checked ? 'true' : 'false'}"
+				aria-labelledby="${esc(labelId)}" aria-describedby="${esc(descId)}"></button>
+		</div>
 	`;
 }

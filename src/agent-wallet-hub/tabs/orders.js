@@ -210,7 +210,7 @@ registerWalletTab({
 				return;
 			}
 			if (state.error) {
-				panel.innerHTML = `<div class="aord"><div class="aord-err">Couldn’t load your orders: ${esc(state.error)}</div><div class="aord-actions"><button class="aord-btn" id="aord-retry">Retry</button></div></div>`;
+				panel.innerHTML = `<div class="aord"><div class="aord-err" role="alert">Couldn’t load your orders: ${esc(state.error)}</div><div class="aord-actions"><button type="button" class="aord-btn" id="aord-retry">Retry</button></div></div>`;
 				panel.querySelector('#aord-retry')?.addEventListener('click', load);
 				return;
 			}
@@ -244,9 +244,9 @@ registerWalletTab({
 
 		function renderHero() {
 			const s = state.summary || {};
-			const frozen = s.frozen ? `<div class="aord-banner"><span>🧊 Wallet frozen — orders won’t fire until you unfreeze it under Limits.</span></div>` : '';
-			const killed = s.kill_switch ? `<div class="aord-banner"><span>⛔ Discretionary trading is paused (kill switch) — orders are held until you re-enable it.</span></div>` : '';
-			const cancelAll = s.active ? `<button class="aord-btn danger sm" id="aord-cancel-all">Cancel all (${s.active})</button>` : '';
+			const frozen = s.frozen ? `<div class="aord-banner" role="status"><span>🧊 Wallet frozen — orders won’t fire until you unfreeze it under Limits.</span></div>` : '';
+			const killed = s.kill_switch ? `<div class="aord-banner" role="status"><span>⛔ Discretionary trading is paused (kill switch) — orders are held until you re-enable it.</span></div>` : '';
+			const cancelAll = s.active ? `<button type="button" class="aord-btn danger sm" id="aord-cancel-all">Cancel all (${s.active})</button>` : '';
 			return `<div class="aord-hero">
 				<div class="aord-hero-top">
 					<h2 class="aord-title">Programmable orders <span id="aord-livebadge">${state.live ? '<span class="aord-live"><span class="dot"></span>live</span>' : ''}</span><small>Limit · stop · trailing · DCA · TWAP · conditional — fired automatically, inside your guardrails.</small></h2>
@@ -260,7 +260,7 @@ registerWalletTab({
 		function renderForm() {
 			const f = state.form;
 			const typeGrid = Object.entries(TYPE_META).map(([k, m]) => `
-				<button class="aord-type" data-type="${k}" aria-pressed="${f.type === k}">
+				<button type="button" class="aord-type" data-type="${k}" aria-pressed="${f.type === k}">
 					<div class="t">${m.icon} ${esc(m.label)}</div><div class="b">${esc(m.blurb)}</div>
 				</button>`).join('');
 			return `<div class="aord-card">
@@ -268,41 +268,41 @@ registerWalletTab({
 				<p class="sub">Pick a type, set the trigger, preview the live fill condition + firewall verdict, then arm.</p>
 				<div class="aord-types">${typeGrid}</div>
 				<div class="aord-field">
-					<label>Side</label>
-					<div class="aord-seg" role="group" aria-label="side">
-						<button data-side="buy" aria-pressed="${f.side === 'buy'}">Buy</button>
-						<button data-side="sell" aria-pressed="${f.side === 'sell'}">Sell</button>
+					<label id="f-side-lbl">Side</label>
+					<div class="aord-seg" role="group" aria-labelledby="f-side-lbl">
+						<button type="button" data-side="buy" aria-pressed="${f.side === 'buy'}">Buy</button>
+						<button type="button" data-side="sell" aria-pressed="${f.side === 'sell'}">Sell</button>
 					</div>
 				</div>
-				<div class="aord-field"><label>Token mint</label><input class="aord-input" id="f-mint" placeholder="${THREE_MINT}" value="${esc(f.mint)}" spellcheck="false" autocomplete="off"/></div>
+				<div class="aord-field"><label for="f-mint">Token mint</label><input class="aord-input" id="f-mint" placeholder="${THREE_MINT}" value="${esc(f.mint)}" spellcheck="false" autocomplete="off"/></div>
 				${renderTypeFields(f)}
 				<div class="aord-row">
-					<div class="aord-field"><label>Max slippage (bps)</label><input class="aord-input" id="f-slippage" type="number" min="1" max="5000" value="${esc(f.slippage_bps)}"/></div>
-					<div class="aord-field"><label>Expires (optional)</label><input class="aord-input" id="f-expires" type="datetime-local" value="${esc(f.expires_at)}"/></div>
+					<div class="aord-field"><label for="f-slippage">Max slippage (bps)</label><input class="aord-input" id="f-slippage" type="number" min="1" max="5000" value="${esc(f.slippage_bps)}"/></div>
+					<div class="aord-field"><label for="f-expires">Expires (optional)</label><input class="aord-input" id="f-expires" type="datetime-local" value="${esc(f.expires_at)}"/></div>
 				</div>
 				${state.preview ? renderPreview(state.preview) : ''}
 				<div class="aord-actions">
-					<button class="aord-btn" id="aord-preview" ${state.previewing ? 'disabled' : ''}>${state.previewing ? '<span class="aord-spin"></span>Checking…' : 'Preview'}</button>
-					<button class="aord-btn primary" id="aord-create" ${state.creating ? 'disabled' : ''}>${state.creating ? '<span class="aord-spin"></span>Arming…' : 'Arm order'}</button>
+					<button type="button" class="aord-btn" id="aord-preview" ${state.previewing ? 'disabled' : ''} ${state.previewing ? 'aria-busy="true"' : ''}>${state.previewing ? '<span class="aord-spin"></span>Checking…' : 'Preview'}</button>
+					<button type="button" class="aord-btn primary" id="aord-create" ${state.creating ? 'disabled' : ''} ${state.creating ? 'aria-busy="true"' : ''}>${state.creating ? '<span class="aord-spin"></span>Arming…' : 'Arm order'}</button>
 				</div>
 			</div>`;
 		}
 
 		function renderTypeFields(f) {
-			const metricSel = (id) => `<div class="aord-field"><label>Trigger metric</label><select class="aord-select" id="${id}">${Object.entries(METRIC_LABEL).map(([k, l]) => `<option value="${k}" ${f.trigger_metric === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></div>`;
+			const metricSel = (id) => `<div class="aord-field"><label for="${id}">Trigger metric</label><select class="aord-select" id="${id}">${Object.entries(METRIC_LABEL).map(([k, l]) => `<option value="${k}" ${f.trigger_metric === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></div>`;
 			const sizeField = f.side === 'buy'
-				? `<div class="aord-field"><label>Size (SOL per fill)</label><input class="aord-input" id="f-size_sol" type="number" step="0.001" min="0" value="${esc(f.size_sol)}"/></div>`
-				: `<div class="aord-field"><label>Sell (% of holding)</label><input class="aord-input" id="f-sell_pct" type="number" step="1" min="1" max="100" value="${esc(f.sell_pct)}"/></div>`;
+				? `<div class="aord-field"><label for="f-size_sol">Size (SOL per fill)</label><input class="aord-input" id="f-size_sol" type="number" step="0.001" min="0" value="${esc(f.size_sol)}"/></div>`
+				: `<div class="aord-field"><label for="f-sell_pct">Sell (% of holding)</label><input class="aord-input" id="f-sell_pct" type="number" step="1" min="1" max="100" value="${esc(f.sell_pct)}"/></div>`;
 
-			if (f.type === 'limit') return `<div class="aord-row">${metricSel('f-metric')}<div class="aord-field"><label>Target (${shortMetric(f.trigger_metric)})</label><input class="aord-input" id="f-limit_price" type="number" step="any" min="0" value="${esc(f.limit_price)}" placeholder="${f.side === 'buy' ? 'buy at or below' : 'sell at or above'}"/></div></div><div class="aord-row">${sizeField}</div>`;
-			if (f.type === 'stop') return `<div class="aord-row">${metricSel('f-metric')}<div class="aord-field"><label>Stop (${shortMetric(f.trigger_metric)})</label><input class="aord-input" id="f-stop_price" type="number" step="any" min="0" value="${esc(f.stop_price)}" placeholder="${f.side === 'sell' ? 'sell if it falls to' : 'buy once it breaks'}"/></div></div><div class="aord-row">${sizeField}</div>`;
-			if (f.type === 'trailing') return `<div class="aord-row">${metricSel('f-metric')}<div class="aord-field"><label>Trail (%)</label><input class="aord-input" id="f-trail_pct" type="number" step="0.1" min="0.1" max="99" value="${esc(f.trail_pct)}"/></div></div><div class="aord-row">${sizeField}</div>`;
-			if (f.type === 'dca') return `<div class="aord-row"><div class="aord-field"><label>Every</label>${intervalSelect(f)}</div><div class="aord-field"><label>Slices</label><input class="aord-input" id="f-slices" type="number" min="1" max="1000" value="${esc(f.slices)}"/></div></div><div class="aord-row">${sizeField}</div>`;
+			if (f.type === 'limit') return `<div class="aord-row">${metricSel('f-metric')}<div class="aord-field"><label for="f-limit_price">Target (${shortMetric(f.trigger_metric)})</label><input class="aord-input" id="f-limit_price" type="number" step="any" min="0" value="${esc(f.limit_price)}" placeholder="${f.side === 'buy' ? 'buy at or below' : 'sell at or above'}"/></div></div><div class="aord-row">${sizeField}</div>`;
+			if (f.type === 'stop') return `<div class="aord-row">${metricSel('f-metric')}<div class="aord-field"><label for="f-stop_price">Stop (${shortMetric(f.trigger_metric)})</label><input class="aord-input" id="f-stop_price" type="number" step="any" min="0" value="${esc(f.stop_price)}" placeholder="${f.side === 'sell' ? 'sell if it falls to' : 'buy once it breaks'}"/></div></div><div class="aord-row">${sizeField}</div>`;
+			if (f.type === 'trailing') return `<div class="aord-row">${metricSel('f-metric')}<div class="aord-field"><label for="f-trail_pct">Trail (%)</label><input class="aord-input" id="f-trail_pct" type="number" step="0.1" min="0.1" max="99" value="${esc(f.trail_pct)}"/></div></div><div class="aord-row">${sizeField}</div>`;
+			if (f.type === 'dca') return `<div class="aord-row"><div class="aord-field"><label for="f-interval">Every</label>${intervalSelect(f)}</div><div class="aord-field"><label for="f-slices">Slices</label><input class="aord-input" id="f-slices" type="number" min="1" max="1000" value="${esc(f.slices)}"/></div></div><div class="aord-row">${sizeField}</div>`;
 			if (f.type === 'twap') {
 				const total = f.side === 'buy'
-					? `<div class="aord-field"><label>Total (SOL)</label><input class="aord-input" id="f-total_sol" type="number" step="0.001" min="0" value="${esc(f.total_sol)}"/></div>`
-					: `<div class="aord-field"><label>Total (% of holding)</label><input class="aord-input" id="f-total_pct" type="number" step="1" min="1" max="100" value="${esc(f.total_pct)}"/></div>`;
-				return `<div class="aord-row"><div class="aord-field"><label>Every</label>${intervalSelect(f)}</div><div class="aord-field"><label>Slices</label><input class="aord-input" id="f-slices" type="number" min="2" max="1000" value="${esc(f.slices)}"/></div></div><div class="aord-row">${total}</div>`;
+					? `<div class="aord-field"><label for="f-total_sol">Total (SOL)</label><input class="aord-input" id="f-total_sol" type="number" step="0.001" min="0" value="${esc(f.total_sol)}"/></div>`
+					: `<div class="aord-field"><label for="f-total_pct">Total (% of holding)</label><input class="aord-input" id="f-total_pct" type="number" step="1" min="1" max="100" value="${esc(f.total_pct)}"/></div>`;
+				return `<div class="aord-row"><div class="aord-field"><label for="f-interval">Every</label>${intervalSelect(f)}</div><div class="aord-field"><label for="f-slices">Slices</label><input class="aord-input" id="f-slices" type="number" min="2" max="1000" value="${esc(f.slices)}"/></div></div><div class="aord-row">${total}</div>`;
 			}
 			if (f.type === 'conditional') return `${renderConditionBuilder(f)}<div class="aord-row">${sizeField}</div>`;
 			return '';
@@ -325,23 +325,23 @@ registerWalletTab({
 					<select class="aord-select" data-ci="${i}" data-cf="signal">${sigOpts.map(([k, l]) => `<option value="${k}" ${c.signal === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>
 					<select class="aord-select" data-ci="${i}" data-cf="op">${ops.map((o) => `<option value="${o}" ${c.op === o ? 'selected' : ''}>${esc(opLabel(o))}</option>`).join('')}</select>
 					${valField}
-					<button class="x" data-rm="${i}" title="Remove" aria-label="Remove clause">✕</button>
+					<button type="button" class="x" data-rm="${i}" title="Remove" aria-label="Remove clause">✕</button>
 				</div>`;
 			};
 			return `<div class="aord-cond">
 				<div class="aord-cond-mode">Fire when
 					<div class="aord-seg" role="group">
-						<button data-mode="all" aria-pressed="${f.condition_mode === 'all'}">ALL</button>
-						<button data-mode="any" aria-pressed="${f.condition_mode === 'any'}">ANY</button>
+						<button type="button" data-mode="all" aria-pressed="${f.condition_mode === 'all'}">ALL</button>
+						<button type="button" data-mode="any" aria-pressed="${f.condition_mode === 'any'}">ANY</button>
 					</div>
 					of these are true:</div>
 				${f.clauses.map(clauseRow).join('')}
-				<button class="aord-btn ghost sm" id="aord-add-clause">＋ Add condition</button>
+				<button type="button" class="aord-btn ghost sm" id="aord-add-clause">＋ Add condition</button>
 			</div>`;
 		}
 
 		function renderPreview(p) {
-			if (!p.ok) return `<div class="aord-prev"><div class="aord-err" style="margin:0">${esc(p.message || 'Invalid order')}</div></div>`;
+			if (!p.ok) return `<div class="aord-prev" role="alert"><div class="aord-err" style="margin:0">${esc(p.message || 'Invalid order')}</div></div>`;
 			const cur = p.preview?.current;
 			const fw = p.firewall;
 			const lines = [];
@@ -352,7 +352,7 @@ registerWalletTab({
 			if (p.preview?.would_fire_now != null) lines.push(`<div class="ln">${p.preview.would_fire_now ? '⚡ Would fire immediately at the current price.' : '⏳ Waiting — the trigger isn’t met yet.'}</div>`);
 			if (p.preview?.missing?.length) lines.push(`<div class="ln">⚠️ No live data yet for: ${esc(p.preview.missing.join(', '))} (won’t fire until available).</div>`);
 			if (fw) lines.push(`<div class="ln">Firewall: <span class="aord-fw ${esc(fw.verdict)}">${esc(fw.verdict)}</span>${fw.reasons?.length ? ' · ' + esc(fw.reasons.join(', ')) : ''}</div>`);
-			return `<div class="aord-prev"><div class="rb">${esc(p.readback || '')}</div>${lines.join('')}</div>`;
+			return `<div class="aord-prev" role="status"><div class="rb">${esc(p.readback || '')}</div>${lines.join('')}</div>`;
 		}
 
 		function renderOpen() {
@@ -381,10 +381,10 @@ registerWalletTab({
 			const sched = (o.type === 'dca' || o.type === 'twap') && o.schedule
 				? `<div class="aord-prog"><i style="width:${Math.min(100, Math.round((o.schedule.filled_slices || 0) / (o.schedule.slices || 1) * 100))}%"></i></div>` : '';
 			const ctl = OPEN_STATUSES.includes(o.status) ? `<div class="aord-item-ctl">
-					<button class="aord-btn ghost sm" data-pause="${esc(o.id)}">${o.status === 'paused' ? 'Resume' : 'Pause'}</button>
-					<button class="aord-btn danger sm" data-cancel="${esc(o.id)}">Cancel</button>
-					<button class="aord-btn ghost sm" data-fills="${esc(o.id)}">Fills</button>
-				</div>` : `<div class="aord-item-ctl"><button class="aord-btn ghost sm" data-fills="${esc(o.id)}">Fills</button></div>`;
+					<button type="button" class="aord-btn ghost sm" data-pause="${esc(o.id)}">${o.status === 'paused' ? 'Resume' : 'Pause'}</button>
+					<button type="button" class="aord-btn danger sm" data-cancel="${esc(o.id)}">Cancel</button>
+					<button type="button" class="aord-btn ghost sm" data-fills="${esc(o.id)}">Fills</button>
+				</div>` : `<div class="aord-item-ctl"><button type="button" class="aord-btn ghost sm" data-fills="${esc(o.id)}">Fills</button></div>`;
 			return `<li class="aord-item" data-id="${esc(o.id)}">
 				<div class="aord-item-top">
 					<span class="aord-item-ic">${m.icon}</span>

@@ -151,8 +151,12 @@ export async function openOutfitEditor({ pin, onSaved }) {
 		// Seed the preview from the pin's current look (colours/hidden/accessories).
 		await accessoryManager.hydrateFromAppearance(collapseManifest(working));
 
-		// Gentle auto-spin so the owner can read the whole avatar without dragging.
-		idleDispose = scene.addOnTick?.((dt) => { if (scene?.root) scene.root.rotation.y += dt * 0.35; }) || null;
+		// Gentle auto-spin so the owner can read the whole avatar without dragging —
+		// suppressed when the viewer prefers reduced motion (they can still orbit by drag).
+		const reduceMotion = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+		idleDispose = reduceMotion
+			? null
+			: (scene.addOnTick?.((dt) => { if (scene?.root) scene.root.rotation.y += dt * 0.35; }) || null);
 
 		// Wardrobe controls — only the slots THIS GLB exposes (same detection
 		// contract as the studio). Empty state handled inside renderWardrobePanel.
@@ -290,7 +294,8 @@ function injectStyles() {
 		.oe-title { font-size: 16px; font-weight: 700; color: var(--nxt-ink, #f4f5f7); }
 		.oe-sub { font-size: 12px; color: var(--nxt-ink-faint, #8a8f9c); margin-top: 2px; }
 		.oe-x { background: none; border: none; color: var(--nxt-ink-faint, #8a8f9c); font-size: 22px; line-height: 1; cursor: pointer; padding: 0 4px; border-radius: 8px; transition: color .14s; }
-		.oe-x:hover, .oe-x:focus-visible { color: var(--nxt-ink, #f4f5f7); outline: none; }
+		.oe-x:hover, .oe-x:focus-visible { color: var(--nxt-ink, #f4f5f7); }
+		.oe-x:focus-visible { outline: 2px solid var(--nxt-accent, #6ea8fe); outline-offset: 2px; }
 		.oe-body { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 0; flex: 1; min-height: 0; }
 		.oe-stage { position: relative; min-height: 320px; background: radial-gradient(120% 120% at 50% 10%, #161a26 0%, #0a0c12 70%); border-right: 1px solid var(--nxt-stroke, #23262f); overflow: hidden; }
 		.oe-stage canvas { display: block; width: 100%; height: 100%; }
@@ -303,6 +308,8 @@ function injectStyles() {
 		.oe-acc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 8px; }
 		.oe-acc-item { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 8px 6px; border-radius: 10px; border: 1px solid var(--nxt-stroke, #23262f); background: var(--nxt-bg-2, #14171f); color: var(--nxt-ink-dim, #c5c9d3); cursor: pointer; transition: border-color .14s, background .14s, transform .1s; }
 		.oe-acc-item:hover { border-color: var(--nxt-stroke-strong, #353a47); transform: translateY(-1px); }
+		.oe-acc-item:active { transform: translateY(0); }
+		.oe-acc-item:focus-visible { outline: 2px solid var(--nxt-accent, #6ea8fe); outline-offset: 2px; }
 		.oe-acc-item.on { border-color: var(--nxt-accent, #6ea8fe); background: color-mix(in srgb, var(--nxt-accent, #6ea8fe) 12%, var(--nxt-bg-2, #14171f)); }
 		.oe-acc-item img { width: 40px; height: 40px; object-fit: contain; }
 		.oe-acc-ph { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 18px; color: var(--nxt-ink-faint, #8a8f9c); }
@@ -314,7 +321,10 @@ function injectStyles() {
 		.oe-foot-actions { display: flex; gap: 8px; flex-shrink: 0; }
 		.oe-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: var(--nxt-radius-sm, 9px); border: 1px solid var(--nxt-stroke, #23262f); background: var(--nxt-bg-2, #14171f); color: var(--nxt-ink, #f4f5f7); cursor: pointer; font-size: 13px; font-weight: 600; transition: border-color .14s, transform .12s, opacity .14s; }
 		.oe-btn:hover:not(:disabled) { border-color: var(--nxt-stroke-strong, #353a47); transform: translateY(-1px); }
+		.oe-btn:active:not(:disabled) { transform: translateY(0); }
+		.oe-btn:focus-visible { outline: 2px solid var(--nxt-accent, #6ea8fe); outline-offset: 2px; }
 		.oe-btn.primary { background: var(--nxt-accent, #6ea8fe); color: #061018; border-color: transparent; }
+		.oe-btn.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--nxt-accent, #6ea8fe) 88%, #fff); }
 		.oe-btn:disabled { opacity: .5; cursor: default; }
 		@keyframes oe-fade { from { opacity: 0; } to { opacity: 1; } }
 		@keyframes oe-rise { from { opacity: 0; transform: translateY(10px) scale(.99); } to { opacity: 1; transform: none; } }

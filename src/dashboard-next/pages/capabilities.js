@@ -9,7 +9,8 @@
 // Polls every 30s. Buttons are fire-and-forget with toast feedback.
 
 import { mountShell } from '../shell.js';
-import { requireUser, get, post, esc, relTime, ApiError } from '../api.js';
+import { requireUser, get, post, esc, relTime } from '../api.js';
+import { emptyStateHTML, errorStateHTML, ensureStateKitStyles, attachRetry } from '../../shared/state-kit.js';
 
 const POLL_MS = 30_000;
 const fmtSol    = (n) => (n == null || isNaN(Number(n)) ? '—' : `${Number(n) >= 0 ? '+' : ''}${Number(n).toFixed(4)} ◎`);
@@ -64,12 +65,11 @@ const STYLE = `<style>
 .cp-pos   { color: #34d399; }
 .cp-neg   { color: #f87171; }
 .cp-muted { color: var(--nxt-ink-dim); }
-.cp-empty { text-align: center; padding: 2.5rem 1rem; color: var(--nxt-ink-dim); font-size: 13px; }
-.cp-empty-icon { font-size: 28px; margin-bottom: 8px; opacity: .5; }
 
-/* Skeleton */
-.cp-sk { height: 52px; border-radius: 6px; background: var(--nxt-bg-2); animation: cp-sk 1.4s ease infinite; margin: 10px 14px; }
-@keyframes cp-sk { 0%,100%{opacity:.5} 50%{opacity:1} }
+/* Skeleton — shimmer sweep, layout-matched to the section blocks it replaces */
+.cp-sk { position: relative; overflow: hidden; height: 52px; border-radius: var(--nxt-radius-sm); background: var(--nxt-bg-2); margin: 10px 14px; }
+.cp-sk::after { content: ''; position: absolute; inset: 0; transform: translateX(-150%); background: linear-gradient(90deg, transparent, var(--nxt-accent-soft), transparent); animation: cp-sk-sweep 1.5s ease-in-out infinite; }
+@keyframes cp-sk-sweep { to { transform: translateX(150%); } }
 
 /* Misc */
 .cp-agent-chip { display: inline-flex; align-items: center; gap: 6px; }
@@ -105,10 +105,32 @@ const STYLE = `<style>
 .cp-toast.err { color: #f87171; border-color: rgba(248,113,113,.4); background: rgba(18,10,10,.9); }
 @keyframes cptoast { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
 
+/* Horizontal scroll container — wide tables scroll inside their own box,
+   never forcing page-level horizontal overflow. */
+.cp-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.cp-scroll:focus-visible { outline: 2px solid var(--nxt-accent); outline-offset: -2px; }
+
+/* Keyboard focus rings on every interactive element */
+.cp-tab:focus-visible,
+.cp-btn:focus-visible,
+.cp-link:focus-visible,
+.cp-status-link:focus-visible { outline: 2px solid var(--nxt-accent); outline-offset: 2px; border-radius: var(--nxt-radius-sm); }
+.cp-btn:active:not(:disabled) { transform: translateY(1px); }
+.cp-link:active { transform: translateY(1px); }
+
+/* Screen-reader-only text (accessible table captions) */
+.cp-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
 @media (max-width: 600px) {
   .cp-kpi-row { grid-template-columns: 1fr 1fr; }
   .cp-table th.hide-sm, .cp-table td.hide-sm { display: none; }
   .cp-status-bar { flex-wrap: wrap; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cp-status-dot, .cp-badge.live, .cp-sk::after, .cp-toast { animation: none !important; }
+  .cp-btn, .cp-tab, .cp-link, .cp-status-link { transition: none; }
+  .cp-btn:active:not(:disabled), .cp-link:active { transform: none; }
 }
 </style>`;
 
@@ -119,6 +141,8 @@ function ensureToastContainer() {
 	if (!wrap) {
 		wrap = document.createElement('div');
 		wrap.className = 'cp-toast-wrap';
+		wrap.setAttribute('aria-live', 'polite');
+		wrap.setAttribute('aria-atomic', 'false');
 		document.body.appendChild(wrap);
 	}
 	return wrap;
@@ -128,6 +152,7 @@ function toast(msg, type = 'ok') {
 	const wrap = ensureToastContainer();
 	const el = document.createElement('div');
 	el.className = `cp-toast ${type}`;
+	el.setAttribute('role', type === 'err' ? 'alert' : 'status');
 	el.textContent = msg;
 	wrap.appendChild(el);
 	setTimeout(() => el.remove(), 4000);
@@ -136,14 +161,16 @@ function toast(msg, type = 'ok') {
 // ── Boot ──────────────────────────────────────────────────────────────────────
 
 (async function boot() {
+	let main;
 	try {
-		const main = await mountShell();
-		const me = await requireUser();
+		main = await mountShell();
+		await requireUser();
 
+		ensureStateKitStyles();
 		main.innerHTML = `
 			<h1 class="dn-h1">Capabilities</h1>
 			<p class="dn-h1-sub">Live command center for all 4 autonomous capabilities — Alpha Hunt, Launcher, Auto-Claim, and Market Maker.</p>
-			<div id="cp-root" class="cp-page">
+			<div id="cp-root" class="cp-page" aria-busy="true" aria-label="Loading capabilities">
 				<div class="cp-sk" style="height:44px;margin:0"></div>
 				<div class="cp-sk" style="height:180px;margin:0"></div>
 				<div class="cp-sk" style="height:180px;margin:0"></div>
@@ -153,21 +180,27 @@ function toast(msg, type = 'ok') {
 		`;
 		main.insertAdjacentHTML('beforeend', STYLE);
 
-		await refresh(main.querySelector('#cp-root'), me);
+		await refresh(main.querySelector('#cp-root'));
 
 		setInterval(async () => {
 			const root = document.getElementById('cp-root');
-			if (root) await refresh(root, me).catch(() => {});
+			if (root) await refresh(root).catch(() => {});
 		}, POLL_MS);
 	} catch (e) {
-		const root = document.getElementById('cp-root');
-		if (root) root.innerHTML = `<p class="cp-empty">${esc(e.message || 'Error loading capabilities')}</p>`;
+		const root = document.getElementById('cp-root') || main;
+		if (root) {
+			root.innerHTML = errorStateHTML({
+				title: 'Couldn’t load capabilities',
+				body: esc(e?.message || 'Something went wrong reaching the capabilities API.'),
+			});
+			attachRetry(root, () => location.reload());
+		}
 	}
 })();
 
 // ── Data + render ─────────────────────────────────────────────────────────────
 
-async function refresh(root, me) {
+async function refresh(root) {
 	const [agentsRes, strategiesRes, statusRes] = await Promise.allSettled([
 		get('/api/agents?limit=50'),
 		get('/api/sniper/strategy'),
@@ -212,6 +245,8 @@ async function refresh(root, me) {
 		renderAutoClaim(allCoins),
 		renderMarketMaker(allMMConfigs, allMMTrades),
 	].join('');
+	root.removeAttribute('aria-busy');
+	root.removeAttribute('aria-label');
 
 	wireTabSwitchers(root);
 	wireLaunchNow(root, agentIds, agentMap);
@@ -222,10 +257,10 @@ async function refresh(root, me) {
 
 function renderWorkerStatus(s) {
 	if (!s) {
-		return `<div class="cp-status-bar">
-			<div class="cp-status-dot unknown"></div>
+		return `<div class="cp-status-bar" role="status">
+			<div class="cp-status-dot unknown" aria-hidden="true"></div>
 			<span class="cp-status-label">Worker status unknown</span>
-			<span class="cp-status-meta">Could not reach /api/sniper/status</span>
+			<span class="cp-status-meta">Could not reach the sniper status API</span>
 		</div>`;
 	}
 
@@ -257,14 +292,14 @@ function renderWorkerStatus(s) {
 		? `<span class="cp-muted" style="font-size:12px" title="SOL the treasury has auto-funded into sniper agents">⛽ ${fundedToday.toFixed(3)} SOL today · ${fundedTotal.toFixed(3)} SOL total</span>`
 		: '';
 
-	return `<div class="cp-status-bar">
-		<div class="cp-status-dot ${dotClass}"></div>
+	return `<div class="cp-status-bar" role="status" aria-live="polite">
+		<div class="cp-status-dot ${dotClass}" aria-hidden="true"></div>
 		<span class="cp-status-label">${esc(label)}</span>
 		<span class="cp-status-meta">${esc(detail)}</span>
 		<div class="cp-status-spacer"></div>
 		${fundingMeta}
 		${strats ? `<span class="cp-muted" style="font-size:12px">${strats} strategies · ${pos} positions open${esc(mode)}</span>` : ''}
-		<a class="cp-status-link" href="/dashboard/sniper">Sniper ↗</a>
+		<a class="cp-status-link" href="/dashboard/sniper" aria-label="Open Sniper dashboard">Sniper ↗</a>
 	</div>`;
 }
 
@@ -301,22 +336,24 @@ function renderAlphaHunt(strategies, agentMap) {
 			<div class="cp-kpi"><div class="cp-kpi-label">Realized P&L</div><div class="cp-kpi-val cp-mono ${clr(totalPnl)}">${fmtSol(totalPnl)}</div></div>
 		</div>
 		<div class="cp-body">
-			${strategies.length === 0 ? `
-				<div class="cp-empty">
-					<div class="cp-empty-icon">🎯</div>
-					No Alpha Hunt strategies yet.<br>
-					<a class="cp-link" href="/dashboard/sniper" style="margin-top:10px;display:inline-block">Create a strategy →</a>
-				</div>` : `
+			${strategies.length === 0 ? emptyStateHTML({
+				icon: '🎯',
+				title: 'No Alpha Hunt strategies yet',
+				body: 'Arm an agent to score smart-money signals and auto-buy when quality converges.',
+				actions: [{ label: 'Create a strategy', href: '/dashboard/sniper', primary: true }],
+			}) : `
+			<div class="cp-scroll" tabindex="0" role="region" aria-label="Alpha Hunt strategies (scrollable)">
 			<table class="cp-table">
+				<caption class="cp-sr">Alpha Hunt strategies</caption>
 				<thead>
 					<tr>
-						<th>Agent</th>
-						<th>Status</th>
-						<th class="hide-sm">Min Smart-Money</th>
-						<th class="hide-sm">Min Quality</th>
-						<th class="hide-sm">Max MCap</th>
-						<th class="r">P&L</th>
-						<th class="r">Win Rate</th>
+						<th scope="col">Agent</th>
+						<th scope="col">Status</th>
+						<th scope="col" class="hide-sm">Min Smart-Money</th>
+						<th scope="col" class="hide-sm">Min Quality</th>
+						<th scope="col" class="hide-sm">Max MCap</th>
+						<th scope="col" class="r">P&L</th>
+						<th scope="col" class="r">Win Rate</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -342,7 +379,8 @@ function renderAlphaHunt(strategies, agentMap) {
 						</tr>`;
 					}).join('')}
 				</tbody>
-			</table>`}
+			</table>
+			</div>`}
 		</div>
 	</div>`;
 }
@@ -378,20 +416,22 @@ function renderLauncher(configs, coins) {
 		</div>
 		${configs.length > 0 ? `
 		<div class="cp-body">
-			<div class="cp-tabs">
-				<button class="cp-tab active" data-tab-group="launcher" data-tab="schedule">Schedule</button>
-				<button class="cp-tab" data-tab-group="launcher" data-tab="coins">Launched Coins (${coins.length})</button>
+			<div class="cp-tabs" role="tablist" aria-label="Coin Launcher views">
+				<button class="cp-tab active" role="tab" id="cptab-launcher-schedule" aria-controls="cppanel-launcher-schedule" aria-selected="true" data-tab-group="launcher" data-tab="schedule">Schedule</button>
+				<button class="cp-tab" role="tab" id="cptab-launcher-coins" aria-controls="cppanel-launcher-coins" aria-selected="false" tabindex="-1" data-tab-group="launcher" data-tab="coins">Launched Coins (${coins.length})</button>
 			</div>
-			<div class="cp-tab-panel active" data-tab-group="launcher" data-panel="schedule">
+			<div class="cp-tab-panel active" role="tabpanel" id="cppanel-launcher-schedule" aria-labelledby="cptab-launcher-schedule" tabindex="0" data-tab-group="launcher" data-panel="schedule">
+				<div class="cp-scroll" tabindex="0" role="region" aria-label="Launch schedule (scrollable)">
 				<table class="cp-table">
+					<caption class="cp-sr">Scheduled launches</caption>
 					<thead>
 						<tr>
-							<th>Agent</th>
-							<th>Symbol</th>
-							<th class="hide-sm">Interval</th>
-							<th class="r">Launches</th>
-							<th class="r">Next Launch</th>
-							<th class="r">Action</th>
+							<th scope="col">Agent</th>
+							<th scope="col">Symbol</th>
+							<th scope="col" class="hide-sm">Interval</th>
+							<th scope="col" class="r">Launches</th>
+							<th scope="col" class="r">Next Launch</th>
+							<th scope="col" class="r">Action</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -402,23 +442,31 @@ function renderLauncher(configs, coins) {
 							<td class="r">${c.launches_count || 0}${c.max_launches ? ` / ${c.max_launches}` : ''}</td>
 							<td class="r cp-muted">${c.next_launch_at ? relTime(c.next_launch_at) : c.enabled ? 'Ready' : '—'}</td>
 							<td class="r">
-								${c.enabled ? `<button class="cp-btn cp-btn-go" data-launch-now data-agent-id="${esc(c.agent_id)}" data-config-id="${esc(c.id)}" data-network="${esc(c.network || 'mainnet')}">Launch Now</button>` : '<span class="cp-muted">—</span>'}
+								${c.enabled ? `<button type="button" class="cp-btn cp-btn-go" data-launch-now data-agent-id="${esc(c.agent_id)}" data-config-id="${esc(c.id)}" data-network="${esc(c.network || 'mainnet')}" aria-label="Launch $${esc(c.symbol || 'coin')} now">Launch Now</button>` : '<span class="cp-muted">—</span>'}
 							</td>
 						</tr>`).join('')}
 					</tbody>
 				</table>
+				</div>
 			</div>
-			<div class="cp-tab-panel" data-tab-group="launcher" data-panel="coins">
-				${coins.length === 0 ? `<div class="cp-empty">No coins launched yet — use Launch Now or wait for the next scheduled slot.</div>` : `
+			<div class="cp-tab-panel" role="tabpanel" id="cppanel-launcher-coins" aria-labelledby="cptab-launcher-coins" tabindex="0" hidden data-tab-group="launcher" data-panel="coins">
+				${coins.length === 0 ? emptyStateHTML({
+					compact: true,
+					icon: '🪙',
+					title: 'No coins launched yet',
+					body: 'Use Launch Now or wait for the next scheduled slot.',
+				}) : `
+				<div class="cp-scroll" tabindex="0" role="region" aria-label="Launched coins (scrollable)">
 				<table class="cp-table">
+					<caption class="cp-sr">Launched coins</caption>
 					<thead>
 						<tr>
-							<th>Symbol</th>
-							<th>Name</th>
-							<th class="hide-sm">Agent</th>
-							<th class="hide-sm">Network</th>
-							<th class="r">Claimed</th>
-							<th class="r">Graduated</th>
+							<th scope="col">Symbol</th>
+							<th scope="col">Name</th>
+							<th scope="col" class="hide-sm">Agent</th>
+							<th scope="col" class="hide-sm">Network</th>
+							<th scope="col" class="r">Claimed</th>
+							<th scope="col" class="r">Graduated</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -431,14 +479,15 @@ function renderLauncher(configs, coins) {
 							<td class="r">${c.is_graduated ? '<span class="cp-pos">Yes</span>' : '<span class="cp-muted">No</span>'}</td>
 						</tr>`).join('')}
 					</tbody>
-				</table>`}
+				</table>
+				</div>`}
 			</div>
-		</div>` : `
-		<div class="cp-empty">
-			<div class="cp-empty-icon">🚀</div>
-			No launcher configs yet.<br>
-			<a class="cp-link" href="/dashboard/agents" style="margin-top:10px;display:inline-block">Set up a launcher on your agent →</a>
-		</div>`}
+		</div>` : emptyStateHTML({
+			icon: '🚀',
+			title: 'No launchers configured',
+			body: 'Set up a launcher on an agent to schedule autonomous pump.fun launches.',
+			actions: [{ label: 'Set up a launcher', href: '/dashboard/agents', primary: true }],
+		})}
 	</div>`;
 }
 
@@ -473,15 +522,17 @@ function renderAutoClaim(coins) {
 		</div>
 		${claimable.length > 0 ? `
 		<div class="cp-body">
+			<div class="cp-scroll" tabindex="0" role="region" aria-label="Auto-claim coins (scrollable)">
 			<table class="cp-table">
+				<caption class="cp-sr">Coins watched for creator fees</caption>
 				<thead>
 					<tr>
-						<th>Symbol</th>
-						<th class="hide-sm">Agent</th>
-						<th class="r">Claimable</th>
-						<th class="r">Total Claimed</th>
-						<th class="r hide-sm">Last Checked</th>
-						<th class="r">Action</th>
+						<th scope="col">Symbol</th>
+						<th scope="col" class="hide-sm">Agent</th>
+						<th scope="col" class="r">Claimable</th>
+						<th scope="col" class="r">Total Claimed</th>
+						<th scope="col" class="r hide-sm">Last Checked</th>
+						<th scope="col" class="r">Action</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -496,17 +547,19 @@ function renderAutoClaim(coins) {
 							<td class="r cp-mono">${fmtSolAbs(earnedSol)}</td>
 							<td class="r hide-sm cp-muted">${c.last_fee_check_at ? relTime(c.last_fee_check_at) : 'Never'}</td>
 							<td class="r">
-								${canClaim && claimSol > 0 ? `<button class="cp-btn cp-btn-claim" data-claim-now data-agent-id="${esc(c.agent_id)}" data-mint="${esc(c.mint)}" data-network="${esc(c.network || 'mainnet')}">Claim ${fmtSolAbs(claimSol)}</button>` : '<span class="cp-muted">Below threshold</span>'}
+								${canClaim && claimSol > 0 ? `<button type="button" class="cp-btn cp-btn-claim" data-claim-now data-agent-id="${esc(c.agent_id)}" data-mint="${esc(c.mint)}" data-network="${esc(c.network || 'mainnet')}" aria-label="Claim ${fmtSolAbs(claimSol)} from $${esc(c.symbol || 'coin')}">Claim ${fmtSolAbs(claimSol)}</button>` : '<span class="cp-muted">Below threshold</span>'}
 							</td>
 						</tr>`;
 					}).join('')}
 				</tbody>
 			</table>
-		</div>` : `
-		<div class="cp-empty">
-			<div class="cp-empty-icon">💰</div>
-			No coins being watched for fees yet.<br>Launch a coin and enable Auto-Claim to start harvesting creator rewards.
-		</div>`}
+			</div>
+		</div>` : emptyStateHTML({
+			icon: '💰',
+			title: 'No coins watched for fees yet',
+			body: 'Launch a coin and enable Auto-Claim to start harvesting creator rewards.',
+			actions: [{ label: 'Go to launcher', href: '/dashboard/agents', primary: true }],
+		})}
 	</div>`;
 }
 
@@ -539,21 +592,23 @@ function renderMarketMaker(configs, trades) {
 		</div>
 		${active.length > 0 ? `
 		<div class="cp-body">
-			<div class="cp-tabs">
-				<button class="cp-tab active" data-tab-group="mm" data-tab="markets">Active Markets</button>
-				<button class="cp-tab" data-tab-group="mm" data-tab="trades">Recent Trades (${trades.length})</button>
+			<div class="cp-tabs" role="tablist" aria-label="Market Maker views">
+				<button class="cp-tab active" role="tab" id="cptab-mm-markets" aria-controls="cppanel-mm-markets" aria-selected="true" data-tab-group="mm" data-tab="markets">Active Markets</button>
+				<button class="cp-tab" role="tab" id="cptab-mm-trades" aria-controls="cppanel-mm-trades" aria-selected="false" tabindex="-1" data-tab-group="mm" data-tab="trades">Recent Trades (${trades.length})</button>
 			</div>
-			<div class="cp-tab-panel active" data-tab-group="mm" data-panel="markets">
+			<div class="cp-tab-panel active" role="tabpanel" id="cppanel-mm-markets" aria-labelledby="cptab-mm-markets" tabindex="0" data-tab-group="mm" data-panel="markets">
+				<div class="cp-scroll" tabindex="0" role="region" aria-label="Active markets (scrollable)">
 				<table class="cp-table">
+					<caption class="cp-sr">Active markets</caption>
 					<thead>
 						<tr>
-							<th>Symbol</th>
-							<th class="hide-sm">Agent</th>
-							<th>Spread</th>
-							<th class="hide-sm">Order Size</th>
-							<th>Inventory</th>
-							<th class="r">P&L</th>
-							<th class="r hide-sm">MEV</th>
+							<th scope="col">Symbol</th>
+							<th scope="col" class="hide-sm">Agent</th>
+							<th scope="col">Spread</th>
+							<th scope="col" class="hide-sm">Order Size</th>
+							<th scope="col">Inventory</th>
+							<th scope="col" class="r">P&L</th>
+							<th scope="col" class="r hide-sm">MEV</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -567,7 +622,7 @@ function renderMarketMaker(configs, trades) {
 								<td class="cp-mono">${(Number(c.spread_bps) / 100).toFixed(2)}%</td>
 								<td class="hide-sm cp-mono">${fmtSolAbs(Number(c.order_size_sol))}</td>
 								<td>
-									<div class="cp-inv-bar">
+									<div class="cp-inv-bar" role="img" aria-label="Inventory ${fmtSolAbs(inv)} of ${fmtSolAbs(maxInv)} (${invPct}%)">
 										<div class="cp-inv-track"><div class="cp-inv-fill" style="width:${invPct}%"></div></div>
 										<span class="cp-mono" style="font-size:11px;min-width:2.5rem;text-align:right">${fmtSolAbs(inv)}</span>
 									</div>
@@ -578,18 +633,26 @@ function renderMarketMaker(configs, trades) {
 						}).join('')}
 					</tbody>
 				</table>
+				</div>
 			</div>
-			<div class="cp-tab-panel" data-tab-group="mm" data-panel="trades">
-				${trades.length === 0 ? `<div class="cp-empty">No trades yet — MM will start trading when price enters the configured spread.</div>` : `
+			<div class="cp-tab-panel" role="tabpanel" id="cppanel-mm-trades" aria-labelledby="cptab-mm-trades" tabindex="0" hidden data-tab-group="mm" data-panel="trades">
+				${trades.length === 0 ? emptyStateHTML({
+					compact: true,
+					icon: '📈',
+					title: 'No trades yet',
+					body: 'The market maker trades when price enters the configured spread.',
+				}) : `
+				<div class="cp-scroll" tabindex="0" role="region" aria-label="Recent trades (scrollable)">
 				<table class="cp-table">
+					<caption class="cp-sr">Recent market-maker trades</caption>
 					<thead>
 						<tr>
-							<th>Side</th>
-							<th>Token</th>
-							<th class="hide-sm">Agent</th>
-							<th class="r">Size (SOL)</th>
-							<th class="r">P&L</th>
-							<th class="r hide-sm">Tx</th>
+							<th scope="col">Side</th>
+							<th scope="col">Token</th>
+							<th scope="col" class="hide-sm">Agent</th>
+							<th scope="col" class="r">Size (SOL)</th>
+							<th scope="col" class="r">P&L</th>
+							<th scope="col" class="r hide-sm">Tx</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -605,13 +668,15 @@ function renderMarketMaker(configs, trades) {
 							</tr>`;
 						}).join('')}
 					</tbody>
-				</table>`}
+				</table>
+				</div>`}
 			</div>
-		</div>` : `
-		<div class="cp-empty">
-			<div class="cp-empty-icon">📊</div>
-			No active markets.<br>Add a market in Agent Edit → Market Maker to start providing liquidity.
-		</div>`}
+		</div>` : emptyStateHTML({
+			icon: '📊',
+			title: 'No active markets',
+			body: 'Add a market in Agent Edit → Market Maker to start providing liquidity.',
+			actions: [{ label: 'Configure an agent', href: '/dashboard/agents', primary: true }],
+		})}
 	</div>`;
 }
 
@@ -663,12 +728,37 @@ function wireClaimNow(root) {
 // ── Tab switchers ─────────────────────────────────────────────────────────────
 
 function wireTabSwitchers(root) {
+	function activate(btn) {
+		const group = btn.dataset.tabGroup;
+		const panel = btn.dataset.tab;
+		root.querySelectorAll(`[data-tab-group="${group}"].cp-tab`).forEach((t) => {
+			const on = t === btn;
+			t.classList.toggle('active', on);
+			t.setAttribute('aria-selected', on ? 'true' : 'false');
+			t.tabIndex = on ? 0 : -1;
+		});
+		root.querySelectorAll(`[data-tab-group="${group}"].cp-tab-panel`).forEach((p) => {
+			const on = p.dataset.panel === panel;
+			p.classList.toggle('active', on);
+			p.hidden = !on;
+		});
+	}
+
 	root.querySelectorAll('.cp-tab').forEach((btn) => {
-		btn.addEventListener('click', () => {
+		btn.addEventListener('click', () => activate(btn));
+		btn.addEventListener('keydown', (e) => {
+			if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(e.key)) return;
+			e.preventDefault();
 			const group = btn.dataset.tabGroup;
-			const panel = btn.dataset.tab;
-			root.querySelectorAll(`[data-tab-group="${group}"].cp-tab`).forEach((t) => t.classList.toggle('active', t === btn));
-			root.querySelectorAll(`[data-tab-group="${group}"].cp-tab-panel`).forEach((p) => p.classList.toggle('active', p.dataset.panel === panel));
+			const tabs = [...root.querySelectorAll(`[data-tab-group="${group}"].cp-tab`)];
+			const i = tabs.indexOf(btn);
+			let next;
+			if (e.key === 'Home') next = tabs[0];
+			else if (e.key === 'End') next = tabs[tabs.length - 1];
+			else if (e.key === 'ArrowRight') next = tabs[(i + 1) % tabs.length];
+			else next = tabs[(i - 1 + tabs.length) % tabs.length];
+			activate(next);
+			next.focus();
 		});
 	});
 }

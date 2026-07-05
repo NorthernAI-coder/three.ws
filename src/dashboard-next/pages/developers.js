@@ -6,6 +6,7 @@
 
 import { mountShell } from '../shell.js';
 import { requireUser, get, post, patch, del, esc, relTime, ApiError } from '../api.js';
+import { emptyStateHTML, errorStateHTML, skeletonHTML, ensureStateKitStyles } from '../../shared/state-kit.js';
 
 const SCENES = ['full-body', 'upper-body', 'portrait', 'headshot'];
 const FORMATS = ['png', 'jpeg', 'webp'];
@@ -21,6 +22,9 @@ let apiKeys = [];
 let usageData = null;
 let usageDays = 30;
 let activeTab = 'render';
+// Which data sources genuinely failed to load (vs. legitimately empty), so a
+// tab can show a recoverable error state with Retry instead of a false "empty".
+let loadErrors = { webhooks: false, usage: false };
 
 (async function boot() {
 	const main = await mountShell();
@@ -52,27 +56,31 @@ let activeTab = 'render';
 		location.href = `/login?return=${encodeURIComponent(location.pathname)}`;
 		return;
 	}
+	ensureStateKitStyles();
 	const main = document.querySelector('.dn-main-inner') || document.body;
-	main.innerHTML = `<h1 class="dn-h1">Developer Hub</h1>
-		<div class="dn-panel"><div class="dn-panel-title" style="color:var(--nxt-danger)">Failed to load</div>
-		<div class="dn-panel-sub">${esc(err?.message || 'unknown')}</div>
-		<button class="dn-btn" onclick="location.reload()">Reload</button></div>`;
+	main.innerHTML = `<h1 class="dn-h1">Developer Hub</h1>${errorStateHTML({
+		title: "Couldn't load the Developer Hub",
+		body: esc(err?.message || 'Something went wrong loading this page.'),
+	})}`;
+	main.querySelector('[data-sk-retry]')?.addEventListener('click', () => location.reload());
 });
 
 async function loadData() {
-	const [avRes, whRes, keyRes, usageRes] = await Promise.all([
-		safe(() => get('/api/avatars?limit=50&visibility=public')),
-		safe(() => get('/api/developer/webhooks')),
-		safe(() => get('/api/api-keys')),
-		safe(() => get(`/api/developer/usage?days=${usageDays}`)),
+	const [avRes, whRes, keyRes, usageRes] = await Promise.allSettled([
+		get('/api/avatars?limit=50&visibility=public'),
+		get('/api/developer/webhooks'),
+		get('/api/api-keys'),
+		get(`/api/developer/usage?days=${usageDays}`),
 	]);
-	avatars = avRes?.avatars ?? [];
-	webhooks = whRes?.webhooks ?? [];
-	apiKeys = keyRes?.data ?? [];
-	usageData = usageRes;
+	avatars   = avRes.status    === 'fulfilled' ? (avRes.value?.avatars ?? [])  : [];
+	webhooks  = whRes.status    === 'fulfilled' ? (whRes.value?.webhooks ?? []) : [];
+	apiKeys   = keyRes.status   === 'fulfilled' ? (keyRes.value?.data ?? [])    : [];
+	usageData = usageRes.status === 'fulfilled' ? usageRes.value : null;
+	loadErrors = {
+		webhooks: whRes.status === 'rejected',
+		usage:    usageRes.status === 'rejected',
+	};
 }
-
-function safe(fn) { return fn().catch(() => null); }
 
 // ── Tabs ─────────────────────────────────────────────────────────────────────
 
@@ -154,7 +162,7 @@ function renderRenderTab(root) {
 						<span class="dev-field-label">Avatar ID</span>
 						<div class="dev-field-row">
 							<input type="text" id="render-avatar" class="dev-input" value="${esc(defaultId)}" placeholder="Paste an avatar UUID" spellcheck="false" />
-							${avatars.length ? `<select id="render-avatar-picker" class="dev-select dev-select-sm"><option value="">Pick yours...</option>${avatars.slice(0, 20).map(a => `<option value="${esc(a.id)}">${esc(a.name || a.slug || a.id.slice(0, 8))}</option>`).join('')}</select>` : ''}
+							${avatars.length ? `<select id="render-avatar-picker" class="dev-select dev-select-sm" aria-label="Pick one of your avatars"><option value="">Pick yours...</option>${avatars.slice(0, 20).map(a => `<option value="${esc(a.id)}">${esc(a.name || a.slug || a.id.slice(0, 8))}</option>`).join('')}</select>` : ''}
 						</div>
 					</label>
 
@@ -162,7 +170,7 @@ function renderRenderTab(root) {
 						<label class="dev-field">
 							<span class="dev-field-label">Scene</span>
 							<div class="dev-scene-grid" id="render-scene">
-								${SCENES.map(s => `<button class="dev-scene-btn${s === 'upper-body' ? ' is-active' : ''}" data-scene="${s}"><span class="dev-scene-icon">${sceneIcon(s)}</span><span>${s.replace('-', ' ')}</span></button>`).join('')}
+								${SCENES.map(s => `<button type="button" class="dev-scene-btn${s === 'upper-body' ? ' is-active' : ''}" data-scene="${s}" aria-pressed="${s === 'upper-body' ? 'true' : 'false'}" aria-label="${s.replace('-', ' ')} scene"><span class="dev-scene-icon">${sceneIcon(s)}</span><span>${s.replace('-', ' ')}</span></button>`).join('')}
 							</div>
 						</label>
 					</div>
@@ -174,20 +182,20 @@ function renderRenderTab(root) {
 						</label>
 						<label class="dev-field">
 							<span class="dev-field-label">Background</span>
-							<div class="dev-bg-row">
-								<button class="dev-bg-btn is-active" data-bg="transparent" title="Transparent">
+							<div class="dev-bg-row" role="group" aria-label="Background">
+								<button type="button" class="dev-bg-btn is-active" data-bg="transparent" title="Transparent" aria-label="Transparent background" aria-pressed="true">
 									<span class="dev-bg-swatch dev-bg-transparent"></span>
 								</button>
-								<button class="dev-bg-btn" data-bg="#000000" title="Black">
+								<button type="button" class="dev-bg-btn" data-bg="#000000" title="Black" aria-label="Black background" aria-pressed="false">
 									<span class="dev-bg-swatch" style="background:#000"></span>
 								</button>
-								<button class="dev-bg-btn" data-bg="#ffffff" title="White">
+								<button type="button" class="dev-bg-btn" data-bg="#ffffff" title="White" aria-label="White background" aria-pressed="false">
 									<span class="dev-bg-swatch" style="background:#fff"></span>
 								</button>
-								<button class="dev-bg-btn" data-bg="#0a0a0a" title="Dark">
+								<button type="button" class="dev-bg-btn" data-bg="#0a0a0a" title="Dark" aria-label="Dark background" aria-pressed="false">
 									<span class="dev-bg-swatch" style="background:#0a0a0a"></span>
 								</button>
-								<input type="color" id="render-bg-custom" class="dev-bg-color" value="#1a1a2e" title="Custom color" />
+								<input type="color" id="render-bg-custom" class="dev-bg-color" value="#1a1a2e" title="Custom color" aria-label="Custom background color" />
 							</div>
 						</label>
 						<label class="dev-field">
@@ -222,16 +230,16 @@ function renderRenderTab(root) {
 
 		<div class="dev-code-examples dn-panel">
 			<h3 class="dev-panel-title">Integration Examples</h3>
-			<div class="dev-code-tabs" id="code-tabs">
-				<button class="dev-code-tab is-active" data-lang="html">HTML</button>
-				<button class="dev-code-tab" data-lang="react">React</button>
-				<button class="dev-code-tab" data-lang="unity">Unity C#</button>
-				<button class="dev-code-tab" data-lang="unreal">Unreal C++</button>
-				<button class="dev-code-tab" data-lang="curl">cURL</button>
+			<div class="dev-code-tabs" id="code-tabs" role="tablist" aria-label="Integration language">
+				<button type="button" class="dev-code-tab is-active" data-lang="html" role="tab" aria-selected="true">HTML</button>
+				<button type="button" class="dev-code-tab" data-lang="react" role="tab" aria-selected="false">React</button>
+				<button type="button" class="dev-code-tab" data-lang="unity" role="tab" aria-selected="false">Unity C#</button>
+				<button type="button" class="dev-code-tab" data-lang="unreal" role="tab" aria-selected="false">Unreal C++</button>
+				<button type="button" class="dev-code-tab" data-lang="curl" role="tab" aria-selected="false">cURL</button>
 			</div>
 			<div class="dev-code-block" id="code-block">
 				<pre><code id="code-content"></code></pre>
-				<button class="dn-btn ghost dev-copy-btn dev-code-copy" id="code-copy">Copy</button>
+				<button type="button" class="dn-btn ghost dev-copy-btn dev-code-copy" id="code-copy" aria-label="Copy code example">Copy</button>
 			</div>
 		</div>
 	`;
@@ -423,7 +431,11 @@ curl "${location.origin}/api/avatar/render" | jq .`,
 		const btn = e.target.closest('.dev-scene-btn');
 		if (!btn) return;
 		scene = btn.dataset.scene;
-		sceneGrid.querySelectorAll('.dev-scene-btn').forEach(b => b.classList.toggle('is-active', b === btn));
+		sceneGrid.querySelectorAll('.dev-scene-btn').forEach(b => {
+			const on = b === btn;
+			b.classList.toggle('is-active', on);
+			b.setAttribute('aria-pressed', on ? 'true' : 'false');
+		});
 		updateUrl();
 	});
 
@@ -431,13 +443,20 @@ curl "${location.origin}/api/avatar/render" | jq .`,
 		const btn = e.target.closest('.dev-bg-btn');
 		if (!btn) return;
 		bg = btn.dataset.bg;
-		bgRow.querySelectorAll('.dev-bg-btn').forEach(b => b.classList.toggle('is-active', b === btn));
+		bgRow.querySelectorAll('.dev-bg-btn').forEach(b => {
+			const on = b === btn;
+			b.classList.toggle('is-active', on);
+			b.setAttribute('aria-pressed', on ? 'true' : 'false');
+		});
 		updateUrl();
 	});
 
 	bgCustom.addEventListener('input', () => {
 		bg = bgCustom.value;
-		bgRow.querySelectorAll('.dev-bg-btn').forEach(b => b.classList.remove('is-active'));
+		bgRow.querySelectorAll('.dev-bg-btn').forEach(b => {
+			b.classList.remove('is-active');
+			b.setAttribute('aria-pressed', 'false');
+		});
 		updateUrl();
 	});
 
@@ -480,7 +499,11 @@ curl "${location.origin}/api/avatar/render" | jq .`,
 		const tab = e.target.closest('.dev-code-tab');
 		if (!tab) return;
 		codeLang = tab.dataset.lang;
-		codeTabs.querySelectorAll('.dev-code-tab').forEach(t => t.classList.toggle('is-active', t === tab));
+		codeTabs.querySelectorAll('.dev-code-tab').forEach(t => {
+			const on = t === tab;
+			t.classList.toggle('is-active', on);
+			t.setAttribute('aria-selected', on ? 'true' : 'false');
+		});
 		updateCodeExamples();
 	});
 
@@ -564,14 +587,27 @@ function verify(secret, headers, body) {
 }
 
 function renderWebhookList(container) {
+	if (loadErrors.webhooks) {
+		container.innerHTML = errorStateHTML({
+			title: "Couldn't load webhooks",
+			body: 'We had trouble loading your webhook endpoints. Check your connection and try again.',
+			scope: 'webhooks',
+		});
+		container.querySelector('[data-sk-retry]')?.addEventListener('click', () => reloadWebhooks(container));
+		return;
+	}
+
 	if (!webhooks.length) {
-		container.innerHTML = `
-			<div class="dn-panel dev-wh-empty">
-				<svg width="40" height="40" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.3"><path d="M4 4l6 6M10 4l-6 6"/><path d="M10 10v7"/><circle cx="10" cy="10" r="2"/></svg>
-				<h3>No webhooks yet</h3>
-				<p>Create a webhook to get real-time notifications when avatars or agents change.</p>
-			</div>
-		`;
+		container.innerHTML = emptyStateHTML({
+			icon: '🪝',
+			title: 'No webhooks yet',
+			body: 'Create a webhook to get real-time notifications when avatars or agents are created, updated, or deleted.',
+			actions: [{ label: 'Create webhook', id: 'wh-empty-create', primary: true }],
+			compact: true,
+		});
+		container.querySelector('[data-sk-action="wh-empty-create"]')?.addEventListener('click', () => {
+			document.querySelector('#wh-create-btn')?.click();
+		});
 		return;
 	}
 
@@ -622,7 +658,13 @@ function renderWebhookList(container) {
 	container.querySelectorAll('.dev-wh-delete').forEach(btn => {
 		btn.addEventListener('click', async () => {
 			const id = btn.dataset.id;
-			if (!confirm('Delete this webhook? This cannot be undone.')) return;
+			const ok = await confirmModal({
+				title: 'Delete webhook',
+				body: 'This endpoint will stop receiving events immediately. This cannot be undone.',
+				confirmLabel: 'Delete webhook',
+				danger: true,
+			});
+			if (!ok) return;
 			try {
 				await del(`/api/developer/webhooks/${id}`);
 				webhooks = webhooks.filter(w => w.id !== id);
@@ -688,6 +730,18 @@ function renderWebhookList(container) {
 	});
 }
 
+async function reloadWebhooks(container) {
+	container.innerHTML = skeletonHTML(2, 'row');
+	try {
+		const res = await get('/api/developer/webhooks');
+		webhooks = res?.webhooks ?? [];
+		loadErrors.webhooks = false;
+	} catch {
+		loadErrors.webhooks = true;
+	}
+	renderWebhookList(container);
+}
+
 function wireWebhookForm(el) {
 	const createBtn = el.querySelector('#wh-create-btn');
 	const form = el.querySelector('#wh-create-form');
@@ -731,6 +785,35 @@ function wireWebhookForm(el) {
 			saveBtn.disabled = false;
 			saveBtn.textContent = 'Create';
 		}
+	});
+}
+
+function confirmModal({ title, body, confirmLabel = 'Confirm', danger = false }) {
+	return new Promise((resolve) => {
+		const overlay = document.createElement('div');
+		overlay.className = 'dev-modal-overlay';
+		overlay.innerHTML = `
+			<div class="dev-modal" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+				<h3 class="dev-modal-title">${esc(title)}</h3>
+				<p class="dev-modal-desc">${esc(body)}</p>
+				<div class="dev-modal-actions" style="gap:8px">
+					<button class="dn-btn ghost" data-cancel>Cancel</button>
+					<button class="dn-btn ${danger ? 'ghost danger' : 'primary'}" data-confirm>${esc(confirmLabel)}</button>
+				</div>
+			</div>
+		`;
+		document.body.appendChild(overlay);
+		const done = (val) => {
+			overlay.remove();
+			document.removeEventListener('keydown', onKey);
+			resolve(val);
+		};
+		const onKey = (e) => { if (e.key === 'Escape') done(false); };
+		document.addEventListener('keydown', onKey);
+		overlay.querySelector('[data-cancel]').addEventListener('click', () => done(false));
+		overlay.querySelector('[data-confirm]').addEventListener('click', () => done(true));
+		overlay.addEventListener('click', (e) => { if (e.target === overlay) done(false); });
+		overlay.querySelector('[data-confirm]').focus();
 	});
 }
 
@@ -900,6 +983,27 @@ curl -X POST -H "Content-Type: application/json" \\
 // ── Usage Tab ──────────────────────────────────────────────────────────
 
 function renderUsageTab(root) {
+	if (loadErrors.usage && !usageData) {
+		const wrap = document.createElement('div');
+		wrap.className = 'dev-usage-tab';
+		wrap.innerHTML = errorStateHTML({
+			title: "Couldn't load usage metrics",
+			body: 'We had trouble loading your API usage and delivery stats. Check your connection and try again.',
+			scope: 'usage',
+		});
+		wrap.querySelector('[data-sk-retry]')?.addEventListener('click', async () => {
+			try {
+				usageData = await get(`/api/developer/usage?days=${usageDays}`);
+				loadErrors.usage = false;
+			} catch {
+				loadErrors.usage = true;
+			}
+			renderActiveTab(document.querySelector('[data-slot="content"]'));
+		});
+		root.appendChild(wrap);
+		return;
+	}
+
 	const el = document.createElement('div');
 	el.className = 'dev-usage-tab';
 
@@ -923,7 +1027,7 @@ function renderUsageTab(root) {
 				<p class="dev-section-desc">Platform activity, API usage, and delivery stats across your integrations.</p>
 			</div>
 			<div class="dev-usage-range">
-				${[7, 30, 90].map(n => `<button class="dev-usage-range-btn${n === usageDays ? ' is-active' : ''}" data-days="${n}">${n}d</button>`).join('')}
+				${[7, 30, 90].map(n => `<button type="button" class="dev-usage-range-btn${n === usageDays ? ' is-active' : ''}" data-days="${n}" aria-pressed="${n === usageDays ? 'true' : 'false'}" aria-label="Last ${n} days">${n}d</button>`).join('')}
 			</div>
 		</div>
 
@@ -1015,9 +1119,11 @@ function renderUsageTab(root) {
 		const btn = e.target.closest('.dev-usage-range-btn');
 		if (!btn) return;
 		usageDays = Number(btn.dataset.days);
-		el.querySelector('.dev-usage-range').querySelectorAll('.dev-usage-range-btn').forEach(b =>
-			b.classList.toggle('is-active', Number(b.dataset.days) === usageDays)
-		);
+		el.querySelector('.dev-usage-range').querySelectorAll('.dev-usage-range-btn').forEach(b => {
+			const on = Number(b.dataset.days) === usageDays;
+			b.classList.toggle('is-active', on);
+			b.setAttribute('aria-pressed', on ? 'true' : 'false');
+		});
 		try {
 			usageData = await get(`/api/developer/usage?days=${usageDays}`);
 		} catch { /* keep stale data */ }
@@ -1219,10 +1325,10 @@ function renderChangelogTab(root) {
 				<h2 class="dev-section-title">Changelog</h2>
 				<p class="dev-section-desc">Recent platform updates, API changes, and new features. Follow our development velocity.</p>
 			</div>
-			<div class="dev-changelog-filters" id="changelog-filters">
-				<button class="dev-changelog-filter is-active" data-filter="all">All</button>
+			<div class="dev-changelog-filters" id="changelog-filters" role="group" aria-label="Filter changelog by category">
+				<button type="button" class="dev-changelog-filter is-active" data-filter="all" aria-pressed="true">All</button>
 				${Object.entries(CATEGORY_META).map(([key, meta]) =>
-					`<button class="dev-changelog-filter" data-filter="${key}"><span class="dev-usage-dot" style="background:${meta.color}"></span>${meta.label}</button>`
+					`<button type="button" class="dev-changelog-filter" data-filter="${key}" aria-pressed="false"><span class="dev-usage-dot" style="background:${meta.color}"></span>${meta.label}</button>`
 				).join('')}
 			</div>
 		</div>
@@ -1238,7 +1344,11 @@ function renderChangelogTab(root) {
 		const btn = e.target.closest('.dev-changelog-filter');
 		if (!btn) return;
 		filter = btn.dataset.filter;
-		el.querySelectorAll('.dev-changelog-filter').forEach(b => b.classList.toggle('is-active', b === btn));
+		el.querySelectorAll('.dev-changelog-filter').forEach(b => {
+			const on = b === btn;
+			b.classList.toggle('is-active', on);
+			b.setAttribute('aria-pressed', on ? 'true' : 'false');
+		});
 		renderChangelogTimeline(el.querySelector('#changelog-timeline'), filter);
 	});
 }
@@ -1811,6 +1921,27 @@ function injectStyles() {
 .dev-changelog-empty {
 	display:flex; align-items:center; justify-content:center;
 	padding:40px; color:var(--nxt-ink-dim); font-size:13px;
+}
+
+/* ── Keyboard focus rings ────────────────────────────────── */
+.dev-tab:focus-visible, .dev-scene-btn:focus-visible, .dev-bg-btn:focus-visible,
+.dev-bg-color:focus-visible, .dev-code-tab:focus-visible, .dev-usage-range-btn:focus-visible,
+.dev-changelog-filter:focus-visible, .dev-copy-btn:focus-visible, .dev-wh-view-btn:focus-visible,
+.dev-input:focus-visible, .dev-select:focus-visible {
+	outline:2px solid var(--nxt-accent); outline-offset:2px;
+}
+.dev-event-check:focus-within { border-color:var(--nxt-accent); }
+
+/* ── Honor reduced-motion ────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+	.dev-tab, .dev-scene-btn, .dev-bg-btn, .dev-code-tab, .dev-usage-range-btn,
+	.dev-changelog-filter, .dev-copy-btn, .dev-wh-view-btn, .dev-input, .dev-select,
+	.dev-preview-img, .dev-usage-action-bar, .dev-toast, .dev-event-check {
+		transition:none !important;
+	}
+	.dev-changelog-entry, .dev-preview-img, .dev-modal-overlay, .dev-input-error {
+		animation:none !important;
+	}
 }
 	`;
 	document.head.appendChild(style);

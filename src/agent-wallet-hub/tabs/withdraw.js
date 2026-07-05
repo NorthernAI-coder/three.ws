@@ -19,7 +19,7 @@
  */
 
 import { registerWalletTab } from '../registry.js';
-import { formatUsd, explorerTxUrl, explorerAddressUrl } from '../util.js';
+import { formatUsd, explorerTxUrl } from '../util.js';
 import { consumeCsrfToken } from '../../api.js';
 import { ensureRiskAck } from '../../shared/risk-ack.js';
 
@@ -162,7 +162,6 @@ async function scanQr() {
 	document.addEventListener('keydown', onKey);
 	cancelBtn.focus();
 	try {
-		// eslint-disable-next-line no-undef
 		const detector = new BarcodeDetector({ formats: ['qr_code'] });
 		stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
 		video.srcObject = stream;

@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-05T12:50:36.095Z",
+	"generated_at": "2026-07-05T13:18:40.094Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -67,6 +67,17 @@
 			"tags": [
 				"fix",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-05",
+			"type": "update",
+			"title": "Agent wallet: a top-to-bottom polish and accessibility pass across every tab",
+			"summary": "We went through all 23 sections of your agent's wallet — Balance, Go Live, Portfolio, Deposit, Trade, Snipe, Orders, Autopilot, Intents, Earn, Pay, Withdraw, Give, Trust, Signals, Vanity, Copilot, Proof of Custody, Access, Recovery, and more — and brought every one up to the same bar. Screen readers now announce live figures, quotes, order status, and errors as they happen; every button, form field, and progress bar has a proper label and a visible keyboard focus ring; charts and meters carry text descriptions; and failures show a clear, retryable message instead of a dead end. Along the way we fixed real bugs: the Balance tab was shipping unstyled, the Pay tab's live progress steps never appeared, the Withdraw tab was distorting the wallet header, and a few sections could blank out on a network error. Money amounts that can't be computed now show \"—\" instead of \"NaN\", and everything respects reduced-motion settings.",
+			"link": null,
+			"tags": [
+				"improvement",
+				"fix"
 			]
 		},
 		{

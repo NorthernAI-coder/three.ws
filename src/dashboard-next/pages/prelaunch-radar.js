@@ -17,6 +17,7 @@
 
 import { mountShell } from '../shell.js';
 import { get, esc, relTime } from '../api.js';
+import { emptyStateHTML, errorStateHTML, ensureStateKitStyles, attachRetry } from '../../shared/state-kit.js';
 
 const POLL_REFRESH_MS = 30_000;
 
@@ -98,14 +99,26 @@ const STYLE = `<style>
 .rd-tag.creator { color: #818cf8; border-color: color-mix(in srgb, #818cf8 45%, var(--nxt-stroke)); }
 .rd-tag.smart_money { color: #34d399; border-color: color-mix(in srgb, #34d399 45%, var(--nxt-stroke)); }
 .rd-score { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 15px; }
-.rd-empty { padding: 36px 18px; text-align: center; color: var(--nxt-ink-faint); font-size: 13.5px; }
-.rd-empty strong { display: block; color: var(--nxt-ink-soft); margin-bottom: 6px; font-size: 14px; }
 .rd-sk { height: 64px; border-radius: var(--nxt-radius); background: linear-gradient(90deg, var(--nxt-panel) 25%, color-mix(in srgb, var(--nxt-stroke) 40%, var(--nxt-panel)) 37%, var(--nxt-panel) 63%); background-size: 400% 100%; animation: rd-shimmer 1.4s infinite; margin-bottom: 12px; }
 @keyframes rd-shimmer { 0% { background-position: 100% 0;} 100% { background-position: 0 0; } }
 .rd-cta { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--nxt-accent); text-decoration: none; }
 .rd-cta:hover { text-decoration: underline; }
 .rd-armed { font-size: 12.5px; color: var(--nxt-ink-soft); }
 .rd-armed b { color: var(--nxt-ink); }
+
+/* Long addresses must never force page-level horizontal overflow */
+.rd-mono { overflow-wrap: anywhere; }
+.rd-ev-line2, .rd-wl-addr { min-width: 0; }
+
+/* Keyboard focus rings */
+.rd-link:focus-visible, .rd-cta:focus-visible, .rd-wl:focus-visible {
+	outline: 2px solid var(--nxt-accent); outline-offset: 2px; border-radius: var(--nxt-radius-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.rd-dot.live, .rd-ev.rd-new, .rd-sk { animation: none !important; }
+	.rd-ev { transition: none; }
+}
 </style>`;
 
 let _seen = new Set();
@@ -116,19 +129,27 @@ let _refreshTimer = null;
 let _isOwner = false;
 
 (async function boot() {
+	let main;
 	try {
-		const main = await mountShell();
+		main = await mountShell();
+		ensureStateKitStyles();
 		main.innerHTML = `
 			<h1 class="dn-h1">Pre-Launch Radar</h1>
 			<p class="dn-h1-sub">Block-zero launch detection — watch proven creator &amp; smart-money wallets on-chain and pre-arm the snipe on the launch precursor, not the feed.</p>
-			<div id="rd-root"><div class="rd-sk"></div><div class="rd-sk"></div><div class="rd-sk"></div></div>
+			<div id="rd-root" aria-busy="true" aria-label="Loading pre-launch radar"><div class="rd-sk"></div><div class="rd-sk"></div><div class="rd-sk"></div></div>
 		`;
 		main.insertAdjacentHTML('beforeend', STYLE);
 		await refresh(main.querySelector('#rd-root'));
 		_refreshTimer = setInterval(() => refresh(main.querySelector('#rd-root'), true), POLL_REFRESH_MS);
 	} catch (e) {
-		const root = document.getElementById('rd-root');
-		if (root) root.innerHTML = `<p class="rd-empty"><strong>Couldn't load the radar</strong>${esc(e.message || 'Try again shortly.')}</p>`;
+		const root = document.getElementById('rd-root') || main;
+		if (root) {
+			root.innerHTML = errorStateHTML({
+				title: 'Couldn’t load the radar',
+				body: esc(e?.message || 'Try again shortly.'),
+			});
+			attachRetry(root, () => location.reload());
+		}
 	}
 })();
 
@@ -138,11 +159,19 @@ async function refresh(root, quiet = false) {
 	try {
 		data = await get('/api/sniper/radar?network=mainnet');
 	} catch (e) {
-		if (!quiet) root.innerHTML = `<p class="rd-empty"><strong>Radar unavailable</strong>${esc(e.message || 'Try again shortly.')}</p>`;
+		if (!quiet) {
+			root.innerHTML = errorStateHTML({
+				title: 'Radar unavailable',
+				body: esc(e?.message || 'Try again shortly.'),
+			});
+			attachRetry(root, () => refresh(root));
+		}
 		return;
 	}
 	_isOwner = !!data.owner;
 	root.innerHTML = render(data);
+	root.removeAttribute('aria-busy');
+	root.removeAttribute('aria-label');
 	startSse();
 }
 
@@ -163,16 +192,16 @@ function render(data) {
 			<div class="rd-panel">
 				<div class="rd-panel-head">
 					<span class="rd-panel-title">Live precursors</span>
-					<span class="rd-conn" id="rd-conn"><span class="rd-dot unknown"></span>Connecting…</span>
+					<span class="rd-conn" id="rd-conn" role="status" aria-live="polite"><span class="rd-dot unknown" aria-hidden="true"></span>Connecting…</span>
 				</div>
-				<div class="rd-list" id="rd-events">${eventsList(data.events || [])}</div>
+				<div class="rd-list" id="rd-events" role="log" aria-live="polite" aria-relevant="additions" aria-label="Live launch precursors">${eventsList(data.events || [])}</div>
 			</div>
 			<div class="rd-panel">
 				<div class="rd-panel-head">
 					<span class="rd-panel-title">Watchlist</span>
 					<span class="rd-src">${(data.watchlist || []).length} wallets</span>
 				</div>
-				<div class="rd-wl">${watchlistList(data.watchlist || [])}</div>
+				<div class="rd-wl" tabindex="0" role="region" aria-label="Watched wallets (scrollable)">${watchlistList(data.watchlist || [])}</div>
 			</div>
 		</div>
 	</div>`;
@@ -199,8 +228,8 @@ function banner(st) {
 		sub = st.reason || 'The radar has not reported yet. It reports the moment the worker boots.';
 	}
 	return `
-	<div class="rd-banner">
-		<span class="rd-dot ${cls}"></span>
+	<div class="rd-banner" role="status" aria-live="polite">
+		<span class="rd-dot ${cls}" aria-hidden="true"></span>
 		<div>
 			<div class="rd-state">${esc(title)}</div>
 			<div class="rd-state-sub">${esc(sub)}</div>
@@ -233,7 +262,12 @@ function armedStrip(armed) {
 
 function eventsList(events) {
 	if (!events.length) {
-		return `<div class="rd-empty"><strong>The radar is learning</strong>No launch precursors yet. As proven creators and smart-money wallets move, their funding and deploys appear here in real time — usually before the coin hits any feed.</div>`;
+		return emptyStateHTML({
+			icon: '📡',
+			title: 'The radar is learning',
+			body: 'No launch precursors yet. As proven creators and smart-money wallets move, their funding and deploys appear here in real time — usually before the coin hits any feed.',
+			actions: [{ label: 'Arm a radar strategy', href: '/dashboard/sniper', primary: true }],
+		});
 	}
 	return events.map((e) => eventRow(e, false)).join('');
 }
@@ -246,7 +280,9 @@ function eventRow(e, isNew) {
 		? `<a class="rd-link rd-mono" href="${pumpUrl(e.mint)}" target="_blank" rel="noopener" title="${esc(e.mint)}">${esc(short(e.mint))}</a>`
 		: `<span class="rd-state-sub">awaiting deploy…</span>`;
 	const trig = e.trigger_wallet
-		? `<a class="rd-link rd-mono" href="${_isOwner ? solscanAddr(e.trigger_wallet) : '#'}" ${_isOwner ? 'target="_blank" rel="noopener"' : 'onclick="return false"'} title="${esc(e.trigger_wallet)}">${esc(e.trigger_wallet)}</a>`
+		? (_isOwner
+			? `<a class="rd-link rd-mono" href="${solscanAddr(e.trigger_wallet)}" target="_blank" rel="noopener" title="${esc(e.trigger_wallet)}" aria-label="Trigger wallet ${esc(short(e.trigger_wallet))} on Solscan">${esc(short(e.trigger_wallet))}</a>`
+			: `<span class="rd-mono" title="Watched wallet (address shown to the owner)">${esc(short(e.trigger_wallet))}</span>`)
 		: '—';
 	const reason = e.watch_reason ? (REASON_LABEL[e.watch_reason] || e.watch_reason) : 'watched';
 	return `
@@ -257,7 +293,7 @@ function eventRow(e, isNew) {
 			<div class="rd-ev-line2">${esc(reason)} · ${trig}</div>
 		</div>
 		<div class="rd-ev-right">
-			<div class="rd-conf" title="Detection confidence">${pct(e.confidence)}</div>
+			<div class="rd-conf" title="Detection confidence" aria-label="Detection confidence ${pct(e.confidence)}">${pct(e.confidence)}</div>
 			<div>${e.at || e.created_at ? esc(relTime(e.at || e.created_at)) : ''}</div>
 		</div>
 	</div>`;
@@ -265,7 +301,11 @@ function eventRow(e, isNew) {
 
 function watchlistList(wl) {
 	if (!wl.length) {
-		return `<div class="rd-empty"><strong>Curating the watchlist</strong>The radar auto-selects proven creators (graduated coins) and top smart-money wallets. It populates as the graph learns from real outcomes.</div>`;
+		return emptyStateHTML({
+			icon: '🛰️',
+			title: 'Curating the watchlist',
+			body: 'The radar auto-selects proven creators (graduated coins) and top smart-money wallets. It populates as the graph learns from real outcomes.',
+		});
 	}
 	return wl.map((w) => {
 		const reason = REASON_LABEL[w.reason] || w.reason;
@@ -274,8 +314,8 @@ function watchlistList(wl) {
 			? `${w.creator_graduated} graduated`
 			: w.realized_score != null ? `rep ${Math.round(w.realized_score)}` : '';
 		const addrLink = _isOwner
-			? `<a class="rd-link rd-mono" href="${solscanAddr(w.address)}" target="_blank" rel="noopener" title="${esc(w.address)}">${esc(short(w.address))}</a>`
-			: `<span class="rd-mono" title="anonymized">${esc(w.address)}</span>`;
+			? `<a class="rd-link rd-mono" href="${solscanAddr(w.address)}" target="_blank" rel="noopener" title="${esc(w.address)}" aria-label="Wallet ${esc(short(w.address))} on Solscan">${esc(short(w.address))}</a>`
+			: `<span class="rd-mono" title="Address shown to the owner">${esc(short(w.address))}</span>`;
 		return `
 		<div class="rd-wl-row">
 			<div>
@@ -313,8 +353,8 @@ function ingest(ev) {
 	if (_seen.has(ev.id)) return;
 	_seen.add(ev.id);
 	if (_seen.size > 3000) _seen = new Set([...(_seen)].slice(-1500));
-	// Drop the empty-state if present.
-	const empty = list.querySelector('.rd-empty');
+	// Drop the empty-state (shared state-kit block) before inserting the first live row.
+	const empty = list.querySelector('.tws-es');
 	if (empty) list.innerHTML = '';
 	list.insertAdjacentHTML('afterbegin', eventRow(ev, true));
 	// Trim to a sane cap.

@@ -149,6 +149,7 @@ const state = {
 	wireFilters(main);
 	wireCommunityFilters(main);
 	wireNewMenu(main);
+	main.querySelectorAll('[role="tablist"]').forEach(wireTablistKeys);
 
 	// Deep-link support: /dashboard/avatars#community opens straight on the
 	// Community tab (shareable / bookmarkable), and back/forward navigation
@@ -436,7 +437,12 @@ function wireNewMenu(root) {
 	const btn = root.querySelector('[data-new]');
 	const pop = root.querySelector('[data-new-pop]');
 	const close = () => { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
-	const open = () => { pop.hidden = false; btn.setAttribute('aria-expanded', 'true'); };
+	const open = () => {
+		pop.hidden = false;
+		btn.setAttribute('aria-expanded', 'true');
+		const first = pop.querySelector('[role="menuitem"]');
+		if (first) requestAnimationFrame(() => first.focus());
+	};
 	btn.setAttribute('aria-haspopup', 'menu');
 	btn.setAttribute('aria-expanded', 'false');
 	btn.addEventListener('click', (e) => {
@@ -448,6 +454,16 @@ function wireNewMenu(root) {
 	});
 	document.addEventListener('keydown', (e) => {
 		if (e.key === 'Escape' && !pop.hidden) close();
+	});
+	pop.addEventListener('keydown', (e) => {
+		const items = [...pop.querySelectorAll('[role="menuitem"]')];
+		if (!items.length) return;
+		const idx = items.indexOf(document.activeElement);
+		if (e.key === 'ArrowDown') { e.preventDefault(); items[(idx + 1) % items.length].focus(); }
+		else if (e.key === 'ArrowUp') { e.preventDefault(); items[(idx - 1 + items.length) % items.length].focus(); }
+		else if (e.key === 'Home') { e.preventDefault(); items[0].focus(); }
+		else if (e.key === 'End') { e.preventDefault(); items[items.length - 1].focus(); }
+		else if (e.key === 'Escape') { e.preventDefault(); close(); btn.focus(); }
 	});
 
 	const template = pop.querySelector('[data-new-template]');
@@ -516,6 +532,12 @@ function renderGrid(root) {
 		empty.className = 'dn-empty';
 		empty.style.gridColumn = '1 / -1';
 		empty.innerHTML = `<h3>No matches</h3><p>No avatars match the current search or filter. Clear them to see everything.</p>`;
+		const clear = document.createElement('button');
+		clear.type = 'button';
+		clear.className = 'dn-btn ghost';
+		clear.textContent = 'Clear filters';
+		clear.addEventListener('click', () => resetMineFilters(root));
+		empty.appendChild(clear);
 		grid.appendChild(empty);
 		return;
 	}
@@ -528,6 +550,42 @@ function renderGrid(root) {
 
 	grid.innerHTML = '';
 	for (const a of filtered) grid.appendChild(avatarCard(root, a));
+}
+
+// Reset the "My avatars" search + chip filters to their defaults, sync the UI,
+// and re-render. Sort is left untouched — it never yields an empty result set.
+function resetMineFilters(root) {
+	state.filter = { q: '', visibility: 'all', rigged: 'all', sort: state.filter.sort };
+	const q = root.querySelector('[data-q]');
+	if (q) q.value = '';
+	root.querySelectorAll('[data-vis-chip]').forEach((x) => {
+		const on = x.getAttribute('data-vis-chip') === 'all';
+		x.classList.toggle('active', on);
+		x.setAttribute('aria-selected', on ? 'true' : 'false');
+	});
+	root.querySelectorAll('[data-rig-chip]').forEach((x) => {
+		const on = x.getAttribute('data-rig-chip') === 'all';
+		x.classList.toggle('active', on);
+		x.setAttribute('aria-selected', on ? 'true' : 'false');
+	});
+	renderGrid(root);
+}
+
+// Reset the community search / tag / rig filters and reload the public feed.
+function resetCommunityFilters(root) {
+	const c = state.community;
+	c.filter.q = '';
+	c.filter.tag = '';
+	c.filter.rigged = 'all';
+	const q = root.querySelector('[data-cq]');
+	if (q) q.value = '';
+	root.querySelectorAll('[data-crig-chip]').forEach((x) => {
+		const on = x.getAttribute('data-crig-chip') === 'all';
+		x.classList.toggle('active', on);
+		x.setAttribute('aria-selected', on ? 'true' : 'false');
+	});
+	renderCommunityTags(root);
+	loadCommunityInitial(root);
 }
 
 function setupLoadMore(root) {
@@ -575,6 +633,12 @@ function renderCommunityGrid(root) {
 		empty.style.gridColumn = '1 / -1';
 		if (c.filter.q || c.filter.tag) {
 			empty.innerHTML = `<h3>No matches</h3><p>No public avatars match the current search or tag. Clear them to see the whole community gallery.</p>`;
+			const clear = document.createElement('button');
+			clear.type = 'button';
+			clear.className = 'dn-btn ghost';
+			clear.textContent = 'Clear filters';
+			clear.addEventListener('click', () => resetCommunityFilters(root));
+			empty.appendChild(clear);
 		} else {
 			empty.innerHTML = `<h3>No public avatars yet.</h3><p>Be the first — build an avatar and set it to public so it appears here for everyone.</p>
 				<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
@@ -609,7 +673,7 @@ function communityCard(root, a) {
 				<a class="dn-av-hover-btn" href="/avatars/${encodeURIComponent(a.id)}" target="_blank" rel="noopener">Live page</a>
 				<a class="dn-av-hover-btn" href="/app#avatar=${encodeURIComponent(a.id)}">Remix in 3D</a>
 			</div>
-			<button type="button" class="dn-av-more" data-more aria-haspopup="menu" aria-label="More actions">
+			<button type="button" class="dn-av-more" data-more aria-haspopup="menu" aria-expanded="false" aria-label="More actions">
 				<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true"><circle cx="8" cy="3" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="8" cy="13" r="1.4"/></svg>
 			</button>
 		</div>
@@ -667,7 +731,10 @@ function openCommunityMenu(root, anchor, a) {
 	document.body.appendChild(menu);
 	positionMenu(menu, anchor);
 	requestAnimationFrame(() => menu.classList.add('open'));
+	menu._anchor = anchor;
+	anchor.setAttribute('aria-expanded', 'true');
 	_openMenu = menu;
+	enhanceMenu(menu, anchor);
 
 	menu.querySelectorAll('[data-i]').forEach((b) => {
 		b.addEventListener('click', () => {
@@ -790,7 +857,7 @@ function avatarCard(root, a) {
 				<a class="dn-av-hover-btn" href="/avatars/${encodeURIComponent(a.id)}" target="_blank" rel="noopener">Live page</a>
 				<a class="dn-av-hover-btn" href="/app#avatar=${encodeURIComponent(a.id)}">3D Studio</a>
 			</div>
-			<button type="button" class="dn-av-more" data-more aria-haspopup="menu" aria-label="More actions">
+			<button type="button" class="dn-av-more" data-more aria-haspopup="menu" aria-expanded="false" aria-label="More actions">
 				<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true"><circle cx="8" cy="3" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="8" cy="13" r="1.4"/></svg>
 			</button>
 		</div>
@@ -898,9 +965,50 @@ let _openMenu = null;
 
 function closeOpenMenu() {
 	if (_openMenu) {
+		_openMenu._anchor?.setAttribute('aria-expanded', 'false');
 		_openMenu.remove();
 		_openMenu = null;
 	}
+}
+
+// Keyboard + focus management for the popover menus: focus the first item on
+// open, arrow/Home/End to move, Escape to close and return focus to the button.
+// Items are role="menuitem" buttons, so Enter/Space activate them natively.
+function enhanceMenu(menu, anchor) {
+	const items = [...menu.querySelectorAll('[role="menuitem"]')];
+	if (!items.length) return;
+	items.forEach((it) => { it.tabIndex = -1; });
+	const focusAt = (i) => items[(i + items.length) % items.length].focus();
+	requestAnimationFrame(() => focusAt(0));
+	menu.addEventListener('keydown', (e) => {
+		const idx = items.indexOf(document.activeElement);
+		if (e.key === 'ArrowDown') { e.preventDefault(); focusAt(idx + 1); }
+		else if (e.key === 'ArrowUp') { e.preventDefault(); focusAt(idx - 1); }
+		else if (e.key === 'Home') { e.preventDefault(); focusAt(0); }
+		else if (e.key === 'End') { e.preventDefault(); focusAt(items.length - 1); }
+		else if (e.key === 'Escape') { e.preventDefault(); closeOpenMenu(); anchor.focus(); }
+		else if (e.key === 'Tab') { closeOpenMenu(); }
+	});
+}
+
+// Arrow-key roving across a role="tablist" chip/tab group. Moves focus and
+// activates the tab (ARIA automatic-activation pattern), matching the click path.
+function wireTablistKeys(container) {
+	if (!container) return;
+	container.addEventListener('keydown', (e) => {
+		if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(e.key)) return;
+		const tabs = [...container.querySelectorAll('[role="tab"]')];
+		if (!tabs.length) return;
+		const cur = tabs.indexOf(document.activeElement);
+		let next;
+		if (e.key === 'Home') next = 0;
+		else if (e.key === 'End') next = tabs.length - 1;
+		else if (e.key === 'ArrowRight') next = (cur + 1) % tabs.length;
+		else next = (cur - 1 + tabs.length) % tabs.length;
+		e.preventDefault();
+		tabs[next].focus();
+		tabs[next].click();
+	});
 }
 
 function wireMoreMenu(root, card, a) {
@@ -946,7 +1054,10 @@ function openMoreMenu(root, anchor, card, a) {
 	document.body.appendChild(menu);
 	positionMenu(menu, anchor);
 	requestAnimationFrame(() => menu.classList.add('open'));
+	menu._anchor = anchor;
+	anchor.setAttribute('aria-expanded', 'true');
 	_openMenu = menu;
+	enhanceMenu(menu, anchor);
 
 	menu.querySelectorAll('[data-i]').forEach((b) => {
 		b.addEventListener('click', () => {
@@ -1002,7 +1113,10 @@ function openVisibilitySubmenu(root, anchor, card, a) {
 	document.body.appendChild(menu);
 	positionMenu(menu, anchor);
 	requestAnimationFrame(() => menu.classList.add('open'));
+	menu._anchor = anchor;
+	anchor.setAttribute('aria-expanded', 'true');
 	_openMenu = menu;
+	enhanceMenu(menu, anchor);
 
 	menu.querySelectorAll('[data-i]').forEach((b) => {
 		b.addEventListener('click', async () => {
@@ -1686,6 +1800,53 @@ function injectStyles() {
 				pointer-events: auto;
 			}
 			.dn-av-hover-btn { font-size: 11px; padding: 4px 9px; }
+		}
+
+		/* Keyboard focus rings — tokens only */
+		.dn-av-tab:focus-visible,
+		.dn-av-chip:focus-visible,
+		.dn-av-sort select:focus-visible,
+		.dn-av-hover-btn:focus-visible,
+		.dn-av-pencil:focus-visible,
+		.dn-av-new-pop a:focus-visible,
+		.dn-av-new-pop button:focus-visible {
+			outline: 2px solid var(--nxt-accent);
+			outline-offset: 2px;
+		}
+		.dn-av-menu-item:focus-visible {
+			outline: 2px solid var(--nxt-accent);
+			outline-offset: -2px;
+			background: rgba(255,255,255,0.06);
+		}
+
+		/* Keyboard users reach the on-thumb actions without a pointer */
+		.dn-avatar-card:focus-within .dn-av-hover-actions {
+			opacity: 1;
+			transform: translateY(0);
+			pointer-events: auto;
+		}
+		.dn-avatar-card:focus-within .dn-av-more,
+		.dn-avatar-card:focus-within .dn-av-pencil { opacity: 1; }
+
+		/* Card enter — subtle, replayed on filter/tab rebuilds. No fill-mode so
+		   the finished state reverts to base and :hover transforms still win. */
+		@keyframes dn-av-card-in {
+			from { opacity: 0; transform: translateY(6px); }
+			to   { opacity: 1; transform: translateY(0); }
+		}
+		.dn-avatar-card:not(.dn-av-skeleton-card) {
+			animation: dn-av-card-in 240ms ease;
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			.dn-avatar-card,
+			.dn-avatar-card:hover { transition: none; transform: none; }
+			.dn-avatar-card:not(.dn-av-skeleton-card) { animation: none; }
+			.dn-av-menu,
+			.dn-av-hover-actions,
+			.dn-av-toast,
+			.dn-av-overlay,
+			.dn-av-confirm { transition: none; }
 		}
 	`;
 	document.head.appendChild(css);

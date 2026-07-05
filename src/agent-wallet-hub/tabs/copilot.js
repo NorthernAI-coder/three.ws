@@ -20,19 +20,42 @@ registerWalletTab({
 	order: 25, // sits beside Trade (30) — talk, or trade by hand
 	ownerOnly: true,
 	mount({ panel, ctx }) {
-		const handle = mountTradingCopilot({
-			panel,
-			agentId: ctx.agentId,
-			agentName: ctx.agent?.name || 'Copilot',
-			isOwner: ctx.isOwner,
-			getNetwork: ctx.getNetwork,
-			onNetworkChange: ctx.onNetworkChange,
-			toast: ctx.toast,
-		});
+		let handle = null;
+		let destroyed = false;
+
+		// The copilot renders its own loading/streaming/error states internally. This
+		// wrapper only guards the mount itself: if it throws (bad import, DOM error),
+		// degrade to a designed, retryable card instead of a blank or broken panel.
+		function boot() {
+			try {
+				handle = mountTradingCopilot({
+					panel,
+					agentId: ctx.agentId,
+					agentName: ctx.agent?.name || 'Copilot',
+					isOwner: ctx.isOwner,
+					getNetwork: ctx.getNetwork,
+					onNetworkChange: ctx.onNetworkChange,
+					toast: ctx.toast,
+				});
+			} catch (err) {
+				console.error('[agent-wallet-hub] copilot failed to mount', err);
+				handle = null;
+				panel.innerHTML = `<div class="awh-card"><p class="awh-empty" role="alert">The trading copilot couldn’t start. <button class="awh-btn" type="button" data-act="retry">Retry</button></p></div>`;
+				panel.querySelector('[data-act="retry"]')?.addEventListener('click', () => {
+					if (!destroyed) boot();
+				});
+			}
+		}
+
+		boot();
+
 		return {
-			onShow() { handle.onShow?.(); },
-			onHide() { handle.onHide?.(); },
-			destroy() { handle.destroy?.(); },
+			onShow() { handle?.onShow?.(); },
+			onHide() { handle?.onHide?.(); },
+			destroy() {
+				destroyed = true;
+				try { handle?.destroy?.(); } catch { /* teardown best-effort */ }
+			},
 		};
 	},
 });

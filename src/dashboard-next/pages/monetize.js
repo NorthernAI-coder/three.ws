@@ -332,10 +332,10 @@ function renderSkillPricing(prices, agentId, host, me, agents, feeBps = 250) {
 					<table class="mon-table">
 						<thead>
 							<tr>
-								<th>Skill</th>
-								<th style="text-align:right">Price (USDC)</th>
-								<th style="text-align:center">Active</th>
-								<th style="text-align:right">Actions</th>
+								<th scope="col">Skill</th>
+								<th scope="col" style="text-align:right">Price (USDC)</th>
+								<th scope="col" style="text-align:center">Active</th>
+								<th scope="col" style="text-align:right">Actions</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -357,7 +357,7 @@ function renderSkillPricing(prices, agentId, host, me, agents, feeBps = 250) {
 											</td>
 											<td style="text-align:center">
 												<label class="mon-toggle" title="${active ? 'Active' : 'Inactive'}">
-													<input type="checkbox" ${active ? 'checked' : ''} data-field="active" data-idx="${idx}" disabled />
+													<input type="checkbox" ${active ? 'checked' : ''} data-field="active" data-idx="${idx}" disabled aria-label="${skillName} access is ${active ? 'active' : 'inactive'} (NFT-gated)" />
 													<span class="mon-toggle-track"></span>
 												</label>
 											</td>
@@ -381,7 +381,7 @@ function renderSkillPricing(prices, agentId, host, me, agents, feeBps = 250) {
 										</td>
 										<td style="text-align:center">
 											<label class="mon-toggle" title="${active ? 'Active' : 'Inactive'}">
-												<input type="checkbox" ${active ? 'checked' : ''} data-field="active" data-idx="${idx}" />
+												<input type="checkbox" ${active ? 'checked' : ''} data-field="active" data-idx="${idx}" aria-label="Toggle ${skillName} active" />
 												<span class="mon-toggle-track"></span>
 											</label>
 										</td>
@@ -783,9 +783,12 @@ function paintCanvasChart(host, timeseries) {
 		y: PAD.top + innerH - (d.value / max) * innerH,
 	}));
 
-	// Animate draw
+	// Animate draw — but honor a reduced-motion preference by painting the
+	// final frame immediately (no sweep) for motion-sensitive users.
+	const reduceMotion = typeof window.matchMedia === 'function'
+		&& window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 	let progress = 0;
-	const duration = 600;
+	const duration = reduceMotion ? 0 : 600;
 	const startTime = performance.now();
 
 	function draw(now) {
@@ -962,9 +965,9 @@ function renderPaymentsPanel(allPayments) {
 				<div class="dn-panel-title">Recent Payments</div>
 				<div class="dn-panel-sub" style="margin:2px 0 0">Inbound USDC from skills, subscriptions, and API calls.</div>
 			</div>
-			<div data-slot="filters" style="display:flex;gap:6px;flex-wrap:wrap">
+			<div data-slot="filters" role="group" aria-label="Filter payments by source" style="display:flex;gap:6px;flex-wrap:wrap">
 				${PAYMENT_FILTERS.map((f, i) => `
-					<button class="dn-btn ghost" data-filter="${esc(f.key)}" style="padding:4px 12px;font-size:12px${i === 0 ? ';background:var(--nxt-accent-soft);color:var(--nxt-ink)' : ''}">${esc(f.label)}</button>
+					<button type="button" class="dn-btn ghost" data-filter="${esc(f.key)}" aria-pressed="${i === 0 ? 'true' : 'false'}" style="padding:4px 12px;font-size:12px${i === 0 ? ';background:var(--nxt-accent-soft);color:var(--nxt-ink)' : ''}">${esc(f.label)}</button>
 				`).join('')}
 			</div>
 		</div>
@@ -991,11 +994,11 @@ function renderPaymentsPanel(allPayments) {
 				<table class="mon-table">
 					<thead>
 						<tr>
-							<th>When</th>
-							<th>Source</th>
-							<th style="text-align:right">Amount</th>
-							<th>Status</th>
-							<th>Tx</th>
+							<th scope="col">When</th>
+							<th scope="col">Source</th>
+							<th scope="col" style="text-align:right">Amount</th>
+							<th scope="col">Status</th>
+							<th scope="col">Tx</th>
 						</tr>
 					</thead>
 					<tbody>${slice.map(paymentRow).join('')}</tbody>
@@ -1015,7 +1018,9 @@ function renderPaymentsPanel(allPayments) {
 		btn.addEventListener('click', () => {
 			activeFilter = btn.dataset.filter;
 			panel.querySelectorAll('[data-filter]').forEach((b) => {
-				if (b.dataset.filter === activeFilter) {
+				const on = b.dataset.filter === activeFilter;
+				b.setAttribute('aria-pressed', on ? 'true' : 'false');
+				if (on) {
 					b.style.background = 'var(--nxt-accent-soft)';
 					b.style.color = 'var(--nxt-ink)';
 				} else {
@@ -1184,11 +1189,11 @@ function withdrawalsTable(rows, { title, showArrival }) {
 			<table class="mon-table">
 				<thead>
 					<tr>
-						<th>ID</th>
-						<th style="text-align:right">Amount</th>
-						<th>Chain</th>
-						<th>Status</th>
-						<th>${showArrival ? 'Est. arrival' : 'Tx'}</th>
+						<th scope="col">ID</th>
+						<th scope="col" style="text-align:right">Amount</th>
+						<th scope="col">Chain</th>
+						<th scope="col">Status</th>
+						<th scope="col">${showArrival ? 'Est. arrival' : 'Tx'}</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -1739,11 +1744,11 @@ async function loadCosmeticEarnings(body, wallet) {
 			<div style="overflow:auto;border:1px solid var(--nxt-stroke);border-radius:12px">
 				<table style="width:100%;border-collapse:collapse;font-size:13px">
 					<thead><tr style="text-align:left;color:var(--nxt-ink-fade)">
-						<th style="padding:8px 10px;font-weight:500">Cosmetic</th>
-						<th style="padding:8px 10px;font-weight:500">Rarity</th>
-						<th style="padding:8px 10px;font-weight:500;text-align:right">Your cut</th>
-						<th style="padding:8px 10px;font-weight:500">Payout</th>
-						<th style="padding:8px 10px;font-weight:500">When</th>
+						<th scope="col" style="padding:8px 10px;font-weight:500">Cosmetic</th>
+						<th scope="col" style="padding:8px 10px;font-weight:500">Rarity</th>
+						<th scope="col" style="padding:8px 10px;font-weight:500;text-align:right">Your cut</th>
+						<th scope="col" style="padding:8px 10px;font-weight:500">Payout</th>
+						<th scope="col" style="padding:8px 10px;font-weight:500">When</th>
 					</tr></thead>
 					<tbody>${recentRows}</tbody>
 				</table>
@@ -2011,9 +2016,9 @@ function renderTokensPanel(agents) {
 			<table class="mon-table">
 				<thead>
 					<tr>
-						<th>Ticker</th>
-						<th style="text-align:right">Holders</th>
-						<th style="text-align:right">Royalties</th>
+						<th scope="col">Ticker</th>
+						<th scope="col" style="text-align:right">Holders</th>
+						<th scope="col" style="text-align:right">Royalties</th>
 						<th></th>
 					</tr>
 				</thead>
@@ -2078,10 +2083,10 @@ function renderSubscriptionPlans({ creatorPlans, me }) {
 					<table class="mon-table">
 						<thead>
 							<tr>
-								<th>Plan</th>
-								<th style="text-align:right">Price</th>
-								<th>Interval</th>
-								<th>Status</th>
+								<th scope="col">Plan</th>
+								<th scope="col" style="text-align:right">Price</th>
+								<th scope="col">Interval</th>
+								<th scope="col">Status</th>
 								<th style="text-align:right"></th>
 							</tr>
 						</thead>
@@ -2164,7 +2169,7 @@ function openPlanModal(existing, onSaved) {
 	const overlay = document.createElement('div');
 	overlay.className = 'mon-overlay';
 	overlay.innerHTML = `
-		<div role="dialog" aria-modal="true" class="mon-modal" style="width:min(460px,100%)">
+		<div role="dialog" aria-modal="true" aria-label="${existing ? 'Edit subscription plan' : 'Create subscription plan'}" class="mon-modal" style="width:min(460px,100%)">
 			<div style="font-size:16px;font-weight:600;margin-bottom:18px">${existing ? 'Edit plan' : 'Create plan'}</div>
 
 			<label class="mon-field">
@@ -2269,6 +2274,8 @@ function toastMonetize(msg, isError) {
 	if (!el) {
 		el = document.createElement('div');
 		el.id = 'dn-monetize-toast';
+		el.setAttribute('role', 'status');
+		el.setAttribute('aria-live', 'polite');
 		el.style.cssText = `
 			position:fixed;left:50%;bottom:32px;transform:translateX(-50%) translateY(20px);
 			background:rgba(20,21,28,0.95);border:1px solid var(--nxt-stroke-strong);

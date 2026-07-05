@@ -8,6 +8,7 @@
 import { mountShell } from '../shell.js';
 import { requireUser, get, put, esc, ApiError } from '../api.js';
 import { sanitizeUrl } from '../../shared/sanitize-url.js';
+import { errorStateHTML, ensureStateKitStyles } from '../../shared/state-kit.js';
 
 // ── Provider registry ────────────────────────────────────────────────────
 
@@ -199,6 +200,7 @@ function isAvailable(key) {
 
 	main.innerHTML = renderPage();
 	injectStyles();
+	ensureStateKitStyles();
 
 	renderModelGrid();
 	renderQuestionCards();
@@ -216,14 +218,16 @@ function isAvailable(key) {
 	if (err?.message === 'redirecting') return;
 	if (err instanceof ApiError && err.status === 401) return;
 	const main = document.querySelector('.dn-main-inner') || document.body;
+	ensureStateKitStyles();
 	main.innerHTML = `
 		<h1 class="dn-h1">Brain</h1>
-		<div class="dn-panel" style="border-color:rgba(150,155,163,0.3)">
-			<div class="dn-panel-title" style="color:var(--nxt-danger)">Failed to load</div>
-			<div class="dn-panel-sub">${esc(err?.message || 'unknown error')}</div>
-			<button class="dn-btn" onclick="location.reload()">Reload</button>
-		</div>
+		${errorStateHTML({
+			title: 'Failed to load',
+			body: esc(err?.message || 'Something went wrong. Check your connection and try again.'),
+			actions: [{ label: 'Reload', id: 'brn-reload', primary: true }],
+		})}
 	`;
+	main.querySelector('[data-sk-action="brn-reload"]')?.addEventListener('click', () => location.reload());
 });
 
 // ── Page structure ───────────────────────────────────────────────────────
@@ -254,9 +258,9 @@ function renderPage() {
 			</div>
 
 			<nav class="brn-tabs" role="tablist" aria-label="Brain sections">
-				<button class="brn-tab is-active" data-tab="models" role="tab" aria-selected="true" aria-controls="brnModels">Models</button>
-				<button class="brn-tab" data-tab="persona" role="tab" aria-selected="false" aria-controls="brnPersona">Persona</button>
-				<button class="brn-tab" data-tab="playground" role="tab" aria-selected="false" aria-controls="brnPlayground">Playground</button>
+				<button class="brn-tab is-active" data-tab="models" role="tab" type="button" aria-selected="true" aria-controls="brnModels" tabindex="0">Models</button>
+				<button class="brn-tab" data-tab="persona" role="tab" type="button" aria-selected="false" aria-controls="brnPersona" tabindex="-1">Persona</button>
+				<button class="brn-tab" data-tab="playground" role="tab" type="button" aria-selected="false" aria-controls="brnPlayground" tabindex="-1">Playground</button>
 			</nav>
 
 			<section class="brn-panel is-active" id="brnModels" role="tabpanel">
@@ -270,16 +274,16 @@ function renderPage() {
 						<p class="brn-section-sub">Define how your AI agent thinks, speaks, and behaves. Extract a structured persona and test it across models.</p>
 					</div>
 					<div class="brn-methods" role="tablist" aria-label="Persona methods">
-						<button class="brn-method is-active" data-method="interview" role="tab">
-							<span class="brn-method-icon">✎</span>
+						<button class="brn-method is-active" data-method="interview" role="tab" type="button" aria-selected="true" aria-controls="brnInterview">
+							<span class="brn-method-icon" aria-hidden="true">✎</span>
 							<div><div class="brn-method-title">Guided Interview</div><div class="brn-method-desc">Answer targeted questions</div></div>
 						</button>
-						<button class="brn-method" data-method="freeform" role="tab">
-							<span class="brn-method-icon">✂</span>
+						<button class="brn-method" data-method="freeform" role="tab" type="button" aria-selected="false" aria-controls="brnFreeform">
+							<span class="brn-method-icon" aria-hidden="true">✂</span>
 							<div><div class="brn-method-title">Freeform</div><div class="brn-method-desc">Paste writing samples</div></div>
 						</button>
-						<button class="brn-method" data-method="manual" role="tab">
-							<span class="brn-method-icon">⚙</span>
+						<button class="brn-method" data-method="manual" role="tab" type="button" aria-selected="false" aria-controls="brnManual">
+							<span class="brn-method-icon" aria-hidden="true">⚙</span>
 							<div><div class="brn-method-title">Manual</div><div class="brn-method-desc">Set fields directly</div></div>
 						</button>
 					</div>
@@ -375,9 +379,9 @@ function renderPage() {
 					</aside>
 					<div class="brn-play-main">
 						<div class="brn-play-toolbar">
-							<div class="brn-mode-toggle">
-								<button class="brn-mode is-active" data-mode="compare">Compare</button>
-								<button class="brn-mode" data-mode="chat">Chat</button>
+							<div class="brn-mode-toggle" role="group" aria-label="Playground mode">
+								<button class="brn-mode is-active" data-mode="compare" type="button" aria-pressed="true">Compare</button>
+								<button class="brn-mode" data-mode="chat" type="button" aria-pressed="false">Chat</button>
 							</div>
 							<div class="brn-play-controls" id="brnPlayControls"></div>
 							<div class="brn-play-toolbar-end">
@@ -431,6 +435,7 @@ function setTab(tab) {
 		const active = t.dataset.tab === tab;
 		t.classList.toggle('is-active', active);
 		t.setAttribute('aria-selected', String(active));
+		t.tabIndex = active ? 0 : -1;
 	});
 	const map = { models: 'brnModels', persona: 'brnPersona', playground: 'brnPlayground' };
 	document.querySelectorAll('.brn-panel').forEach(p => {
@@ -501,7 +506,11 @@ function updateSynthBtn() {
 
 function setMethod(m) {
 	S.method = m;
-	document.querySelectorAll('.brn-method').forEach(t => t.classList.toggle('is-active', t.dataset.method === m));
+	document.querySelectorAll('.brn-method').forEach(t => {
+		const on = t.dataset.method === m;
+		t.classList.toggle('is-active', on);
+		t.setAttribute('aria-selected', String(on));
+	});
 	$('brnInterview')?.classList.toggle('is-active', m === 'interview');
 	$('brnFreeform')?.classList.toggle('is-active', m === 'freeform');
 	$('brnManual')?.classList.toggle('is-active', m === 'manual');
@@ -596,18 +605,21 @@ function renderChips(container, list, cls) {
 function updatePersonaBanner() {
 	const banner = $('brnBanner');
 	if (!banner) return;
-	if (S.persona && S.personaEnabled) {
-		banner.classList.add('show');
-		banner.innerHTML = `
-			<span class="brn-banner-dot"></span>
-			Persona active: <strong>${esc(S.persona.tone || 'Custom')}</strong>
-			<button class="brn-banner-dismiss" id="brnBannerDismiss">Disable for session</button>
-		`;
-		$('brnBannerDismiss')?.addEventListener('click', () => { S.personaEnabled = false; updatePersonaBanner(); });
-	} else {
-		banner.classList.remove('show');
+	if (!S.persona) {
+		banner.classList.remove('show', 'is-off');
 		banner.innerHTML = '';
+		return;
 	}
+	banner.classList.add('show');
+	banner.classList.toggle('is-off', !S.personaEnabled);
+	banner.innerHTML = S.personaEnabled
+		? `<span class="brn-banner-dot" aria-hidden="true"></span>
+			Persona active: <strong>${esc(S.persona.tone || 'Custom')}</strong>
+			<button type="button" class="brn-banner-dismiss" id="brnBannerToggle" aria-pressed="true">Disable for session</button>`
+		: `<span class="brn-banner-dot" aria-hidden="true"></span>
+			Persona disabled for this session
+			<button type="button" class="brn-banner-dismiss" id="brnBannerToggle" aria-pressed="false">Re-enable</button>`;
+	$('brnBannerToggle')?.addEventListener('click', () => { S.personaEnabled = !S.personaEnabled; updatePersonaBanner(); });
 }
 
 // ── Persona edit mode ────────────────────────────────────────────────────
@@ -767,7 +779,11 @@ function bindPlayCtrlEvents() {
 
 function setPlayMode(m) {
 	S.playMode = m;
-	document.querySelectorAll('.brn-mode').forEach(b => b.classList.toggle('is-active', b.dataset.mode === m));
+	document.querySelectorAll('.brn-mode').forEach(b => {
+		const on = b.dataset.mode === m;
+		b.classList.toggle('is-active', on);
+		b.setAttribute('aria-pressed', String(on));
+	});
 	renderPlayControls();
 	renderCanvas();
 }
@@ -1132,7 +1148,21 @@ function copyProvider(key) {
 // ── Event binding ────────────────────────────────────────────────────────
 
 function bindEvents() {
-	document.querySelectorAll('.brn-tab').forEach(t => t.addEventListener('click', () => setTab(t.dataset.tab)));
+	const tabEls = [...document.querySelectorAll('.brn-tab')];
+	tabEls.forEach(t => t.addEventListener('click', () => setTab(t.dataset.tab)));
+	document.querySelector('.brn-tabs')?.addEventListener('keydown', (e) => {
+		if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+		const idx = tabEls.indexOf(document.activeElement);
+		if (idx === -1) return;
+		e.preventDefault();
+		let next = idx;
+		if (e.key === 'ArrowLeft') next = (idx - 1 + tabEls.length) % tabEls.length;
+		else if (e.key === 'ArrowRight') next = (idx + 1) % tabEls.length;
+		else if (e.key === 'Home') next = 0;
+		else if (e.key === 'End') next = tabEls.length - 1;
+		tabEls[next].focus();
+		setTab(tabEls[next].dataset.tab);
+	});
 	document.querySelectorAll('.brn-method').forEach(t => t.addEventListener('click', () => setMethod(t.dataset.method)));
 
 	$('brnSynthesize')?.addEventListener('click', synthesizeFromInterview);
@@ -1410,6 +1440,8 @@ function injectStyles() {
 
 .brn-persona-banner { display: none; align-items: center; gap: 8px; padding: 8px 16px; font-size: 12px; color: var(--nxt-ink-dim); background: rgba(74,222,128,0.06); border-bottom: 1px solid rgba(74,222,128,0.15); }
 .brn-persona-banner.show { display: flex; }
+.brn-persona-banner.is-off { background: var(--nxt-accent-soft); border-bottom-color: var(--nxt-stroke); color: var(--nxt-ink-fade); }
+.brn-persona-banner.is-off .brn-banner-dot { background: var(--nxt-ink-fade); animation: none; }
 .brn-banner-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--nxt-success); animation: brn-pulse 2s ease-in-out infinite; }
 @keyframes brn-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 .brn-banner-dismiss { background: none; border: none; color: var(--nxt-ink-fade); font-size: 11px; cursor: pointer; margin-left: auto; text-decoration: underline; text-underline-offset: 2px; }
@@ -1484,6 +1516,16 @@ function injectStyles() {
 	.brn-col-msgs { max-height: 300px; }
 	.brn-play-toolbar { gap: 8px; }
 	.brn-pills { gap: 4px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.brn-panel.is-active,
+	.brn-method-body.is-active,
+	.brn-persona-card.show,
+	.brn-toast { animation: none; transition: none; }
+	.brn-spin, .brn-spinner { animation-duration: 1.4s; }
+	.brn-banner-dot { animation: none; }
+	.brn-mc:hover { transform: none; }
 }
 	`;
 	document.head.appendChild(style);

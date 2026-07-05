@@ -33,6 +33,9 @@ let _assetChart = null;
 // a late ResizeObserver tick on a disposed chart throws "Object is disposed".
 let _portfolioChartRO = null;
 let _assetChartRO = null;
+// Element that had focus when the asset drawer opened — restored on close so
+// keyboard users land back where they were (WAI-ARIA dialog pattern).
+let _drawerReturnFocus = null;
 
 function disposePortfolioChart() {
 	if (_portfolioChartRO) { _portfolioChartRO.disconnect(); _portfolioChartRO = null; }
@@ -193,7 +196,7 @@ function renderHero(summary, history) {
 		<div class="pf-hero-top">
 			<div class="pf-hero-value-wrap">
 				<div class="pf-hero-label">Total portfolio value</div>
-				<div class="pf-hero-value" data-slot="total-value">$${fmtUsd(totalUsd)}</div>
+				<div class="pf-hero-value" data-slot="total-value" role="text" aria-label="Total portfolio value $${fmtUsd(totalUsd)}">$${fmtUsd(totalUsd)}</div>
 				<div class="pf-hero-change ${cls}" data-slot="change">
 					${sign}$${fmtUsd(Math.abs(changeUsd))}
 					<span>(${sign}${changePct.toFixed(2)}%)</span>
@@ -204,7 +207,8 @@ function renderHero(summary, history) {
 				<div class="pf-period-tabs" role="tablist" aria-label="Chart period">
 					${[7, 30, 90, 365].map((d) => `
 						<button role="tab" class="pf-period-btn${d === STATE.period ? ' is-active' : ''}"
-							data-days="${d}" aria-selected="${d === STATE.period}">${d === 365 ? '1Y' : d + 'D'}</button>
+							data-days="${d}" aria-selected="${d === STATE.period}" tabindex="${d === STATE.period ? '0' : '-1'}"
+							aria-label="Show ${d === 365 ? 'one year' : d + ' day'} performance">${d === 365 ? '1Y' : d + 'D'}</button>
 					`).join('')}
 				</div>
 			</div>
@@ -221,6 +225,24 @@ function renderHero(summary, history) {
 	panel.querySelectorAll('.pf-period-btn').forEach((btn) => {
 		btn.addEventListener('click', () => handlePeriodChange(panel, Number(btn.dataset.days)));
 	});
+
+	// Roving-tabindex arrow navigation across the period tablist (WAI-ARIA tabs pattern).
+	const tablist = panel.querySelector('.pf-period-tabs');
+	tablist.addEventListener('keydown', (e) => {
+		if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(e.key)) return;
+		e.preventDefault();
+		const btns = [...tablist.querySelectorAll('.pf-period-btn')];
+		const cur = btns.findIndex((b) => Number(b.dataset.days) === STATE.period);
+		let next = cur;
+		if (e.key === 'ArrowRight') next = (cur + 1) % btns.length;
+		else if (e.key === 'ArrowLeft') next = (cur - 1 + btns.length) % btns.length;
+		else if (e.key === 'Home') next = 0;
+		else next = btns.length - 1;
+		handlePeriodChange(panel, Number(btns[next].dataset.days));
+		btns[next].focus();
+	});
+
+	updateHeroValueLabel(panel.querySelector('[data-slot="total-value"]'), totalUsd, changePct, STATE.period);
 
 	requestAnimationFrame(() => {
 		const chartEl = panel.querySelector('[data-slot="chart"]');
@@ -250,12 +272,23 @@ function calcChange(currentUsd, points) {
 	return { changeUsd, changePct };
 }
 
+// The value tweens frame-by-frame, so an aria-label (not the changing text node)
+// carries the accessible name — this avoids spamming assistive tech on every frame
+// while still conveying the headline figure plus its trend in one read.
+function updateHeroValueLabel(el, totalUsd, changePct, days) {
+	if (!el) return;
+	const dir = changePct > 0 ? 'up' : changePct < 0 ? 'down' : 'flat';
+	const period = days === 365 ? 'the past year' : `the past ${days} days`;
+	el.setAttribute('aria-label', `Total portfolio value $${fmtUsd(totalUsd)}, ${dir} ${Math.abs(changePct).toFixed(2)}% over ${period}.`);
+}
+
 async function handlePeriodChange(heroPanel, days) {
 	STATE.period = days;
 	heroPanel.querySelectorAll('.pf-period-btn').forEach((btn) => {
 		const active = Number(btn.dataset.days) === days;
 		btn.classList.toggle('is-active', active);
 		btn.setAttribute('aria-selected', active);
+		btn.tabIndex = active ? 0 : -1;
 	});
 
 	const chartEl = heroPanel.querySelector('[data-slot="chart"]');
@@ -282,6 +315,7 @@ async function handlePeriodChange(heroPanel, days) {
 			changeEl.className = `pf-hero-change ${cls}`;
 			changeEl.innerHTML = `${sign}$${fmtUsd(Math.abs(changeUsd))} <span>(${sign}${changePct.toFixed(2)}%)</span> <span class="pf-hero-period-label" data-slot="period-label">${days === 365 ? '1Y' : days + 'd'}</span>`;
 		}
+		updateHeroValueLabel(heroPanel.querySelector('[data-slot="total-value"]'), totalUsd, changePct, days);
 	} catch {
 		chartEl.innerHTML = '<div class="pf-chart-empty">Failed to load chart data.</div>';
 	}
@@ -577,7 +611,9 @@ function renderTableBody(section) {
 			if (token) openAssetDrawer(token);
 		};
 		row.addEventListener('click', handler);
-		row.addEventListener('keydown', (e) => { if (e.key === 'Enter') handler(); });
+		row.addEventListener('keydown', (e) => {
+			if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handler(); }
+		});
 	});
 }
 
@@ -811,8 +847,29 @@ function mountDrawerContainer() {
 
 	backdrop.addEventListener('click', (e) => { if (e.target === backdrop) closeDrawer(); });
 	document.addEventListener('keydown', (e) => {
-		if (e.key === 'Escape' && backdrop.classList.contains('is-open')) closeDrawer();
+		if (!backdrop.classList.contains('is-open')) return;
+		if (e.key === 'Escape') { closeDrawer(); return; }
+		if (e.key === 'Tab') trapDrawerFocus(e, backdrop.querySelector('.pf-drawer'));
 	});
+}
+
+// Keep Tab focus inside the open dialog — cycling from last→first and back.
+function trapDrawerFocus(e, drawer) {
+	if (!drawer) return;
+	const focusables = drawer.querySelectorAll(
+		'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+	);
+	if (!focusables.length) return;
+	const first = focusables[0];
+	const last = focusables[focusables.length - 1];
+	const active = document.activeElement;
+	if (e.shiftKey && (active === first || active === drawer)) {
+		e.preventDefault();
+		last.focus();
+	} else if (!e.shiftKey && active === last) {
+		e.preventDefault();
+		first.focus();
+	}
 }
 
 function openDrawer() {
@@ -828,9 +885,12 @@ function closeDrawer() {
 	el.classList.remove('is-open');
 	document.body.style.overflow = '';
 	disposeAssetChart();
+	if (_drawerReturnFocus && document.contains(_drawerReturnFocus)) _drawerReturnFocus.focus();
+	_drawerReturnFocus = null;
 }
 
 async function openAssetDrawer(token) {
+	_drawerReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 	const content = document.querySelector('[data-slot="drawer"]');
 	content.innerHTML = `
 		<div class="pf-drawer-head">
@@ -840,6 +900,7 @@ async function openAssetDrawer(token) {
 		<div style="padding:0 24px 24px">${buildSkeleton()}</div>
 	`;
 	content.querySelector('[data-action="close"]').addEventListener('click', closeDrawer);
+	document.querySelector('#pf-drawer-backdrop .pf-drawer')?.setAttribute('aria-label', `${token.symbol} asset details`);
 	openDrawer();
 
 	try {
@@ -1078,12 +1139,20 @@ function mountSendForm(form, data) {
 function startAutoRefresh(host) {
 	STATE.refreshHandle = setInterval(async () => {
 		try {
+			const prevTotal = STATE.summary?.total_usd || 0;
 			const summary = await get('/api/portfolio/summary');
 			STATE.summary = summary;
 			STATE.merged = mergeHoldings(summary);
 
+			const nextTotal = summary.total_usd || 0;
 			const valueEl = document.querySelector('[data-slot="total-value"]');
-			if (valueEl) valueEl.textContent = '$' + fmtUsd(summary.total_usd || 0);
+			if (valueEl) {
+				// Ease the headline figure to its new value so a background refresh reads
+				// as a live update rather than a jarring swap (reduced-motion snaps instantly).
+				tweenValue(valueEl, prevTotal, nextTotal, 600, (v) => '$' + fmtUsd(v));
+				const { changePct } = calcChange(nextTotal, STATE.history?.points || []);
+				updateHeroValueLabel(valueEl, nextTotal, changePct, STATE.period);
+			}
 
 			const updEl = document.querySelector('[data-slot="updated-at"]');
 			if (updEl) updEl.textContent = relTime(summary.captured_at);
@@ -1152,8 +1221,13 @@ function stat(label, value) {
 	return `<div class="pf-stat"><span class="pf-stat-label">${label}</span><span class="pf-stat-value">${value}</span></div>`;
 }
 
+function prefersReducedMotion() {
+	return typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+}
+
 function tweenValue(el, from, to, ms, fmt) {
 	if (!el) return;
+	if (prefersReducedMotion()) { el.textContent = fmt(to); return; }
 	const start = performance.now();
 	(function frame(now) {
 		const t = Math.min(1, (now - start) / ms);

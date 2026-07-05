@@ -23,6 +23,7 @@
 
 import { mountShell } from '../shell.js';
 import { requireUser, get, post, esc, relTime } from '../api.js';
+import { skeletonHTML, emptyStateHTML, errorStateHTML, ensureStateKitStyles, attachRetry } from '../../shared/state-kit.js';
 
 const lamportsToSol = (l) => Number(BigInt(l || '0')) / 1e9;
 const fmtSol = (sol) => {
@@ -113,8 +114,11 @@ const STYLE = `<style>
 .fc-rowbtn { font-size: 11px; font-family: inherit; padding: 4px 9px; border-radius: var(--nxt-radius-sm); border: 1px solid var(--nxt-stroke); background: var(--nxt-bg-2); color: var(--nxt-ink); cursor: pointer; transition: border-color .12s, background .12s; text-decoration: none; }
 .fc-rowbtn:hover { border-color: var(--nxt-stroke-strong); }
 .fc-rowbtn.danger { color: var(--nxt-danger, #f87171); border-color: color-mix(in srgb, var(--nxt-danger, #f87171) 40%, transparent); }
+.fc-rowbtn:focus-visible { outline: 2px solid var(--nxt-accent); outline-offset: 2px; }
+.fc-rowbtn.danger:focus-visible { outline-color: var(--nxt-danger, #f87171); }
 .fc-rowbtn:disabled { opacity: .5; cursor: progress; }
 .fc-check { width: 15px; height: 15px; accent-color: var(--nxt-accent); cursor: pointer; }
+.fc-check:focus-visible { outline: 2px solid var(--nxt-accent); outline-offset: 2px; }
 .fc-pos { color: var(--nxt-success); }
 .fc-neg { color: var(--nxt-danger, #f87171); }
 
@@ -139,8 +143,7 @@ const STYLE = `<style>
 /* states */
 .fc-empty { color: var(--nxt-ink-faint); font-size: 13px; padding: 28px 16px; text-align: center; }
 .fc-empty b { color: var(--nxt-ink); }
-.fc-sk { height: 46px; border-radius: 8px; background: var(--nxt-bg-2); animation: fc-sk 1.4s ease infinite; margin: 8px 0; }
-@keyframes fc-sk { 0%,100% { opacity: .5 } 50% { opacity: 1 } }
+.fc-boot-sk { display: grid; gap: 10px; padding: 4px 0; }
 
 /* confirm dialog */
 .fc-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); backdrop-filter: blur(6px); z-index: 950; display: flex; align-items: center; justify-content: center; padding: 16px; animation: fc-fade .14s ease; }
@@ -156,7 +159,7 @@ const STYLE = `<style>
 .fc-toast.err { border-left-color: var(--nxt-danger, #f87171); }
 @keyframes fc-slide { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: none } }
 @media (prefers-reduced-motion: reduce) {
-	.fc-pill.armed .fc-dot, .fc-live-dot, .fc-sk { animation: none; }
+	.fc-pill.armed .fc-dot, .fc-live-dot { animation: none; }
 	.fc-btn:hover:not(:disabled) { transform: none; }
 }
 </style>`;
@@ -172,6 +175,7 @@ let _filter = { q: '', status: 'all' };
 let _sse = null;
 let _sseTimer = null;
 let _sseRetry = 0;
+let _loadError = null;        // set when the strategy fetch fails and we have no roster
 
 // ── Boot ────────────────────────────────────────────────────────────────────
 
@@ -179,26 +183,38 @@ let _sseRetry = 0;
 	try {
 		const main = await mountShell();
 		await requireUser();
+		ensureStateKitStyles();
 		main.innerHTML = `
 			<h1 class="dn-h1">Fleet Command</h1>
 			<p class="dn-h1-sub">Every autonomous sniper agent on one deck — pooled balances, live trades, and fleet-wide controls.</p>
-			<div id="fc-root">${STYLE}<div class="fc-sk"></div><div class="fc-sk"></div><div class="fc-sk"></div></div>
+			<div id="fc-root" aria-busy="true">${STYLE}<div class="fc-boot-sk">${skeletonHTML(4, 'row')}</div></div>
 		`;
 		await refresh();
 		window.addEventListener('beforeunload', stopSse);
 	} catch (e) {
 		const root = document.getElementById('fc-root');
-		if (root) root.innerHTML = `${STYLE}<div class="fc-panel"><p class="fc-empty">${esc(e.message || 'Error loading the fleet')}</p></div>`;
+		if (root) {
+			root.removeAttribute('aria-busy');
+			root.innerHTML = `${STYLE}<div class="fc-panel">${errorStateHTML({ title: "Couldn't load the fleet", body: esc(e.message || 'The fleet service is unavailable right now. Check your connection and try again.') })}</div>`;
+			attachRetry(root, () => location.reload());
+		}
 	}
 })();
 
 async function refresh() {
-	const data = await get('/api/sniper/strategy').catch(() => ({ strategies: [] }));
-	_strategies = data.strategies || [];
+	try {
+		const data = await get('/api/sniper/strategy');
+		_strategies = data.strategies || [];
+		_loadError = null;
+	} catch (e) {
+		// Keep any last-known roster on screen (never hide a live kill switch behind
+		// an error screen); only surface a recoverable error when we have nothing.
+		_loadError = e?.message || 'The fleet service did not respond.';
+	}
 	// Drop selections for agents that no longer exist.
 	_sel = new Set([..._sel].filter((id) => _strategies.some((s) => s.agent_id === id)));
 	render();
-	startSse();
+	if (!(_loadError && !_strategies.length)) startSse();
 }
 
 // ── Render ──────────────────────────────────────────────────────────────────
@@ -206,12 +222,18 @@ async function refresh() {
 function render() {
 	const root = document.getElementById('fc-root');
 	if (!root) return;
+	root.removeAttribute('aria-busy');
+	if (_loadError && !_strategies.length) {
+		root.innerHTML = `${STYLE}<div class="fc-panel">${errorStateHTML({ title: "Couldn't load the fleet", body: esc(_loadError) })}</div>`;
+		root.querySelector('[data-sk-retry]')?.addEventListener('click', () => refresh());
+		return;
+	}
 	if (!_strategies.length) {
-		root.innerHTML = `${STYLE}
-			<div class="fc-panel"><div class="fc-empty">
-				<p style="font-size:15px;color:var(--nxt-ink);margin-bottom:6px">No armed agents yet</p>
-				Arm your first autonomous trader on the <a class="fc-link" href="/dashboard/sniper" style="color:var(--nxt-accent);text-decoration:none">Sniper Strategies</a> page, then command the whole fleet from here.
-			</div></div>`;
+		root.innerHTML = `${STYLE}<div class="fc-panel">${emptyStateHTML({
+			title: 'No armed agents yet',
+			body: 'Arm your first autonomous trader on the Sniper Strategies page, then command the whole fleet — pooled balances, live trades, and one emergency stop — from here.',
+			actions: [{ label: 'Arm a strategy', href: '/dashboard/sniper', primary: true }],
+		})}</div>`;
 		return;
 	}
 	root.innerHTML = `${STYLE}

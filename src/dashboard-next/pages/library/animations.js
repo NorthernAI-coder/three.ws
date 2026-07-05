@@ -6,6 +6,7 @@
 // client-side via three.js loaders before upload.
 
 import { get, put, post, esc, relTime } from '../../api.js';
+import { emptyStateHTML, errorStateHTML, attachRetry } from '../../../shared/state-kit.js';
 
 function friendly(err) {
 	if (!err) return 'Something went wrong.';
@@ -194,7 +195,8 @@ export async function renderAnimations(host) {
 		const res = await get('/api/agents');
 		agents = res?.agents || [];
 	} catch (err) {
-		grid.innerHTML = `<div class="dn-empty"><h3>Couldn't load agents</h3><p>${esc(friendly(err))}</p></div>`;
+		grid.innerHTML = errorStateHTML({ title: "Couldn't load agents", body: esc(friendly(err)) });
+		attachRetry(grid, () => renderAnimations(host));
 		return;
 	}
 
@@ -205,17 +207,24 @@ export async function renderAnimations(host) {
 	}
 
 	if (!allClips.length) {
-		grid.innerHTML = `
-			<div class="dn-empty" style="grid-column:1/-1">
-				<h3>No animations yet</h3>
-				<p>Upload a .glb, .fbx, or .bvh clip, or pick from our mocap library.</p>
-				<div style="display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap">
-					<button class="dn-btn primary" id="anim-empty-upload" type="button">Upload</button>
-					<a class="dn-btn ghost" href="/temporary">Browse presets →</a>
-				</div>
-			</div>
-		`;
-		grid.querySelector('#anim-empty-upload')?.addEventListener('click', () => openUploadDialog(host, agents, refresh));
+		const hasAgents = agents.length > 0;
+		grid.innerHTML = emptyStateHTML({
+			icon: '🎬',
+			title: 'No animations yet',
+			body: hasAgents
+				? 'Upload a .glb, .fbx, or .bvh clip to attach it to an agent, or pick from our mocap library.'
+				: 'Create an agent first — clips attach to an agent. You can still browse the preset library below.',
+			actions: hasAgents
+				? [
+					{ label: 'Upload a clip', id: 'anim-empty-upload', primary: true },
+					{ label: 'Browse presets →', href: '/temporary' },
+				]
+				: [
+					{ label: 'Create an agent', href: '/create', primary: true },
+					{ label: 'Browse presets →', href: '/temporary' },
+				],
+		});
+		grid.querySelector('[data-sk-action="anim-empty-upload"]')?.addEventListener('click', () => openUploadDialog(host, agents, refresh));
 	} else {
 		for (const c of allClips) grid.appendChild(clipCard(c));
 	}
@@ -260,15 +269,17 @@ function openUploadDialog(host, agents, onDone) {
 	dialog.querySelector('#anim-up-status').textContent = '';
 	dialog.querySelector('#anim-up-error').textContent = '';
 
-	// Auto-fill clip name from filename when a file is picked
-	dialog.querySelector('#anim-up-file').addEventListener('change', (e) => {
+	// Auto-fill clip name from filename when a file is picked.
+	// Use onchange (assignment) rather than addEventListener so re-opening the
+	// shared <dialog> doesn't stack duplicate handlers.
+	dialog.querySelector('#anim-up-file').onchange = (e) => {
 		const file = e.target.files?.[0];
 		if (!file) return;
 		const nameInput = dialog.querySelector('#anim-up-name');
 		if (!nameInput.value.trim()) {
 			nameInput.value = clipNameFromFilename(file.name);
 		}
-	});
+	};
 
 	dialog.querySelector('#anim-up-cancel').onclick = () => dialog.close();
 	dialog.querySelector('#anim-up-submit').onclick = async () => {

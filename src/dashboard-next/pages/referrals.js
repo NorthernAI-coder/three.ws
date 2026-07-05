@@ -30,6 +30,9 @@ function toast(msg) {
 	if (!el) {
 		el = document.createElement('div');
 		el.id = 'dn-toast';
+		// Live region so copy/save feedback is announced to screen readers.
+		el.setAttribute('role', 'status');
+		el.setAttribute('aria-live', 'polite');
 		el.style.cssText = `
 			position:fixed;left:50%;bottom:32px;transform:translateX(-50%) translateY(20px);
 			background:rgba(20,21,28,0.95);border:1px solid var(--nxt-stroke-strong);
@@ -614,7 +617,17 @@ function wireCard(host, card, refUrl) {
 
 	const copyLink = () => copyToClipboard(refUrl);
 	host.querySelector('[data-action="copy"]').addEventListener('click', copyLink);
-	host.querySelector('[data-action="copy-link"]').addEventListener('click', copyLink);
+	// Primary "Copy link" button also flashes an inline confirmation so success is
+	// obvious right where the user clicked, not only in the toast.
+	const linkBtn = host.querySelector('[data-action="copy-link"]');
+	linkBtn.addEventListener('click', async () => {
+		const ok = await copyToClipboard(refUrl);
+		if (ok === false) return;
+		if (!linkBtn._label) linkBtn._label = linkBtn.textContent;
+		linkBtn.textContent = 'Copied ✓';
+		clearTimeout(linkBtn._t);
+		linkBtn._t = setTimeout(() => { linkBtn.textContent = linkBtn._label; }, 1400);
+	});
 	host.querySelector('[data-link]').addEventListener('click', (e) => { e.currentTarget.select(); });
 	wireCodeEditor(host, card);
 	host.querySelector('[data-action="download"]').addEventListener('click', () => exportCardPNG(card, refUrl));
