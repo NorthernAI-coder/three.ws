@@ -252,7 +252,7 @@ registerWalletTab({
 				return `<div class="awh-card"><div class="awh-skel-line" style="width:40%"></div><div class="awh-skel-line"></div><div class="awh-skel-line"></div><div class="awh-skel-line" style="width:60%"></div></div>`;
 			}
 			if (state.holdingsErr) {
-				return `<div class="awh-card"><div class="awh-err">Couldn’t load balances.<div class="why">${esc(state.holdingsErr)}</div></div><button class="awh-btn" type="button" data-act="reload-holdings">Retry</button></div>`;
+				return `<div class="awh-card"><div class="awh-err" role="alert">Couldn’t load balances.<div class="why">${esc(state.holdingsErr)}</div></div><button class="awh-btn" type="button" data-act="reload-holdings">Retry</button></div>`;
 			}
 			const assets = assetList();
 			if (!assets.length) {

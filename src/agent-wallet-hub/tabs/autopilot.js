@@ -378,7 +378,7 @@ registerWalletTab({
 			if (!res) return '';
 			if (!res.ran) {
 				const reason = (res.reason || '').replace(/_/g, ' ');
-				return `<div class="ap-warn amber">Last run did nothing — ${esc(res.note || reason || 'no due rules')}.</div>`;
+				return `<div class="ap-warn amber" role="status">Last run did nothing — ${esc(res.note || reason || 'no due rules')}.</div>`;
 			}
 			const rows = (res.results || []).map((r) => {
 				const tone = STATUS_TONE[r.last_status] || 'muted';

@@ -271,7 +271,7 @@ registerWalletTab({
 							<input type="text" id="awh-acc-label" data-f="label" placeholder="e.g. Weather API integration" maxlength="120" autocomplete="off" />
 						</div>
 						<div class="awh-acc-field">
-							<label>Allowed actions</label>
+							<label id="awh-acc-actions-label">Allowed actions</label>
 							<div class="awh-acc-checks">
 								<label class="awh-acc-check"><input type="checkbox" data-f="action" value="trade" /> Trade</label>
 								<label class="awh-acc-check"><input type="checkbox" data-f="action" value="snipe" /> Snipe</label>
