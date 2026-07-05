@@ -159,6 +159,42 @@ describe('retargetClip', () => {
 		expect(clip.tracks.map((t) => t.name)).toEqual(before);
 		expect(clip.tracks.find((t) => t.name === 'Hips.position').values[1]).toBe(1);
 	});
+
+	// The baked library carries a position + quaternion + scale channel per bone.
+	// A limb bone's local position (its offset from its parent) and its scale are
+	// the *authoring* rig's structure, not motion — replaying them verbatim on a
+	// differently-proportioned avatar overwrites its bone lengths and collapses it
+	// into a heap while every bone still "matches" (coverage lies at 100%). The
+	// retargeter must drop those structural channels and keep only rotations + the
+	// root (Hips) translation, and coverage must be computed over just those.
+	it('drops non-Hips position and all scale channels (keeps rotations + root)', () => {
+		const q = new QuaternionKeyframeTrack('LeftArm.quaternion', [0], [0, 0, 0, 1]);
+		const hipsQ = new QuaternionKeyframeTrack('Hips.quaternion', [0], [0, 0, 0, 1]);
+		const hipsPos = new VectorKeyframeTrack('Hips.position', [0], [0, 1, 0]);
+		// Structural channels that must NOT survive: a limb bone offset + scales.
+		const armPos = new VectorKeyframeTrack('LeftArm.position', [0], [0.09, -0.015, 0]);
+		const armScale = new VectorKeyframeTrack('LeftArm.scale', [0], [1, 1, 1]);
+		const hipsScale = new VectorKeyframeTrack('Hips.scale', [0], [1, 1, 1]);
+		const clip = new AnimationClip('struct', 1, [
+			hipsQ,
+			hipsPos,
+			q,
+			armPos,
+			armScale,
+			hipsScale,
+		]);
+		const map = canonicalNodeMapFromObject(makeRig(CANONICAL_RIG));
+		const r = retargetClip(clip, map, { hipScale: 1 });
+
+		const names = r.clip.tracks.map((t) => t.name).sort();
+		expect(names).toEqual(['Hips.position', 'Hips.quaternion', 'LeftArm.quaternion'].sort());
+		expect(r.clip.tracks.some((t) => t.name === 'LeftArm.position')).toBe(false);
+		expect(r.clip.tracks.some((t) => t.name.endsWith('.scale'))).toBe(false);
+		// Coverage is over the 3 retargetable channels, not all 6 → honest 100%.
+		expect(r.total).toBe(3);
+		expect(r.matched).toBe(3);
+		expect(r.coverage).toBe(1);
+	});
 });
 
 describe('bind-rotation correction', () => {
