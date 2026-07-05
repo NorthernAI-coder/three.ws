@@ -25,7 +25,23 @@ import { liftHipsUpright } from './upright-hips.mjs';
 // three's loaders + exporter touch a handful of DOM globals; stub them out for node.
 globalThis.self = globalThis;
 globalThis.window = globalThis;
-globalThis.document = { createElementNS: () => ({}) };
+// FBXLoader loads embedded textures by creating an <img> and attaching load
+// handlers. Mixamo MotionPack FBX (exported with the T-pose character mesh)
+// carry such textures; without an addEventListener the loader throws
+// "image.addEventListener is not a function" and the whole clip is dropped.
+// We never use the texture — only the animation tracks — so a no-op image
+// element that never "loads" lets retargeting proceed.
+const stubImage = () => ({
+	addEventListener() {},
+	removeEventListener() {},
+	setAttribute() {},
+	style: {},
+});
+globalThis.document = {
+	createElementNS: () => stubImage(),
+	createElement: () => stubImage(),
+};
+globalThis.Image = class { addEventListener() {} removeEventListener() {} };
 globalThis.Blob = Blob;
 
 // GLTFExporter calls FileReader.readAsDataURL on Blob-wrapped texture/binary

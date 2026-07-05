@@ -65,7 +65,7 @@
  *   account's primary character (/characters/primary), falling back to Y-Bot.
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync, readdirSync, mkdtempSync, rmSync, copyFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync, readdirSync, mkdtempSync, rmSync, copyFileSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -361,6 +361,12 @@ async function pollForDownloadUrl(animId, characterId, authHeaders) {
 	throw new Error('poll timeout');
 }
 
+// A pack zip exported with mesh_motionpack:'t-pose' bundles the character mesh
+// FBX (tens of MB, textured) alongside the per-motion animation FBX. That mesh
+// is not an animation — it fails to retarget and would waste ~65 MB each — so
+// skip any FBX above this size. Real animation FBX are well under 2 MB.
+const PACK_CLIP_MAX_BYTES = 5 * 1024 * 1024;
+
 // MotionPack exports arrive as a zip of FBX files — extract each clip into
 // animation-sources/ under the mx-<slug>-<packId12>-<i> convention. The pack id
 // + index suffix guarantees uniqueness across packs and against single motions
@@ -375,10 +381,12 @@ function extractPack(zipBuf, packId) {
 		let i = 0;
 		for (const rel of readdirSync(tmp, { recursive: true })) {
 			if (!String(rel).toLowerCase().endsWith('.fbx')) continue;
+			const src = join(tmp, rel);
+			if (statSync(src).size > PACK_CLIP_MAX_BYTES) continue; // bundled character mesh, not a clip
 			const base = String(rel).split('/').pop().replace(/\.fbx$/i, '');
 			const out = `mx-${slugify(base)}-${idFrag(packId)}-${i++}.fbx`;
 			const dest = join(SOURCES_DIR, out);
-			if (!existsSync(dest)) copyFileSync(join(tmp, rel), dest);
+			if (!existsSync(dest)) copyFileSync(src, dest);
 			files.push(out);
 		}
 	} finally {

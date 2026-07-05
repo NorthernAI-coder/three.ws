@@ -178,6 +178,38 @@ async function probeX402() {
 		);
 	}
 
+	// The 402 challenge advertises a Solana fee payer PUBKEY (X402_FEE_PAYER_SOLANA),
+	// but a sponsor-mode settle can only complete if the matching SECRET is loaded
+	// to co-sign — a config where the pubkey is set and the secret is not passes
+	// every check above yet 502s on every settle (observed: club-cover's last
+	// on-chain settles failed with `sponsor_key_unconfigured`). Probe the co-sign
+	// key so that false-green stops reading as healthy. No key material is exposed:
+	// loadFeePayerKeypair throws on missing/mismatched secret and we report only a
+	// status word.
+	if (hasSolana) {
+		try {
+			const { SELF_FACILITATOR_ENABLED, loadFeePayerKeypair } = await import('./_lib/x402/self-facilitator.js');
+			if (!SELF_FACILITATOR_ENABLED) {
+				result.sponsor_cosign = 'facilitator_disabled';
+			} else {
+				try {
+					loadFeePayerKeypair();
+					result.sponsor_cosign = 'ready';
+				} catch (err) {
+					const mismatch = /!=|expected 64 bytes|mismatch/i.test(String(err?.message || ''));
+					result.sponsor_cosign = mismatch ? 'mismatch' : 'missing';
+					result.warnings.push(
+						`sponsor_cosign_${result.sponsor_cosign}: the Solana fee-payer pubkey is advertised but its ` +
+							'co-signing secret cannot be loaded — sponsor-mode settlements 502 (club-cover, dance-tip). ' +
+							'Set/repair X402_FEE_PAYER_SECRET_BASE58 in the deploy environment.',
+					);
+				}
+			}
+		} catch {
+			result.sponsor_cosign = 'unknown';
+		}
+	}
+
 	// Probe facilitator connectivity (cached at this level, 5 min TTL)
 	const facilitatorUrl = process.env.X402_CDP_FACILITATOR_URL || process.env.X402_FACILITATOR_URL_BASE;
 	if (facilitatorUrl) {
