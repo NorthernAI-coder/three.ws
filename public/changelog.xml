@@ -23,6 +23,14 @@
 			<description>The animation library just grew from around 100 curated clips to over 2,000 — the full professional motion-capture set, every one retargeted to the universal three.ws skeleton so it plays on any humanoid avatar. Walks, runs, dances, combat, idles, reactions, sports, and hundreds more are all searchable in the animations gallery, previewable on a live avatar, and one click away from the pose studio or any embed. The clips are served from the CDN, so the site stays fast no matter how big the library gets.</description>
 		</item>
 		<item>
+			<title>Agent creation now tells you what to do when your avatar library is full</title>
+			<link>https://three.ws/create-agent</link>
+			<guid isPermaLink="false">2026-07-05:Agent creation now tells you what to do when your avatar library is full</guid>
+			<pubDate>Sun, 05 Jul 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>If you hit your plan's avatar limit while creating an agent, the wizard used to fail with a bare error and leave you stuck. It now explains what happened and gives you three ways forward, right in the form: connect an avatar you already own (one click jumps you to your library), free up a slot by deleting an old avatar, or upgrade your plan. Oversized model files get a clearer message too.</description>
+		</item>
+		<item>
 			<title>Status page no longer reports a phantom outage — and graduation tracking runs clean</title>
 			<link>https://three.ws/status</link>
 			<guid isPermaLink="false">2026-07-05:Status page no longer reports a phantom outage — and graduation tracking runs clean</guid>

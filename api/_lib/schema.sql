@@ -1201,7 +1201,10 @@ create table if not exists plan_payment_intents (
     plan            text not null check (plan in ('pro', 'team', 'enterprise')),
     chain_type      text not null check (chain_type in ('evm', 'solana')),
     chain_id        integer,
-    amount_usdc     numeric(12,6) not null, -- exact USDC amount expected
+    amount_usdc     numeric(12,6) not null, -- USD value charged (equals the USDC amount on USDC intents)
+    asset           text not null default 'USDC' check (asset in ('USDC', 'SOL', 'THREE')),
+    amount_asset    numeric(30,9),          -- exact on-chain amount of `asset` expected, human units (null on legacy USDC rows)
+    asset_price_usd numeric(18,9),          -- USD price of one unit of `asset` at quote time (null for USDC)
     recipient       text not null,          -- address/pubkey that should receive payment
     nonce           text not null unique,   -- random, prevents replay
     memo            text,                   -- Solana Pay memo / EVM calldata hint
