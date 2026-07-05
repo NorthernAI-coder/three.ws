@@ -45,6 +45,10 @@
 		.btn { padding:12px 16px; border-radius:10px; border:0; background:var(--accent); color:#fff; font-size:14px; font-weight:600; cursor:pointer; margin-top:auto; }
 		.btn:hover { filter:brightness(1.1); }
 		.btn.sec { background:#222222; color:#ddd; }
+		.asset-btn { margin-top:0; padding:8px 14px; }
+		.asset-btn[aria-pressed="true"] { background:var(--accent); color:#000; }
+		#three-off { color:#4ade80; font-weight:600; }
+		.asset-btn[aria-pressed="true"] #three-off { color:#05610f; }
 		.btn:disabled { opacity:0.5; cursor:not-allowed; }
 		.checkout { display:none; margin-top:36px; padding:24px; border:1px solid var(--accent); border-radius:14px; background:rgba(255,255,255,0.04); }
 		.checkout.show { display:block; }
@@ -83,7 +87,8 @@
 			<div class="card pro">
 				<div class="tag">Recommended</div>
 				<div class="tier">Pro</div>
-				<div class="price">$19<small> /month</small></div>
+				<div class="price"><span id="pro-price">$49</span><small> /month</small></div>
+				<div class="muted" id="three-note" style="font-size:12px"></div>
 				<ul class="feat">
 					<li>100 X posts per month</li>
 					<li>1 post every 5 min</li>
@@ -92,12 +97,17 @@
 					<li>Multi-draft picker (3 options)</li>
 					<li>Priority support</li>
 				</ul>
-				<button class="btn" id="upgrade-btn">Upgrade with USDC</button>
+				<button class="btn" id="upgrade-btn">Upgrade — pay in USDC, SOL, or $THREE</button>
 			</div>
 		</div>
 
 		<div class="checkout" id="checkout">
-			<h3 style="margin:0 0 8px">Pay $19 USDC on Solana</h3>
+			<h3 style="margin:0 0 8px" id="checkout-title">Pay on Solana</h3>
+			<div id="asset-row" style="display:flex; gap:8px; margin:2px 0 12px; flex-wrap:wrap">
+				<button class="btn sec asset-btn" data-asset="USDC" aria-pressed="true">USDC</button>
+				<button class="btn sec asset-btn" data-asset="SOL" aria-pressed="false">SOL</button>
+				<button class="btn sec asset-btn" data-asset="THREE" aria-pressed="false">$THREE <span id="three-off"></span></button>
+			</div>
 			<p class="muted">Scan with Phantom or any Solana wallet, or open the link on the device with your wallet.</p>
 			<img class="qr" id="qr" alt="Solana Pay QR" />
 			<code class="payurl" id="payurl"></code>
@@ -114,6 +124,25 @@
 		const setStatus = (text, cls = '') => { $('status').textContent = text; $('status').className = 'status ' + cls; };
 
 		let currentIntent = null;
+		let selectedAsset = 'USDC';
+		const assetLabel = (a) => (a === 'THREE' ? '$THREE' : a);
+
+		// Server-truth plan prices + the $THREE discount.
+		try {
+			const r = await fetch('/api/payments/solana?action=plans');
+			if (r.ok) {
+				const d = await r.json();
+				const pro = d.plans?.pro;
+				if (pro) {
+					$('pro-price').textContent = `$${pro.price_usd}`;
+					if (d.three_discount_bps > 0) {
+						const pct = (d.three_discount_bps / 100).toFixed(0);
+						$('three-note').textContent = `or $${pro.three_price_usd} in $THREE (${pct}% off)`;
+						$('three-off').textContent = `−${pct}%`;
+					}
+				}
+			}
+		} catch {}
 
 		// Show current plan if signed in.
 		try {
@@ -125,19 +154,21 @@
 			}
 		} catch {}
 
-		$('upgrade-btn').addEventListener('click', async () => {
+		async function createCheckout() {
 			$('upgrade-btn').disabled = true;
 			$('upgrade-btn').textContent = 'Creating checkout…';
+			setStatus('');
 			try {
 				const r = await fetch('/api/payments/solana?action=checkout', {
 					method: 'POST',
 					credentials: 'include',
 					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({ plan: 'pro', network: 'mainnet' }),
+					body: JSON.stringify({ plan: 'pro', asset: selectedAsset, network: 'mainnet' }),
 				});
 				const d = await r.json();
 				if (!r.ok) throw new Error(d.error_description || 'checkout failed');
 				currentIntent = d;
+				$('checkout-title').textContent = `Pay ${d.amount_asset} ${assetLabel(d.asset)} on Solana`;
 				$('payurl').textContent = d.solana_pay_url;
 				$('qr').src = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(d.solana_pay_url)}`;
 				$('open-link').href = d.solana_pay_url;
@@ -145,12 +176,29 @@
 				$('upgrade-btn').textContent = 'Pay below ↓';
 			} catch (err) {
 				$('upgrade-btn').disabled = false;
-				$('upgrade-btn').textContent = 'Upgrade with USDC';
+				$('upgrade-btn').textContent = 'Upgrade — pay in USDC, SOL, or $THREE';
 				alert(err.message);
 			}
-		});
+		}
 
-		$('confirm-btn').addEventListener('click', async () => {
+		$('upgrade-btn').addEventListener('click', createCheckout);
+
+		// Switching the asset re-quotes: SOL and $THREE amounts are pinned per
+		// checkout session, so a new asset always needs a fresh intent.
+		for (const btn of document.querySelectorAll('.asset-btn')) {
+			btn.addEventListener('click', () => {
+				if (btn.dataset.asset === selectedAsset) return;
+				selectedAsset = btn.dataset.asset;
+				for (const b of document.querySelectorAll('.asset-btn'))
+					b.setAttribute('aria-pressed', String(b === btn));
+				if ($('checkout').classList.contains('show')) createCheckout();
+			});
+		}
+
+		// Confirm, retrying while the tx finalizes — the API only accepts
+		// finalized transactions, which takes ~10-30s after landing.
+		let confirmTries = 0;
+		async function confirmPayment() {
 			const txsig = $('txsig').value.trim();
 			if (!txsig) return setStatus('Paste the transaction signature first.', 'err');
 			if (!currentIntent) return setStatus('No active checkout — click Upgrade first.', 'err');
@@ -164,14 +212,24 @@
 					body: JSON.stringify({ intent_id: currentIntent.intent_id, tx_signature: txsig, network: 'mainnet' }),
 				});
 				const d = await r.json();
-				if (!r.ok) throw new Error(d.error_description || 'confirm failed');
-				setStatus(`You're Pro until ${new Date(d.active_until).toLocaleDateString()}. Redirecting…`, 'ok');
-				setTimeout(() => { location.href = '/dashboard'; }, 1800);
+				if (r.ok) {
+					setStatus(`You're Pro until ${new Date(d.active_until).toLocaleDateString()}. Redirecting…`, 'ok');
+					setTimeout(() => { location.href = '/dashboard'; }, 1800);
+					return;
+				}
+				if (d.error === 'tx_not_found' && confirmTries < 30) {
+					confirmTries += 1;
+					setStatus('Waiting for the transaction to finalize… retrying automatically.');
+					setTimeout(confirmPayment, 6000);
+					return;
+				}
+				throw new Error(d.error_description || 'confirm failed');
 			} catch (err) {
 				setStatus(err.message, 'err');
 				$('confirm-btn').disabled = false;
 			}
-		});
+		}
+		$('confirm-btn').addEventListener('click', () => { confirmTries = 0; confirmPayment(); });
 	</script>
 	<script src="/brand.js" defer></script>
 </body>

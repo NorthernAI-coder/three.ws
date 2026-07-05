@@ -213,6 +213,44 @@ async function probeX402() {
 	// Recent payments from audit log
 	result.recent_payments = await countRecentPayments(60);
 
+	// Self-facilitator verify/settle outcomes (last 24h), grouped by reason
+	// class. A paying buyer whose wallet mutates the prepared transaction gets a
+	// deterministic verify 402 with everything else on this endpoint green —
+	// without this block that failure mode is invisible outside the admin
+	// dashboards. Only the reason prefix (before ':') is exposed: suffixes can
+	// carry wallet addresses, the prefix is a fixed validator code.
+	try {
+		const { sql } = await import('./_lib/db.js');
+		const rows = await sql`
+			SELECT action, ok, split_part(coalesce(reject_reason, ''), ':', 1) AS reason,
+			       count(*)::int AS n
+			FROM x402_self_facilitator_log
+			WHERE ts > now() - interval '24 hours'
+			GROUP BY 1, 2, 3
+			ORDER BY n DESC
+			LIMIT 20
+		`;
+		const block = {
+			verify: { ok: 0, rejected: 0, reject_reasons: {} },
+			settle: { ok: 0, failed: 0, fail_reasons: {} },
+		};
+		for (const r of rows) {
+			const side = r.action === 'settle' ? block.settle : block.verify;
+			if (r.ok) {
+				side.ok += r.n;
+			} else if (r.action === 'settle') {
+				side.failed += r.n;
+				if (r.reason) side.fail_reasons[r.reason] = (side.fail_reasons[r.reason] || 0) + r.n;
+			} else {
+				side.rejected += r.n;
+				if (r.reason) side.reject_reasons[r.reason] = (side.reject_reasons[r.reason] || 0) + r.n;
+			}
+		}
+		result.self_facilitator = block;
+	} catch {
+		result.self_facilitator = 'unavailable';
+	}
+
 	// SIWX reachability (just check if the table exists)
 	try {
 		await (await import('./_lib/db.js')).sql`

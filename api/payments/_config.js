@@ -19,8 +19,11 @@ export const PLAN_ASSETS = ['USDC', 'SOL', 'THREE'];
 // platform's coin and plan revenue in it feeds the treasury loop directly.
 // Basis points; 2000 = 20% off. Override with THREE_PLAN_DISCOUNT_BPS.
 export function threePlanDiscountBps() {
-	const raw = Number(process.env.THREE_PLAN_DISCOUNT_BPS);
-	if (Number.isFinite(raw) && raw >= 0 && raw <= 5000) return Math.floor(raw);
+	const raw = (process.env.THREE_PLAN_DISCOUNT_BPS ?? '').trim();
+	if (raw !== '') {
+		const n = Number(raw);
+		if (Number.isFinite(n) && n >= 0 && n <= 5000) return Math.floor(n);
+	}
 	return 2000;
 }
 

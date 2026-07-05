@@ -1250,3 +1250,303 @@
 		grid-template-columns: 1fr;
 	}
 }
+
+/* ── Pro checkout modal — pay in USDC, SOL, or $THREE ─────────────────── */
+
+.pricing-pay-assets {
+	margin-top: 12px;
+	font-size: 12px;
+	color: rgba(255, 255, 255, 0.45);
+	text-align: center;
+}
+
+.pricing-pay-assets strong {
+	color: rgba(255, 255, 255, 0.75);
+	font-weight: 600;
+}
+
+.pricing-three-discount {
+	color: #4ade80;
+	font-weight: 600;
+}
+
+.pc-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 1000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 20px;
+	background: rgba(0, 0, 0, 0.72);
+	backdrop-filter: blur(6px);
+	animation: pc-fade var(--duration-fast, 140ms) var(--ease-standard, ease);
+}
+
+@keyframes pc-fade {
+	from { opacity: 0; }
+	to { opacity: 1; }
+}
+
+.pc-dialog {
+	position: relative;
+	width: min(560px, 100%);
+	max-height: calc(100vh - 40px);
+	overflow-y: auto;
+	background: #0d0d0f;
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	border-radius: 18px;
+	padding: 30px 28px 26px;
+	color: #eee;
+	box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+	animation: pc-rise var(--duration-fast, 180ms) var(--ease-standard, ease);
+	outline: none;
+}
+
+@keyframes pc-rise {
+	from { opacity: 0; transform: translateY(14px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.pc-overlay, .pc-dialog { animation: none; }
+}
+
+.pc-dialog h3 {
+	font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+	font-size: 24px;
+	margin: 0 0 6px;
+	letter-spacing: -0.02em;
+}
+
+.pc-sub {
+	color: rgba(255, 255, 255, 0.55);
+	font-size: 14px;
+	margin: 0 0 22px;
+}
+
+.pc-close {
+	position: absolute;
+	top: 16px;
+	right: 16px;
+	width: 32px;
+	height: 32px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: rgba(255, 255, 255, 0.06);
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	border-radius: 50%;
+	color: rgba(255, 255, 255, 0.7);
+	cursor: pointer;
+	transition: background var(--duration-fast, 140ms) ease, color var(--duration-fast, 140ms) ease;
+}
+
+.pc-close:hover, .pc-close:focus-visible {
+	background: rgba(255, 255, 255, 0.14);
+	color: #fff;
+}
+
+.pc-close svg { width: 14px; height: 14px; }
+
+.pc-assets {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 10px;
+	margin-bottom: 18px;
+}
+
+@media (max-width: 520px) {
+	.pc-assets { grid-template-columns: 1fr; }
+}
+
+.pc-asset {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 16px 14px;
+	background: rgba(255, 255, 255, 0.03);
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	border-radius: 12px;
+	color: #eee;
+	text-align: left;
+	cursor: pointer;
+	transition: border-color var(--duration-fast, 140ms) ease, background var(--duration-fast, 140ms) ease, transform var(--duration-fast, 140ms) ease;
+}
+
+.pc-asset:hover { border-color: rgba(255, 255, 255, 0.35); transform: translateY(-1px); }
+
+.pc-asset:focus-visible {
+	outline: 2px solid #fff;
+	outline-offset: 2px;
+}
+
+.pc-asset.is-selected {
+	border-color: #fff;
+	background: rgba(255, 255, 255, 0.07);
+	box-shadow: 0 0 0 1px #fff inset;
+}
+
+.pc-asset-name {
+	font-weight: 700;
+	font-size: 15px;
+	letter-spacing: -0.01em;
+}
+
+.pc-asset-price { font-size: 20px; font-weight: 600; }
+
+.pc-asset-note {
+	font-size: 11.5px;
+	color: rgba(255, 255, 255, 0.5);
+	line-height: 1.4;
+}
+
+.pc-asset-badge {
+	position: absolute;
+	top: -9px;
+	right: 10px;
+	background: #4ade80;
+	color: #05240f;
+	font-size: 10.5px;
+	font-weight: 700;
+	padding: 2px 8px;
+	border-radius: 99px;
+	letter-spacing: 0.03em;
+}
+
+.pc-continue { width: 100%; text-align: center; }
+
+.pc-fineprint {
+	font-size: 12px;
+	color: rgba(255, 255, 255, 0.4);
+	margin: 14px 0 0;
+	line-height: 1.5;
+}
+
+.pc-quote {
+	text-align: center;
+	margin-bottom: 18px;
+}
+
+.pc-quote-amount {
+	font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+	font-size: 26px;
+	font-weight: 700;
+	letter-spacing: -0.02em;
+	word-break: break-all;
+}
+
+.pc-quote-meta {
+	font-size: 13px;
+	color: rgba(255, 255, 255, 0.55);
+	margin-top: 4px;
+}
+
+.pc-pay-grid {
+	display: flex;
+	gap: 18px;
+	align-items: center;
+	margin-bottom: 18px;
+}
+
+@media (max-width: 520px) {
+	.pc-pay-grid { flex-direction: column; }
+}
+
+.pc-qr-wrap {
+	background: #fff;
+	border-radius: 12px;
+	padding: 8px;
+	line-height: 0;
+	flex-shrink: 0;
+	transition: opacity var(--duration-fast, 140ms) ease;
+}
+
+.pc-pay-actions {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	flex: 1;
+	width: 100%;
+}
+
+.pc-pay-actions .pricing-cta { text-align: center; }
+
+.pc-sig-label {
+	display: block;
+	font-size: 12.5px;
+	color: rgba(255, 255, 255, 0.55);
+	margin-bottom: 6px;
+}
+
+.pc-sig-row { display: flex; gap: 8px; }
+
+.pc-sig-row input {
+	flex: 1;
+	min-width: 0;
+	padding: 10px 12px;
+	background: rgba(255, 255, 255, 0.04);
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	border-radius: 10px;
+	color: #eee;
+	font-size: 13px;
+	font-family: inherit;
+	transition: border-color var(--duration-fast, 140ms) ease;
+}
+
+.pc-sig-row input:focus-visible {
+	outline: none;
+	border-color: #fff;
+}
+
+.pc-back {
+	margin-top: 14px;
+	background: none;
+	border: 0;
+	color: rgba(255, 255, 255, 0.5);
+	font-size: 13px;
+	cursor: pointer;
+	padding: 4px 0;
+}
+
+.pc-back:hover, .pc-back:focus-visible { color: #fff; }
+
+.pc-status {
+	margin-top: 12px;
+	font-size: 13px;
+	color: rgba(255, 255, 255, 0.65);
+	min-height: 1.2em;
+	line-height: 1.5;
+}
+
+.pc-status.is-err { color: #ffb3b3; }
+
+.pc-success { text-align: center; padding: 12px 0 4px; }
+
+.pc-success-mark {
+	width: 54px;
+	height: 54px;
+	margin: 0 auto 14px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 50%;
+	background: rgba(74, 222, 128, 0.14);
+	border: 1px solid rgba(74, 222, 128, 0.45);
+	color: #4ade80;
+	font-size: 24px;
+	font-weight: 700;
+}
+
+.pc-success h4 {
+	font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+	font-size: 20px;
+	margin: 0 0 6px;
+}
+
+.pc-success p {
+	color: rgba(255, 255, 255, 0.6);
+	font-size: 14px;
+	margin: 0 0 18px;
+}
