@@ -239,12 +239,14 @@ async function checkSniper() {
 	const base = { name: 'sniper', label: 'Sniper worker (Cloud Run)' };
 	try {
 		const { sql } = await import('../db.js');
-		const [beat] = await sql`
-			SELECT mode, last_beat_at, meta FROM bot_heartbeat
-			WHERE worker = 'agent-sniper'
-			LIMIT 1
-		`;
-		return classifySniperBeat(beat);
+		const rows = /** @type {Array<{ mode?: string, last_beat_at?: string|Date, meta?: object }>} */ (
+			await sql`
+				SELECT mode, last_beat_at, meta FROM bot_heartbeat
+				WHERE worker = 'agent-sniper'
+				LIMIT 1
+			`
+		);
+		return classifySniperBeat(rows[0]);
 	} catch (err) {
 		return { ...base, status: 'unknown', detail: err?.message || 'heartbeat unreadable' };
 	}
