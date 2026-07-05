@@ -68,6 +68,16 @@ const VN_STYLE = `
 .awh-vn-paused{display:inline-block;margin-left:8px;font-size:var(--text-2xs,.625rem);font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--warn,#fbbf24);background:color-mix(in srgb,var(--warn,#fbbf24) 14%,transparent);border-radius:999px;padding:1px 7px;}
 .awh-vn-actions{display:flex;gap:8px;margin-top:var(--space-3,12px);}
 .awh-vn-actions .awh-btn{flex:1;}
+
+@media (prefers-reduced-motion: reduce){
+	.awh-vn-cores input[type=range]::-webkit-slider-thumb{transition:none;}
+	.awh-vn-cores input[type=range]::-webkit-slider-thumb:hover{transform:none;}
+	.awh-vn-ticks button{transition:none;}
+}
+@media (max-width: 400px){
+	.awh-vn-prog-grid{gap:12px;}
+	.awh-vn-actions{flex-wrap:wrap;}
+}
 `;
 
 function injectStyle() {
@@ -220,11 +230,11 @@ registerWalletTab({
 					<div class="awh-vn-grid">
 						<div class="awh-fld">
 							<label for="awh-vn-prefix">Starts with</label>
-							<input class="awh-in awh-mono" id="awh-vn-prefix" autocomplete="off" spellcheck="false" maxlength="${MAX_PATTERN_LENGTH}" placeholder="e.g. ${esc(ph)}" value="${esc(state.prefix)}">
+							<input class="awh-in awh-mono" id="awh-vn-prefix" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="${MAX_PATTERN_LENGTH}" aria-describedby="awh-vn-est" placeholder="e.g. ${esc(ph)}" value="${esc(state.prefix)}">
 						</div>
 						<div class="awh-fld">
 							<label for="awh-vn-suffix">Ends with</label>
-							<input class="awh-in awh-mono" id="awh-vn-suffix" autocomplete="off" spellcheck="false" maxlength="${MAX_PATTERN_LENGTH}" placeholder="optional" value="${esc(state.suffix)}">
+							<input class="awh-in awh-mono" id="awh-vn-suffix" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="${MAX_PATTERN_LENGTH}" aria-describedby="awh-vn-est" placeholder="optional" value="${esc(state.suffix)}">
 						</div>
 					</div>
 
@@ -244,13 +254,13 @@ registerWalletTab({
 						</div>
 					</div>
 
-					<div class="awh-vn-est ${est.warn ? 'warn' : ''}" id="awh-vn-est">${est.html}</div>
+					<div class="awh-vn-est ${est.warn ? 'warn' : ''}" id="awh-vn-est" role="status" aria-live="polite">${est.html}</div>
 
 					${isVanity || hasWallet
 						? `<div class="awh-vn-warn">⚠ This replaces the agent's current address. Any SOL or tokens it holds are <b>automatically swept to the new address</b> first — the swap only completes once funds have moved. Apps pointed at the old address must be updated.</div>`
 						: ''}
 
-					<div class="awh-err" id="awh-vn-err" hidden></div>
+					<div class="awh-err" id="awh-vn-err" role="alert" hidden></div>
 					<button class="awh-btn awh-btn--primary" id="awh-vn-go" type="button" style="width:100%;">Grind &amp; apply vanity address</button>
 				</div>`;
 		}
@@ -262,7 +272,7 @@ registerWalletTab({
 			return `
 				<div class="awh-card">
 					<div class="awh-card-h" style="margin-bottom:2px;">Grinding <span class="awh-mono" style="color:#a78bfa;">${esc(state.prefix)}${state.prefix && state.suffix ? '…' : ''}${esc(state.suffix)}</span></div>
-					<div class="awh-vn-prog">
+					<div class="awh-vn-prog" role="status" aria-live="polite" aria-label="Grind progress">
 						<div class="awh-vn-prog-rate" id="awh-vn-rate">${applying ? '✦' : fmtRate(p.rate)}<span style="font-size:.9rem;font-weight:500;color:var(--ink-dim,#888);">${applying ? '' : ' /s'}</span><span class="awh-vn-paused" id="awh-vn-paused" ${paused ? '' : 'hidden'}>paused</span></div>
 						<div class="awh-vn-prog-sub">${applying ? 'Match found — migrating funds &amp; applying…' : `across ${state.cores} core${state.cores > 1 ? 's' : ''}`}</div>
 						<div class="awh-vn-prog-grid">

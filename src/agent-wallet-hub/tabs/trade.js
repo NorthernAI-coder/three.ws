@@ -485,7 +485,7 @@ registerWalletTab({
 
 					<div class="awh-tr-field">
 						<div class="awh-tr-label">Quote</div>
-						<div data-host="quote">${quoteInnerHtml()}</div>
+						<div data-host="quote" aria-live="polite" aria-atomic="true">${quoteInnerHtml()}</div>
 					</div>
 
 					<div data-host="safety" class="awh-tr-safety-host"></div>
@@ -626,7 +626,7 @@ registerWalletTab({
 			const ready = !!args && !!q && !state.quoting && !blocked;
 			const sym = state.coin?.symbol || 'coin';
 			if (state.submitting) {
-				return `<button class="awh-btn awh-btn--primary awh-tr-submit" type="button" disabled data-side="${state.side}">Submitting…</button>`;
+				return `<button class="awh-btn awh-btn--primary awh-tr-submit" type="button" disabled aria-busy="true" data-side="${state.side}">Submitting…</button>`;
 			}
 			if (state.confirming && ready) {
 				const q2 = state.quote;

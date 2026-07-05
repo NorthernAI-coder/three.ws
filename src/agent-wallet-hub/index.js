@@ -70,6 +70,7 @@ const STYLE = `
 .awh-tabs { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: thin; border-bottom: 1px solid var(--stroke, rgba(255,255,255,.08)); padding-bottom: 0; -webkit-overflow-scrolling: touch; }
 .awh-tab { appearance: none; font: inherit; font-size: var(--text-md, .8125rem); font-weight: 500; color: var(--ink-dim, #888); background: transparent; border: none; border-bottom: 2px solid transparent; padding: 10px 14px; cursor: pointer; white-space: nowrap; transition: color var(--duration-fast, 140ms) var(--ease-standard, ease), border-color var(--duration-fast, 140ms) var(--ease-standard, ease), background var(--duration-fast, 140ms) var(--ease-standard, ease); border-radius: var(--radius-sm, 6px) var(--radius-sm, 6px) 0 0; }
 .awh-tab:hover { color: var(--ink, #e8e8e8); background: var(--surface-1, rgba(255,255,255,.03)); }
+.awh-tab:active { color: var(--ink-bright, #fff); background: var(--surface-2, rgba(255,255,255,.05)); }
 .awh-tab[aria-selected="true"] { color: var(--ink-bright, #fff); border-bottom-color: var(--accent, #fff); }
 .awh-tab:focus-visible { outline: var(--focus-ring-width, 2px) solid var(--focus-ring-color, #fff); outline-offset: -2px; }
 
