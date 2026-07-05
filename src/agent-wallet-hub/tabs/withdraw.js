@@ -526,7 +526,7 @@ registerWalletTab({
 							<button class="awh-btn" id="awh-allow-btn" type="button">Add</button>
 						</div>
 					</div>
-					<div class="awh-err" id="awh-lim-err" hidden></div>
+					<div class="awh-err" id="awh-lim-err" role="alert" hidden></div>
 					<button class="awh-btn awh-btn--primary" id="awh-lim-save" type="button" style="width:100%;">Save limits</button>
 				</div>`;
 		}

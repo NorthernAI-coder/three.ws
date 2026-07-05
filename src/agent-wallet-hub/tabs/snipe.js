@@ -239,7 +239,7 @@ registerWalletTab({
 			return `<div class="sb-card sb-hero">
 				<h2>Describe a snipe strategy</h2>
 				<p class="sub">Write it in plain English. We compile it into a validated config — clamped to this agent's spend guards — then backtest it against three.ws's own real launch history before you risk a lamport.</p>
-				<textarea class="sb-ta" id="sb-src" placeholder="${esc(EXAMPLES[0])}" ${busy ? 'disabled' : ''}>${esc(state.source)}</textarea>
+				<textarea class="sb-ta" id="sb-src" aria-label="Describe your snipe strategy in plain English" placeholder="${esc(EXAMPLES[0])}" ${busy ? 'disabled' : ''}>${esc(state.source)}</textarea>
 				<div class="sb-egs">${EXAMPLES.map((e, i) => `<button class="sb-eg" data-eg="${i}">${esc(e.length > 60 ? e.slice(0, 58) + '…' : e)}</button>`).join('')}</div>
 				<div class="sb-actions">
 					<button class="sb-btn primary" id="sb-compile" ${busy ? 'disabled' : ''}>${busy ? '<span class="sb-spin"></span>Compiling…' : (state.compiled ? 'Re-compile' : 'Compile strategy')}</button>
