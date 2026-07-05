@@ -31,6 +31,14 @@
 			<description>If you hit your plan's avatar limit while creating an agent, the wizard used to fail with a bare error and leave you stuck. It now explains what happened and gives you three ways forward, right in the form: connect an avatar you already own (one click jumps you to your library), free up a slot by deleting an old avatar, or upgrade your plan. Oversized model files get a clearer message too.</description>
 		</item>
 		<item>
+			<title>Animation Gallery rebuilt — see every clip before you use it</title>
+			<link>https://three.ws/animations</link>
+			<guid isPermaLink="false">2026-07-05:Animation Gallery rebuilt — see every clip before you use it</guid>
+			<pubDate>Sun, 05 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The animation gallery at three.ws/animations got a ground-up upgrade. All 2,100+ clips now show a real poster image of the avatar mid-motion instead of a blank tile, and hovering any card plays the full animation live in 3D. Clips are organized into 16 browsable categories (dance, combat, weapons, sports, and more) with search, sorting, and loop filters, and every clip has its own shareable link with playback controls — scrub the timeline, change the speed, then send it straight to the Animation Studio or copy an embed snippet for your own site.</description>
+		</item>
+		<item>
 			<title>Go Pro with SOL or $THREE — 20% off in the platform coin</title>
 			<link>https://three.ws/pricing</link>
 			<guid isPermaLink="false">2026-07-05:Go Pro with SOL or $THREE — 20% off in the platform coin</guid>

@@ -52,6 +52,15 @@ Slots are the fixed vocabulary the agent avatar uses to express emotion/gesture.
 
 Agents can override individual slots via `meta.edits.animations`.
 
+## The /animations gallery
+
+[three.ws/animations](https://three.ws/animations) is the public browse surface over every clip: the curated studio manifest, the full R2-hosted motion-capture library (`GET /api/animations/library`, ~2,000 clips), and community-published clips (`GET /api/animations/clips?visibility=public`).
+
+- **Poster thumbnails** — every clip has a WebP still of the preview avatar posed mid-motion. Rendered offline by `node scripts/build-animation-thumbnails.mjs` (drives `scripts/thumbnail-harness.html` in headless Chromium through the site's own retarget engine). Curated thumbs are committed at `public/animations/thumbs/<name>.webp`; library thumbs upload to R2 alongside their clips via `npm run mixamo:upload`, which publishes each one as the manifest entry's `thumb` URL. Added a clip? Re-run the thumbnail script, then re-upload.
+- **Categories** — the Mixamo catalog carries no category metadata, so `src/animation-categories.js` derives one per clip from its label (ordered keyword rules; curated clips keep their hand-assigned `animation-presets.js` category). Covered by `tests/animation-categories.test.js`, which also asserts <10% of the real library falls into the "More" catch-all.
+- **Live previews** — one shared WebGL engine (`src/animations-live-preview.js`) serves every card hover and the detail modal: a single renderer + preview avatar; the canvas moves into whichever card is previewing. Nothing 3D loads until the first hover.
+- **Deep links** — `?clip=<id>` opens a clip's detail modal directly; `q`, `cat`, `filter`, and `sort` round-trip through the URL so filtered views are shareable.
+
 ## Known issues
 
 - **`fidget` slot is broken** — maps to `"Fidget"` but no such clip exists in the manifest. Silent no-op at runtime. Fix: add a Fidget FBX to `animations.config.json` and rebuild, or remap the slot. (`src/runtime/animation-slots.js:30`)
