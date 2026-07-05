@@ -3,6 +3,14 @@
 	"entries": [
 		{
 			"date": "2026-07-05",
+			"title": "Agent profile page no longer collapses into a broken narrow column",
+			"summary": "On some window sizes an agent's profile page could strand every card into a single skinny column down the left edge, leaving a huge empty gutter and a page that ran on forever. The card layout was rebuilt on a resilient grid that always tiles cards evenly across the full width and stretches to fill — so the page reads cleanly at every screen size, from ultrawide down to phone.",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-07-05",
 			"title": "Explore mode now walks like the real thing — turn, walk, and run in 3D",
 			"summary": "Explore mode (the drive-it-yourself checkpoint tour) now uses the exact locomotion from the homepage Stroll: the character turns to face wherever you steer and walks or runs in full 3D, instead of sliding flat across the page. Arrow keys or WASD on desktop, joystick or gamepad on mobile, and the page scrolls under you so the whole store is walkable. Walk into a glowing checkpoint and it stops to explain that section. Built on @three-ws/walk 0.1.2 + @three-ws/tour 0.4.0 — the homepage tour, any embedded site, and the Shopify store guide all get it.",
 			"tags": [

@@ -55,6 +55,14 @@
 			<description>If you hit your plan's avatar limit while creating an agent, the wizard used to fail with a bare error and leave you stuck. It now explains what happened and gives you three ways forward, right in the form: connect an avatar you already own (one click jumps you to your library), free up a slot by deleting an old avatar, or upgrade your plan. Oversized model files get a clearer message too.</description>
 		</item>
 		<item>
+			<title>Agent profile page no longer collapses into a broken narrow column</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-05:Agent profile page no longer collapses into a broken narrow column</guid>
+			<pubDate>Sun, 05 Jul 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>On some window sizes an agent's profile page could strand every card into a single skinny column down the left edge, leaving a huge empty gutter and a page that ran on forever. The card layout was rebuilt on a resilient grid that always tiles cards evenly across the full width and stretches to fill — so the page reads cleanly at every screen size, from ultrawide down to phone.</description>
+		</item>
+		<item>
 			<title>Agent wallet: a top-to-bottom polish and accessibility pass across every tab</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-07-05:Agent wallet: a top-to-bottom polish and accessibility pass across every tab</guid>

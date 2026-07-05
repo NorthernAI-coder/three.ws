@@ -103,7 +103,7 @@ a {
 .ad-main {
 	padding: 0;
 	/* Full-page: fill the 1fr track instead of a narrow centered column.
-	   Cap on ultra-wide so the masonry doesn't sprawl past a comfortable
+	   Cap on ultra-wide so the card grid doesn't sprawl past a comfortable
 	   reading field, but otherwise use the whole width. */
 	max-width: 2400px;
 	margin: 0 auto;
