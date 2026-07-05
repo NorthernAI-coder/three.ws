@@ -116,7 +116,12 @@
 						<li>Advanced analytics dashboard</li>
 						<li>Priority email support &amp; SLA</li>
 					</ul>
-					<a href="/login?plan=pro" class="pricing-cta primary">Choose Pro</a>
+					<a href="/login?plan=pro" class="pricing-cta primary" id="pro-cta">Choose Pro</a>
+					<div class="pricing-pay-assets" aria-label="Accepted payment assets">
+						Pay in <strong>USDC</strong>, <strong>SOL</strong>, or
+						<strong>$THREE</strong>
+						<span class="pricing-three-discount" id="pro-three-discount" hidden></span>
+					</div>
 				</div>
 
 				<div class="pricing-tier-card" data-tier="enterprise">
@@ -139,6 +144,137 @@
 						class="pricing-cta"
 						>Contact sales</a
 					>
+				</div>
+			</div>
+
+			<!-- ── PRO CHECKOUT — pay in USDC, SOL, or $THREE on Solana ─────── -->
+			<div class="pc-overlay" id="pc-overlay" hidden>
+				<div
+					class="pc-dialog"
+					role="dialog"
+					aria-modal="true"
+					aria-labelledby="pc-title"
+					id="pc-dialog"
+					tabindex="-1"
+				>
+					<button class="pc-close" id="pc-close" aria-label="Close checkout">
+						<svg viewBox="0 0 16 16" aria-hidden="true">
+							<path
+								d="M3 3l10 10M13 3L3 13"
+								stroke="currentColor"
+								stroke-width="1.6"
+								stroke-linecap="round"
+							/>
+						</svg>
+					</button>
+					<h3 id="pc-title">Upgrade to Pro</h3>
+					<p class="pc-sub" id="pc-sub">
+						30 days of Pro, settled on Solana. Choose how you want to pay.
+					</p>
+
+					<!-- Step 1 — pick the asset -->
+					<div class="pc-step" id="pc-step-asset">
+						<div class="pc-assets" role="radiogroup" aria-label="Payment asset">
+							<button
+								class="pc-asset is-selected"
+								type="button"
+								role="radio"
+								aria-checked="true"
+								data-asset="USDC"
+							>
+								<span class="pc-asset-name">USDC</span>
+								<span class="pc-asset-price" data-asset-price="USDC">$49</span>
+								<span class="pc-asset-note">Stable — pay the sticker price</span>
+							</button>
+							<button
+								class="pc-asset"
+								type="button"
+								role="radio"
+								aria-checked="false"
+								data-asset="SOL"
+							>
+								<span class="pc-asset-name">SOL</span>
+								<span class="pc-asset-price" data-asset-price="SOL">$49</span>
+								<span class="pc-asset-note">Quoted at the live price</span>
+							</button>
+							<button
+								class="pc-asset"
+								type="button"
+								role="radio"
+								aria-checked="false"
+								data-asset="THREE"
+							>
+								<span class="pc-asset-badge" data-three-badge>20% off</span>
+								<span class="pc-asset-name">$THREE</span>
+								<span class="pc-asset-price" data-asset-price="THREE">$39.20</span>
+								<span class="pc-asset-note">The platform coin — discounted</span>
+							</button>
+						</div>
+						<button class="pricing-cta primary pc-continue" id="pc-continue" type="button">
+							Continue
+						</button>
+						<p class="pc-fineprint">
+							Payments are verified on-chain and activate instantly. SOL and $THREE
+							amounts are pinned when the quote is created.
+						</p>
+					</div>
+
+					<!-- Step 2 — pay the pinned quote -->
+					<div class="pc-step" id="pc-step-pay" hidden>
+						<div class="pc-quote">
+							<div class="pc-quote-amount" id="pc-amount"></div>
+							<div class="pc-quote-meta">
+								<span id="pc-usd"></span> · quote expires in
+								<strong id="pc-countdown">--:--</strong>
+							</div>
+						</div>
+						<div class="pc-pay-grid">
+							<div class="pc-qr-wrap">
+								<canvas id="pc-qr" width="220" height="220" aria-label="Solana Pay QR code"></canvas>
+							</div>
+							<div class="pc-pay-actions">
+								<a
+									class="pricing-cta primary"
+									id="pc-wallet-link"
+									href="#"
+									rel="noopener"
+									>Open in wallet</a
+								>
+								<button class="pricing-cta" type="button" id="pc-copy-url">
+									Copy payment link
+								</button>
+								<button class="pricing-cta" type="button" id="pc-copy-addr">
+									Copy address
+								</button>
+							</div>
+						</div>
+						<label class="pc-sig-label" for="pc-txsig"
+							>Paid from an exchange or CLI? Paste the transaction signature:</label
+						>
+						<div class="pc-sig-row">
+							<input
+								id="pc-txsig"
+								autocomplete="off"
+								spellcheck="false"
+								placeholder="Transaction signature"
+							/>
+							<button class="pricing-cta primary" type="button" id="pc-confirm">
+								Confirm
+							</button>
+						</div>
+						<button class="pc-back" type="button" id="pc-back">
+							&larr; Change payment asset
+						</button>
+						<div class="pc-status" id="pc-status" role="status" aria-live="polite"></div>
+					</div>
+
+					<!-- Step 3 — done -->
+					<div class="pc-step pc-success" id="pc-step-done" hidden>
+						<div class="pc-success-mark" aria-hidden="true">✓</div>
+						<h4>You&rsquo;re Pro</h4>
+						<p id="pc-done-detail"></p>
+						<a class="pricing-cta primary" href="/dashboard">Go to dashboard</a>
+					</div>
 				</div>
 			</div>
 
@@ -1147,6 +1283,276 @@
 				}
 
 				load();
+			}
+		</script>
+
+		<!-- ── Pro checkout — USDC / SOL / $THREE on Solana ────────────────── -->
+		<script type="module">
+			import { track, ANALYTICS_EVENTS } from '/src/analytics.js';
+
+			const $ = (id) => document.getElementById(id);
+			const overlay = $('pc-overlay');
+			const proCta = $('pro-cta');
+			if (overlay && proCta) {
+				const PLAN = 'pro';
+				let user = null;
+				let plans = null;
+				let selectedAsset = 'USDC';
+				let intent = null;
+				let countdownTimer = null;
+				let pollTimer = null;
+				let lastFocus = null;
+
+				const fmtUsd = (n) =>
+					'$' + Number(n).toFixed(Number.isInteger(Number(n)) ? 0 : 2);
+				const assetLabel = (a) => (a === 'THREE' ? '$THREE' : a);
+
+				// Server truth for prices + the $THREE discount — never hardcoded.
+				async function loadPlans() {
+					try {
+						const r = await fetch('/api/payments/solana?action=plans', {
+							headers: { accept: 'application/json' },
+						});
+						if (!r.ok) return;
+						plans = await r.json();
+						const pro = plans.plans?.[PLAN];
+						if (!pro) return;
+						// Sync the tier card's monthly figure with what checkout charges.
+						const amountEl = document.querySelector(
+							'[data-tier="pro"] .pricing-amount',
+						);
+						if (amountEl) {
+							amountEl.dataset.monthly = fmtUsd(pro.price_usd);
+							if (!document.querySelector('#billing-toggle.annual')) {
+								amountEl.innerHTML = fmtUsd(pro.price_usd) + '<sub>/mo</sub>';
+							}
+						}
+						const pct = (plans.three_discount_bps / 100).toFixed(0);
+						const discountEl = $('pro-three-discount');
+						if (discountEl && plans.three_discount_bps > 0) {
+							discountEl.textContent = `— ${pct}% off in $THREE`;
+							discountEl.hidden = false;
+						}
+						document.querySelector('[data-asset-price="USDC"]').textContent =
+							fmtUsd(pro.price_usd);
+						document.querySelector('[data-asset-price="SOL"]').textContent =
+							fmtUsd(pro.price_usd);
+						document.querySelector('[data-asset-price="THREE"]').textContent =
+							fmtUsd(pro.three_price_usd);
+						const badge = document.querySelector('[data-three-badge]');
+						if (badge) badge.textContent = `${pct}% off`;
+					} catch (err) {
+						console.warn('[pricing] plan config load failed:', err?.message);
+					}
+				}
+
+				async function loadSession() {
+					try {
+						const r = await fetch('/api/auth/me', { credentials: 'include' });
+						if (r.ok) user = (await r.json()).user;
+					} catch {}
+					if (user && ['pro', 'team', 'enterprise'].includes(user.plan)) {
+						proCta.textContent = 'You’re on ' + (user.plan === 'pro' ? 'Pro ✓' : user.plan[0].toUpperCase() + user.plan.slice(1) + ' ✓');
+						proCta.href = '/account';
+					}
+				}
+
+				function setStatus(text, kind = '') {
+					const el = $('pc-status');
+					el.textContent = text;
+					el.className = 'pc-status' + (kind ? ' is-' + kind : '');
+				}
+
+				function showStep(step) {
+					for (const id of ['pc-step-asset', 'pc-step-pay', 'pc-step-done'])
+						$(id).hidden = id !== step;
+				}
+
+				function openModal() {
+					lastFocus = document.activeElement;
+					overlay.hidden = false;
+					document.body.style.overflow = 'hidden';
+					showStep('pc-step-asset');
+					setStatus('');
+					$('pc-dialog').focus();
+					track(ANALYTICS_EVENTS.SURFACE_OPENED, { surface: 'pricing:checkout' });
+				}
+
+				function closeModal() {
+					overlay.hidden = true;
+					document.body.style.overflow = '';
+					clearInterval(countdownTimer);
+					clearTimeout(pollTimer);
+					intent = null;
+					lastFocus?.focus?.();
+				}
+
+				proCta.addEventListener('click', (e) => {
+					// Signed out (or already upgraded) → let the link navigate.
+					if (!user || ['pro', 'team', 'enterprise'].includes(user.plan)) return;
+					e.preventDefault();
+					openModal();
+				});
+
+				$('pc-close').addEventListener('click', closeModal);
+				overlay.addEventListener('click', (e) => {
+					if (e.target === overlay) closeModal();
+				});
+				document.addEventListener('keydown', (e) => {
+					if (e.key === 'Escape' && !overlay.hidden) closeModal();
+				});
+
+				for (const btn of overlay.querySelectorAll('.pc-asset')) {
+					btn.addEventListener('click', () => {
+						selectedAsset = btn.dataset.asset;
+						for (const b of overlay.querySelectorAll('.pc-asset')) {
+							const on = b === btn;
+							b.classList.toggle('is-selected', on);
+							b.setAttribute('aria-checked', String(on));
+						}
+					});
+				}
+
+				function startCountdown(expiresAt) {
+					clearInterval(countdownTimer);
+					const el = $('pc-countdown');
+					const tick = () => {
+						const left = Math.max(0, new Date(expiresAt).getTime() - Date.now());
+						const m = Math.floor(left / 60000);
+						const s = Math.floor((left % 60000) / 1000);
+						el.textContent = `${m}:${String(s).padStart(2, '0')}`;
+						if (left <= 0) {
+							clearInterval(countdownTimer);
+							// Hide the payment targets so nobody pays a dead quote; the
+							// confirm input stays live for a payment already in flight.
+							$('pc-qr').style.opacity = '0.15';
+							$('pc-wallet-link').removeAttribute('href');
+							setStatus(
+								'Quote expired. If you already paid, paste your signature above — otherwise go back and get a fresh quote.',
+								'err',
+							);
+						}
+					};
+					tick();
+					countdownTimer = setInterval(tick, 1000);
+				}
+
+				async function createCheckout() {
+					$('pc-continue').disabled = true;
+					$('pc-continue').textContent = 'Creating quote…';
+					try {
+						const r = await fetch('/api/payments/solana?action=checkout', {
+							method: 'POST',
+							credentials: 'include',
+							headers: { 'content-type': 'application/json' },
+							body: JSON.stringify({ plan: PLAN, asset: selectedAsset }),
+						});
+						const d = await r.json();
+						if (!r.ok)
+							throw new Error(d.error_description || d.message || 'checkout failed');
+						intent = d;
+						$('pc-amount').textContent =
+							`${d.amount_asset} ${assetLabel(d.asset)}`;
+						$('pc-usd').textContent =
+							fmtUsd(d.amount_usd) +
+							(d.discount_bps > 0
+								? ` (${(d.discount_bps / 100).toFixed(0)}% off in $THREE)`
+								: '');
+						$('pc-wallet-link').href = d.solana_pay_url;
+						$('pc-qr').style.opacity = '1';
+						const QRCode = await import('qrcode');
+						await (QRCode.default ?? QRCode).toCanvas($('pc-qr'), d.solana_pay_url, {
+							width: 220,
+							margin: 1,
+						});
+						$('pc-txsig').value = '';
+						setStatus('');
+						showStep('pc-step-pay');
+						startCountdown(d.expires_at);
+						track(ANALYTICS_EVENTS.CTA_CLICKED, {
+							cta: `plan:${PLAN}:checkout:${selectedAsset}`,
+							location: 'pricing',
+						});
+					} catch (err) {
+						setStatus(err.message, 'err');
+						alert(err.message);
+					} finally {
+						$('pc-continue').disabled = false;
+						$('pc-continue').textContent = 'Continue';
+					}
+				}
+
+				$('pc-continue').addEventListener('click', createCheckout);
+				$('pc-back').addEventListener('click', () => {
+					clearInterval(countdownTimer);
+					clearTimeout(pollTimer);
+					showStep('pc-step-asset');
+					setStatus('');
+				});
+
+				const copy = (text, btn) =>
+					navigator.clipboard?.writeText(text).then(() => {
+						const orig = btn.textContent;
+						btn.textContent = 'Copied ✓';
+						setTimeout(() => (btn.textContent = orig), 1500);
+					});
+				$('pc-copy-url').addEventListener('click', (e) =>
+					intent && copy(intent.solana_pay_url, e.currentTarget),
+				);
+				$('pc-copy-addr').addEventListener('click', (e) =>
+					intent && copy(intent.recipient, e.currentTarget),
+				);
+
+				// Confirm, retrying while the tx finalizes (finalization takes ~10-30s;
+				// the API only accepts finalized transactions).
+				let confirmTries = 0;
+				async function confirmPayment() {
+					const txsig = $('pc-txsig').value.trim();
+					if (!txsig) return setStatus('Paste the transaction signature first.', 'err');
+					if (!intent) return setStatus('No active quote — go back and start over.', 'err');
+					$('pc-confirm').disabled = true;
+					setStatus('Verifying on-chain…');
+					try {
+						const r = await fetch('/api/payments/solana?action=confirm', {
+							method: 'POST',
+							credentials: 'include',
+							headers: { 'content-type': 'application/json' },
+							body: JSON.stringify({ intent_id: intent.intent_id, tx_signature: txsig }),
+						});
+						const d = await r.json();
+						if (r.ok) {
+							clearInterval(countdownTimer);
+							$('pc-done-detail').textContent =
+								`Paid in ${assetLabel(d.asset)}. Pro is active until ` +
+								new Date(d.active_until).toLocaleDateString() + '.';
+							showStep('pc-step-done');
+							track(ANALYTICS_EVENTS.CTA_CLICKED, {
+								cta: `plan:${PLAN}:paid:${d.asset}`,
+								location: 'pricing',
+							});
+							return;
+						}
+						if (d.error === 'tx_not_found' && confirmTries < 30) {
+							confirmTries += 1;
+							setStatus('Waiting for the transaction to finalize… (retrying automatically)');
+							pollTimer = setTimeout(confirmPayment, 6000);
+							return;
+						}
+						throw new Error(d.error_description || d.message || 'confirmation failed');
+					} catch (err) {
+						setStatus(err.message, 'err');
+						$('pc-confirm').disabled = false;
+					}
+				}
+				$('pc-confirm').addEventListener('click', () => {
+					confirmTries = 0;
+					clearTimeout(pollTimer);
+					pollTimer = null;
+					confirmPayment();
+				});
+
+				loadPlans();
+				loadSession();
 			}
 		</script>
 

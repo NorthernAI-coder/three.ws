@@ -1,11 +1,36 @@
 // Shared payment configuration.
-// All prices are in USDC (6 decimals on EVM, 6 decimals on Solana SPL).
+// Prices are set in USD. On-chain settlement is USDC (6 decimals on EVM and
+// Solana), native SOL, or $THREE (Solana-only; see PLAN_ASSETS below).
 
 export const PLANS = {
-	pro:        { label: 'Pro',        price_usd: 19,  duration_days: 30 },
+	// Single source of truth for plan prices — pages/pricing.html and
+	// pages/x-pricing.html render what checkout quotes from here.
+	pro:        { label: 'Pro',        price_usd: 49,  duration_days: 30 },
 	team:       { label: 'Team',       price_usd: 79,  duration_days: 30 },
 	enterprise: { label: 'Enterprise', price_usd: 299, duration_days: 30 },
 };
+
+// Assets accepted for plan checkout on Solana. USDC settles 1:1 with the USD
+// price; SOL and $THREE are quoted at the live price when the checkout session
+// is created and the exact on-chain amount is pinned on the intent.
+export const PLAN_ASSETS = ['USDC', 'SOL', 'THREE'];
+
+// Paying in $THREE takes a discount off the USD price — $THREE is the
+// platform's coin and plan revenue in it feeds the treasury loop directly.
+// Basis points; 2000 = 20% off. Override with THREE_PLAN_DISCOUNT_BPS.
+export function threePlanDiscountBps() {
+	const raw = Number(process.env.THREE_PLAN_DISCOUNT_BPS);
+	if (Number.isFinite(raw) && raw >= 0 && raw <= 5000) return Math.floor(raw);
+	return 2000;
+}
+
+/** USD value charged for a plan when paying in `asset` ($THREE discount applied). */
+export function planPriceUsd(plan, asset = 'USDC') {
+	const base = PLANS[plan].price_usd;
+	if (asset !== 'THREE') return base;
+	const usd = (base * (10_000 - threePlanDiscountBps())) / 10_000;
+	return Math.round(usd * 100) / 100;
+}
 
 // USDC contract addresses by EVM chain ID.
 export const EVM_USDC = {
@@ -32,6 +57,11 @@ export function getSolanaRecipient() {
 
 // How long a checkout session stays valid.
 export const INTENT_TTL_MINUTES = 30;
+
+// Price-quoted assets (SOL, $THREE) pin the on-chain amount at checkout, so
+// their sessions are shorter — a 30-minute-old quote on a moving market would
+// over- or under-charge. The client just re-creates the checkout on expiry.
+export const QUOTED_INTENT_TTL_MINUTES = 10;
 
 // USDC has 6 decimals on both EVM and Solana.
 export function toUsdcAtomics(usd) {

@@ -1234,7 +1234,17 @@ async function submit() {
 		trackError('create_agent.submit', err);
 		state.submitting = false;
 		resetSubmitButton();
-		setMsg(err.message || 'Something went wrong. Please try again.', 'err');
+		const code = err.data?.error || err.code || '';
+		if (code === 'plan_limit_count' || code === 'plan_limit_storage') {
+			showPlanLimitMsg();
+		} else if (err.status === 413 || code === 'plan_limit_size') {
+			setMsg(
+				'That model file is too large for your plan — upload a smaller GLB or connect an avatar you already own.',
+				'err',
+			);
+		} else {
+			setMsg(err.message || 'Something went wrong. Please try again.', 'err');
+		}
 	}
 }
 
@@ -1298,6 +1308,23 @@ function succeed(agent) {
 function setMsg(text, kind) {
 	el.footMsg.textContent = text;
 	el.footMsg.className = 'foot-msg' + (kind ? ' ' + kind : '');
+}
+
+// Avatar-quota failures get recovery paths instead of the raw server message.
+// Connecting an owned avatar is the one wizard path that doesn't create a new
+// avatar record, so it always works at the cap — lead with it. Static markup
+// only: never interpolate server text into innerHTML.
+function showPlanLimitMsg() {
+	el.footMsg.className = 'foot-msg err';
+	el.footMsg.innerHTML =
+		'Your avatar library is full for your plan. ' +
+		'<button type="button" class="msg-link" id="msg-use-library">Connect an avatar you already own</button>, ' +
+		'<a class="msg-link" href="/dashboard/avatars" target="_blank" rel="noopener">free up a slot</a>, or ' +
+		'<a class="msg-link" href="/dashboard/monetize" target="_blank" rel="noopener">upgrade your plan</a>.';
+	$('msg-use-library')?.addEventListener('click', () => {
+		showStep(1);
+		document.querySelector('.model-tab[data-pane="library"]')?.click();
+	});
 }
 function clearMsg() {
 	setMsg('', '');
