@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-07-05",
+			"title": "Trading Copilot, rebuilt — a real chat that reads your wallet and shows the numbers",
+			"summary": "The Copilot in your agent's wallet went from a plain text box to a proper trading chat. Ask \"how's my portfolio?\" and it just checks — no more \"would you like me to look?\" — and answers with a live card showing your SOL, your tokens, and each open position's profit or loss. Ask if a coin is safe and you get a firewall verdict card (allow / warn / block) with the actual reasons; ask for a quote and you see expected output and price impact laid out. Replies are formatted (bold, lists, links) instead of a wall of text, you can copy or regenerate any answer, stop a reply mid-stream, and type \"/\" for quick commands like /portfolio, /safety and /limits. Your conversation and its cards are now remembered per wallet, so switching tabs or reloading doesn't wipe it. Every actual trade still comes back as a card you confirm, running through the same spend caps, kill switch, and rug/honeypot firewall as before — the chat can read and prepare, but it can never sign on its own.",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-05",
 			"title": "Animation Studio — avatars no longer crumple when you preview a motion",
 			"summary": "Loading your own avatar and playing a preset like Facepalm sometimes folded the whole character into a heap on the floor — even though the studio reported a clean \"100% retargeted.\" The baked motion clips carry a per-bone scale and length channel from the character they were authored on, and those were being stamped onto your avatar, overwriting its own proportions. The Animation Studio now drives only what's actually motion — the joint rotations and the root's travel — and leaves every rig's bone lengths and scale untouched, so any avatar (tall, short, generated, Mixamo) plays every clip standing up in its own body. The \"retargeted\" percentage now counts only those real motion channels, so it reflects what you see.",
 			"tags": [
@@ -36,6 +45,14 @@
 			"tags": [
 				"fix",
 				"infra"
+			]
+		},
+		{
+			"date": "2026-07-05",
+			"title": "A redesigned Portfolio tab — see your whole wallet at a glance",
+			"summary": "The agent wallet's Portfolio tab got a full visual pass. Net worth now leads with a bold headline figure beside a gradient trend chart that fills in live. A new Allocation bar shows exactly how the wallet is split across SOL, stablecoins, $THREE and any memecoins — one glance tells you the composition, with a colour-coded legend. The Risk tiles gained heat-coloured meters (green when calm, amber-to-red as concentration or tape exposure climbs) plus hover detail, P&L figures now sit in clean chips, and the whole panel animates in with a subtle staggered entrance. Every agent's Portfolio view gets it.",
+			"tags": [
+				"improvement"
 			]
 		},
 		{

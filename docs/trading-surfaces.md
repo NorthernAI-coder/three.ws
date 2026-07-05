@@ -131,6 +131,7 @@ Agents wanting the same intel over MCP: see [docs/mcp.md](mcp.md) (`@three-ws/in
 
 ## Related
 
+- [The Trading Copilot — talk to your wallet](trading-copilot.md) — conversational trading over these same numbers
 - [Oracle — the conviction engine](oracle.md) · [/oracle/docs](https://three.ws/oracle/docs)
 - [The autonomous trading experiment](trading-experiment.md)
 - [Financial controls & custody guardrails](financial-controls.md)

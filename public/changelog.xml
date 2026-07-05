@@ -39,6 +39,14 @@
 			<description>The animation library just grew from around 100 curated clips to more than 2,800 — the full professional motion-capture set, including complete themed movement packs (breakdance, sword-and-shield combat, capoeira, zombie, rifle and pistol sets, and more), every one retargeted to the universal three.ws skeleton so it plays on any humanoid avatar. Walks, runs, dances, combat, idles, reactions, sports, and hundreds more are all searchable in the animations gallery, previewable on a live avatar, and one click away from the pose studio or any embed. The clips are served from the CDN, so the site stays fast no matter how big the library gets.</description>
 		</item>
 		<item>
+			<title>A redesigned Portfolio tab — see your whole wallet at a glance</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-05:A redesigned Portfolio tab — see your whole wallet at a glance</guid>
+			<pubDate>Sun, 05 Jul 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The agent wallet's Portfolio tab got a full visual pass. Net worth now leads with a bold headline figure beside a gradient trend chart that fills in live. A new Allocation bar shows exactly how the wallet is split across SOL, stablecoins, $THREE and any memecoins — one glance tells you the composition, with a colour-coded legend. The Risk tiles gained heat-coloured meters (green when calm, amber-to-red as concentration or tape exposure climbs) plus hover detail, P&amp;L figures now sit in clean chips, and the whole panel animates in with a subtle staggered entrance. Every agent's Portfolio view gets it.</description>
+		</item>
+		<item>
 			<title>Agent creation now tells you what to do when your avatar library is full</title>
 			<link>https://three.ws/create-agent</link>
 			<guid isPermaLink="false">2026-07-05:Agent creation now tells you what to do when your avatar library is full</guid>
@@ -149,6 +157,14 @@
 			<pubDate>Sun, 05 Jul 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>When you asked the Copilot about your portfolio, it sometimes read your wallet, then read it again, and got stuck on &quot;Analyzing…&quot; with the typing dots spinning forever — you'd see the same &quot;Portfolio: … 6 tokens&quot; line twice and never get an answer. The Copilot now remembers what it just looked up within a single reply, so a repeated lookup is instant instead of a wasted round, and the moment it starts going in circles it stops and answers with what it already knows. As a backstop, the chat now detects a genuinely dead connection and offers a Retry instead of hanging — so it can never leave you staring at a frozen indicator again.</description>
+		</item>
+		<item>
+			<title>Trading Copilot, rebuilt — a real chat that reads your wallet and shows the numbers</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-05:Trading Copilot, rebuilt — a real chat that reads your wallet and shows the numbers</guid>
+			<pubDate>Sun, 05 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The Copilot in your agent's wallet went from a plain text box to a proper trading chat. Ask &quot;how's my portfolio?&quot; and it just checks — no more &quot;would you like me to look?&quot; — and answers with a live card showing your SOL, your tokens, and each open position's profit or loss. Ask if a coin is safe and you get a firewall verdict card (allow / warn / block) with the actual reasons; ask for a quote and you see expected output and price impact laid out. Replies are formatted (bold, lists, links) instead of a wall of text, you can copy or regenerate any answer, stop a reply mid-stream, and type &quot;/&quot; for quick commands like /portfolio, /safety and /limits. Your conversation and its cards are now remembered per wallet, so switching tabs or reloading doesn't wipe it. Every actual trade still comes back as a card you confirm, running through the same spend caps, kill switch, and rug/honeypot firewall as before — the chat can read and prepare, but it can never sign on its own.</description>
 		</item>
 		<item>
 			<title>Wallet chips on avatar and agent cards no longer overflow their card</title>
