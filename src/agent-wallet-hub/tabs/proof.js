@@ -64,7 +64,7 @@ registerWalletTab({
 });
 
 function skeleton() {
-	return `<div class="awh-proof awh-proof-skel" aria-busy="true">
+	return `<div class="awh-proof awh-proof-skel" role="status" aria-busy="true" aria-label="Loading custody proof">
 		<span style="height:64px"></span>
 		<span style="height:120px"></span>
 		<span style="height:90px"></span>
@@ -80,13 +80,10 @@ function signedOut() {
 }
 
 function errorState(msg) {
-	return `<div class="awh-proof"><div class="awh-proof-card awh-proof-bad">
+	return `<div class="awh-proof"><div class="awh-proof-card awh-proof-bad" role="alert">
 		<h2>Couldn't load your proof</h2>
 		<p class="awh-proof-lead">${escapeHtml(msg)}</p>
+		<p class="awh-proof-lead">This is usually a momentary network or RPC hiccup — retrying almost always clears it.</p>
 		<button class="awh-proof-btn" data-retry type="button">Try again</button>
 	</div></div>`;
-}
-
-function escapeHtml(s) {
-	return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }

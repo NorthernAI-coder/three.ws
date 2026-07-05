@@ -263,12 +263,25 @@ export function mountAgentWalletHub({ mount, agent, initialTab, onNetworkChange 
 			inst = def.mount({ panel, ctx }) || {};
 		} catch (err) {
 			console.error(`[agent-wallet-hub] tab "${id}" failed to mount`, err);
-			panel.innerHTML = `<div class="awh-card"><p class="awh-empty">This section could not load. <button class="awh-btn" type="button" data-awh-retry="${escapeHtml(id)}">Retry</button></p></div>`;
+			const label = def.label || 'this section';
+			panel.innerHTML = `
+				<div class="awh-card awh-tab-error" role="alert">
+					<p class="awh-tab-error-h">Couldn't load ${escapeHtml(label)}</p>
+					<p class="awh-empty">Something went wrong opening this section. It's usually temporary — try again, and if it keeps failing, reload the page.</p>
+					<button class="awh-btn awh-btn--primary" type="button" data-awh-retry="${escapeHtml(id)}">Retry</button>
+				</div>`;
 			panel.querySelector('[data-awh-retry]')?.addEventListener('click', () => {
 				instances.delete(id);
 				ensureMounted(id);
 				const fresh = instances.get(id);
 				fresh?.onShow?.();
+				// Move focus into the freshly-mounted content so keyboard/AT users
+				// aren't stranded on a button that just replaced itself.
+				const target =
+					panel.querySelector(
+						'button:not([data-awh-retry]), a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+					) || panel.querySelector('[data-awh-retry]');
+				target?.focus?.();
 			});
 			inst = {};
 		}

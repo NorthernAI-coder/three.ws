@@ -215,7 +215,7 @@ registerWalletTab({
 
 			return `
 				<div class="awh-card">
-					${s?.error ? `<div class="awh-err">Couldn’t load wallet. <div class="why">${esc(s.error)}</div></div>` : `
+					${s?.error ? `<div class="awh-err" role="alert">Couldn’t load wallet. <div class="why">${esc(s.error)}</div></div>` : `
 					<div class="awh-vn-head">
 						<div>
 							<div class="awh-card-h" style="margin-bottom:4px;">Current address ${isVanity ? '<span class="awh-vn-tag">vanity</span>' : ''}</div>

@@ -275,17 +275,17 @@ registerWalletTab({
 							<input class="awh-in" id="awh-dest" autocomplete="off" spellcheck="false" placeholder="Recipient wallet or name.sol" value="${esc(state.dest)}">
 							<button class="awh-btn" id="awh-scan" type="button" aria-label="Scan a QR code" title="Scan a QR code" ${qrSupported() ? '' : 'style="display:none"'}>⛶</button>
 						</div>
-						<div class="awh-resolved" id="awh-resolved" hidden></div>
+						<div class="awh-resolved" id="awh-resolved" role="status" aria-live="polite" hidden></div>
 					</div>
 					<div class="awh-fld">
 						<label for="awh-amount">Amount</label>
 						<div class="awh-row">
-							<input class="awh-in" id="awh-amount" type="text" inputmode="decimal" placeholder="0.0" value="${esc(state.amount)}">
+							<input class="awh-in" id="awh-amount" type="text" inputmode="decimal" placeholder="0.0" value="${esc(state.amount)}" aria-describedby="awh-avail">
 							<button class="awh-btn" id="awh-max" type="button">Max</button>
 						</div>
 						<div class="awh-note" id="awh-avail">Available: ${esc(fmtAmount(a.max, a.decimals))} ${esc(a.name)}</div>
 					</div>
-					<div class="awh-err" id="awh-wd-err" hidden></div>
+					<div class="awh-err" id="awh-wd-err" role="alert" hidden></div>
 					<button class="awh-btn awh-btn--primary" id="awh-review" type="button" style="width:100%;">Review withdrawal</button>
 				</div>`;
 		}
@@ -314,7 +314,7 @@ registerWalletTab({
 					</div>
 					${it.kind === 'SOL' && it.isMax ? '<div class="awh-note">A little SOL is kept back to cover rent + network fees.</div>' : ''}
 					<div class="awh-warn-irrev" role="note">⚠ Crypto transfers are final. Once submitted, this cannot be undone or reversed — double-check the destination address.</div>
-					<div class="awh-err" id="awh-cf-err" hidden></div>
+					<div class="awh-err" id="awh-cf-err" role="alert" hidden></div>
 					<div class="awh-actions">
 						<button class="awh-btn" id="awh-back" type="button" style="flex:1;" ${state.phase === 'sending' ? 'disabled' : ''}>Back</button>
 						<button class="awh-btn awh-btn--primary" id="awh-confirm" type="button" style="flex:2;" ${state.phase === 'sending' ? 'disabled' : ''}>
