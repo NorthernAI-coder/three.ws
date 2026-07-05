@@ -6,8 +6,9 @@
  *   - a holdings table (live value, FIFO cost basis, unrealized P&L, liquidity
  *     warning) with a one-click jump to trade/exit,
  *   - a PnL attribution breakdown (what's making / losing money, by source),
- *   - a risk panel (concentration, exposure, drawdown, realized vol) with
- *     plain-language flags.
+ *   - a risk panel (reserve / dry powder, concentration of the volatile sleeve,
+ *     tape exposure, drawdown, realized vol) with plain-language flags. Holding
+ *     SOL/stables is treated as reserve, never as "concentration risk".
  *
  * Every figure is real, from GET /api/agents/:id/portfolio (api/_lib/portfolio.js):
  * live on-chain valuation + the sniper position ledger + the custody/spend ledger.
@@ -317,15 +318,22 @@ registerWalletTab({
 
 		function renderRisk(d) {
 			const r = d.risk || {};
+			// Concentration is the largest *volatile* position — holding SOL/stables
+			// is reserve, not a risk bet. "None" when nothing is at tape risk.
+			const hasRisk = (r.risk_assets_count ?? 0) > 0;
+			const conc = !hasRisk ? 'None' : (r.top_risk_position_pct != null ? `${r.top_risk_position_pct}%` : '—');
 			const cells = [
-				['Concentration', r.top_position_pct != null ? `${r.top_position_pct}%` : '—', 'Largest position share'],
-				['Diversification', r.concentration_hhi != null ? hhiLabel(r.concentration_hhi) : '—', 'HHI of weights'],
-				['Tape exposure', r.exposure_pct != null ? `${r.exposure_pct}%` : '—', 'In volatile memecoins'],
-				['Max drawdown', r.max_drawdown_pct != null ? `${r.max_drawdown_pct}%` : '—', 'Realized, from peak'],
-				['Realized vol', r.realized_volatility_pct != null ? `${r.realized_volatility_pct}%` : '—', 'Per-trade return σ'],
+				['Reserve', r.reserve_pct != null ? `${r.reserve_pct}%` : '—', 'SOL + stables — dry powder ready to deploy, no tape risk'],
+				['Concentration', conc, 'Largest single memecoin position, as a share of net worth'],
+				['Tape exposure', r.exposure_pct != null ? `${r.exposure_pct}%` : '—', 'Share of net worth in volatile memecoins'],
+				['Max drawdown', r.max_drawdown_pct != null ? `${r.max_drawdown_pct}%` : '—', 'Largest realized drop from a net-worth peak'],
+				['Realized vol', r.realized_volatility_pct != null ? `${r.realized_volatility_pct}%` : '—', 'Standard deviation of per-trade returns'],
 			];
-			const grid = cells.map(([k, v]) =>
-				`<div class="awh-risk-cell"><div class="awh-risk-k">${escapeHtml(k)}</div><div class="awh-risk-v">${escapeHtml(v)}</div></div>`).join('');
+			const grid = cells.map(([k, v, help]) =>
+				`<div class="awh-risk-cell" title="${escapeHtml(help)}">
+					<div class="awh-risk-k">${escapeHtml(k)}</div>
+					<div class="awh-risk-v">${escapeHtml(v)}</div>
+				</div>`).join('');
 			const flags = (d.risk_flags || []).map((f) =>
 				`<li class="awh-flag is-${escapeHtml(f.level)}">${escapeHtml(f.text)}</li>`).join('');
 			return `<div class="awh-card">
@@ -451,11 +459,4 @@ function formatNum(n) {
 	if (n >= 1000) return n.toLocaleString('en-US', { maximumFractionDigits: 2 });
 	if (n >= 1) return n.toLocaleString('en-US', { maximumFractionDigits: 4 });
 	return Number(n.toPrecision(4)).toString();
-}
-
-function hhiLabel(hhi) {
-	// HHI 0..1 → plain reading: <0.15 diversified, 0.15-0.4 moderate, >0.4 concentrated.
-	if (hhi < 0.15) return 'Broad';
-	if (hhi < 0.4) return 'Moderate';
-	return 'Concentrated';
 }

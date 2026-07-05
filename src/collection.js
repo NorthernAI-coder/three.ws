@@ -67,7 +67,7 @@ function skillCard(p) {
 		avatar_thumbnail_url: p.agent_thumbnail || null,
 	};
 	const walletLine = agentRecord.solana_address
-		? `<div class="col-card-wallet" style="margin-top:8px">${walletChipHTML(agentRecord, { isOwner: false, showPending: false })}</div>`
+		? `<div class="col-card-wallet" style="margin-top:8px">${walletChipHTML(agentRecord, { isOwner: false, showPending: false, dense: true })}</div>`
 		: '';
 
 	return `

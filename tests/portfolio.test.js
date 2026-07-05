@@ -82,6 +82,35 @@ describe('computeRisk — concentration, exposure, drawdown', () => {
 		expect(r.valued_count).toBe(3);
 	});
 
+	it('treats SOL + stables as reserve, not concentration (fresh wallet)', () => {
+		const holdings = [
+			{ usd: 0.33, mint: null, isNative: true, stable: false }, // only SOL
+		];
+		const r = computeRisk(holdings, 0.33, metrics, []);
+		expect(r.reserve_pct).toBe(100);
+		expect(r.reserve_usd).toBe(0.33);
+		expect(r.top_position_is_reserve).toBe(true);
+		expect(r.risk_assets_count).toBe(0);
+		expect(r.top_risk_position_pct).toBe(0);
+		expect(r.top_risk_position_mint).toBe(null);
+		expect(r.exposure_pct).toBe(0);
+	});
+
+	it('reports the risk sleeve alongside reserve for a mixed wallet', () => {
+		const holdings = [
+			{ usd: 8000, mint: 'MEME', isNative: false, stable: false }, // 80% volatile
+			{ usd: 1000, mint: null, isNative: true, stable: false }, // 10% SOL
+			{ usd: 1000, mint: 'USDC', isNative: false, stable: true }, // 10% stable
+		];
+		const r = computeRisk(holdings, 10000, metrics, []);
+		expect(r.reserve_pct).toBe(20); // SOL + USDC
+		expect(r.reserve_usd).toBe(2000);
+		expect(r.top_position_is_reserve).toBe(false); // MEME is the top holding
+		expect(r.top_risk_position_pct).toBe(80);
+		expect(r.top_risk_position_mint).toBe('MEME');
+		expect(r.risk_assets_count).toBe(1);
+	});
+
 	it('counts unpriceable non-native holdings honestly', () => {
 		const holdings = [
 			{ usd: 100, mint: null, isNative: true, stable: false },
@@ -112,6 +141,28 @@ describe('riskFlags — plain-language flags', () => {
 		expect(flags).toHaveLength(1);
 		expect(flags[0].level).toBe('info');
 		expect(flags[0].text).toMatch(/No elevated/);
+	});
+
+	it('never raises concentration risk on a reserve-only wallet — surfaces dry powder', () => {
+		// 100% SOL: top_position_pct is 100 but the risk sleeve is empty.
+		const risk = {
+			top_position_pct: 100, top_risk_position_pct: 0, top_position_is_reserve: true,
+			reserve_pct: 100, exposure_pct: 0, max_drawdown_pct: 0, unpriceable_count: 0, net_worth_usd: 0.33,
+		};
+		const flags = riskFlags(risk, true);
+		expect(flags.some((f) => /concentration risk/.test(f.text))).toBe(false);
+		expect(flags).toHaveLength(1);
+		expect(flags[0].level).toBe('info');
+		expect(flags[0].text).toMatch(/dry powder/);
+	});
+
+	it('still flags a dominant volatile position even when reserve is present', () => {
+		const risk = {
+			top_position_pct: 70, top_risk_position_pct: 70, top_position_is_reserve: false,
+			reserve_pct: 30, exposure_pct: 70, max_drawdown_pct: 0, unpriceable_count: 0, net_worth_usd: 1000,
+		};
+		const flags = riskFlags(risk, true);
+		expect(flags.some((f) => /70% of valued holdings sit in one position — concentration risk/.test(f.text))).toBe(true);
 	});
 });
 

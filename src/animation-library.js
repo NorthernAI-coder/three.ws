@@ -84,6 +84,8 @@ export class AnimationLibrary {
 		this._activeDef = null;
 		this._speed = 1;
 		this._previewing = false;
+		this._paused = false;
+		this._scrubbing = false;
 		this._state = 'loading';
 
 		// Resolves once mount() has finished loading the manifest (success or
@@ -177,6 +179,47 @@ export class AnimationLibrary {
 	/** Tick the preview mixer. Host calls this from its render loop while previewing. */
 	update(dt) {
 		this._mixer?.update(dt);
+		if (!this._scrubbing) this._syncProgress();
+	}
+
+	/** Push the active action's clock into the transport scrubber + time label. */
+	_syncProgress() {
+		const { transportScrub, transportTime } = this._refs;
+		if (!transportScrub || !this._action) return;
+		const clip = this._action.getClip?.();
+		const dur = clip?.duration || 0;
+		if (dur <= 0) return;
+		// action.time wraps within [0, duration) for a looping action and clamps
+		// for a one-shot, so it reads as clip-local position either way.
+		const t = Math.max(0, Math.min(dur, this._action.time));
+		transportScrub.value = String(Math.round((t / dur) * 1000));
+		if (transportTime) transportTime.textContent = `${t.toFixed(1)} / ${dur.toFixed(1)}s`;
+	}
+
+	/** Seek the active clip to a 0..1 fraction and reflect it immediately. */
+	_seek(frac) {
+		if (!this._action) return;
+		const dur = this._action.getClip?.().duration || 0;
+		this._action.paused = false;
+		this._action.time = Math.max(0, Math.min(0.999, frac)) * dur;
+		this._mixer?.update(0);
+		if (this._paused) this._action.paused = true;
+	}
+
+	/** Toggle play/pause on the live preview. */
+	_togglePlay() {
+		if (!this._action) return;
+		this._paused = !this._paused;
+		this._action.paused = this._paused;
+		this._updatePlayIcon();
+	}
+
+	_updatePlayIcon() {
+		const btn = this._refs.transportPlay;
+		if (!btn) return;
+		btn.textContent = this._paused ? '▶' : '⏸';
+		btn.setAttribute('aria-label', this._paused ? 'Play' : 'Pause');
+		btn.title = this._paused ? 'Play' : 'Pause';
 	}
 
 	isPreviewing() {
@@ -504,6 +547,9 @@ export class AnimationLibrary {
 		action.clampWhenFinished = def.loop === false;
 		action.timeScale = this._speed;
 		action.reset().play();
+		this._paused = false;
+		this._scrubbing = false;
+		this._updatePlayIcon();
 
 		this._action = action;
 		this._activeName = def.name;
@@ -677,6 +723,32 @@ export class AnimationLibrary {
 		]);
 		stop.addEventListener('click', () => this.stopPreview());
 
+		// Play/pause + scrubbable progress — the clip's own timeline, so users can
+		// scrub to any frame, pause on a pose, and see how long the motion runs.
+		const play = el('button', { class: 'al-play', type: 'button', title: 'Pause', 'aria-label': 'Pause' }, ['⏸']);
+		play.addEventListener('click', () => this._togglePlay());
+		const scrub = el('input', {
+			type: 'range',
+			min: '0',
+			max: '1000',
+			step: '1',
+			value: '0',
+			class: 'al-scrub',
+			'aria-label': 'Scrub animation timeline',
+		});
+		const onScrub = () => {
+			this._scrubbing = true;
+			this._seek(parseInt(scrub.value, 10) / 1000);
+		};
+		scrub.addEventListener('input', onScrub);
+		scrub.addEventListener('change', () => {
+			this._scrubbing = false;
+		});
+		scrub.addEventListener('pointerup', () => {
+			this._scrubbing = false;
+		});
+		const timeLabel = el('span', { class: 'al-time' }, ['0.0 / 0.0s']);
+
 		const exportBtn = el(
 			'button',
 			{
@@ -690,6 +762,7 @@ export class AnimationLibrary {
 
 		const root = el('div', { class: 'al-transport', style: 'display:none' }, [
 			el('div', { class: 'al-now' }, [el('span', { class: 'al-now-dot' }), label]),
+			el('div', { class: 'al-scrub-row' }, [play, scrub, timeLabel]),
 			el('div', { class: 'al-speed-row' }, [el('label', {}, ['Speed']), speed, speedVal]),
 			el('div', { class: 'al-transport-actions' }, [stop, exportBtn]),
 		]);
@@ -699,6 +772,9 @@ export class AnimationLibrary {
 			transportLabel: label,
 			transportSpeedVal: speedVal,
 			transportSpeed: speed,
+			transportPlay: play,
+			transportScrub: scrub,
+			transportTime: timeLabel,
 			exportBtn,
 		};
 		return { root };

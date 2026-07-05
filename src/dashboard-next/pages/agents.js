@@ -487,7 +487,7 @@ function agentCard(a, avatars) {
 					${a.avatar_id ? rigBadgeHTML(avatar, { size: 'sm' }) : ''}
 					${coinChipHTML(a, { launchable: false })}
 				</div>
-				<div style="margin-bottom:6px">${walletChipHTML(a, { isOwner: true, showPending: false })}</div>
+				<div style="margin-bottom:6px">${walletChipHTML(a, { isOwner: true, showPending: false, dense: true })}</div>
 				<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12.5px;color:var(--nxt-ink-dim)">
 					<span>Created ${esc(created)}</span>
 					<span style="display:inline-flex;align-items:center;gap:4px">

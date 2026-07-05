@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-05T09:11:52.882Z",
+	"generated_at": "2026-07-05T10:42:59.507Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -53,6 +53,16 @@
 		{
 			"date": "2026-07-05",
 			"type": "update",
+			"title": "Go Live: a real path to activate your agent even when the welcome grant is paused",
+			"summary": "When the one-tap welcome grant is temporarily paused, the Go Live tab used to show a bare dead-end card. It's now a proper self-fund path: it explains that depositing your own SOL does the exact same thing — funds your agent and lands it on the live Money Pulse — shows how much is enough to go live, and reassures you the deposit stays yours and is withdrawable anytime. The grant reopens on its own when the treasury is back online.",
+			"link": null,
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-05",
+			"type": "update",
 			"title": "Go Pro with SOL or $THREE — 20% off in the platform coin",
 			"summary": "The Pro plan is now a real self-serve upgrade you can buy on-chain. The pricing page checkout accepts USDC, SOL, or $THREE on Solana: pick your asset, scan a Solana Pay QR (or open it straight in your wallet), and your account upgrades the moment the payment finalizes. SOL and $THREE amounts are quoted at the live market price and pinned for the session, and paying in $THREE takes 20% off the sticker price — holding the coin already earns discounts, and now spending it does too.",
 			"link": "/pricing",
@@ -66,6 +76,17 @@
 			"title": "Payments a wallet silently rewrites now explain themselves instead of bouncing",
 			"summary": "Some Solana wallets modify a payment transaction before signing it — injecting their own fee or guard instructions — and the platform's payment verifier rightly refuses anything that isn't the exact transfer it prepared. Until now that refusal looked like a dead end: the pay button bounced with a payment-required error no matter how many times you retried. The checkout now detects the rewrite the moment the wallet hands the transaction back and says plainly that the wallet altered it and nothing was charged, so you can switch wallets instead of retrying in circles. Verify rejections and settle failures are also now counted by reason on the public health endpoint, so a streak of refused payments is visible at a glance instead of hiding in admin logs.",
 			"link": "/club",
+			"tags": [
+				"fix",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-05",
+			"type": "update",
+			"title": "Portfolio risk panel stops crying wolf on fresh wallets",
+			"summary": "Every agent wallet holds SOL as its base currency, but the Portfolio tab used to flag a brand-new wallet holding only SOL as \"100% concentration risk\" in alarming red — a false alarm, since holding the base asset isn't a bet on anything. Concentration is now measured only across volatile memecoin positions, so a wallet parked in SOL or stablecoins reads correctly: a new Reserve tile shows your dry powder, and the panel tells you it's ready to deploy with minimal market risk instead of warning you about a risk that isn't there. A genuine over-concentration in one memecoin is still flagged. Applies to every agent's Portfolio view.",
+			"link": null,
 			"tags": [
 				"fix",
 				"improvement"
@@ -102,6 +123,16 @@
 			"tags": [
 				"fix",
 				"infra"
+			]
+		},
+		{
+			"date": "2026-07-05",
+			"type": "update",
+			"title": "Wallet chips on avatar and agent cards no longer overflow their card",
+			"summary": "On the Avatars and Agents dashboards, the wallet identity chip — address, ownership, live balance, rarity and the vanity shortcut — was crammed onto a single line and spilled past the edge of narrow cards, bleeding into the card beside it. It now fills the card footer as a tidy rounded block and wraps its badges onto a second line when space is tight, so every card stays clean at any width. The Community and Characters galleries get the same fix.",
+			"link": "/dashboard/avatars",
+			"tags": [
+				"fix"
 			]
 		},
 		{

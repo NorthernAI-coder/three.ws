@@ -308,6 +308,26 @@ function flattenGmsHash(g) {
 	return { ...g, params };
 }
 
+// A single clip inside a MotionPack export. Mirrors what mixamo.com's bundle
+// builds (getSlidersForGmsHash → gmsifySequence): the full clip object with
+// `name`, hardcoded `trim`/`overdrive`/`inplace`, and `params` flattened to a
+// comma-joined value string. Sending the bare motion gms_hash instead yields a
+// server-side "Error while generating the animation".
+function packClipHash(motion) {
+	const g = motion.gms_hash ?? motion.details?.gms_hash;
+	if (!g) return null;
+	return {
+		name: motion.name,
+		'model-id': g['model-id'],
+		mirror: false,
+		trim: [0, 100],
+		overdrive: 0,
+		params: Array.isArray(g.params) ? g.params.map((p) => p[1]).join(',') : (g.params ?? '0'),
+		'arm-space': 0,
+		inplace: false,
+	};
+}
+
 // The status endpoint Mixamo's own UI polls is the per-character monitor.
 // Some deployments also expose a per-product export status — fall back to it
 // once if the monitor 404s.
@@ -453,16 +473,23 @@ async function downloadAll(catalog, token) {
 				throw new Error(`detail HTTP ${code}`);
 			}
 			const detail = await detailRes.json();
+			// Motions and MotionPacks need different export shapes (mirrors what
+			// mixamo.com's own bundle sends — see gmsifySequence + the Motion vs
+			// MotionPack preference sets). Packs: full per-clip objects with the
+			// pose in `mesh_motionpack`, no `skin`. Motions: the single flattened
+			// gms_hash with `skin`.
 			const gmsHashes = isPack
-				? (detail?.details?.motions ?? [])
-						.map((m) => flattenGmsHash(m.gms_hash ?? m.details?.gms_hash))
-						.filter(Boolean)
+				? (detail?.details?.motions ?? []).map((m) => packClipHash(m)).filter(Boolean)
 				: [flattenGmsHash(detail?.details?.gms_hash)].filter(Boolean);
 			if (!gmsHashes.length) {
 				progress[anim.id] = { status: 'perm_fail', reason: 'no_gms_hash' };
 				saveProgress();
 				throw new Error('no gms_hash');
 			}
+
+			const preferences = isPack
+				? { format: 'fbx7_2019', mesh_motionpack: 't-pose', fps: '30', reducekf: '0' }
+				: { format: 'fbx7', skin: 'false', fps: '30', reducekf: '0' };
 
 			// Request export
 			const exportRes = await rlFetch(`${MIXAMO_API}/animations/export`, {
@@ -474,7 +501,7 @@ async function downloadAll(catalog, token) {
 					product_name: anim.name,
 					type: anim.type || 'Motion',
 					gms_hash: gmsHashes,
-					preferences: { format: 'fbx7', skin: 'false', fps: '30', reducekf: '0' },
+					preferences,
 				}),
 			});
 			if (!exportRes.ok) {
