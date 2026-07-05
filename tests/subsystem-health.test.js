@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { gatherSubsystemHealth } from '../api/_lib/ops/subsystem-health.js';
+import { gatherSubsystemHealth, classifySniperBeat } from '../api/_lib/ops/subsystem-health.js';
 import { cacheSet } from '../api/_lib/cache.js';
 
 // Env the ring + x402-config checks read. Save/restore so cases don't leak.
@@ -141,6 +141,11 @@ describe('gatherSubsystemHealth', () => {
 		expect(sub(health, 'database').status).toBe('unknown');
 	});
 
+	it('skips the sniper heartbeat probe when probeDb is false (sniper → unknown)', async () => {
+		const health = await gatherSubsystemHealth({ probeDb: false });
+		expect(sub(health, 'sniper').status).toBe('unknown');
+	});
+
 	it('rolls the overall verdict to the worst subsystem and lists degraded names', async () => {
 		process.env.X402_PAY_TO_SOLANA = 'THREEsynthetic1111111111111111111111111111111';
 		delete process.env.X402_FEE_PAYER_SOLANA; // → x402_config degraded
@@ -149,5 +154,55 @@ describe('gatherSubsystemHealth', () => {
 		expect(health.degraded).toContain('x402_config');
 		// Counts is a tally of every status bucket.
 		expect(Object.values(health.counts).reduce((a, b) => a + b, 0)).toBe(health.subsystems.length);
+	});
+});
+
+// The sniper-worker heartbeat classifier — pins the exact failure that went
+// unpaged on 2026-07-03: heartbeat frozen for 36h while /api/oracle/stats
+// flat-lined at scored_24h=0. A stale beat must classify as DOWN (which the
+// uptime cron escalates to Telegram), not blend into "ok".
+describe('classifySniperBeat', () => {
+	const NOW = 1_800_000_000_000;
+	const beat = (ageMs, meta = {}, mode = 'live') => ({
+		mode,
+		last_beat_at: new Date(NOW - ageMs).toISOString(),
+		meta,
+	});
+	const liveMeta = { feedConnected: true, lastEventAgeMs: 2_000, feedWatchdogMs: 180_000, strategies: 6 };
+
+	it('reports UNKNOWN when no heartbeat row exists (fresh deploy, never started)', () => {
+		expect(classifySniperBeat(null, NOW).status).toBe('unknown');
+	});
+
+	it('reports OK for a fresh beat with a live feed', () => {
+		const s = classifySniperBeat(beat(30_000, liveMeta), NOW);
+		expect(s.status).toBe('ok');
+		expect(s.detail).toContain('mode=live');
+	});
+
+	it('reports DOWN with a redeploy hint once the heartbeat is stale (the 2026-07-03 outage)', () => {
+		const s = classifySniperBeat(beat(36 * 3_600_000, liveMeta), NOW);
+		expect(s.status).toBe('down');
+		expect(s.detail).toContain('2160 min');
+		expect(s.hint).toContain('deploy:sniper');
+	});
+
+	it('reports DEGRADED between fresh and dead (mid-restart window)', () => {
+		expect(classifySniperBeat(beat(3 * 60_000, liveMeta), NOW).status).toBe('degraded');
+	});
+
+	it('reports DEGRADED when alive but the feed is disconnected', () => {
+		const s = classifySniperBeat(beat(30_000, { ...liveMeta, feedConnected: false }), NOW);
+		expect(s.status).toBe('degraded');
+		expect(s.detail).toContain('feed');
+	});
+
+	it('reports DEGRADED when alive but the feed has been silent past its watchdog window', () => {
+		const s = classifySniperBeat(beat(30_000, { ...liveMeta, lastEventAgeMs: 240_000 }), NOW);
+		expect(s.status).toBe('degraded');
+	});
+
+	it('treats a row with no last_beat_at as DOWN, not ok', () => {
+		expect(classifySniperBeat({ mode: 'live', last_beat_at: null, meta: {} }, NOW).status).toBe('down');
 	});
 });

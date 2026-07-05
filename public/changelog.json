@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-05T08:21:26.866Z",
+	"generated_at": "2026-07-05T08:29:37.932Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -36,6 +36,17 @@
 			"link": null,
 			"tags": [
 				"improvement",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-07-05",
+			"type": "update",
+			"title": "The sniper engine now pages us when it goes down — and restarts itself",
+			"summary": "The on-chain sniper worker went quiet on July 3 and nothing noticed: the status page showed the engine offline and zero launches scored, but no alert fired. The platform's watchdog now checks the sniper's own heartbeat every 5 minutes and pages the ops channel within 10 minutes of a stall, with hourly re-pages until it recovers. The worker also gained a dead-man switch: if it loses its database for 15 minutes straight it restarts itself instead of running as a zombie that scores nothing.",
+			"link": "/status",
+			"tags": [
+				"fix",
 				"infra"
 			]
 		},

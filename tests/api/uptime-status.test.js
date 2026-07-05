@@ -82,6 +82,10 @@ beforeEach(() => {
 	upstream.failIds.clear();
 	sendOpsAlert.mockClear();
 	process.env.CRON_SECRET = 'test-secret';
+	// A fresh, healthy economy heartbeat so the economy watchdog inside the cron
+	// stays quiet — its own alerting (dead heartbeat, engine problems, feed
+	// silence) is covered by the watchdog cases, not the reachability ones.
+	cache.set('economy:last-tick', { t: Date.now(), fired: 1, failed: 0, engines: [] });
 	global.fetch = vi.fn(async (url) => {
 		const u = new URL(String(url));
 		const target = UPTIME_TARGETS.find((t) => u.pathname + u.search === t.path);

@@ -9,8 +9,8 @@
 // live in the 2026-07-03 production log export yet invisible to a reachability
 // probe. This module reads the in-process degradation state each subsystem
 // already tracks (cache circuit breaker, Helius breaker, ring invariants) plus a
-// live DB ping and the world-health cron's parked outcome, and rolls them into
-// one structured verdict.
+// live DB ping, the world-health cron's parked outcome, and the sniper worker's
+// bot_heartbeat row, and rolls them into one structured verdict.
 //
 // Consumed by:
 //   - api/healthz.js         → `subsystems` block (live, per-request)
@@ -40,6 +40,13 @@ const WORLD_HEALTH_CACHE_KEY = 'world:health';
 // A parked world-health outcome older than this is treated as stale/unknown
 // rather than trusted — the 15-min cron should refresh it well within the window.
 const WORLD_STALE_MS = 90 * 60 * 1000;
+// Sniper worker heartbeat (bot_heartbeat, worker='agent-sniper'). It beats every
+// ~30s; /api/sniper/status calls it dead past 90s. For paging we use a wider
+// window so a deploy blip doesn't page, but a real death pages within two ticks.
+// The 2026-07-03 outage (heartbeat frozen 36h, oracle scoring flat-lined, zero
+// alerts) is exactly the failure this check exists to catch.
+const SNIPER_FRESH_MS = 90_000;
+const SNIPER_DOWN_MS = 10 * 60 * 1000;
 
 /** Statuses that pull the overall roll-up down, worst first. */
 const UNHEALTHY = ['down', 'degraded'];
@@ -186,6 +193,63 @@ async function checkWorld() {
 	}
 }
 
+/**
+ * Classify the sniper worker's heartbeat row into a subsystem record. Pure —
+ * exported for tests; checkSniper() feeds it the live bot_heartbeat row.
+ * @param {{ mode?: string, last_beat_at?: string|Date, meta?: object }|null|undefined} beat
+ * @param {number} [now]
+ */
+export function classifySniperBeat(beat, now = Date.now()) {
+	const base = { name: 'sniper', label: 'Sniper worker (Cloud Run)' };
+	if (!beat) {
+		return { ...base, status: 'unknown', detail: 'no heartbeat reported yet' };
+	}
+	const lastBeatMs = beat.last_beat_at ? new Date(beat.last_beat_at).getTime() : 0;
+	const ageMs = lastBeatMs ? now - lastBeatMs : Number.POSITIVE_INFINITY;
+	const meta = beat.meta && typeof beat.meta === 'object' ? beat.meta : {};
+	if (ageMs > SNIPER_DOWN_MS) {
+		const ageNote = Number.isFinite(ageMs) ? `${Math.round(ageMs / 60_000)} min old` : 'never recorded';
+		return {
+			...base,
+			status: 'down',
+			detail: `heartbeat ${ageNote} (mode=${beat.mode || 'unknown'}) — worker dead or its DB writes are failing; oracle scoring and all sniping are stopped`,
+			hint: 'Restart the Cloud Run service: npm run deploy:sniper from a gcloud-authed machine (project aerial-vehicle-466722-p5). See deploy/sniper/README.md.',
+		};
+	}
+	if (ageMs > SNIPER_FRESH_MS) {
+		return { ...base, status: 'degraded', detail: `heartbeat ${Math.round(ageMs / 1000)}s old — worker slow or mid-restart` };
+	}
+	const watchdogMs = Number(meta.feedWatchdogMs) || 180_000;
+	if (meta.feedConnected !== true || Number(meta.lastEventAgeMs) > watchdogMs) {
+		return {
+			...base,
+			status: 'degraded',
+			detail: 'worker alive but the PumpPortal feed is not live — no launches are being scored',
+			hint: 'The worker self-reconnects; if this persists past an hour, check PumpPortal status and the worker logs.',
+		};
+	}
+	return {
+		...base,
+		status: 'ok',
+		detail: `live (mode=${beat.mode || 'unknown'}, ${meta.strategies ?? '?'} strategies armed)`,
+	};
+}
+
+async function checkSniper() {
+	const base = { name: 'sniper', label: 'Sniper worker (Cloud Run)' };
+	try {
+		const { sql } = await import('../db.js');
+		const [beat] = await sql`
+			SELECT mode, last_beat_at, meta FROM bot_heartbeat
+			WHERE worker = 'agent-sniper'
+			LIMIT 1
+		`;
+		return classifySniperBeat(beat);
+	} catch (err) {
+		return { ...base, status: 'unknown', detail: err?.message || 'heartbeat unreadable' };
+	}
+}
+
 function checkX402Config() {
 	const base = { name: 'x402_config', label: 'x402 payment config' };
 	try {
@@ -224,6 +288,7 @@ export async function gatherSubsystemHealth({ probeDb = true } = {}) {
 		Promise.resolve(checkRing()),
 		checkWorld(),
 		Promise.resolve(checkX402Config()),
+		probeDb ? checkSniper() : Promise.resolve({ name: 'sniper', label: 'Sniper worker (Cloud Run)', status: 'unknown', detail: 'probe skipped' }),
 	];
 	const subsystems = await Promise.all(checks);
 
