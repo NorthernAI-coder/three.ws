@@ -25,10 +25,11 @@
 //   tour.exit();           // tear everything down
 
 import { TourDirector } from './director.js';
+import { ExploreMode } from './explore.js';
 import { resolveTourConfig } from './config.js';
-import { createTourState } from './curriculum.js';
+import { createTourState, loadCurriculum } from './curriculum.js';
 
-export const VERSION = '0.2.0';
+export const VERSION = '0.3.0';
 
 /**
  * Create a tour controller. Returns a small object the host drives:
@@ -41,25 +42,46 @@ export function createFeatureTour(options = {}) {
 	const config = resolveTourConfig(options);
 	const state = createTourState(config);
 	let director = null;
+	let explore = null;
 	const ensure = () => (director ||= new TourDirector(config));
+
+	// In explore mode, start() drives the checkpoint experience instead of the
+	// guided auto-tour — so the same nav button, ?tour deep link, and autostart
+	// all route to whichever mode the host configured.
+	async function startExplore() {
+		if (explore?.isActive()) return;
+		const curriculum =
+			config.curriculum && typeof config.curriculum === 'object'
+				? config.curriculum
+				: await loadCurriculum(config);
+		explore = new ExploreMode(config, curriculum);
+		return explore.start();
+	}
 
 	const control = {
 		get director() {
 			return director;
 		},
+		get explore() {
+			return explore;
+		},
 		get config() {
 			return config;
 		},
 		isActive() {
-			return state.readState().active === true;
+			return explore?.isActive() === true || state.readState().active === true;
 		},
 		start(track) {
+			if (config.mode === 'explore') return startExplore();
 			return ensure().start(track);
 		},
+		startExplore,
 		resume() {
+			if (config.mode === 'explore') return startExplore();
 			return ensure().resume();
 		},
 		exit() {
+			explore?.exit();
 			director?.exit();
 		},
 		// Auto-mount / deep-link behaviour. Safe to call once on load. With the
@@ -72,12 +94,12 @@ export function createFeatureTour(options = {}) {
 			const params = new URLSearchParams(location.search);
 			const param = params.get(config.deepLinkParam);
 			if (param === 'start') {
-				const track = params.get('track') === 'quick' ? 'quick' : 'full';
-				ensure().start(track);
+				if (config.mode === 'explore') startExplore();
+				else ensure().start(params.get('track') === 'quick' ? 'quick' : 'full');
 			} else if (param === '0') {
-				director?.exit();
-			} else if (param === '1' || state.readState().active) {
-				ensure().resume();
+				control.exit();
+			} else if (param === '1' || (config.mode !== 'explore' && state.readState().active)) {
+				control.resume();
 			}
 		},
 	};
@@ -87,6 +109,7 @@ export function createFeatureTour(options = {}) {
 
 // Engine internals, exported for advanced/standalone use.
 export { TourDirector } from './director.js';
+export { ExploreMode } from './explore.js';
 export { resolveTourConfig, DEFAULT_VOICES, DEFAULT_COPY } from './config.js';
 export {
 	loadCurriculum,

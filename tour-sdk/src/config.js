@@ -97,6 +97,10 @@ export function resolveTourConfig(opts = {}) {
 		defaultVoice: opts.defaultVoice || 'nova',
 		voices: Array.isArray(opts.voices) && opts.voices.length ? opts.voices : DEFAULT_VOICES,
 
+		// 'guided' — the avatar walks itself and narrates (default).
+		// 'explore' — the visitor drives the avatar (arrows/WASD/joystick) to
+		// glowing checkpoints; each one stops it to spotlight and narrate.
+		mode: opts.mode === 'explore' ? 'explore' : 'guided',
 		guideAvatarId: opts.guideAvatarId || 'realistic-female',
 		assetBase: opts.assetBase || '',
 		apiBase: opts.apiBase || '',

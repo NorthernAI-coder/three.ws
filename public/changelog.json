@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-05T13:18:40.094Z",
+	"generated_at": "2026-07-05T13:27:42.059Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -98,6 +98,17 @@
 			"summary": "Loading your own avatar and playing a preset like Facepalm sometimes folded the whole character into a heap on the floor — even though the studio reported a clean \"100% retargeted.\" The baked motion clips carry a per-bone scale and length channel from the character they were authored on, and those were being stamped onto your avatar, overwriting its own proportions. The Animation Studio now drives only what's actually motion — the joint rotations and the root's travel — and leaves every rig's bone lengths and scale untouched, so any avatar (tall, short, generated, Mixamo) plays every clip standing up in its own body. The \"retargeted\" percentage now counts only those real motion channels, so it reflects what you see.",
 			"link": "/pose",
 			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-07-05",
+			"type": "update",
+			"title": "Dashboard: a top-to-bottom polish and accessibility pass across every page",
+			"summary": "We went through every page of the dashboard — Overview, Avatars, Agents, Library, Brain, Widgets, Walk, API, Developer Hub, $THREE, Holders, Analytics, Creator Studio, Monetize, Transactions, Tokens, Copy Trading, Sniper, Fleet, Capabilities, Pre-Launch Radar, Portfolio, Landscape, IRL, Community, Systems, Account, Referrals, Wallet Grinder and Settings — and raised each to the same bar. Loading now shows layout-matched skeletons instead of blank panels; empty states tell you what to do next with a real action; and a failed load shows a clear, retryable message instead of silently masquerading as \"no data.\" Every menu, tab, toggle and filter is now fully keyboard-operable with visible focus rings and proper screen-reader labels, status is shown with an icon and words (not colour alone), and everything respects reduced-motion. Along the way we fixed real bugs: several pages rendered with the wrong colours from missing design tokens, a built-but-unmounted conversion funnel on Analytics is now live, and a handful of leaks and dead buttons (a runaway timer, a stuck \"stop\" control, a one-way \"disable\" toggle) were repaired.",
+			"link": "/dashboard",
+			"tags": [
+				"improvement",
 				"fix"
 			]
 		},

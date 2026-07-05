@@ -16,6 +16,8 @@
 //   data-asset-base   avatar GLB origin       (default 'https://three.ws')
 //   data-manifest-url animation manifest      (default 'https://three.ws/animations/manifest.json')
 //   data-tts-endpoint optional TTS endpoint — omit for paced captions
+//   data-mode         'guided' (default) | 'explore' — visitor drives the avatar
+//                     with arrow keys / joystick to glowing GTA-style checkpoints
 //   data-autostart    'full' | 'quick' — start immediately on load
 //
 // Any element with [data-tour-start] becomes a start button
@@ -49,6 +51,7 @@ function autoInit() {
 		assetBase: d.assetBase || CDN_ASSET_BASE,
 		manifestUrl: d.manifestUrl || CDN_MANIFEST,
 		ttsEndpoint: d.ttsEndpoint || null,
+		mode: d.mode === 'explore' ? 'explore' : 'guided',
 	});
 	window.__featureTour = tour;
 	tour.bootstrap();

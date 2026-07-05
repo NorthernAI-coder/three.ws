@@ -24,6 +24,31 @@
 	--nxt-radius-sm:   var(--radius-control, 10px);
 	--nxt-radius-pill: var(--radius-pill,    999px);
 	--nxt-header-h:    var(--header-h,       56px);
+
+	/* Semantic tier — aliases to the canonical base tokens so every dashboard
+	   surface renders status/panel colours consistently and stays theme-aware.
+	   These were referenced across ~30 page modules (status pills, danger/kill
+	   controls, raised panels, mono code) but had never been defined in this
+	   namespace; usages inside color-mix()/rgba() with no inline fallback were
+	   silently invalid until now. Each maps to a base token that already carries
+	   light/dark overrides, with a hard fallback for safety. */
+	--nxt-success:      var(--success,       #4ade80);
+	--nxt-warn:         var(--warn,          #fbbf24);
+	--nxt-danger:       var(--danger,        #f87171);
+	--nxt-accent-strong:var(--accent-strong, var(--nxt-accent));
+	--nxt-accent-rgb:   255, 255, 255;
+	--nxt-ink-faint:    var(--ink-faint,     rgba(255, 255, 255, 0.45));
+	--nxt-ink-soft:     var(--nxt-ink-dim);
+	--nxt-bg:           var(--nxt-bg-1);
+	--nxt-bg-2:         var(--surface-2,     rgba(255, 255, 255, 0.045));
+	--nxt-bg-3:         var(--surface-3,     rgba(255, 255, 255, 0.07));
+	--nxt-bg-base:      var(--nxt-bg-0);
+	--nxt-bg-soft:      var(--nxt-bg-1);
+	--nxt-panel:        var(--nxt-bg-2);
+	--nxt-surface-2:    var(--surface-2,     rgba(255, 255, 255, 0.05));
+	--nxt-line:         var(--line,          var(--nxt-stroke));
+	--nxt-border:       var(--border,        var(--nxt-stroke));
+	--nxt-mono:         var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
 }
 
 /* ── Body / shell ──────────────────────────────────────────────────────── */
