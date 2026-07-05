@@ -3,6 +3,14 @@
 	"entries": [
 		{
 			"date": "2026-07-05",
+			"title": "The guided tour no longer breaks partway through",
+			"summary": "The site tour walks you across dozens of pages, but it would silently die after the first few — landing on certain pages left it unable to continue, so you'd have to start over. The cause: more than half of the site's pages shipped without the tiny loader that lets the tour pick back up after each page change, so the moment the tour moved to one of them it just stopped. Every page now carries that loader, so the tour runs start to finish across the whole site no matter which pages it visits.",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-07-05",
 			"title": "Explore mode — walk the tour yourself, GTA-style checkpoints",
 			"summary": "Every guided tour can now become an interactive experience. Turn on Explore mode and instead of watching the 3D guide walk itself, YOU drive it — arrow keys or WASD on desktop, an on-screen joystick on mobile — to glowing checkpoints anchored to each section. Walk into a checkpoint and the guide stops, spotlights the section, and explains it; the next one lights up until you've found them all. It's built into the tour engine (@three-ws/tour 0.3.0, one attribute: data-mode=\"explore\"), so it works on the platform's own tour, on any embedded site, and in the Shopify store guide — the Tour Builder now has a one-click Guided/Explore toggle and previews both. Reduced-motion visitors get the same checkpoints and narration, auto-walked.",
 			"tags": [
