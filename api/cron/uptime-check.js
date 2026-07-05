@@ -31,9 +31,9 @@ export const UPTIME_TARGETS = [
 	{
 		id: 'x402',
 		label: 'x402 paid-API discovery',
-		path: '/.well-known/x402-discovery?name=x402-discovery',
+		path: '/.well-known/x402.json',
 	},
-	{ id: 'viewer', label: '3D viewer', path: '/viewer' },
+	{ id: 'viewer', label: '3D viewer', path: '/app' },
 ];
 
 const PROBE_TIMEOUT_MS = 10_000;
@@ -74,6 +74,30 @@ const PULSE_SILENT_MS = 90 * 60_000; // the money feed should never be quiet thi
 // skips ("not due this minute"). Matched against each engine's own reason string.
 const ACTIONABLE_REASON =
 	/disabled|not_configured|not configured|unset|base58|undecodable|db_at_storage_cap|insufficient|sol_floor|settle_unaffordable|treasury|invalid|schema_failed|redis_unavailable|rpc_|escrow/i;
+
+// Targets whose probe path was corrected AFTER history had been recorded for
+// them without a path stamp (`p`). Their un-stamped rows measured a URL that
+// never existed (the July 2026 x402/viewer probes 404'd for days while the real
+// surfaces were healthy), so they are purged; un-stamped rows for every other
+// target are grandfathered as genuine.
+const REPROBED_IDS = new Set(['x402', 'viewer']);
+
+// Drop stored history recorded against a DIFFERENT probe path than the
+// target's current one: it measured the old URL, not the service. Mutates
+// `snapshots` (24h raw rounds) and `daily` (90-day aggregates) in place.
+// Exported for tests.
+export function purgeStaleHistory(snapshots, daily, targets = UPTIME_TARGETS) {
+	for (const t of targets) {
+		const stale = (rec) =>
+			rec != null && rec.p !== t.path && (rec.p !== undefined || REPROBED_IDS.has(t.id));
+		for (const snap of snapshots) {
+			if (stale(snap.results?.[t.id])) delete snap.results[t.id];
+		}
+		for (const day of daily) {
+			if (stale(day.targets?.[t.id])) delete day.targets[t.id];
+		}
+	}
+}
 
 async function probe(target, origin) {
 	const controller = new AbortController();
@@ -120,13 +144,19 @@ export default wrapCron(async (req, res) => {
 	const origin = env.APP_ORIGIN || 'https://three.ws';
 	const results = Object.fromEntries(
 		await Promise.all(
-			UPTIME_TARGETS.map(async (t) => [t.id, await probe(t, origin)]),
+			// `p` records WHICH path produced each result, so history recorded
+			// against a since-corrected path can be told apart from history of the
+			// service itself (see the purge below).
+			UPTIME_TARGETS.map(async (t) => [t.id, { ...(await probe(t, origin)), p: t.path }]),
 		),
 	);
 	const now = Date.now();
 
 	// Rolling raw snapshots (24h window).
 	const snapshots = (await cacheGet(SNAPSHOTS_KEY)) || [];
+	const daily = (await cacheGet(DAILY_KEY)) || [];
+	purgeStaleHistory(snapshots, daily, UPTIME_TARGETS);
+
 	const previous = snapshots[snapshots.length - 1] || null;
 	snapshots.push({ t: now, results });
 	while (snapshots.length > SNAPSHOT_WINDOW) snapshots.shift();
@@ -134,7 +164,6 @@ export default wrapCron(async (req, res) => {
 
 	// Per-day aggregates (90-day window) — drives the status page uptime bars.
 	const day = new Date(now).toISOString().slice(0, 10);
-	const daily = (await cacheGet(DAILY_KEY)) || [];
 	let today = daily[daily.length - 1];
 	if (!today || today.d !== day) {
 		today = { d: day, targets: {} };
@@ -142,7 +171,7 @@ export default wrapCron(async (req, res) => {
 		while (daily.length > DAILY_WINDOW) daily.shift();
 	}
 	for (const [id, r] of Object.entries(results)) {
-		const agg = (today.targets[id] ||= { n: 0, up: 0, msSum: 0 });
+		const agg = (today.targets[id] ||= { n: 0, up: 0, msSum: 0, p: r.p });
 		agg.n += 1;
 		if (r.ok) agg.up += 1;
 		agg.msSum += r.ms;
