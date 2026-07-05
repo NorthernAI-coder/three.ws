@@ -249,6 +249,18 @@ export function mountAgentWalletHub({ mount, agent, initialTab, onNetworkChange 
 	const tabButtons = [...mount.querySelectorAll('[data-awh-tab]')];
 	const panelFor = (id) => mount.querySelector(`[data-awh-panel="${CSS.escape(id)}"]`);
 
+	// Panels are created once and shown/hidden via [hidden], so the awh-fade
+	// animation only fires on first paint. Replay it on each tab switch so a
+	// section enters with intent — honouring prefers-reduced-motion live.
+	const reduceMotionMq =
+		typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+	function playPanelIn(panel) {
+		if (!panel || reduceMotionMq?.matches) return;
+		panel.style.animation = 'none';
+		void panel.offsetWidth; // force reflow so the re-added animation restarts
+		panel.style.animation = '';
+	}
+
 	// Lazy-mount each tab on first activation; keep the instance so onShow/onHide
 	// and destroy can fire. A tab mount that throws degrades to an inline error
 	// rather than breaking the whole hub.
@@ -310,6 +322,7 @@ export function mountAgentWalletHub({ mount, agent, initialTab, onNetworkChange 
 		}
 		if (prev && instances.has(prev)) instances.get(prev)?.onHide?.();
 		ensureMounted(id)?.onShow?.();
+		playPanelIn(panelFor(id));
 		try {
 			history.replaceState(null, '', `#${id}`);
 		} catch {

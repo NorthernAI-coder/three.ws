@@ -361,7 +361,7 @@ registerWalletTab({
 				const warn = h.liquidity_warning ? `<span class="awh-port-warn" title="No live market price — value shown is unknown, never guessed.">illiquid</span>` : '';
 				const tradeBtn = h.isNative
 					? ''
-					: `<button class="awh-btn awh-port-trade" type="button" data-trade="${escapeHtml(h.mint || '')}">Trade ↗</button>`;
+					: `<button class="awh-btn awh-port-trade" type="button" data-trade="${escapeHtml(h.mint || '')}" aria-label="Trade ${sym}">Trade ↗</button>`;
 				return `<tr>
 					<td>
 						<div class="awh-port-asset">${img}
