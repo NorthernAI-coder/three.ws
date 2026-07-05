@@ -9,7 +9,7 @@
  * /tour-builder/tour.global.js), so the preview is the product, not a mockup.
  */
 
-const VERSION_TOUR = '0.2.0';
+const VERSION_TOUR = '0.3.0';
 const VERSION_PAGE_AGENT = '0.1.1';
 const STORAGE_KEY = 'tws:tour-builder:v1';
 
@@ -46,6 +46,7 @@ const uid = () => 's' + Math.random().toString(36).slice(2, 8);
 // ── State ────────────────────────────────────────────────────────────────
 const seed = () => ({
 	title: 'Store tour',
+	mode: 'guided',
 	avatarId: 'realistic-female',
 	stops: [
 		{ id: uid(), title: 'Welcome', narration: 'Welcome to the store. This button takes you to the full collection.', target: '#hero-cta', targetLabel: '“Shop the collection” button', highlight: true, section: 'hero-cta' },
@@ -69,6 +70,22 @@ function toast(msg) {
 	t.textContent = msg; t.classList.add('show');
 	clearTimeout(toastTimer);
 	toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ── Render: mode toggle ───────────────────────────────────────────────────
+function renderMode() {
+	for (const btn of $$('#mode-toggle .mode-opt')) {
+		btn.classList.toggle('sel', btn.dataset.mode === (state.mode || 'guided'));
+		btn.onclick = () => {
+			state.mode = btn.dataset.mode;
+			save();
+			renderMode();
+			toast(state.mode === 'explore' ? 'Explore mode — visitors drive the guide' : 'Guided mode — the guide walks itself');
+		};
+	}
+	// The preview button label hints at what pressing it does.
+	const pv = $('#preview');
+	if (pv) pv.innerHTML = state.mode === 'explore' ? '🕹 Play' : '▶ Preview';
 }
 
 // ── Render: avatars ──────────────────────────────────────────────────────
@@ -254,6 +271,7 @@ function curriculum({ forExport } = {}) {
 
 // ── Preview ──────────────────────────────────────────────────────────────
 let tour = null;
+let exploreWatch = null;
 function preview() {
 	if (!state.stops.length) { toast('Add a stop first'); return; }
 	document.body.classList.add('previewing');
@@ -264,6 +282,7 @@ function preview() {
 	tour = make({
 		curriculum: curriculum(),
 		guideAvatarId: state.avatarId,
+		mode: state.mode || 'guided',
 		assetBase: '',                          // same-origin: three.ws serves /avatars + /animations
 		manifestUrl: '/animations/manifest.json',
 		deepLinkParam: '__nolink_builder',      // never auto-bootstrap here
@@ -273,8 +292,18 @@ function preview() {
 	// scroll store to top so the first stop is on-screen
 	stage.scrollTo({ top: 0, behavior: 'instant' in stage.scrollTo ? 'instant' : 'auto' });
 	requestAnimationFrame(() => tour.start('full'));
+	// Explore has its own in-experience ✕ (the one merchants ship). When the
+	// visitor uses it, restore the builder chrome so we're not stuck previewing.
+	clearInterval(exploreWatch);
+	if (state.mode === 'explore') {
+		exploreWatch = setInterval(() => {
+			if (tour && tour.explore && !tour.explore.isActive()) exitPreview();
+		}, 400);
+	}
 }
 function exitPreview() {
+	clearInterval(exploreWatch);
+	exploreWatch = null;
 	try { tour?.exit?.(); } catch {}
 	tour = null;
 	document.body.classList.remove('previewing');
@@ -285,8 +314,9 @@ $('#exit-preview').addEventListener('click', exitPreview);
 // ── Export ───────────────────────────────────────────────────────────────
 function snippetEmbed() {
 	const avatar = state.avatarId !== 'realistic-female' ? `\n        data-avatar="${state.avatarId}"` : '';
+	const mode = state.mode === 'explore' ? `\n        data-mode="explore"` : '';
 	return `<script src="https://unpkg.com/@three-ws/tour@${VERSION_TOUR}/dist/tour.global.js"
-        data-tour${avatar}
+        data-tour${avatar}${mode}
         data-curriculum="https://cdn.shopify.com/s/files/YOUR/PATH/curriculum.json"
         defer><\/script>`;
 }
@@ -335,5 +365,6 @@ $('#dl-json').addEventListener('click', () => {
 // ── Boot ─────────────────────────────────────────────────────────────────
 $('#tour-title').value = state.title;
 $('#tour-title').addEventListener('input', (e) => { state.title = e.target.value; save(); });
+renderMode();
 renderAvatars();
 renderStops();

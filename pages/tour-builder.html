@@ -51,6 +51,15 @@
 	.icon-btn { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid var(--line); background: var(--edge-2); border-radius: var(--r-sm); color: var(--muted); transition: .15s; }
 	.icon-btn:hover { color: var(--ink); border-color: var(--line-2); background: var(--edge-3); }
 
+	/* mode toggle */
+	.mode-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+	.mode-opt { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 11px 12px; border: 1.5px solid var(--line); background: var(--edge-2); border-radius: var(--r-sm); text-align: left; transition: .15s; }
+	.mode-opt:hover { border-color: var(--line-2); background: var(--edge-3); }
+	.mode-opt.sel { border-color: var(--accent); background: rgba(52,211,153,.1); }
+	.mode-opt b { font-size: 13.5px; font-weight: 700; }
+	.mode-opt small { font-size: 11px; color: var(--faint); }
+	.mode-opt.sel small { color: var(--muted); }
+
 	.dr-body { flex: 1; overflow-y: auto; padding: 16px 18px 20px; }
 	.dr-body::-webkit-scrollbar { width: 10px; } .dr-body::-webkit-scrollbar-thumb { background: var(--line); border-radius: 8px; border: 3px solid var(--edge); }
 
@@ -209,6 +218,14 @@
 		<div class="sec">
 			<label class="h" for="tour-title">Tour name</label>
 			<input type="text" id="tour-title" placeholder="Store tour" value="Store tour" />
+		</div>
+
+		<div class="sec">
+			<label class="h">Experience</label>
+			<div class="mode-toggle" id="mode-toggle">
+				<button class="mode-opt" data-mode="guided"><b>🎬 Guided</b><small>Avatar walks itself</small></button>
+				<button class="mode-opt" data-mode="explore"><b>🕹 Explore</b><small>Visitor drives it</small></button>
+			</div>
 		</div>
 
 		<div class="sec">

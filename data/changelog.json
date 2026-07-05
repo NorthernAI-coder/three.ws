@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-07-05",
+			"title": "Dashboard: a top-to-bottom polish and accessibility pass across every page",
+			"summary": "We went through every page of the dashboard — Overview, Avatars, Agents, Library, Brain, Widgets, Walk, API, Developer Hub, $THREE, Holders, Analytics, Creator Studio, Monetize, Transactions, Tokens, Copy Trading, Sniper, Fleet, Capabilities, Pre-Launch Radar, Portfolio, Landscape, IRL, Community, Systems, Account, Referrals, Wallet Grinder and Settings — and raised each to the same bar. Loading now shows layout-matched skeletons instead of blank panels; empty states tell you what to do next with a real action; and a failed load shows a clear, retryable message instead of silently masquerading as \"no data.\" Every menu, tab, toggle and filter is now fully keyboard-operable with visible focus rings and proper screen-reader labels, status is shown with an icon and words (not colour alone), and everything respects reduced-motion. Along the way we fixed real bugs: several pages rendered with the wrong colours from missing design tokens, a built-but-unmounted conversion funnel on Analytics is now live, and a handful of leaks and dead buttons (a runaway timer, a stuck \"stop\" control, a one-way \"disable\" toggle) were repaired.",
+			"tags": [
+				"improvement",
+				"fix"
+			],
+			"link": "/dashboard"
+		},
+		{
+			"date": "2026-07-05",
 			"title": "Agent wallet: a top-to-bottom polish and accessibility pass across every tab",
 			"summary": "We went through all 23 sections of your agent's wallet — Balance, Go Live, Portfolio, Deposit, Trade, Snipe, Orders, Autopilot, Intents, Earn, Pay, Withdraw, Give, Trust, Signals, Vanity, Copilot, Proof of Custody, Access, Recovery, and more — and brought every one up to the same bar. Screen readers now announce live figures, quotes, order status, and errors as they happen; every button, form field, and progress bar has a proper label and a visible keyboard focus ring; charts and meters carry text descriptions; and failures show a clear, retryable message instead of a dead end. Along the way we fixed real bugs: the Balance tab was shipping unstyled, the Pay tab's live progress steps never appeared, the Withdraw tab was distorting the wallet header, and a few sections could blank out on a network error. Money amounts that can't be computed now show \"—\" instead of \"NaN\", and everything respects reduced-motion settings.",
 			"tags": [

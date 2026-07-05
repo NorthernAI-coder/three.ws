@@ -79,6 +79,14 @@
 			<description>Loading your own avatar and playing a preset like Facepalm sometimes folded the whole character into a heap on the floor — even though the studio reported a clean &quot;100% retargeted.&quot; The baked motion clips carry a per-bone scale and length channel from the character they were authored on, and those were being stamped onto your avatar, overwriting its own proportions. The Animation Studio now drives only what's actually motion — the joint rotations and the root's travel — and leaves every rig's bone lengths and scale untouched, so any avatar (tall, short, generated, Mixamo) plays every clip standing up in its own body. The &quot;retargeted&quot; percentage now counts only those real motion channels, so it reflects what you see.</description>
 		</item>
 		<item>
+			<title>Dashboard: a top-to-bottom polish and accessibility pass across every page</title>
+			<link>https://three.ws/dashboard</link>
+			<guid isPermaLink="false">2026-07-05:Dashboard: a top-to-bottom polish and accessibility pass across every page</guid>
+			<pubDate>Sun, 05 Jul 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>We went through every page of the dashboard — Overview, Avatars, Agents, Library, Brain, Widgets, Walk, API, Developer Hub, $THREE, Holders, Analytics, Creator Studio, Monetize, Transactions, Tokens, Copy Trading, Sniper, Fleet, Capabilities, Pre-Launch Radar, Portfolio, Landscape, IRL, Community, Systems, Account, Referrals, Wallet Grinder and Settings — and raised each to the same bar. Loading now shows layout-matched skeletons instead of blank panels; empty states tell you what to do next with a real action; and a failed load shows a clear, retryable message instead of silently masquerading as &quot;no data.&quot; Every menu, tab, toggle and filter is now fully keyboard-operable with visible focus rings and proper screen-reader labels, status is shown with an icon and words (not colour alone), and everything respects reduced-motion. Along the way we fixed real bugs: several pages rendered with the wrong colours from missing design tokens, a built-but-unmounted conversion funnel on Analytics is now live, and a handful of leaks and dead buttons (a runaway timer, a stuck &quot;stop&quot; control, a one-way &quot;disable&quot; toggle) were repaired.</description>
+		</item>
+		<item>
 			<title>Faster, steadier pages under load — cache now compresses what it stores</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-07-05:Faster, steadier pages under load — cache now compresses what it stores</guid>
