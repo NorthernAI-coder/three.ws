@@ -95,6 +95,29 @@ curl -s https://three.ws/api/status | jq .economy
 The same data renders as the **Agent economy heartbeat** section on
 [/status](https://three.ws/status).
 
+### The watchdog — you get paged, not surprised
+
+The uptime cron ([api/cron/uptime-check.js](../api/cron/uptime-check.js), every
+5 minutes) watches the economy as a system and escalates to the ops Telegram
+channel (`TELEGRAM_BOT_TOKEN` + `TELEGRAM_ALERTS_CHAT_ID` — alerts silently
+no-op if unset, so set them):
+
+- **Heartbeat dead** — no economy-tick for 10+ minutes (the scheduler itself is
+  broken; this was invisible for ~9 hours in the July 2026 stall).
+- **Engine problems** — any engine failing (404/5xx/timeout) or skipping on an
+  actionable reason (`disabled`, key parse failures, `db_at_storage_cap`,
+  funding floors, `settle_unaffordable`, treasury-low, invalid config).
+- **Money-feed silence** — no on-chain agent activity on `/api/pulse` for 90+
+  minutes, the end-to-end signal that catches anything the per-engine checks
+  miss.
+
+Escalation is streak-gated like the subsystem digest: page on first sight,
+re-page hourly while the problem persists (so a stall can't hide behind one
+deduped alert), and a single "RESOLVED" note when the economy is healthy again.
+The watchdog also parks 24 hours of samples in `economy:history` — surfaced as
+`economy.history` in `/api/status` — so you can see **when** a stall started,
+not just that one exists.
+
 ## Manual / one-off
 
 ```bash

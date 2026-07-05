@@ -54,7 +54,7 @@ export default wrap(async (req, res) => {
 	const rl = await limits.publicIp(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl);
 
-	const [snapshots, daily, subsystemsSnap, economySnap] = await Promise.all([
+	const [snapshots, daily, subsystemsSnap, economySnap, economyHistory] = await Promise.all([
 		cacheGet('uptime:snapshots'),
 		cacheGet('uptime:daily'),
 		// Parked by api/cron/uptime-check.js every 5 min. We read the cron's
@@ -65,6 +65,9 @@ export default wrap(async (req, res) => {
 		// heartbeat's last fan-out, per-engine ok/skip reason. null until the first
 		// tick — and a STALE `t` here is itself the diagnosis (scheduler dead).
 		cacheGet('economy:last-tick'),
+		// Parked by the uptime-check economy watchdog every 5 min: 24h of problem
+		// counts + heartbeat/feed ages, so a stall's START time is visible.
+		cacheGet('economy:history'),
 	]);
 	const snaps = Array.isArray(snapshots) ? snapshots : [];
 	const days = Array.isArray(daily) ? daily : [];
@@ -214,6 +217,10 @@ export default wrap(async (req, res) => {
 							...(e.reason ? { reason: e.reason } : {}),
 							...(e.error ? { error: e.error } : {}),
 						})),
+						// 24h of watchdog samples (5-min cadence) — problem counts plus
+						// heartbeat/feed ages, so a stall's onset is visible, not just
+						// its present state. Written by the uptime-check watchdog.
+						history: Array.isArray(economyHistory) ? economyHistory : [],
 					}
 				: null,
 		},

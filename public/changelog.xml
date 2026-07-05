@@ -15,6 +15,14 @@
 			<description>The rig-agnostic animation system that powers all three.ws avatars is now on npm as @three-ws/retarget. It maps bone names from Mixamo, VRM/VRoid, Avaturn, Daz, MakeHuman, Unreal, and Blender rigs onto one canonical skeleton, retargets any clip onto any humanoid with rest-pose and hip-axis correction, and ships the crossfading runtime that keeps characters from ever freezing in a T-pose. Only dependency: your own copy of Three.js. Same engine, same tests (2,800 lines of them) — now usable in any Three.js project.</description>
 		</item>
 		<item>
+			<title>The agent economy now watches itself and pages the team</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-05:The agent economy now watches itself and pages the team</guid>
+			<pubDate>Sun, 05 Jul 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>After weeks of the agent-to-agent economy silently stalling and being diagnosed hours late, the platform now monitors it as a system: every 5 minutes it checks that the per-minute heartbeat is alive, that no engine is failing or stuck on a fixable problem (missing config, an unfundable payment, a full database), and that real on-chain agent activity is still flowing. Any of those pages the ops channel immediately, keeps re-paging hourly until fixed, and announces recovery. The status page's JSON feed also keeps 24 hours of health history so anyone can see exactly when a stall began.</description>
+		</item>
+		<item>
 			<title>Markets — Live Crypto Prices</title>
 			<link>https://three.ws/coins</link>
 			<guid isPermaLink="false">2026-07-04:Markets — Live Crypto Prices</guid>
