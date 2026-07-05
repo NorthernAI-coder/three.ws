@@ -68,22 +68,30 @@ export function toast(message, ms = 2200) {
 	}, ms);
 }
 
-/** Format a SOL number for display. Returns "—" for nullish. */
+/** Format a SOL number for display. Returns "—" for nullish/non-finite input. */
 export function formatSol(sol) {
-	if (sol == null || Number.isNaN(sol)) return '—';
+	if (sol == null) return '—';
+	const n = Number(sol);
+	// Coerce first so non-numeric strings, NaN, and ±Infinity all degrade to "—"
+	// instead of rendering the literal "NaN".
+	if (!Number.isFinite(n)) return '—';
 	// Trim to 4 dp but drop trailing zeros so "1.2000" reads "1.2".
-	const fixed = Number(sol).toFixed(4);
+	const fixed = n.toFixed(4);
 	return fixed.replace(/\.?0+$/, '') || '0';
 }
 
 /** Format a USD estimate. Returns null when no price/balance is available. */
 export function formatUsd(amount) {
-	if (amount == null || Number.isNaN(amount)) return null;
+	if (amount == null) return null;
+	const n = Number(amount);
+	// A non-finite estimate is "no estimate" — return null so callers hide it
+	// rather than printing "$NaN".
+	if (!Number.isFinite(n)) return null;
 	return new Intl.NumberFormat('en-US', {
 		style: 'currency',
 		currency: 'USD',
-		maximumFractionDigits: amount < 1 ? 4 : 2,
-	}).format(amount);
+		maximumFractionDigits: Math.abs(n) < 1 ? 4 : 2,
+	}).format(n);
 }
 
 /** Human "x ago" from a unix-seconds timestamp. */

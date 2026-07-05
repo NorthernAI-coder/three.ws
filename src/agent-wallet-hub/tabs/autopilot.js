@@ -221,11 +221,11 @@ registerWalletTab({
 		function render() {
 			if (destroyed) return;
 			if (state.loading) {
-				panel.innerHTML = `<div class="ap-wrap"><div class="ap-card"><div class="ap-skel" style="width:40%"></div><div class="ap-skel"></div><div class="ap-skel" style="width:80%"></div></div><div class="ap-card"><div class="ap-skel" style="width:30%"></div><div class="ap-skel"></div></div></div>`;
+				panel.innerHTML = `<div class="ap-wrap" role="status" aria-busy="true" aria-label="Loading Autopilot"><div class="ap-card"><div class="ap-skel" style="width:40%"></div><div class="ap-skel"></div><div class="ap-skel" style="width:80%"></div></div><div class="ap-card"><div class="ap-skel" style="width:30%"></div><div class="ap-skel"></div></div></div>`;
 				return;
 			}
 			if (state.error) {
-				panel.innerHTML = `<div class="ap-wrap"><div class="ap-err">Couldn’t load Autopilot: ${esc(state.error)}</div><div class="ap-actions"><button class="ap-btn" id="ap-retry">Retry</button></div></div>`;
+				panel.innerHTML = `<div class="ap-wrap"><div class="ap-err" role="alert">Couldn’t load Autopilot: ${esc(state.error)}</div><div class="ap-actions"><button class="ap-btn" id="ap-retry" type="button">Retry</button></div></div>`;
 				panel.querySelector('#ap-retry')?.addEventListener('click', load);
 				return;
 			}
@@ -264,8 +264,8 @@ registerWalletTab({
 			const maxV = Math.max(incomeUsd, costUsd, 0.01);
 			const bars = `
 				<div class="ap-bars">
-					<div class="ap-bar-row"><span class="k">Income</span><span class="ap-bar income"><i style="width:${Math.round((incomeUsd / maxV) * 100)}%"></i></span><span class="v">${formatUsd(incomeUsd)}</span></div>
-					<div class="ap-bar-row"><span class="k">Compute</span><span class="ap-bar cost"><i style="width:${Math.round((costUsd / maxV) * 100)}%"></i></span><span class="v">${formatUsd(costUsd)}</span></div>
+					<div class="ap-bar-row"><span class="k">Income</span><span class="ap-bar income" aria-hidden="true"><i style="width:${Math.round((incomeUsd / maxV) * 100)}%"></i></span><span class="v">${formatUsd(incomeUsd)}</span></div>
+					<div class="ap-bar-row"><span class="k">Compute</span><span class="ap-bar cost" aria-hidden="true"><i style="width:${Math.round((costUsd / maxV) * 100)}%"></i></span><span class="v">${formatUsd(costUsd)}</span></div>
 				</div>`;
 
 			const stats = `
@@ -278,20 +278,20 @@ registerWalletTab({
 					<div class="ap-stat"><div class="l">Swept to you</div><div class="n">${formatSol(r.swept_sol || 0)} SOL</div><div class="s">${r.sweep_count || 0} sweeps</div></div>
 				</div>`;
 
-			return `<div class="ap-hero">
+			return `<div class="ap-hero" role="region" aria-label="Treasury runway">
 				<div class="ap-hero-top">
 					<div>${badge}</div>
 					${net}
 				</div>
-				<div class="ap-runway">${heroMain}</div>
+				<div class="ap-runway" aria-live="polite">${heroMain}</div>
 				${(incomeUsd > 0 || costUsd > 0) ? bars : ''}
 				${stats}
 			</div>`;
 		}
 
 		function renderKilledBanner() {
-			return `<div class="ap-warn red"><strong>Autopilot is halted.</strong> The kill switch is on — no rule will run until you re-enable it.
-				<div class="ap-actions"><button class="ap-btn primary" id="ap-unkill">Re-enable autopilot</button></div></div>`;
+			return `<div class="ap-warn red" role="alert"><strong>Autopilot is halted.</strong> The kill switch is on — no rule will run until you re-enable it.
+				<div class="ap-actions"><button class="ap-btn primary" id="ap-unkill" type="button">Re-enable autopilot</button></div></div>`;
 		}
 
 		function renderEditor() {
@@ -303,26 +303,26 @@ registerWalletTab({
 
 			const preview = c
 				? `<div style="margin-top:var(--space-md,14px)">
-						${hasRules ? `<ul class="ap-rules">${c.rules.map((r) => renderRuleLi(r, false)).join('')}</ul>` : `<div class="ap-empty"><div class="ic">🤔</div>No rules were recognized. Try a clearer policy.</div>`}
-						${contradictions.length ? `<div class="ap-warn red"><strong>Conflicts — fix before arming:</strong><ul>${contradictions.map((w) => `<li>${esc(w)}</li>`).join('')}</ul></div>` : ''}
+						${hasRules ? `<ul class="ap-rules">${c.rules.map((r) => renderRuleLi(r, false)).join('')}</ul>` : `<div class="ap-empty"><div class="ic" aria-hidden="true">🤔</div>No rules were recognized. Try a clearer policy.</div>`}
+						${contradictions.length ? `<div class="ap-warn red" role="alert"><strong>Conflicts — fix before arming:</strong><ul>${contradictions.map((w) => `<li>${esc(w)}</li>`).join('')}</ul></div>` : ''}
 						${warnings.length ? `<div class="ap-warn amber"><strong>Assumptions:</strong><ul>${warnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul></div>` : ''}
 						${c.via ? `<p class="sub" style="margin-top:8px">Compiled ${c.via === 'model' ? 'by the model' : 'from your wording'}. Review every rule — this is exactly what you’ll arm.</p>` : ''}
 					</div>`
 				: '';
 
 			return `<div class="ap-card">
-				<h3>Treasury policy</h3>
+				<h3 id="ap-policy-h">Treasury policy</h3>
 				<p class="sub">Describe in plain English how the agent should manage its own money. We compile it into bounded rules you approve before anything runs.</p>
-				<textarea class="ap-ta" id="ap-src" placeholder="e.g. Pay your own compute. Keep a 1 SOL buffer. Put 10% of tips into $THREE. Sweep anything over 3 SOL to me on Fridays.">${esc(state.source)}</textarea>
-				<div class="ap-egs">${EXAMPLES.map((e, i) => `<button class="ap-eg" data-eg="${i}">${esc(e.length > 54 ? e.slice(0, 52) + '…' : e)}</button>`).join('')}</div>
+				<textarea class="ap-ta" id="ap-src" aria-labelledby="ap-policy-h" placeholder="e.g. Pay your own compute. Keep a 1 SOL buffer. Put 10% of tips into $THREE. Sweep anything over 3 SOL to me on Fridays.">${esc(state.source)}</textarea>
+				<div class="ap-egs" role="group" aria-label="Example policies">${EXAMPLES.map((e, i) => `<button class="ap-eg" type="button" data-eg="${i}" title="${esc(e)}" aria-label="Use example: ${esc(e)}">${esc(e.length > 54 ? e.slice(0, 52) + '…' : e)}</button>`).join('')}</div>
 				<div class="ap-fld">
 					<label for="ap-sweep">Sweep destination (your wallet — required if you sweep profit)</label>
 					<input class="ap-in" id="ap-sweep" placeholder="Your Solana address" value="${esc(sweepDest)}" spellcheck="false" autocomplete="off" />
 				</div>
 				<div class="ap-actions">
-					<button class="ap-btn primary" id="ap-compile">${state.compiling ? '<span class="ap-spin"></span>Compiling…' : 'Compile policy'}</button>
-					${hasRules && !contradictions.length ? `<button class="ap-btn" id="ap-arm">Arm autopilot</button>` : ''}
-					${state.policy?.rules?.length ? `<button class="ap-btn ghost" id="ap-cancel">Cancel</button>` : ''}
+					<button class="ap-btn primary" id="ap-compile" type="button" ${state.compiling ? 'disabled aria-busy="true"' : ''}>${state.compiling ? '<span class="ap-spin" aria-hidden="true"></span>Compiling…' : 'Compile policy'}</button>
+					${hasRules && !contradictions.length ? `<button class="ap-btn" id="ap-arm" type="button">Arm autopilot</button>` : ''}
+					${state.policy?.rules?.length ? `<button class="ap-btn ghost" id="ap-cancel" type="button">Cancel</button>` : ''}
 				</div>
 				${preview}
 			</div>`;

@@ -28,6 +28,9 @@ const BAL_STYLE = `
 /* .awh-bal-addr / .awh-bal-addr .awh-mono / .awh-bal-mini live in the hub shell
  * stylesheet (index.js) so pay/trade reuse them regardless of mount order. */
 .awh-bal-note { margin-top: var(--space-3,12px); font-size: var(--text-sm,.764rem); color: var(--warn,#fbbf24); }
+.awh-bal-refresh-icon { display: inline-block; }
+.awh-bal-refresh-icon.is-spinning { animation: awh-bal-spin .7s linear infinite; }
+@keyframes awh-bal-spin { to { transform: rotate(360deg); } }
 
 .awh-act-list { list-style: none; margin: 0; padding: 0; }
 .awh-act-row { display: flex; align-items: center; gap: var(--space-3,12px); padding: 9px 0; border-bottom: 1px solid var(--stroke, rgba(255,255,255,.06)); font-size: var(--text-sm,.764rem); }
@@ -37,6 +40,7 @@ const BAL_STYLE = `
 .awh-act-delta { font-family: var(--font-mono, ui-monospace, monospace); flex: none; }
 .awh-act-delta.is-pos { color: var(--success,#4ade80); }
 .awh-act-delta.is-neg { color: var(--danger,#f87171); }
+.awh-act-fail { display: inline-block; margin-right: 7px; font-size: var(--text-2xs,.6875rem); font-weight: 600; color: var(--danger,#f87171); border: 1px solid color-mix(in srgb, var(--danger,#f87171) 40%, transparent); border-radius: var(--radius-pill,999px); padding: 0 7px; vertical-align: middle; flex: none; }
 
 .awh-bal-skelbar, .awh-act-skel span { background: var(--surface-2, rgba(255,255,255,.05)); border-radius: var(--radius-sm,6px); animation: awh-skel 1.4s ease-in-out infinite; }
 .awh-bal-skelbar--lg { height: 28px; width: 42%; margin-bottom: 10px; }
@@ -47,7 +51,7 @@ const BAL_STYLE = `
 .awh-act-skel span:nth-child(2) { width: 80%; }
 .awh-act-skel span:nth-child(3) { width: 88%; }
 @keyframes awh-skel { 0%,100% { opacity: .5; } 50% { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .awh-bal-skelbar, .awh-act-skel span { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .awh-bal-skelbar, .awh-act-skel span, .awh-bal-refresh-icon.is-spinning { animation: none; } }
 `;
 function injectBalanceStyle() {
 	if (typeof document === 'undefined' || document.getElementById(BAL_STYLE_ID)) return;
@@ -107,9 +111,9 @@ registerWalletTab({
 					: '';
 
 			panel.innerHTML = `
-				<div class="awh-card">
+				<div class="awh-card" ${state.refreshing ? 'aria-busy="true"' : ''}>
 					<div class="awh-bal-top">
-						<div>
+						<div role="status" aria-live="polite">
 							<div class="awh-bal-amount ${balUnavailable ? 'is-unavailable' : ''}"
 								${balUnavailable ? 'title="The Solana RPC could not be reached — this retries automatically."' : ''}>
 								${escapeHtml(balText)}
@@ -118,7 +122,8 @@ registerWalletTab({
 						</div>
 						<button class="awh-btn awh-bal-refresh" type="button" data-act="refresh"
 							${state.refreshing ? 'disabled' : ''} aria-label="Refresh balance">
-							${state.refreshing ? 'Refreshing…' : '↻ Refresh'}
+							<span class="awh-bal-refresh-icon ${state.refreshing ? 'is-spinning' : ''}" aria-hidden="true">↻</span>
+							${state.refreshing ? 'Refreshing…' : 'Refresh'}
 						</button>
 					</div>
 					${

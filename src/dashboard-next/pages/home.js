@@ -9,9 +9,14 @@ import { requireUser, get, esc, relTime, ApiError } from '../api.js';
 import { log } from '../../shared/log.js';
 import {
 	cryptoOptionalBannerHTML,
-	cryptoOptionalTagHTML,
 	injectStyles as injectCryptoOptionalStyles,
 } from '../../shared/crypto-optional.js';
+import {
+	emptyStateHTML,
+	errorStateHTML,
+	ensureStateKitStyles,
+	attachRetry,
+} from '../../shared/state-kit.js';
 
 const POLL_MS = 30_000;
 const DAYS_WINDOW = 7;
@@ -163,14 +168,15 @@ const STATE = {
 })().catch((err) => {
 	if (err?.message === 'redirecting') return;
 	const main = document.querySelector('.dn-main-inner') || document.body;
+	ensureStateKitStyles();
 	main.innerHTML = `
 		<h1 class="dn-h1">Overview</h1>
-		<div class="dn-panel" style="border-color:rgba(150,155,163,0.3)">
-			<div class="dn-panel-title" style="color:var(--nxt-danger)">Couldn't load this page</div>
-			<div class="dn-panel-sub">${(err && err.message ? err.message : 'unknown error').replace(/[<>&]/g, (c) => ({ '<':'&lt;','>':'&gt;','&':'&amp;' }[c]))}</div>
-			<button class="dn-btn" onclick="location.reload()">Reload</button>
-		</div>
+		${errorStateHTML({
+			title: "Couldn't load this page",
+			body: esc(err && err.message ? err.message : 'Something interrupted the dashboard. Retry, or reload the page.'),
+		})}
 	`;
+	attachRetry(main, () => location.reload());
 });
 
 // ── Skeletons ─────────────────────────────────────────────────────────────
@@ -213,10 +219,23 @@ function renderSkeletons(main) {
 
 function renderHero(host, avatars, err) {
 	if (err && !(err instanceof ApiError && err.status === 401)) {
-		host.innerHTML = `<div class="dn-panel" style="grid-column:1/-1">
-			<div class="dn-panel-title">Avatars</div>
-			<div style="color:var(--nxt-danger);font-size:13px">${esc(err.message || 'failed to load')}</div>
-		</div>`;
+		ensureStateKitStyles();
+		host.innerHTML = `<div class="dn-panel" style="grid-column:1/-1;padding:0">${errorStateHTML({
+			title: "Couldn't load your avatars",
+			body: esc(err.message || "The avatars service didn't respond. Check your connection and try again."),
+			scope: 'avatars',
+		})}</div>`;
+		attachRetry(host, async () => {
+			host.innerHTML = Array.from({ length: 3 }, () =>
+				`<div class="dn-skeleton dnx-hero-card" style="min-height:280px"></div>`,
+			).join('');
+			try {
+				const res = await get('/api/avatars?limit=50');
+				renderHero(host, res?.avatars ?? [], null);
+			} catch (retryErr) {
+				renderHero(host, [], retryErr);
+			}
+		});
 		return;
 	}
 

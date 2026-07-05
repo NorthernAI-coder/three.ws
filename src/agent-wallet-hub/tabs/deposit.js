@@ -318,9 +318,9 @@ registerWalletTab({
 					</p>
 				</div>
 
-				<div class="awh-card" data-host="status">${statusBlock()}</div>
+				<div class="awh-card" data-host="status" role="status" aria-live="polite">${statusBlock()}</div>
 
-				<div data-host="activity">${activityBlock(net)}</div>
+				<div data-host="activity" aria-live="polite">${activityBlock(net)}</div>
 			`;
 
 			panel.querySelector('[data-act="copy"]')?.addEventListener('click', async () => {
