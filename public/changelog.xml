@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>@three-ws/retarget — the animation engine behind every avatar, now a standalone package</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-05:@three-ws/retarget — the animation engine behind every avatar, now a standalone package</guid>
+			<pubDate>Sun, 05 Jul 2026 12:00:00 GMT</pubDate>
+			<category>sdk</category>
+			<description>The rig-agnostic animation system that powers all three.ws avatars is now on npm as @three-ws/retarget. It maps bone names from Mixamo, VRM/VRoid, Avaturn, Daz, MakeHuman, Unreal, and Blender rigs onto one canonical skeleton, retargets any clip onto any humanoid with rest-pose and hip-axis correction, and ships the crossfading runtime that keeps characters from ever freezing in a T-pose. Only dependency: your own copy of Three.js. Same engine, same tests (2,800 lines of them) — now usable in any Three.js project.</description>
+		</item>
+		<item>
 			<title>Markets — Live Crypto Prices</title>
 			<link>https://three.ws/coins</link>
 			<guid isPermaLink="false">2026-07-04:Markets — Live Crypto Prices</guid>

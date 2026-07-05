@@ -4,6 +4,10 @@
 
 Public history for [three.ws](https://three.ws), newest first. New pages come from `added` dates in data/pages.json; everything else is curated in data/changelog.json. Also available as [JSON](https://three.ws/changelog.json) and [RSS](https://three.ws/changelog.xml), live at [three.ws/changelog](https://three.ws/changelog).
 
+## 2026-07-05
+
+- **@three-ws/retarget — the animation engine behind every avatar, now a standalone package** — The rig-agnostic animation system that powers all three.ws avatars is now on npm as @three-ws/retarget. It maps bone names from Mixamo, VRM/VRoid, Avaturn, Daz, MakeHuman, Unreal, and Blender rigs onto one canonical skeleton, retargets any clip onto any humanoid with rest-pose and hip-axis correction, and ships the crossfading runtime that keeps characters from ever freezing in a T-pose. Only dependency: your own copy of Three.js. Same engine, same tests (2,800 lines of them) — now usable in any Three.js project. `[sdk, feature]`
+
 ## 2026-07-04
 
 - **Markets — Live Crypto Prices** (`/coins`) — Live global cryptocurrency market data: total market cap, dominance, Fear & Greed, and the top coins with prices, 24h/7d moves, and 7d sparklines. Every coin links to a rich /coin/:id detail page with an interactive chart, market stats, related news, and official links.

@@ -61,6 +61,7 @@ mcp-server/                   → @three-ws/mcp-server
 multiplayer/                  → @three-ws/multiplayer
 packages/avatar-schema/       → @three-ws/avatar-schema
 packages/avatar-cli/          → @three-ws/avatar-cli
+packages/retarget/            → @three-ws/retarget          (humanoid bone canonicalizer + clip retargeting engine, extracted from src/)
 packages/viewer-presets/      → @three-ws/viewer-presets
 packages/avatar-agent-mcp/    → @three-ws/avatar-agent-mcp  (MCP server — avatar agent tools)
 packages/pumpfun-mcp/         → @three-ws/pumpfun-mcp       (MCP server — pump.fun launch tools)
