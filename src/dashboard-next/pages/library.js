@@ -3,6 +3,7 @@
 
 import { mountShell } from '../shell.js';
 import { requireUser, esc } from '../api.js';
+import { skeletonHTML, errorStateHTML, attachRetry, ensureStateKitStyles } from '../../shared/state-kit.js';
 import { renderAnimations } from './library/animations.js';
 import { renderMemory }     from './library/memory.js';
 import { renderStrategy }   from './library/strategy.js';
@@ -40,6 +41,8 @@ function writeTab(tab) {
 	const main = await mountShell();
 	const me = await requireUser();
 	if (!me) return;
+
+	ensureStateKitStyles();
 
 	main.innerHTML = `
 		<h1 class="dn-h1">Library</h1>

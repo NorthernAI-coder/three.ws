@@ -35,7 +35,12 @@ const PULSE_STYLE = `
 .awp-switch input:checked + .track::before { transform: translateX(18px); }
 .awp-switch input:focus-visible + .track { outline: 2px solid var(--wallet-accent,#c4b5fd); outline-offset:2px; }
 .awp-switch input:disabled { cursor: default; }
+.awp-skel-bar { display:block; background: var(--surface-2, rgba(255,255,255,.06)); border-radius: var(--radius-sm,6px); animation: awp-skel 1.4s ease-in-out infinite; }
+.awp-skel-bar.dt { height:9px; width:60%; margin-bottom:9px; }
+.awp-skel-bar.dd { height:16px; width:45%; }
+@keyframes awp-skel { 0%,100%{ opacity:.5; } 50%{ opacity:1; } }
 @media (max-width:520px){ .awp-summary { grid-template-columns: repeat(2,1fr); } }
+@media (prefers-reduced-motion: reduce){ .awp-switch .track, .awp-switch .track::before { transition: none; } .awp-skel-bar { animation: none; } }
 `;
 
 function injectStyle() {
