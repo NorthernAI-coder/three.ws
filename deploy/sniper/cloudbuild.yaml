@@ -11,17 +11,23 @@
 # Or end to end (build → push → deploy → verify):
 #   node scripts/deploy-sniper.mjs
 
+# _TAG defaults to "latest" so a manual `gcloud builds submit` works with no extra
+# flags. The built-in $SHORT_SHA is only populated for trigger/VCS builds — on a
+# local submit it is empty, which produced an invalid "…/agent-sniper:" image name
+# and failed the build at validation. A Cloud Build trigger can still override _TAG
+# with the commit SHA. cloudrun.yaml pulls :latest, so that tag is what deploys.
 substitutions:
   _REGION: us-central1
   _REPO: workers
   _IMAGE: agent-sniper
+  _TAG: latest
 
 steps:
   - name: gcr.io/cloud-builders/docker
     args:
       - build
       - -t
-      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:${_TAG}
       - -t
       - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:latest
       - -f
@@ -30,7 +36,7 @@ steps:
     timeout: 1200s
 
 images:
-  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:${_TAG}
   - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:latest
 
 options:
