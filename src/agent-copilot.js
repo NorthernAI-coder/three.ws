@@ -168,6 +168,8 @@ export function mountTradingCopilot({ panel, agentId, agentName = 'Copilot', isO
 	let destroyed = false;
 	let detachNet = null;
 	let streaming = false;
+	let currentTurn = null; // AbortController for the in-flight SSE turn, if any
+	const STREAM_STALL_MS = 45_000; // no SSE bytes for this long ⇒ dead stream (server heartbeats every 15s)
 	let recognition = null;
 	let listening = false;
 	let voiceOut = false;
@@ -449,22 +451,32 @@ export function mountTradingCopilot({ panel, agentId, agentName = 'Copilot', isO
 				.filter((m) => m.content),
 		};
 
+		const ctrl = new AbortController();
+		currentTurn = ctrl;
 		try {
 			const resp = await fetch(`/api/agents/${encodeURIComponent(agentId)}/copilot`, {
 				method: 'POST', credentials: 'include',
 				headers: { 'Content-Type': 'application/json', accept: 'text/event-stream' },
 				body: JSON.stringify(payload),
+				signal: ctrl.signal,
 			});
 			if (!resp.ok || !resp.body) {
 				const j = await resp.json().catch(() => ({}));
 				throw new Error(j?.error_description || j?.error?.message || j?.message || `Copilot unavailable (${resp.status})`);
 			}
-			await consumeSse(resp.body, agentMsg);
+			await consumeSse(resp.body, agentMsg, ctrl);
 		} catch (e) {
 			agentMsg.streaming = false;
 			if (!agentMsg.content) agentMsg.error = true;
-			showError(e?.message || 'The copilot hit an error.', content);
+			if (!destroyed) {
+				// A watchdog/destroy abort surfaces as an AbortError with no useful
+				// message — translate it into a recoverable prompt so the owner is
+				// never left staring at a frozen typing indicator.
+				const stalled = ctrl.signal.aborted;
+				showError(stalled ? 'The copilot stopped responding. Try again.' : (e?.message || 'The copilot hit an error.'), content);
+			}
 		} finally {
+			if (currentTurn === ctrl) currentTurn = null;
 			streaming = false;
 			agentMsg.streaming = false;
 			setStatus('');
@@ -473,29 +485,40 @@ export function mountTradingCopilot({ panel, agentId, agentName = 'Copilot', isO
 		}
 	}
 
-	async function consumeSse(stream, agentMsg) {
+	async function consumeSse(stream, agentMsg, ctrl) {
 		const reader = stream.getReader();
 		const decoder = new TextDecoder();
 		let buf = '';
-		for (;;) {
-			const { value, done } = await reader.read();
-			if (done) break;
-			if (destroyed) { reader.cancel().catch(() => {}); break; }
-			buf += decoder.decode(value, { stream: true });
-			let sep;
-			while ((sep = buf.indexOf('\n\n')) >= 0) {
-				const block = buf.slice(0, sep);
-				buf = buf.slice(sep + 2);
-				let event = 'message', data = '';
-				for (const line of block.split('\n')) {
-					if (line.startsWith('event:')) event = line.slice(6).trim();
-					else if (line.startsWith('data:')) data += line.slice(5).trim();
+		// Stall watchdog: if the stream goes silent past the heartbeat interval, the
+		// connection is dead — abort so the turn fails cleanly into a Retry instead
+		// of hanging on the typing indicator forever.
+		let stall = null;
+		const arm = () => { if (stall) clearTimeout(stall); stall = setTimeout(() => ctrl.abort(), STREAM_STALL_MS); };
+		try {
+			arm();
+			for (;;) {
+				const { value, done } = await reader.read();
+				if (done) break;
+				if (destroyed) { reader.cancel().catch(() => {}); break; }
+				arm(); // fresh bytes (data or heartbeat) ⇒ stream is alive
+				buf += decoder.decode(value, { stream: true });
+				let sep;
+				while ((sep = buf.indexOf('\n\n')) >= 0) {
+					const block = buf.slice(0, sep);
+					buf = buf.slice(sep + 2);
+					let event = 'message', data = '';
+					for (const line of block.split('\n')) {
+						if (line.startsWith('event:')) event = line.slice(6).trim();
+						else if (line.startsWith('data:')) data += line.slice(5).trim();
+					}
+					if (!data) continue;
+					let payload;
+					try { payload = JSON.parse(data); } catch { continue; }
+					handleSseEvent(event, payload, agentMsg);
 				}
-				if (!data) continue;
-				let payload;
-				try { payload = JSON.parse(data); } catch { continue; }
-				handleSseEvent(event, payload, agentMsg);
 			}
+		} finally {
+			if (stall) clearTimeout(stall);
 		}
 	}
 
@@ -662,6 +685,7 @@ export function mountTradingCopilot({ panel, agentId, agentName = 'Copilot', isO
 		onHide() { stopListening(); stopSpeaking(); },
 		destroy() {
 			destroyed = true;
+			currentTurn?.abort();
 			stopListening();
 			stopSpeaking();
 			messages.forEach((m) => (m.proposals || []).forEach((p) => p._safetyPanel?.destroy?.()));

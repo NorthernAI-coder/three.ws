@@ -27,11 +27,13 @@ const REAL = {
 };
 
 describe('runtimeEnv', () => {
-	it('always includes AGENT_ID, AGENT_JWT and the origin-joined PUSH_URL', () => {
+	it('always includes AGENT_ID, AGENT_JWT, the origin-joined PUSH_URL and the Anthropic key', () => {
 		const env = Object.fromEntries(runtimeEnv({ runtime: 'local', ...REAL }));
 		expect(env.AGENT_ID).toBe(REAL.agentId);
 		expect(env.AGENT_JWT).toBe(REAL.agentJwt);
 		expect(env.PUSH_URL).toBe(`${REAL.origin}${PUSH_PATH}`);
+		// act/extract needs a model key on every runtime, not just bb
+		expect(env.ANTHROPIC_API_KEY).toBe('<your-anthropic-key>');
 	});
 
 	it('adds Browserbase creds only for the bb runtime', () => {
@@ -51,7 +53,7 @@ describe('buildRunCommand', () => {
 	it('local runtime inlines the real agentId, key and push url before npm start', () => {
 		const cmd = buildRunCommand({ runtime: 'local', ...REAL });
 		expect(cmd).toBe(
-			`AGENT_ID=${REAL.agentId} AGENT_JWT=${REAL.agentJwt} PUSH_URL=${REAL.origin}${PUSH_PATH} npm start`,
+			`AGENT_ID=${REAL.agentId} AGENT_JWT=${REAL.agentJwt} PUSH_URL=${REAL.origin}${PUSH_PATH} ANTHROPIC_API_KEY=<your-anthropic-key> npm start`,
 		);
 	});
 
@@ -84,9 +86,12 @@ describe('buildRunCommand', () => {
 		}
 	});
 
-	it('local and docker carry no angle-bracket placeholders at all', () => {
+	it('local and docker carry no angle-bracket placeholder except the Anthropic key', () => {
 		for (const runtime of ['local', 'docker']) {
-			expect(buildRunCommand({ runtime, ...REAL })).not.toMatch(/<[^>]+>/);
+			const cmd = buildRunCommand({ runtime, ...REAL });
+			// ANTHROPIC_API_KEY is a genuine user-supplied value on every runtime;
+			// once it's removed there must be no other placeholder left to guess.
+			expect(cmd.replace('<your-anthropic-key>', '')).not.toMatch(/<[^>]+>/);
 		}
 	});
 });

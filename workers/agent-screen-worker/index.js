@@ -28,8 +28,18 @@ async function main() {
 		env,
 		apiKey: cfg.BROWSERBASE_API_KEY || undefined,
 		projectId: cfg.BROWSERBASE_PROJECT_ID || undefined,
+		// LLM that drives page.act()/page.extract(). The provider-prefixed model
+		// name routes straight to Stagehand's Anthropic client (not gated by its
+		// built-in allowlist); the key is passed explicitly so the worker never
+		// depends on process-wide env resolution inside Stagehand.
+		modelName: cfg.MODEL_NAME,
+		modelClientOptions: cfg.ANTHROPIC_API_KEY
+			? { apiKey: cfg.ANTHROPIC_API_KEY }
+			: undefined,
 		verbose: 1,
 	});
+
+	console.log(`[agent-screen-worker] act/extract model: ${cfg.MODEL_NAME}`);
 
 	await stagehand.init();
 	const { page, context } = stagehand;

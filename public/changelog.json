@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-05T11:05:22.729Z",
+	"generated_at": "2026-07-05T11:42:03.833Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -175,6 +175,17 @@
 			"tags": [
 				"feature",
 				"docs"
+			]
+		},
+		{
+			"date": "2026-07-05",
+			"type": "update",
+			"title": "Trading Copilot no longer freezes after reading your wallet",
+			"summary": "When you asked the Copilot about your portfolio, it sometimes read your wallet, then read it again, and got stuck on \"Analyzing…\" with the typing dots spinning forever — you'd see the same \"Portfolio: … 6 tokens\" line twice and never get an answer. The Copilot now remembers what it just looked up within a single reply, so a repeated lookup is instant instead of a wasted round, and the moment it starts going in circles it stops and answers with what it already knows. As a backstop, the chat now detects a genuinely dead connection and offers a Retry instead of hanging — so it can never leave you staring at a frozen indicator again.",
+			"link": null,
+			"tags": [
+				"fix",
+				"improvement"
 			]
 		},
 		{

@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-07-05",
+			"title": "Trading Copilot no longer freezes after reading your wallet",
+			"summary": "When you asked the Copilot about your portfolio, it sometimes read your wallet, then read it again, and got stuck on \"Analyzing…\" with the typing dots spinning forever — you'd see the same \"Portfolio: … 6 tokens\" line twice and never get an answer. The Copilot now remembers what it just looked up within a single reply, so a repeated lookup is instant instead of a wasted round, and the moment it starts going in circles it stops and answers with what it already knows. As a backstop, the chat now detects a genuinely dead connection and offers a Retry instead of hanging — so it can never leave you staring at a frozen indicator again.",
+			"tags": [
+				"fix",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-05",
 			"title": "Tour Builder — design a walking 3D store guide with zero code",
 			"summary": "Building a guided 3D tour for your store used to mean hand-writing a JSON file. Now there's a live, Wix-style playground at /tour-builder: a demo storefront on one side, a point-and-click editor on the other. Pick who guides the tour, click the sections you want it to walk to, type what it should say, and hit Preview to watch the real tour run exactly as your visitors will see it. When it looks right, one click gives you the curriculum file plus the exact snippets to paste into Shopify. The Shopify tutorial is rebuilt around it — a ten-minute no-code path — with a new advanced guide for multi-page tours, exact section targeting, real spoken voices, custom avatars, deep links, and the JavaScript API.",
 			"tags": [

@@ -41,10 +41,17 @@ No Docker needed. Run as a plain Node process or in any VM:
 ```bash
 export BROWSERBASE_API_KEY=...
 export BROWSERBASE_PROJECT_ID=...
+export ANTHROPIC_API_KEY=...   # drives page.act()/page.extract() — see below
 export AGENT_ID=...
 export AGENT_JWT=...
 npm start
 ```
+
+> **`ANTHROPIC_API_KEY` is what makes the agent *do* things.** Stagehand's
+> `page.act()` (type, click, submit) and `page.extract()` (read the page) are
+> LLM-driven. Without a key the agent still opens the browser, navigates, and
+> screenshots — but every interactive step fails. Set it to see the agent
+> actually work a task, not just load pages.
 
 ## Environment variables
 
@@ -55,6 +62,8 @@ npm start
 | `PUSH_URL` | no | `https://three.ws/api/agent-screen-push` | Push endpoint override |
 | `BROWSERBASE_API_KEY` | no | — | Browserbase API key (cloud mode) |
 | `BROWSERBASE_PROJECT_ID` | no | — | Required when `BROWSERBASE_API_KEY` is set |
+| `ANTHROPIC_API_KEY` | recommended | — | Drives `page.act()`/`page.extract()`. Without it the agent navigates + screenshots but can't type, click, or read pages. |
+| `STAGEHAND_MODEL` | no | `anthropic/claude-opus-4-8` | Model for act/extract. Keep the `anthropic/` prefix (routes to Stagehand's Anthropic client). Use `anthropic/claude-haiku-4-5` for cheaper, faster casting at high volume. |
 | `CYCLE_MS` | no | `30000` | Task loop cycle time in ms |
 | `SCREENSHOT_INTERVAL_MS` | no | `5000` | Minimum ms between full screenshots (text-only pushes fill the gap) |
 
