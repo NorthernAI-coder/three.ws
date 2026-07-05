@@ -352,8 +352,8 @@ registerWalletTab({
 			const p = state.policy;
 			const armed = !!p.armed && !p.kill_switch;
 			if (!p.rules?.length) {
-				return `<div class="ap-card"><div class="ap-empty"><div class="ic">🛰️</div>No autopilot rules yet.<br/>Write a policy to let this agent fund its own existence.</div>
-					<div class="ap-actions"><button class="ap-btn primary" id="ap-edit">Write a policy</button></div></div>`;
+				return `<div class="ap-card"><div class="ap-empty"><div class="ic" aria-hidden="true">🛰️</div>No autopilot rules yet.<br/>Write a policy to let this agent fund its own existence.</div>
+					<div class="ap-actions"><button class="ap-btn primary" id="ap-edit" type="button">Write a policy</button></div></div>`;
 			}
 			return `<div class="ap-card">
 				<h3>Armed rules</h3>

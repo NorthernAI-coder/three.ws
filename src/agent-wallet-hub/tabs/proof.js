@@ -43,7 +43,9 @@ registerWalletTab({
 			} catch (err) {
 				if (destroyed) return;
 				panel.innerHTML = errorState(err.message);
-				panel.querySelector('[data-retry]')?.addEventListener('click', load);
+				const retry = panel.querySelector('[data-retry]');
+				retry?.addEventListener('click', load);
+				retry?.focus();
 				return;
 			}
 			if (destroyed) return;

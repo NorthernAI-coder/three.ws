@@ -368,7 +368,7 @@ registerWalletTab({
 			const g = state.ground || {};
 			panel.innerHTML = `
 				<div class="awh-card">
-					<div class="awh-err" style="margin-bottom:12px;">Couldn’t apply the address. <div class="why">${esc(state.applyError || 'unknown error')}</div></div>
+					<div class="awh-err" role="alert" style="margin-bottom:12px;">Couldn’t apply the address. <div class="why">${esc(state.applyError || 'unknown error')}</div></div>
 					<p class="awh-empty" style="margin-top:0;">Your wallet is unchanged and still holds any funds. The ground address is ready — retry the assign without grinding again.</p>
 					<div class="awh-vn-addr" style="margin:8px 0 12px;">${highlight(g.address, state.prefix, state.suffix)}</div>
 					<div class="awh-vn-actions">

@@ -103,6 +103,11 @@ const STYLE = `
 .awh-dest-tag.warn { color: var(--danger,#ef4444); background: color-mix(in srgb, var(--danger,#ef4444) 12%, transparent); border: 1px solid color-mix(in srgb, var(--danger,#ef4444) 34%, transparent); }
 .awh-mono { font-family: var(--font-mono, ui-monospace, monospace); }
 .awh-empty { color: var(--ink-dim, #888); font-size: var(--text-sm, .764rem); padding: var(--space-3,12px) 0; }
+/* Tab mount-failure fallback — a designed, recoverable error state (never a dead end). */
+.awh-tab-error { border-color: color-mix(in srgb, var(--danger,#ef4444) 34%, transparent); background: color-mix(in srgb, var(--danger,#ef4444) 7%, transparent); }
+.awh-tab-error-h { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: var(--text-md,.8125rem); font-weight: 600; color: var(--ink-bright,#fff); }
+.awh-tab-error-h::before { content: ''; width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--danger,#ef4444); box-shadow: 0 0 6px color-mix(in srgb, var(--danger,#ef4444) 55%, transparent); }
+.awh-tab-error p.awh-empty { margin: 0 0 var(--space-3,12px); padding: 0; line-height: 1.5; }
 /* Shared address-row + explorer-link primitives. Defined at the hub level (not in
  * a single tab's lazily-injected sheet) so every tab that reuses them — balance,
  * pay, trade — is styled regardless of which tab mounts first. */
