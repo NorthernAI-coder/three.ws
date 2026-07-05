@@ -8,13 +8,25 @@
 // Falls back to in-memory transparently when UPSTASH_REDIS_REST_URL is unset,
 // so dev + tests need no extra config.
 //
+// Values above COMPRESS_MIN_BYTES are gzip-compressed before the wire (see
+// encodeForWire): the large best-effort bodies — the galaxy money-feed, trending
+// snapshots — are highly compressible JSON, and shipping 5-10x fewer bytes over
+// Upstash REST is what keeps a far-region SET inside its command deadline instead
+// of aborting on timeout. Reads transparently decompress; legacy plaintext values
+// still parse, so the format change needs no migration.
+//
 // Env:
 //   UPSTASH_REDIS_REST_URL    — https://<region>.upstash.io
 //   UPSTASH_REDIS_REST_TOKEN  — REST API token (read+write)
 //   (resolved through _lib/env.js, which also accepts the Vercel-marketplace
 //   names three_KV_REST_API_URL/TOKEN and KV_REST_API_URL/TOKEN)
 
+import { gzip, gunzip } from 'node:zlib';
+import { promisify } from 'node:util';
 import { env } from './env.js';
+
+const gzipAsync = promisify(gzip);
+const gunzipAsync = promisify(gunzip);
 
 const memCache = new Map();
 const MEM_DEFAULT_TTL_MS = 60_000;
@@ -233,6 +245,31 @@ function warnThrottled(category, message) {
 	warnState.set(category, { lastAt: now, suppressed: 0 });
 }
 
+// Wire codec. Small values go as raw JSON (framing + gzip CPU aren't worth it
+// under ~1KB); larger ones are gzipped and base64-wrapped behind a NUL-led
+// sentinel. JSON text may begin only with {,[,",digit,-,t,f,n or the four legal
+// whitespace bytes (space, tab, LF, CR) -- never NUL -- and our stored plaintext
+// is JSON.stringify output with no leading whitespace, so the sentinel is
+// unambiguous and legacy plaintext values keep parsing untouched. base64(gzip(
+// json)) still lands far under the raw size for the compressible bodies we
+// cache; the only-if-smaller guard keeps incompressible/tiny payloads on raw.
+const GZIP_PREFIX = '\u0000gz:';
+const COMPRESS_MIN_BYTES = 1024;
+
+async function encodeForWire(payload) {
+	if (payload.length < COMPRESS_MIN_BYTES) return payload;
+	const encoded = GZIP_PREFIX + (await gzipAsync(payload)).toString('base64');
+	return encoded.length < payload.length ? encoded : payload;
+}
+
+async function decodeFromWire(raw) {
+	if (typeof raw === 'string' && raw.startsWith(GZIP_PREFIX)) {
+		const buf = Buffer.from(raw.slice(GZIP_PREFIX.length), 'base64');
+		return JSON.parse((await gunzipAsync(buf)).toString('utf8'));
+	}
+	return JSON.parse(raw);
+}
+
 async function redisCmd(args) {
 	const target = cacheTarget();
 	if (!target) throw new Error('cache redis not configured');
@@ -267,7 +304,7 @@ function redisGetThrough(key) {
 	const p = (async () => {
 		try {
 			const raw = await redisCmd(['GET', key]);
-			const value = raw == null ? null : JSON.parse(raw);
+			const value = raw == null ? null : await decodeFromWire(raw);
 			memoPut(key, value);
 			return value;
 		} catch (err) {
@@ -313,20 +350,25 @@ export async function cacheSet(key, value, ttlSeconds = 60) {
 	}
 	try {
 		const payload = JSON.stringify(value);
+		// Compress before measuring: the size gate below must reflect the bytes
+		// that actually go over the wire, not the raw JSON. A body that gzips well
+		// (the money-feed, trending snapshots) now lands in Redis where the raw
+		// length would have wrongly shunted it to memory-only.
+		const body = await encodeForWire(payload);
 		// An oversized value over Upstash REST is a guaranteed timeout from a
 		// non-co-located region: it can never finish inside the command deadline,
 		// so it would burn the failure streak and flap the suppression gate all
 		// day without ever landing. Keep it memory-only and leave the streak to
-		// reflect the store's real health.
-		if (payload.length > env.CACHE_REDIS_MAX_VALUE_BYTES) {
+		// reflect the store's real health. Gated on the compressed wire size.
+		if (body.length > env.CACHE_REDIS_MAX_VALUE_BYTES) {
 			// Memo the value too: with Redis healthy a GET is a clean miss (null),
 			// not an error, so it would never consult the memory fallback — the memo
 			// is what keeps near-term reads coherent with this write.
 			memoPut(key, value);
-			warnThrottled('set-size', `[cache] value for "${key}" exceeds ${env.CACHE_REDIS_MAX_VALUE_BYTES} bytes — memory-only (raise CACHE_REDIS_MAX_VALUE_BYTES to override)`);
+			warnThrottled('set-size', `[cache] value for "${key}" exceeds ${env.CACHE_REDIS_MAX_VALUE_BYTES} bytes compressed — memory-only (raise CACHE_REDIS_MAX_VALUE_BYTES to override)`);
 			return memSet(key, value, ttlSeconds);
 		}
-		await redisCmd(['SET', key, payload, 'EX', String(ttlSeconds)]);
+		await redisCmd(['SET', key, body, 'EX', String(ttlSeconds)]);
 		if (setSuppressedUntil !== 0) warnThrottled('set-gate', '[cache] redis SET recovered — resuming cache writes');
 		setFailures = 0;
 		setSuppressedUntil = 0;

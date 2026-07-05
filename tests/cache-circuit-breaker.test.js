@@ -13,6 +13,19 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { cacheSet, cacheGet } from '../api/_lib/cache.js';
 
 const SHARED = 'https://ratelimit-store.upstash.io';
+
+// Deterministic high-entropy string (LCG over printable ASCII) that gzip can't
+// meaningfully shrink — needed to exercise the size gate now that it measures the
+// COMPRESSED wire size. No Math.random so the test stays reproducible.
+function incompressible(len) {
+	let out = '';
+	let x = 0x9e3779b1;
+	while (out.length < len) {
+		x = (Math.imul(x, 1103515245) + 12345) & 0x7fffffff;
+		out += String.fromCharCode(33 + (x % 94));
+	}
+	return out;
+}
 const ENV_KEYS = ['UPSTASH_CACHE_REST_URL', 'UPSTASH_CACHE_REST_TOKEN', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN'];
 let saved;
 
@@ -109,13 +122,15 @@ describe('cache circuit breaker', () => {
 		// from a non-co-located region — sending it would poison the failure streak
 		// and flap the suppression gate (the July 2026 log export). The size guard
 		// must route it to memory without any network call or streak side effects.
+		// The gate now measures COMPRESSED bytes, so the oversized value has to be
+		// incompressible (high-entropy) to actually exceed the cap after gzip.
 		vi.resetModules();
 		const { cacheGet, cacheSet } = await import('../api/_lib/cache.js');
 		const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ result: 'OK' }) }));
 		globalThis.fetch = fetchMock;
 		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-		const oversized = { blob: 'x'.repeat(300_000) }; // > 256KB default cap
+		const oversized = { blob: incompressible(400_000) }; // > 256KB even after gzip
 		await cacheSet('size:big', oversized, 30);
 		expect(fetchMock).not.toHaveBeenCalled(); // never sent to the network
 		// Near-term reads stay coherent via the read memo — no network round-trip.

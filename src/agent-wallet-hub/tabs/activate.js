@@ -191,26 +191,53 @@ registerWalletTab({
 				</div>`;
 		}
 
-		function unavailableView() {
-			// reason: not_configured (treasury off) | platform_agent | not_owner
-			let title = 'Activation is paused';
-			let lede = 'The activation grant is temporarily unavailable. You can still fund this agent yourself from the Deposit tab — that also brings it to life on the Pulse.';
-			if (status?.reason === 'platform_agent') {
-				title = 'Already live';
-				lede = 'This is a platform-operated agent — it is already active on the Money Pulse. Activation is for agents you create.';
-			}
+		// Platform-operated (circulation) agent — already live, activation N/A.
+		function platformAgentView() {
+			return `
+				<div class="awh-go">
+					<div class="awh-go-hero">
+						<span class="awh-go-live-badge">Live</span>
+						<h2 class="awh-go-title">${escapeHtml(agentName)} is already live</h2>
+						<p class="awh-go-lede">This is a platform-operated agent — it's already active on the Money Pulse. The welcome grant is only for agents you create yourself.</p>
+						<div class="awh-go-next">
+							<a class="awh-btn awh-btn--primary" href="/pulse">See it on the Money Pulse ↗</a>
+							<button class="awh-btn" type="button" data-act="tab-pulse">Its wallet story</button>
+						</div>
+					</div>
+				</div>`;
+		}
+
+		// Grant paused (treasury off) OR status couldn't be read. Not a dead end:
+		// self-funding from Deposit reaches the identical outcome — funded wallet,
+		// live on the Pulse — so we sell that path, not just offer it.
+		function pausedView() {
+			const grant = status?.grant_sol != null ? formatSol(status.grant_sol) : null;
+			const net = status?.network || 'mainnet';
 			return `
 				<div class="awh-go">
 					<div class="awh-go-hero">
 						<p class="awh-go-kicker">Go Live</p>
-						<h2 class="awh-go-title">${escapeHtml(title)}</h2>
-						<p class="awh-go-lede">${escapeHtml(lede)}</p>
+						<h2 class="awh-go-title">Fund ${escapeHtml(agentName)} to go live</h2>
+						<p class="awh-go-lede">The one-tap welcome grant is paused right now — but you don't have to wait for it. Depositing your own SOL does the exact same thing: it funds ${escapeHtml(agentName)} and lands it on the live Money Pulse the moment the balance clears.</p>
+						${grant ? `<div class="awh-go-grant"><b>◎${escapeHtml(grant)}+</b><span>enough to go live</span></div>` : ''}
+						<ul class="awh-go-list">
+							<li><span class="awh-go-tick" aria-hidden="true">✓</span><span><strong>Funds the wallet</strong> — your SOL lands in ${escapeHtml(agentName)}'s custodial wallet so it can make its first move.</span></li>
+							<li><span class="awh-go-tick" aria-hidden="true">✓</span><span><strong>Goes live on the Money Pulse</strong> — a funded wallet counts as active the moment its first transaction settles.</span></li>
+							<li><span class="awh-go-tick" aria-hidden="true">✓</span><span><strong>Still yours</strong> — it's your deposit, not a grant. Pull it back anytime from the Withdraw tab.</span></li>
+						</ul>
 						<div class="awh-go-next">
 							<button class="awh-btn awh-btn--primary" type="button" data-act="tab-deposit">Fund from Deposit</button>
 							<a class="awh-btn" href="/pulse">Open the Money Pulse ↗</a>
 						</div>
+						<p class="awh-go-hint">Runs on Solana ${escapeHtml(net)}. The welcome grant reopens automatically when the treasury is back online — nothing you need to do.</p>
 					</div>
 				</div>`;
+		}
+
+		function unavailableView() {
+			// reason: not_configured (treasury off) | platform_agent | not_owner
+			if (status?.reason === 'platform_agent') return platformAgentView();
+			return pausedView();
 		}
 
 		function render() {

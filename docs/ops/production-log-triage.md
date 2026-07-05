@@ -2,7 +2,9 @@
 
 Every recurring `error`/`warning` signature that shows up in a Vercel log
 export, mapped to its **root cause**, the **exact resolution**, and **who** can
-apply it. Built from the `three-ws-character-studio` export on 2026-07-03.
+apply it. Built from the `three-ws-character-studio` export on 2026-07-03 and
+re-confirmed against the `three.ws` export on 2026-07-05 (same population plus the
+two storage-pressure signatures added below — still no code defects).
 
 The headline finding, so nobody re-derives it: **none of these are code
 defects.** Each line is the platform's own graceful-degradation or fail-closed
@@ -110,6 +112,26 @@ guard env violated:
 
 ---
 
+## 🟡 `[cron] <name> skipped — db at storage cap (<size>MB ≥ <high-water>MB); retention will reclaim space`
+
+```
+[cron] launcher-tick skipped — db at storage cap (593MB ≥ 470MB); retention will reclaim space
+```
+
+- **Source:** [api/_lib/http.js](../../api/_lib/http.js) `wrapCron({ requireWriteCapacity: true })`, via `isStoragePressured()` in [api/_lib/db.js](../../api/_lib/db.js). Emitted by the write-heavy crons that opt into the preflight: `launcher-tick`, `coin-intel-observe`, `smart-money-rollup`, `recompute-reputation`, `intel-learn`.
+- **What it means:** the Neon branch is over its high-water mark (`DB_RETENTION_HIGH_WATER_MB`, default 470). Rather than run a full write-tick that would fail per-row with SQLSTATE 53100 and flood the logs, each write-heavy cron **preflight-skips** with a single warn and a healthy heartbeat (uptime reads it as up, not stalled). [api/cron/db-retention.js](../../api/cron/db-retention.js) runs every 15 min, tightens its retention window to the floor under pressure, DELETEs + VACUUMs, and the next tick resumes once size drops back under the mark. In the 2026-07-05 export db-retention was scheduled and returning `200` (~3.5 s/run) the whole window — the valve is working; the branch is simply sitting above the mark because the live data footprint exceeds it and Neon's storage GC is not instant.
+- **Resolve (owner, capacity):** the write crons stay skipped only while `pg_database_size > high-water`. Pick one: (a) raise the **Neon compute/storage plan** so the branch has headroom above the real footprint; (b) if the branch's actual cap is higher than 470 MB, raise `DB_RETENTION_HIGH_WATER_MB` to match the plan so the write crons stop skipping needlessly; (c) tighten `PUMP_INTEL_RETENTION_DAYS` / `PUMP_INTEL_MIN_RETENTION_DAYS` to shed the firehose faster. None is a code change — the gate and the valve are already correct and covered by [tests/cron-storage-backoff.test.js](../../tests/cron-storage-backoff.test.js).
+
+---
+
+## 🟢 `{"stage":"index-delegations","warning":"time-budget-exceeded","elapsedMs":…,"stoppedAtBlock":…}`
+
+- **Source:** [api/cron/\[name\].js](../../api/cron/[name].js), the delegations indexer (`IDX_TIME_BUDGET_MS`, 22 s — 8 s of headroom under Vercel's 30 s limit).
+- **What it means:** the indexer hit its per-invocation time budget mid-backfill, so it **saved the cursor at `stoppedAtBlock` and returned** rather than risk a 504. The next tick resumes exactly where it stopped. This is a checkpoint, not a failure — logged as `warning` by design. A run of these back-to-back just means the indexer is draining a block backlog (cold cursor starts a day back); it stops once the cursor catches the confirmed head.
+- **Resolve:** 🟢 nothing required — it self-heals as the backlog drains. If it never stops over many hours, the RPC pool is too slow to keep pace; add a faster `IDX_RPC_URLS` endpoint or shrink the per-chain block cap so each tick makes more progress.
+
+---
+
 ## 🟢 `[cache] redis SET failed / degraded / circuit opened … memory fallback`
 
 - **Source:** [api/_lib/cache.js](../../api/_lib/cache.js).
@@ -159,19 +181,65 @@ guard env violated:
 
 ---
 
-## The 5-minute owner checklist
+## The owner runbook — every fix as an exact command
 
-Everything red/yellow above, condensed to the actions only the owner can take:
-
-1. **Ring:** set `X402_AUTONOMOUS_ENABLED=false` to pause quietly, **or** finish
-   the guard env (see [docs/x402-ring-economy.md](../x402-ring-economy.md)) to go live.
-2. **World:** set `ADMIN_CODE` on the world service + re-run `apply-hardening.sh`.
-3. **Replicate:** add billing credit (restores the paid forge lanes).
-4. **Neon:** add compute/pooler headroom so audit writes stop timing out.
-5. **Upstash / Helius (optional):** same-region cache store; higher Helius quota.
-
-Nothing on this list is a code change. The code paths behind every line are
-already hardened and covered by tests
+Everything red/yellow above, condensed to the actions only the owner can take,
+each reduced to a copy-paste command. Nothing here is a code change — the code
+paths behind every line are already hardened and covered by tests
 ([tests/x402-ring-invariants.test.js](../../tests/x402-ring-invariants.test.js),
 [tests/cache-circuit-breaker.test.js](../../tests/cache-circuit-breaker.test.js),
-[tests/cache-store-routing.test.js](../../tests/cache-store-routing.test.js)).
+[tests/cache-store-routing.test.js](../../tests/cache-store-routing.test.js),
+[tests/cron-storage-backoff.test.js](../../tests/cron-storage-backoff.test.js)).
+Run the Vercel env writes from the repo root against the linked project, then
+redeploy so they take effect.
+
+### 1. 🔴 World — stop every visitor having build rights (do this first)
+
+The fail-closed patch ([deploy/world/patches/0003-fail-closed-without-admin-code.patch](../../deploy/world/patches/0003-fail-closed-without-admin-code.patch))
+is already in the repo; it just isn't live on the running revision. One script
+generates the secret, rebuilds, redeploys, and polls `/status` until it reports
+`protected:true` (needs Cloud Run / Secret Manager / Cloud Build on project
+`aerial-vehicle-466722-p5`):
+
+```bash
+bash deploy/world/apply-hardening.sh   # prints the admin code once — store it in a password manager
+```
+
+### 2. 🔴 x402 ring — pause cleanly, or finish arming
+
+```bash
+# Pause quietly (recommended unless you're actively going live) — kills the hourly guard alert:
+vercel env add X402_AUTONOMOUS_ENABLED production   # value: false
+# …or finish arming (moves real USDC) per docs/x402-ring-economy.md guard-env section.
+```
+
+### 3. 🟡 Neon — stop the write-crons preflight-skipping at the storage cap
+
+DB sat at 593 MB vs the 470 MB high-water in the 2026-07-05 export, so
+`launcher-tick`, `coin-intel-observe`, `smart-money-rollup`, `recompute-reputation`,
+and `intel-learn` were skipping. Pick the lever that matches your Neon plan:
+
+```bash
+# (a) If your branch's real cap is well above 470 MB, raise the high-water to match:
+vercel env add DB_RETENTION_HIGH_WATER_MB production   # value: e.g. 900  (must stay under the real Neon cap)
+# (b) …or shed the pump.fun firehose faster (keeps the branch smaller):
+vercel env add PUMP_INTEL_RETENTION_DAYS production      # value: e.g. 7
+vercel env add PUMP_INTEL_MIN_RETENTION_DAYS production  # value: e.g. 2
+# (c) Best durable fix: bump the Neon compute/storage plan in the Neon dashboard.
+```
+
+### 4. 🟡 Replicate — restore the paid forge lane (clears the two 502s)
+
+Add credit at `replicate.com/account/billing`. The free NVIDIA NIM + HF lanes
+keep serving meanwhile; paid credit brings back the high-fidelity TRELLIS lane.
+
+### 5. 🟡 Upstash / Helius — kill the redis-timeout and 429 warnings (optional)
+
+```bash
+# A same-region dedicated cache store ends the 'redis SET failed' flood:
+vercel env add UPSTASH_CACHE_REST_URL production
+vercel env add UPSTASH_CACHE_REST_TOKEN production
+# …or just give a distant store more headroom:
+vercel env add CACHE_REDIS_CMD_TIMEOUT_MS production     # value: e.g. 5000
+# Helius 429s: raise the plan/quota in the Helius dashboard (public-RPC fallback covers the gap).
+```

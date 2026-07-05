@@ -39,6 +39,14 @@
 			<description>The animation gallery at three.ws/animations got a ground-up upgrade. All 2,100+ clips now show a real poster image of the avatar mid-motion instead of a blank tile, and hovering any card plays the full animation live in 3D. Clips are organized into 16 browsable categories (dance, combat, weapons, sports, and more) with search, sorting, and loop filters, and every clip has its own shareable link with playback controls — scrub the timeline, change the speed, then send it straight to the Animation Studio or copy an embed snippet for your own site.</description>
 		</item>
 		<item>
+			<title>Go Live: a real path to activate your agent even when the welcome grant is paused</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-05:Go Live: a real path to activate your agent even when the welcome grant is paused</guid>
+			<pubDate>Sun, 05 Jul 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>When the one-tap welcome grant is temporarily paused, the Go Live tab used to show a bare dead-end card. It's now a proper self-fund path: it explains that depositing your own SOL does the exact same thing — funds your agent and lands it on the live Money Pulse — shows how much is enough to go live, and reassures you the deposit stays yours and is withdrawable anytime. The grant reopens on its own when the treasury is back online.</description>
+		</item>
+		<item>
 			<title>Go Pro with SOL or $THREE — 20% off in the platform coin</title>
 			<link>https://three.ws/pricing</link>
 			<guid isPermaLink="false">2026-07-05:Go Pro with SOL or $THREE — 20% off in the platform coin</guid>
@@ -53,6 +61,14 @@
 			<pubDate>Sun, 05 Jul 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>Some Solana wallets modify a payment transaction before signing it — injecting their own fee or guard instructions — and the platform's payment verifier rightly refuses anything that isn't the exact transfer it prepared. Until now that refusal looked like a dead end: the pay button bounced with a payment-required error no matter how many times you retried. The checkout now detects the rewrite the moment the wallet hands the transaction back and says plainly that the wallet altered it and nothing was charged, so you can switch wallets instead of retrying in circles. Verify rejections and settle failures are also now counted by reason on the public health endpoint, so a streak of refused payments is visible at a glance instead of hiding in admin logs.</description>
+		</item>
+		<item>
+			<title>Portfolio risk panel stops crying wolf on fresh wallets</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-05:Portfolio risk panel stops crying wolf on fresh wallets</guid>
+			<pubDate>Sun, 05 Jul 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Every agent wallet holds SOL as its base currency, but the Portfolio tab used to flag a brand-new wallet holding only SOL as &quot;100% concentration risk&quot; in alarming red — a false alarm, since holding the base asset isn't a bet on anything. Concentration is now measured only across volatile memecoin positions, so a wallet parked in SOL or stablecoins reads correctly: a new Reserve tile shows your dry powder, and the panel tells you it's ready to deploy with minimal market risk instead of warning you about a risk that isn't there. A genuine over-concentration in one memecoin is still flagged. Applies to every agent's Portfolio view.</description>
 		</item>
 		<item>
 			<title>Status page no longer reports a phantom outage — and graduation tracking runs clean</title>
@@ -77,6 +93,14 @@
 			<pubDate>Sun, 05 Jul 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>The on-chain sniper worker went quiet on July 3 and nothing noticed: the status page showed the engine offline and zero launches scored, but no alert fired. The platform's watchdog now checks the sniper's own heartbeat every 5 minutes and pages the ops channel within 10 minutes of a stall, with hourly re-pages until it recovers. The worker also gained a dead-man switch: if it loses its database for 15 minutes straight it restarts itself instead of running as a zombie that scores nothing.</description>
+		</item>
+		<item>
+			<title>Wallet chips on avatar and agent cards no longer overflow their card</title>
+			<link>https://three.ws/dashboard/avatars</link>
+			<guid isPermaLink="false">2026-07-05:Wallet chips on avatar and agent cards no longer overflow their card</guid>
+			<pubDate>Sun, 05 Jul 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>On the Avatars and Agents dashboards, the wallet identity chip — address, ownership, live balance, rarity and the vanity shortcut — was crammed onto a single line and spilled past the edge of narrow cards, bleeding into the card beside it. It now fills the card footer as a tidy rounded block and wraps its badges onto a second line when space is tight, so every card stays clean at any width. The Community and Characters galleries get the same fix.</description>
 		</item>
 		<item>
 			<title>Markets — Live Crypto Prices</title>

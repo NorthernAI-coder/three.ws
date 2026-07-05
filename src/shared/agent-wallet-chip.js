@@ -252,6 +252,14 @@ export function ensureWalletChipStyles() {
 .twc:focus-visible{outline:none;box-shadow:0 0 0 2px var(--wallet-glow,rgba(139,92,246,.45));}
 .twc[data-vanity="true"]{color:var(--wallet-accent-strong,#a78bfa);background:var(--wallet-accent-fill,rgba(139,92,246,.15));border-color:var(--wallet-stroke-strong,rgba(139,92,246,.5));}
 .twc[data-owner="1"]{border-color:var(--wallet-stroke-strong,rgba(139,92,246,.5));}
+/* Dense mode: fill a narrow card footer and wrap badges onto a second line inside
+   the same rounded container instead of overflowing the card into its neighbours. */
+.twc[data-dense="1"]{display:flex;flex-wrap:wrap;width:100%;max-width:100%;box-sizing:border-box;white-space:normal;
+	border-radius:12px;column-gap:7px;row-gap:5px;padding:6px 10px;align-items:center;}
+.twc[data-dense="1"] .twc-addr{min-width:0;overflow:hidden;text-overflow:ellipsis;}
+.twc[data-dense="1"] .twc-bal,
+.twc[data-dense="1"] .twc-make,
+.twc[data-dense="1"] button.twc-make{border-left:0;padding-left:0;margin-left:0;}
 .twc-ico{width:11px;height:11px;flex:none;opacity:.8;}
 .twc-addr{font-family:var(--font-mono,ui-monospace,SFMono-Regular,Menlo,monospace);letter-spacing:.01em;display:inline-flex;gap:1px;}
 .twc-hi{color:var(--ink-bright,#fff);font-weight:700;}
@@ -387,18 +395,22 @@ function tipAttrs(agent, status) {
  * @param {boolean} [opts.balance=true]  Render + lazily hydrate the live balance.
  * @param {boolean} [opts.popover=true]  Enable the rich preview popover.
  * @param {string}  [opts.network='mainnet']  Cluster for the balance read.
+ * @param {boolean} [opts.dense=false]  Render a full-width chip whose badges wrap
+ *   onto a second line inside the same rounded container — for narrow card footers
+ *   (avatar/agent grids) where the single-line pill would otherwise overflow.
  */
 export function walletChipHTML(agent, opts = {}) {
 	ensureWalletChipStyles();
 	const {
 		isOwner = false, showPending = true, link = true, tip = true,
 		balance = true, popover = true, network = 'mainnet', reputation = true,
+		dense = false,
 	} = opts;
 	const status = getWalletStatus(agent);
 
 	if (!status) {
 		if (!showPending) return '';
-		return `<span class="twc twc-pending" title="Wallet provisioning">${WALLET_SVG}<span>Wallet pending</span></span>`;
+		return `<span class="twc twc-pending"${dense ? ' data-dense="1"' : ''} title="Wallet provisioning">${WALLET_SVG}<span>Wallet pending</span></span>`;
 	}
 
 	// Live balance + rich popover only make sense when the chip is backed by a real
@@ -487,7 +499,7 @@ export function walletChipHTML(agent, opts = {}) {
 
 	const title = `Agent wallet ${status.address}${status.isVanity ? ' (vanity)' : ''}`;
 	return (
-		`<span class="twc" data-vanity="${status.isVanity}" data-owner="${isOwner ? '1' : '0'}"${triggerAttrs}${hydrateAttrs} title="${esc(title)}">` +
+		`<span class="twc" data-vanity="${status.isVanity}" data-owner="${isOwner ? '1' : '0'}"${dense ? ' data-dense="1"' : ''}${triggerAttrs}${hydrateAttrs} title="${esc(title)}">` +
 		WALLET_SVG +
 		addressLabelHTML(status) +
 		ownerBadge +

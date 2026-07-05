@@ -834,7 +834,7 @@ function avatarWalletChip(a) {
 		solana_vanity_prefix: a.agent_solana_vanity_prefix || null,
 		solana_vanity_suffix: a.agent_solana_vanity_suffix || null,
 	};
-	return `<div class="dn-av-wallet" style="margin-top:8px;">${walletChipHTML(agent, { isOwner: true, showPending: true })}</div>`;
+	return `<div class="dn-av-wallet" style="margin-top:8px;">${walletChipHTML(agent, { isOwner: true, showPending: true, dense: true })}</div>`;
 }
 
 // ── Inline rename ────────────────────────────────────────────────────────

@@ -923,6 +923,48 @@
 					box-shadow: 0 0 0 0 rgba(34, 211, 238, 0);
 				}
 			}
+			.al-scrub-row {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+			}
+			.al-play {
+				appearance: none;
+				flex: 0 0 auto;
+				width: 30px;
+				height: 30px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				border: 1px solid rgba(34, 211, 238, 0.4);
+				border-radius: 7px;
+				background: rgba(34, 211, 238, 0.1);
+				color: var(--text);
+				font-size: 12px;
+				cursor: pointer;
+				transition: background 0.12s ease;
+			}
+			.al-play:hover {
+				background: rgba(34, 211, 238, 0.2);
+			}
+			.al-play:focus-visible {
+				outline: 2px solid #22d3ee;
+				outline-offset: 1px;
+			}
+			.al-scrub {
+				flex: 1 1 auto;
+				min-width: 40px;
+				accent-color: #22d3ee;
+				cursor: pointer;
+			}
+			.al-time {
+				flex: 0 0 auto;
+				font-family: ui-monospace, monospace;
+				font-size: 10.5px;
+				color: var(--text-2);
+				min-width: 66px;
+				text-align: right;
+			}
 			.al-speed-row {
 				display: flex;
 				align-items: center;

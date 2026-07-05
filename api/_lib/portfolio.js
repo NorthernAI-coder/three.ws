@@ -174,17 +174,39 @@ export function computeRisk(holdings, netWorthUsd, metrics, closedPnlPcts) {
 	// At-risk exposure: share of net worth in volatile memecoins (not SOL, not a
 	// stablecoin). This is the honest "tape beta" proxy — the slice that moves
 	// with the broad pump.fun tape, vs SOL/USDC that don't.
-	const volatileUsd = valued
-		.filter((h) => !h.isNative && !h.stable)
-		.reduce((s, h) => s + h.usd, 0);
+	const riskAssets = valued.filter((h) => !h.isNative && !h.stable);
+	const volatileUsd = riskAssets.reduce((s, h) => s + h.usd, 0);
 	const exposurePct = netWorthUsd > 0 ? (volatileUsd / netWorthUsd) * 100 : 0;
 	const tapeBeta = netWorthUsd > 0 ? volatileUsd / netWorthUsd : 0;
+
+	// Reserve ("dry powder"): SOL + stablecoins — the slice that carries no tape
+	// risk and is ready to deploy. A wallet that is all reserve (the common fresh
+	// state) has NO concentration risk; concentration is a property of the volatile
+	// sleeve, not of holding the base asset.
+	const reserveUsd = totalValued - volatileUsd;
+	const reservePct = netWorthUsd > 0 ? (reserveUsd / netWorthUsd) * 100 : 0;
+
+	// Concentration of the *risk* sleeve: the single largest volatile position as a
+	// share of net worth. This is what "one position could rug me" actually means.
+	let topRisk = null;
+	let topRiskShare = 0;
+	for (const h of riskAssets) {
+		const w = totalValued > 0 ? h.usd / totalValued : 0;
+		if (w > topRiskShare) { topRiskShare = w; topRisk = h; }
+	}
+	const topIsReserve = !!topHolding && (topHolding.isNative || topHolding.stable);
 
 	return {
 		net_worth_usd: round(netWorthUsd, 2),
 		concentration_hhi: round(hhi, 4),
 		top_position_pct: round(topShare * 100, 2),
 		top_position_mint: topHolding?.mint || (topHolding?.isNative ? 'SOL' : null),
+		top_position_is_reserve: topIsReserve,
+		top_risk_position_pct: round(topRiskShare * 100, 2),
+		top_risk_position_mint: topRisk?.mint || null,
+		reserve_usd: round(reserveUsd, 2),
+		reserve_pct: round(reservePct, 2),
+		risk_assets_count: riskAssets.length,
 		volatile_exposure_usd: round(volatileUsd, 2),
 		exposure_pct: round(exposurePct, 2),
 		tape_beta: round(tapeBeta, 3),
@@ -203,7 +225,11 @@ export function computeRisk(holdings, netWorthUsd, metrics, closedPnlPcts) {
  */
 export function riskFlags(risk, topHoldingPriceable) {
 	const flags = [];
-	const top = risk.top_position_pct;
+	// Concentration is a property of the *risk* sleeve, not of holding the base
+	// asset. A wallet that is all SOL/stable is dry powder, not a concentrated bet —
+	// so key the flag off the largest volatile position when we know it, and never
+	// alarm when the dominant holding is reserve (SOL / stablecoin).
+	const top = risk.top_risk_position_pct != null ? risk.top_risk_position_pct : risk.top_position_pct;
 	if (top != null && top >= 60) {
 		const liq = topHoldingPriceable === false ? ' illiquid' : '';
 		flags.push({
@@ -227,6 +253,14 @@ export function riskFlags(risk, topHoldingPriceable) {
 		flags.push({
 			level: 'info',
 			text: `${risk.unpriceable_count} holding${risk.unpriceable_count === 1 ? '' : 's'} could not be priced — shown as unvalued, never guessed.`,
+		});
+	}
+	// Reserve-heavy wallets (the common fresh / between-trades state) carry no tape
+	// risk. Say so positively instead of leaving a scary silence or a false alarm.
+	if (!flags.length && risk.reserve_pct != null && risk.reserve_pct >= 90) {
+		flags.push({
+			level: 'info',
+			text: `${risk.reserve_pct}% of net worth is held in SOL / stable reserve — dry powder ready to deploy, minimal market risk.`,
 		});
 	}
 	if (!flags.length && risk.net_worth_usd != null) {
@@ -494,7 +528,10 @@ export async function getPortfolio({ agentId, network = 'mainnet', now = Date.no
 	});
 
 	const risk = computeRisk(holdingsOut, netWorthUsd, metrics, closedPnlPcts);
-	const top = holdingsOut.find((h) => (h.mint || (h.isNative ? 'SOL' : null)) === risk.top_position_mint);
+	// The concentration flag now keys off the largest volatile position, so its
+	// illiquid detail should track that holding when one drives the flag.
+	const flagMint = risk.top_risk_position_mint || risk.top_position_mint;
+	const top = holdingsOut.find((h) => (h.mint || (h.isNative ? 'SOL' : null)) === flagMint);
 	const flags = riskFlags(risk, top ? top.priceable : null);
 
 	return {
