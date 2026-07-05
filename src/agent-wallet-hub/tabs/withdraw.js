@@ -142,12 +142,25 @@ async function scanQr() {
 	let stream = null;
 	const overlay = document.createElement('div');
 	overlay.className = 'awh-scan';
-	overlay.innerHTML = `<div class="awh-scan-box"><video autoplay muted playsinline></video><button type="button" class="awh-btn">Cancel</button></div>`;
+	overlay.setAttribute('role', 'dialog');
+	overlay.setAttribute('aria-modal', 'true');
+	overlay.setAttribute('aria-label', 'Scan a QR code to fill the destination address');
+	overlay.innerHTML = `<div class="awh-scan-box"><video autoplay muted playsinline aria-hidden="true"></video><button type="button" class="awh-btn" data-scan-cancel>Cancel</button></div>`;
 	document.body.appendChild(overlay);
 	const video = overlay.querySelector('video');
+	const cancelBtn = overlay.querySelector('[data-scan-cancel]');
 	let stopped = false;
-	const cleanup = () => { stopped = true; if (stream) stream.getTracks().forEach((t) => t.stop()); overlay.remove(); };
-	overlay.querySelector('button').addEventListener('click', cleanup);
+	function cleanup() {
+		stopped = true;
+		document.removeEventListener('keydown', onKey);
+		if (stream) stream.getTracks().forEach((t) => t.stop());
+		overlay.remove();
+	}
+	function onKey(e) { if (e.key === 'Escape') { e.preventDefault(); cleanup(); } }
+	cancelBtn.addEventListener('click', cleanup);
+	overlay.addEventListener('click', (e) => { if (e.target === overlay) cleanup(); });
+	document.addEventListener('keydown', onKey);
+	cancelBtn.focus();
 	try {
 		// eslint-disable-next-line no-undef
 		const detector = new BarcodeDetector({ formats: ['qr_code'] });
@@ -481,7 +494,7 @@ registerWalletTab({
 				return `<div class="awh-card"><div class="awh-skel-line" style="width:50%"></div><div class="awh-skel-line"></div><div class="awh-skel-line"></div></div>`;
 			}
 			if (state.limits.error) {
-				return `<div class="awh-card"><div class="awh-err">Couldn’t load limits.<div class="why">${esc(state.limits.error)}</div></div><button class="awh-btn" type="button" data-act="reload-limits">Retry</button></div>`;
+				return `<div class="awh-card"><div class="awh-err" role="alert">Couldn’t load limits.<div class="why">${esc(state.limits.error)}</div></div><button class="awh-btn" type="button" data-act="reload-limits">Retry</button></div>`;
 			}
 			const lim = state.limits.limits || {};
 			const spent = state.limits.spent_today_usd ?? 0;
@@ -677,7 +690,7 @@ registerWalletTab({
 				const url = `${base('custody')}?network=${ctx.getNetwork()}&limit=25${cursor ? `&before=${cursor}` : ''}`;
 				const res = await call(url);
 				if (destroyed) return;
-				if (!res.ok) { host.innerHTML = `<div class="awh-err">Couldn’t load activity.<div class="why">${esc(res.message)}</div></div>`; return; }
+				if (!res.ok) { host.innerHTML = `<div class="awh-err" role="alert">Couldn’t load activity.<div class="why">${esc(res.message)}</div></div><button class="awh-btn" type="button" data-act="reload-activity" style="margin-top:10px;">Retry</button>`; host.querySelector('[data-act="reload-activity"]')?.addEventListener('click', () => { host.innerHTML = `<div class="awh-skel-line"></div><div class="awh-skel-line"></div><div class="awh-skel-line" style="width:70%"></div>`; loadPage(); }); return; }
 				items.push(...(res.data?.items || []));
 				cursor = res.data?.next_cursor || null;
 				exhausted = !cursor;

@@ -157,6 +157,7 @@ registerWalletTab({
 		let detachNet = null;
 		const state = {
 			loaded: false,
+			signedOut: false,     // 401 from the owner-gated policy endpoint
 			current: null,        // { policy, readback, source_text, numeric_limits } | { error }
 			draft: '',            // textarea content
 			compiling: false,
@@ -167,8 +168,20 @@ registerWalletTab({
 
 		function render() {
 			if (destroyed) return;
+			if (state.signedOut) { panel.innerHTML = renderSignedOut(); return; }
 			panel.innerHTML = `${renderCurrent()}${renderComposer()}${renderResult()}`;
 			wire();
+		}
+
+		// Owner-only surface — if the session lapsed, invite a sign-in rather than
+		// showing a bare "couldn't load" error.
+		function renderSignedOut() {
+			const next = encodeURIComponent(location.pathname + location.search + location.hash);
+			return `<div class="awh-card">
+				<div class="awh-card-h">Spend policy</div>
+				<p class="awp-intro">Spend policies are private to the wallet owner. Sign in to review and edit how your agent is allowed to spend.</p>
+				<div class="awp-actions"><a class="awh-btn awh-btn--primary" href="/login?next=${next}">Sign in</a></div>
+			</div>`;
 		}
 
 		// ── Active policy card ──────────────────────────────────────────────────
@@ -177,7 +190,7 @@ registerWalletTab({
 				return `<div class="awh-card"><div class="awh-card-h">Active policy</div><div class="awp-skel" style="width:50%"></div><div class="awp-skel"></div><div class="awp-skel" style="width:70%"></div></div>`;
 			}
 			if (state.current?.error) {
-				return `<div class="awh-card"><div class="awh-card-h">Active policy</div><div class="awp-err">Couldn’t load your policy.<br>${esc(state.current.error)}</div><button class="awh-btn" type="button" data-act="reload">Retry</button></div>`;
+				return `<div class="awh-card"><div class="awh-card-h">Active policy</div><div class="awp-err" role="alert">Couldn’t load your policy.<br>${esc(state.current.error)}</div><div class="awp-actions"><button class="awh-btn" type="button" data-act="reload">Retry</button></div></div>`;
 			}
 			const cur = state.current || {};
 			const readback = Array.isArray(cur.readback) ? cur.readback : [];
@@ -220,8 +233,8 @@ registerWalletTab({
 				<label for="awp-ta" class="awp-hint" style="display:block;margin-bottom:6px;">Your rules</label>
 				<textarea id="awp-ta" class="awp-ta" spellcheck="true" placeholder="e.g. Let it trade up to $50/day on tokens at least a day old, never spend my last 1 SOL, stop everything if a trade drops more than 30%, and only ever pay services I’ve used before.">${esc(state.draft)}</textarea>
 				<div class="awp-actions">
-					<button class="awh-btn awh-btn--primary" type="button" id="awp-compile" ${state.compiling ? 'disabled' : ''}>
-						${state.compiling ? '<span class="awp-spin"></span>Compiling…' : 'Compile &amp; preview'}
+					<button class="awh-btn awh-btn--primary" type="button" id="awp-compile" aria-busy="${state.compiling ? 'true' : 'false'}" ${state.compiling ? 'disabled' : ''}>
+						${state.compiling ? '<span class="awp-spin" aria-hidden="true"></span>Compiling…' : 'Compile &amp; preview'}
 					</button>
 					<span class="awp-hint grow">Nothing is enforced until you review and save.</span>
 				</div>
@@ -232,7 +245,7 @@ registerWalletTab({
 		function renderResult() {
 			if (state.compileErr) {
 				return `<div class="awh-card">
-					<div class="awp-${state.compileErr.refusal ? 'warn' : 'err'}">${esc(state.compileErr.message || 'Could not compile that into a policy.')}</div>
+					<div class="awp-${state.compileErr.refusal ? 'warn' : 'err'}" role="alert">${esc(state.compileErr.message || 'Could not compile that into a policy.')}</div>
 					<p class="awp-hint">Try a concrete rule, e.g. “block any payment over $50”, “only trade tokens at least a day old”, or “never let SOL drop below 1”.</p>
 				</div>`;
 			}
@@ -240,7 +253,7 @@ registerWalletTab({
 			const c = state.compiled;
 			const readback = Array.isArray(c.readback) ? c.readback : [];
 			if (!readback.length) {
-				return `<div class="awh-card"><div class="awp-warn">That didn’t produce any enforceable rules. Rephrase with a concrete limit.</div></div>`;
+				return `<div class="awh-card"><div class="awp-warn" role="alert">That didn’t produce any enforceable rules. Rephrase with a concrete limit.</div></div>`;
 			}
 			const assumptions = Array.isArray(c.assumptions) ? c.assumptions : [];
 			return `

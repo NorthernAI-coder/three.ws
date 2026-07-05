@@ -272,7 +272,7 @@ registerWalletTab({
 						</div>
 						<div class="awh-acc-field">
 							<label id="awh-acc-actions-label">Allowed actions</label>
-							<div class="awh-acc-checks">
+							<div class="awh-acc-checks" role="group" aria-labelledby="awh-acc-actions-label">
 								<label class="awh-acc-check"><input type="checkbox" data-f="action" value="trade" /> Trade</label>
 								<label class="awh-acc-check"><input type="checkbox" data-f="action" value="snipe" /> Snipe</label>
 								<label class="awh-acc-check"><input type="checkbox" data-f="action" value="x402" /> Pay services (x402)</label>

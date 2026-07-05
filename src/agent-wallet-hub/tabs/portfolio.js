@@ -448,7 +448,7 @@ registerWalletTab({
 					null, 'var(--ink-faint,#666)'],
 			];
 			const grid = cells.map(([k, v, help, frac, accent]) =>
-				`<div class="awh-risk-cell" style="--accent:${accent};" title="${escapeHtml(help)}">
+				`<div class="awh-risk-cell" style="--accent:${accent};" title="${escapeHtml(help)}" aria-label="${escapeHtml(`${k}: ${v}. ${help}`)}">
 					<div class="awh-risk-k">${escapeHtml(k)}</div>
 					<div class="awh-risk-v">${escapeHtml(v)}</div>
 					${frac != null ? `<div class="awh-risk-meter"><span style="width:${(Math.max(0, Math.min(1, frac)) * 100).toFixed(1)}%;"></span></div>` : ''}

@@ -242,10 +242,10 @@ registerWalletTab({
 				<textarea class="sb-ta" id="sb-src" aria-label="Describe your snipe strategy in plain English" placeholder="${esc(EXAMPLES[0])}" ${busy ? 'disabled' : ''}>${esc(state.source)}</textarea>
 				<div class="sb-egs" role="group" aria-label="Example strategies — tap to use one">${EXAMPLES.map((e, i) => `<button type="button" class="sb-eg" data-eg="${i}" title="${esc(e)}">${esc(e.length > 60 ? e.slice(0, 58) + '…' : e)}</button>`).join('')}</div>
 				<div class="sb-actions">
-					<button class="sb-btn primary" id="sb-compile" ${busy ? 'disabled' : ''}>${busy ? '<span class="sb-spin"></span>Compiling…' : (state.compiled ? 'Re-compile' : 'Compile strategy')}</button>
+					<button type="button" class="sb-btn primary" id="sb-compile" ${busy ? 'disabled' : ''} ${busy ? 'aria-busy="true"' : ''}>${busy ? '<span class="sb-spin"></span>Compiling…' : (state.compiled ? 'Re-compile' : 'Compile strategy')}</button>
 					<a class="sb-dash" href="${esc(dashUrl)}">Open the Sniper dashboard</a>
 				</div>
-				${state.compileError ? `<div class="sb-err" style="margin-top:12px">${esc(state.compileError)} <button class="sb-btn ghost" id="sb-retry-c" style="margin-left:8px;padding:4px 10px">Retry</button></div>` : ''}
+				${state.compileError ? `<div class="sb-err" role="alert" style="margin-top:12px">${esc(state.compileError)} <button type="button" class="sb-btn ghost" id="sb-retry-c" style="margin-left:8px;padding:4px 10px">Retry</button></div>` : ''}
 			</div>`;
 		}
 

@@ -221,11 +221,11 @@ registerWalletTab({
 		function render() {
 			if (destroyed) return;
 			if (state.loading) {
-				panel.innerHTML = `<div class="wi-wrap"><div class="wi-card"><div class="wi-skel" style="width:42%"></div><div class="wi-skel"></div><div class="wi-skel" style="width:75%"></div></div><div class="wi-card"><div class="wi-skel" style="width:30%"></div><div class="wi-skel"></div></div></div>`;
+				panel.innerHTML = `<div class="wi-wrap" role="status" aria-busy="true" aria-label="Loading your intents"><div class="wi-card"><div class="wi-skel" style="width:42%"></div><div class="wi-skel"></div><div class="wi-skel" style="width:75%"></div></div><div class="wi-card"><div class="wi-skel" style="width:30%"></div><div class="wi-skel"></div></div></div>`;
 				return;
 			}
 			if (state.error) {
-				panel.innerHTML = `<div class="wi-wrap"><div class="wi-err">Couldn’t load your intents: ${esc(state.error)}</div><div class="wi-actions"><button class="wi-btn" id="wi-retry">Retry</button></div></div>`;
+				panel.innerHTML = `<div class="wi-wrap"><div class="wi-err" role="alert">Couldn’t load your intents: ${esc(state.error)}</div><div class="wi-actions"><button class="wi-btn" id="wi-retry" type="button">Retry</button></div></div>`;
 				panel.querySelector('#wi-retry')?.addEventListener('click', load);
 				return;
 			}

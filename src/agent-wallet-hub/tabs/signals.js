@@ -27,13 +27,15 @@ const STYLE = `
 .asg-fld { margin-bottom: 13px; }
 .asg-fld label { display:block; font-size: var(--text-sm,.76rem); color: var(--ink-dim,#888); margin-bottom:6px; }
 .asg-in, .asg-sel { width:100%; box-sizing:border-box; font:inherit; font-size: var(--text-md,.82rem); color: var(--ink,#e8e8e8); background: var(--surface-2, rgba(255,255,255,.04)); border:1px solid var(--stroke,rgba(255,255,255,.1)); border-radius: var(--radius-md,10px); padding:9px 12px; }
-.asg-in:focus, .asg-sel:focus { outline:none; border-color: var(--wallet-stroke, rgba(139,92,246,.4)); }
+.asg-in:focus, .asg-sel:focus { outline:none; border-color: var(--wallet-accent,#c4b5fd); box-shadow: 0 0 0 2px color-mix(in srgb, var(--wallet-accent,#c4b5fd) 40%, transparent); }
 .asg-row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 .asg-checks { display:flex; flex-wrap:wrap; gap:14px; margin-bottom:13px; }
 .asg-check { display:inline-flex; align-items:center; gap:7px; font-size: var(--text-sm,.78rem); color: var(--ink,#ccc); cursor:pointer; }
+.asg-check input, .asg-in[type=checkbox] { accent-color: var(--wallet-accent,#c4b5fd); }
 .asg-btn { appearance:none; cursor:pointer; font:inherit; font-size: var(--text-sm,.78rem); font-weight:600; border-radius: var(--radius-md,10px); padding:10px 16px; border:1px solid var(--stroke-strong,rgba(255,255,255,.14)); background: var(--surface-2,rgba(255,255,255,.06)); color: var(--ink,#e8e8e8); transition: background .14s, transform .1s; }
 .asg-btn:hover:not(:disabled) { background: var(--surface-3,rgba(255,255,255,.09)); color:#fff; }
 .asg-btn:active:not(:disabled) { transform: translateY(1px); }
+.asg-btn:focus-visible { outline: var(--focus-ring-width,2px) solid var(--focus-ring-color,#fff); outline-offset: 2px; }
 .asg-btn:disabled { opacity:.5; cursor:not-allowed; }
 .asg-btn.primary { background: var(--wallet-accent,#c4b5fd); border-color: var(--wallet-accent,#c4b5fd); color:#160d28; }
 .asg-btn.danger { color: var(--danger,#f87171); border-color: color-mix(in srgb, var(--danger,#f87171) 40%, transparent); background: color-mix(in srgb, var(--danger,#f87171) 8%, transparent); }
