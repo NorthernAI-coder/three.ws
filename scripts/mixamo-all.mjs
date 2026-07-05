@@ -182,6 +182,27 @@ async function rlFetch(url, init = {}, attempt = 0) {
 const slugify = (s) =>
 	s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 72);
 
+// Filename base for a catalog entry: `mx-<slug>-<id12>`. The slug alone
+// collides badly — 553 of 2,484 Mixamo clips share a slug (names differing
+// only by punctuation, or truncated past 72 chars), which silently overwrote
+// each other on disk and capped the library at ~1,931. Appending 12 hex chars
+// of the Mixamo product UUID makes every clip a distinct file with zero risk
+// of loss. Used everywhere a clip maps to a filename (download + integrate).
+const idFrag = (id) => String(id).replace(/[^a-f0-9]/gi, '').slice(0, 12);
+const sourceBase = (a) => `mx-${slugify(a.name)}-${idFrag(a.id)}`;
+
+// Drop duplicate catalog rows (same product id), keeping first occurrence.
+function dedupeById(list) {
+	const seen = new Set();
+	const out = [];
+	for (const a of list) {
+		if (seen.has(a.id)) continue;
+		seen.add(a.id);
+		out.push(a);
+	}
+	return out;
+}
+
 const ICON_MAP = [
 	[/dance|shuffle|twerk|hip.?hop|disco|breakdance|floss|gangnam|dab/i, '💃'],
 	[/walk|stride|stroll|march|sneak|creep|crawl/i, '🚶'],
@@ -225,10 +246,10 @@ async function fetchCatalog() {
 	console.log('\n── Phase 1: Fetch Mixamo catalog ─────────────────────────');
 
 	if (existsSync(CATALOG_PATH)) {
-		const existing = JSON.parse(readFileSync(CATALOG_PATH, 'utf8'));
+		const existing = dedupeById(JSON.parse(readFileSync(CATALOG_PATH, 'utf8')));
 		// Older caches predate MotionPack support and carry no `type` field.
 		if (existing.length && existing.every((e) => e.type)) {
-			console.log(`  Catalog exists (${existing.length} products) — using cached version.`);
+			console.log(`  Catalog exists (${existing.length} unique products) — using cached version.`);
 			console.log(`  Delete scripts/mixamo-catalog.json to re-fetch.`);
 			return existing;
 		}
@@ -263,9 +284,14 @@ async function fetchCatalog() {
 	}
 
 	process.stdout.write('\n');
-	writeFileSync(CATALOG_PATH, JSON.stringify(animations, null, 2));
-	console.log(`  ✅ Saved ${animations.length} animations to scripts/mixamo-catalog.json`);
-	return animations;
+	// Mixamo's paginated feed returns some products on more than one page, so the
+	// raw crawl carries duplicates (≈426 of 2,484). Dedupe by product id — the
+	// true unique library is ≈2,058 — so counts, progress, and export calls are
+	// all against distinct clips.
+	const unique = dedupeById(animations);
+	writeFileSync(CATALOG_PATH, JSON.stringify(unique, null, 2));
+	console.log(`  ✅ Saved ${unique.length} unique animations (${animations.length - unique.length} dupes dropped) to scripts/mixamo-catalog.json`);
+	return unique;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -313,18 +339,21 @@ async function pollForDownloadUrl(animId, characterId, authHeaders) {
 }
 
 // MotionPack exports arrive as a zip of FBX files — extract each clip into
-// animation-sources/ under the same mx-<slug>.fbx convention as single motions.
-function extractPack(zipBuf) {
+// animation-sources/ under the mx-<slug>-<packId12>-<i> convention. The pack id
+// + index suffix guarantees uniqueness across packs and against single motions
+// (same anti-collision rule as sourceBase).
+function extractPack(zipBuf, packId) {
 	const tmp = mkdtempSync(join(tmpdir(), 'mixamo-pack-'));
 	const files = [];
 	try {
 		const zipPath = join(tmp, 'pack.zip');
 		writeFileSync(zipPath, zipBuf);
 		execFileSync('unzip', ['-o', '-q', zipPath, '-d', tmp]);
+		let i = 0;
 		for (const rel of readdirSync(tmp, { recursive: true })) {
 			if (!String(rel).toLowerCase().endsWith('.fbx')) continue;
 			const base = String(rel).split('/').pop().replace(/\.fbx$/i, '');
-			const out = `mx-${slugify(base)}.fbx`;
+			const out = `mx-${slugify(base)}-${idFrag(packId)}-${i++}.fbx`;
 			const dest = join(SOURCES_DIR, out);
 			if (!existsSync(dest)) copyFileSync(join(tmp, rel), dest);
 			files.push(out);
@@ -387,7 +416,7 @@ async function downloadAll(catalog, token) {
 		if (progress[a.id]?.status === 'done') {
 			// Pack clips are recorded in progress; single motions re-check disk.
 			if (a.type === 'MotionPack') return false;
-			const outPath = join(SOURCES_DIR, `mx-${slugify(a.name)}.fbx`);
+			const outPath = join(SOURCES_DIR, `${sourceBase(a)}.fbx`);
 			return !existsSync(outPath);
 		}
 		if (progress[a.id]?.status === 'perm_fail') return false;
@@ -402,9 +431,9 @@ async function downloadAll(catalog, token) {
 
 	async function downloadOne(anim, idx) {
 		const label = `  [${idx + 1 + alreadyDone}/${shardCatalog.length}]`;
-		const slug = slugify(anim.name);
+		const base = sourceBase(anim);
 		const isPack = anim.type === 'MotionPack';
-		const outPath = join(SOURCES_DIR, `mx-${slug}.fbx`);
+		const outPath = join(SOURCES_DIR, `${base}.fbx`);
 
 		try {
 			// Get gms_hash export params
@@ -462,14 +491,14 @@ async function downloadAll(catalog, token) {
 			const buf = Buffer.from(await fileRes.arrayBuffer());
 
 			if (isPack) {
-				const files = extractPack(buf);
+				const files = extractPack(buf, anim.id);
 				progress[anim.id] = { status: 'done', files, bytes: buf.length };
 				saveProgress();
 				ok++;
 				console.log(`${label} ✅ 📦 ${anim.name} (${files.length} clips, ${(buf.length / 1024).toFixed(0)} KB)`);
 			} else {
 				writeFileSync(outPath, buf);
-				progress[anim.id] = { status: 'done', file: `mx-${slug}.fbx`, bytes: buf.length };
+				progress[anim.id] = { status: 'done', file: `${base}.fbx`, bytes: buf.length };
 				saveProgress();
 				ok++;
 				console.log(`${label} ✅ ${anim.name} (${(buf.length / 1024).toFixed(0)} KB)`);
@@ -505,8 +534,19 @@ async function downloadAll(catalog, token) {
 async function integrate(catalog) {
 	console.log('\n── Phase 3: Generate library config ──────────────────────');
 
-	// Build a lookup: slug → catalog entry
-	const bySlug = new Map(catalog.map((a) => [`mx-${slugify(a.name)}.fbx`, a]));
+	// Build a lookup: filename → catalog entry (keyed by the same collision-free
+	// base the download phase writes). Pack clips carry an extra index suffix and
+	// won't match here — they fall back to a humanized filename label.
+	const byFile = new Map(catalog.map((a) => [`${sourceBase(a)}.fbx`, a]));
+
+	// Turn an unmatched filename into a readable label: drop the mx- prefix, the
+	// trailing -<hex id>(-<index>) suffix, and the extension, then de-hyphenate.
+	const labelFromFile = (f) => f
+		.replace(/^mx-/, '')
+		.replace(/\.fbx$/, '')
+		.replace(/-[0-9a-f]{12}(-\d+)?$/i, '')
+		.replace(/-/g, ' ')
+		.trim();
 
 	// Scan animation-sources/ for mx-*.fbx files. The library config is fully
 	// regenerated each run — it is derived data, never hand-edited. The curated
@@ -515,8 +555,8 @@ async function integrate(catalog) {
 
 	const entries = files
 		.map((file) => {
-			const anim = bySlug.get(file);
-			const label = anim?.name ?? file.replace(/^mx-/, '').replace(/\.fbx$/, '').replace(/-/g, ' ');
+			const anim = byFile.get(file);
+			const label = anim?.name ?? labelFromFile(file);
 			const entry = {
 				name: file.replace(/\.fbx$/, ''), // mx-<slug>, unique by construction
 				source: file,
