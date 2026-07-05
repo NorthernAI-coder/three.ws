@@ -415,11 +415,24 @@ export default async function handler(req, res, id) {
 	let active = true;
 	req.on('close', () => { active = false; });
 	const send = (event, data) => { if (active) res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); };
+	// Keepalive: a tool-loop round can sit silent for tens of seconds waiting on a
+	// slow provider (or a mid-round failover to the next one). Emit an SSE comment
+	// every 15s so the client's stall watchdog can stay tight and only fire on a
+	// genuinely dead connection, never on a model that's just thinking.
+	const heartbeat = setInterval(() => { if (active) res.write(': ping\n\n'); }, 15_000);
 
 	const messages = [{ role: 'system', content: buildSystemPrompt({ agentName: row.name || 'Agent', persona: row.persona_prompt, network }) }, ...history];
 	const proposals = [];
 	const citations = [];
 	let finalText = '';
+
+	// Read-only tools are pure within a turn — the wallet/intel/quote a round sees
+	// won't change between the model's rounds. Memoize by (name, args) so when the
+	// model re-issues an identical read (a common small-model tic that otherwise
+	// burns a whole tool-loop round and paints a duplicate "Portfolio: …" line in
+	// the UI) we serve it from cache: no second RPC, no duplicate `tool` event, and
+	// the loop can tell the round made no new progress and cut to a final answer.
+	const readCache = new Map();
 
 	// One read-only tool execution → returns a compact result for the model + a UI summary.
 	async function execReadTool(name, args) {
@@ -545,19 +558,43 @@ export default async function handler(req, res, id) {
 				content: roundOut.content || null,
 				tool_calls: roundOut.toolCalls.map((tc) => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.args || '{}' } })),
 			});
+			// A round is only "progress" if at least one call surfaced something new —
+			// a fresh read, or a proposal. If every call this round is a repeat of a
+			// read the model already ran this turn, it's spinning: feed the cached
+			// results back (OpenAI requires a tool result per tool_call) but break out
+			// afterward so the finalize step turns what we have into a real answer
+			// instead of stalling the owner behind more identical "Analyzing…" rounds.
+			let progressed = false;
 			for (const tc of roundOut.toolCalls) {
 				let args = {};
 				try { args = tc.args ? JSON.parse(tc.args) : {}; } catch { args = {}; }
 				const isPropose = tc.name.startsWith('propose_');
 				let outcome;
+				let cached = false;
 				try {
-					outcome = isPropose ? await execProposeTool(tc.name, args) : await execReadTool(tc.name, args);
+					if (isPropose) {
+						outcome = await execProposeTool(tc.name, args);
+						progressed = true;
+					} else {
+						const key = `${tc.name}:${JSON.stringify(args)}`;
+						if (readCache.has(key)) {
+							outcome = readCache.get(key);
+							cached = true;
+						} else {
+							outcome = await execReadTool(tc.name, args);
+							readCache.set(key, outcome);
+							progressed = true;
+						}
+					}
 				} catch (e) {
 					outcome = { result: { error: e?.message || 'tool_failed' }, summary: `Tool ${tc.name} failed: ${e?.message || 'error'}` };
+					progressed = true; // a genuine failure is new information, not a spin
 				}
-				if (!isPropose) send('tool', { name: tc.name, summary: outcome.summary });
+				// Surface read activity once per distinct read — never re-paint a cached repeat.
+				if (!isPropose && !cached) send('tool', { name: tc.name, summary: outcome.summary });
 				messages.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(outcome.result).slice(0, 6000) });
 			}
+			if (!progressed) break; // model looped on data it already has — go answer.
 		}
 
 		// If the loop hit its round cap mid-tool without a natural answer, ask for a
@@ -580,6 +617,7 @@ export default async function handler(req, res, id) {
 	} catch (e) {
 		send('error', { code: e?.code || 'copilot_error', message: e?.message || 'The copilot hit an error. Try again.' });
 	} finally {
+		clearInterval(heartbeat);
 		if (active) res.end();
 	}
 }

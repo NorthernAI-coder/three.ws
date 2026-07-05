@@ -35,17 +35,24 @@ const BB_PLACEHOLDERS = [
 	['BROWSERBASE_PROJECT_ID', '<your-bb-project>'],
 ];
 
+// Anthropic key drives Stagehand's page.act()/page.extract() — the difference
+// between an agent that only loads pages and one that types, clicks, and reads.
+// User-supplied (their own key), so it's an explicit placeholder on every runtime.
+const ANTHROPIC_PLACEHOLDER = ['ANTHROPIC_API_KEY', '<your-anthropic-key>'];
+
 function normalizeRuntime(runtime) {
 	return RUNTIMES.includes(runtime) ? runtime : 'local';
 }
 
 // The ordered [key, value] env pairs a runtime needs. AGENT_ID / AGENT_JWT /
-// PUSH_URL are required for every runtime; Browserbase adds its two creds.
+// PUSH_URL / ANTHROPIC_API_KEY are required for every runtime; Browserbase adds
+// its two creds.
 export function runtimeEnv({ runtime = 'local', agentId = '', agentJwt = '', origin = 'https://three.ws' } = {}) {
 	const env = [
 		['AGENT_ID', agentId],
 		['AGENT_JWT', agentJwt],
 		['PUSH_URL', `${origin}${PUSH_PATH}`],
+		ANTHROPIC_PLACEHOLDER,
 	];
 	if (normalizeRuntime(runtime) === 'bb') env.push(...BB_PLACEHOLDERS);
 	return env;
