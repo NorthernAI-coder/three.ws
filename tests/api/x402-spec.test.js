@@ -81,7 +81,7 @@ beforeEach(() => {
 	process.env.X402_ASSET_MINT_SOLANA = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 	process.env.X402_ASSET_ADDRESS_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 	process.env.X402_MAX_AMOUNT_REQUIRED = '1000';
-	process.env.X402_FEE_PAYER_SOLANA = '2wKupLR9q6wXYppw8Gr2NvWxKBUqm4PPJKkQfoxHDBg4';
+	process.env.X402_FEE_PAYER_SOLANA = 'PayeRNCipcerPHCsYMTrX9pAYDm1LnPGzgb66NUDG5a';
 	delete process.env.X402_PAY_TO_BSC;
 	delete process.env.CDP_API_KEY_ID;
 	delete process.env.CDP_API_KEY_SECRET;

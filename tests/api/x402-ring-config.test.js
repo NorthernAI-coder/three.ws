@@ -31,7 +31,7 @@ function healthyRingEnv() {
 	process.env.X402_SELF_FACILITATOR_ENABLED = 'true';
 	delete process.env.X402_FACILITATOR_URL_SOLANA;
 	delete process.env.X402_FACILITATOR_URL;
-	process.env.X402_FEE_PAYER_SOLANA = '2wKupLR9q6wXYppw8Gr2NvWxKBUqm4PPJKkQfoxHDBg4';
+	process.env.X402_FEE_PAYER_SOLANA = 'PayeRNCipcerPHCsYMTrX9pAYDm1LnPGzgb66NUDG5a';
 	process.env.X402_FEE_PAYER_SECRET_BASE58 = 'z'.repeat(88);
 	process.env.X402_TREASURY_SECRET_BASE58 = 'z'.repeat(64);
 	process.env.X402_RING_SELF_PAY = 'true';
