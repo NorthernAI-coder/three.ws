@@ -101,9 +101,31 @@ const RUN_UPLOAD    = flags.upload    || flags.all       || (!Object.keys(flags)
 const CONCURRENCY   = Number(flags.concurrency) || 1;
 const MAX_DOWNLOADS = flags.limit ? Number(flags.limit) : Infinity;
 
+// ── Sharding ─────────────────────────────────────────────────────────────────
+// --shard=I/N splits the catalog across N cooperating downloaders (one per
+// Mixamo account/token, ideally one per egress IP). Shard I (1-indexed) claims
+// every clip whose catalog index ≡ (I-1) mod N — an interleave, so each shard
+// gets an even mix of fast/slow clips. Shards write disjoint slices but share
+// animation-sources/, and the on-disk mx-*.fbx existence check is the final
+// dedup guard, so overlapping or restarted shards never re-export a clip.
+function parseShard(v) {
+	if (!v || v === true) return { index: 1, count: 1 };
+	const m = String(v).match(/^(\d+)\s*\/\s*(\d+)$/);
+	if (!m) throw new Error(`--shard must look like I/N (e.g. 2/6), got "${v}"`);
+	const index = Number(m[1]);
+	const count = Number(m[2]);
+	if (index < 1 || index > count) throw new Error(`--shard index ${index} out of range for ${count} shards`);
+	return { index, count };
+}
+const SHARD = parseShard(flags.shard);
+
 // ── Paths ──────────────────────────────────────────────────────────────────
 const CATALOG_PATH  = join(__dirname, 'mixamo-catalog.json');
-const PROGRESS_PATH = join(__dirname, 'mixamo-progress.json');
+// Each shard keeps its own progress file so parallel processes never clobber
+// one another's writes (the shared FBX-on-disk check still dedups across them).
+const PROGRESS_PATH = SHARD.count > 1
+	? join(__dirname, `mixamo-progress.shard-${SHARD.index}-of-${SHARD.count}.json`)
+	: join(__dirname, 'mixamo-progress.json');
 const SOURCES_DIR   = join(ROOT, 'animation-sources');
 
 // Bulk library outputs — all gitignored; the library ships via R2, not git.
@@ -344,6 +366,14 @@ async function downloadAll(catalog, token) {
 	const characterId = await resolveCharacterId(authHeaders);
 	console.log(`  Export character: ${characterId}`);
 
+	// Restrict to this shard's slice of the catalog (interleaved by index).
+	const shardCatalog = SHARD.count > 1
+		? catalog.filter((_, i) => i % SHARD.count === SHARD.index - 1)
+		: catalog;
+	if (SHARD.count > 1) {
+		console.log(`  Shard ${SHARD.index}/${SHARD.count}: ${shardCatalog.length} of ${catalog.length} clips`);
+	}
+
 	const progress = existsSync(PROGRESS_PATH)
 		? JSON.parse(readFileSync(PROGRESS_PATH, 'utf8'))
 		: {};
@@ -353,7 +383,7 @@ async function downloadAll(catalog, token) {
 		renameSync(PROGRESS_PATH + '.tmp', PROGRESS_PATH);
 	};
 
-	const toDownload = catalog.filter((a) => {
+	const toDownload = shardCatalog.filter((a) => {
 		if (progress[a.id]?.status === 'done') {
 			// Pack clips are recorded in progress; single motions re-check disk.
 			if (a.type === 'MotionPack') return false;
@@ -364,14 +394,14 @@ async function downloadAll(catalog, token) {
 		return true;
 	});
 
-	const alreadyDone = catalog.length - toDownload.length;
-	console.log(`  Catalog: ${catalog.length} | Already done: ${alreadyDone} | To download: ${Math.min(toDownload.length, MAX_DOWNLOADS)}`);
+	const alreadyDone = shardCatalog.length - toDownload.length;
+	console.log(`  Catalog: ${shardCatalog.length} | Already done: ${alreadyDone} | To download: ${Math.min(toDownload.length, MAX_DOWNLOADS)}`);
 
 	let ok = 0, fail = 0;
 	let cursor = 0;
 
 	async function downloadOne(anim, idx) {
-		const label = `  [${idx + 1 + alreadyDone}/${catalog.length}]`;
+		const label = `  [${idx + 1 + alreadyDone}/${shardCatalog.length}]`;
 		const slug = slugify(anim.name);
 		const isPack = anim.type === 'MotionPack';
 		const outPath = join(SOURCES_DIR, `mx-${slug}.fbx`);
