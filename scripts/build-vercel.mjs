@@ -212,7 +212,7 @@ async function buildLib() {
 }
 
 async function buildApp() {
-	await run('build:app', `node ${binCli('vite')} build && node scripts/strip-sw-from-embeds.mjs`, {
+	await run('build:app', `node ${binCli('vite')} build && node scripts/strip-sw-from-embeds.mjs && node scripts/inject-tour-boot.mjs`, {
 		env: { NODE_OPTIONS: '--no-deprecation --max-old-space-size=6144' },
 	});
 }
