@@ -13,16 +13,18 @@ const VERSION_TOUR = '0.2.0';
 const VERSION_PAGE_AGENT = '0.1.1';
 const STORAGE_KEY = 'tws:tour-builder:v1';
 
-// Curated guide roster — ids match the @three-ws/walk roster.
+// Curated guide roster — ids match the @three-ws/walk roster. Only avatars
+// whose skeleton rests in a natural pose are offered here, so the guide always
+// stands and walks correctly. (Some GLBs, e.g. the Mixamo X-Bot, bind in a
+// T-pose the delta-preserving retarget faithfully preserves — they'd idle with
+// arms out, so they're intentionally excluded from the store-guide picker.)
 const AVATARS = [
 	{ id: 'realistic-female', name: 'Ava', emoji: '💁‍♀️' },
 	{ id: 'realistic-male', name: 'Leo', emoji: '🙋‍♂️' },
 	{ id: 'selfie-girl', name: 'Mira', emoji: '👩' },
 	{ id: 'michelle', name: 'Michelle', emoji: '🧑‍🦱' },
-	{ id: 'robot', name: 'Robo', emoji: '🤖' },
-	{ id: 'xbot', name: 'X-Bot', emoji: '🦾' },
-	{ id: 'fox', name: 'Fox', emoji: '🦊' },
 	{ id: 'guide', name: 'Guide', emoji: '🧍' },
+	{ id: 'robot', name: 'Robo', emoji: '🤖' },
 ];
 
 // When a demo section is picked, also emit the common Shopify/Dawn selectors
