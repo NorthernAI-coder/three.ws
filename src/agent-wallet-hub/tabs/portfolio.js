@@ -21,6 +21,7 @@ import { formatSol, formatUsd } from '../util.js';
 
 const PORT_STYLE_ID = 'awh-portfolio-style';
 const PORT_STYLE = `
+.awh-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .awh-port { display: flex; flex-direction: column; gap: var(--awh-gap, 16px); }
 .awh-port-nw { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4,16px); flex-wrap: wrap; }
 .awh-port-nw-main { min-width: 0; }

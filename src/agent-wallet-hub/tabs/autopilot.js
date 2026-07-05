@@ -361,14 +361,14 @@ registerWalletTab({
 				<ul class="ap-rules">${p.rules.map((r) => renderRuleLi(r, true)).join('')}</ul>
 				<div class="ap-actions">
 					${armed
-						? `<button class="ap-btn primary" id="ap-run" ${state.running ? 'disabled' : ''}>${state.running ? '<span class="ap-spin"></span>Running…' : 'Run now'}</button>`
-						: `<button class="ap-btn primary" id="ap-arm-existing">Arm autopilot</button>`}
-					<button class="ap-btn ghost" id="ap-edit">Edit policy</button>
+						? `<button class="ap-btn primary" id="ap-run" type="button" ${state.running ? 'disabled aria-busy="true"' : ''}>${state.running ? '<span class="ap-spin" aria-hidden="true"></span>Running…' : 'Run now'}</button>`
+						: `<button class="ap-btn primary" id="ap-arm-existing" type="button">Arm autopilot</button>`}
+					<button class="ap-btn ghost" id="ap-edit" type="button">Edit policy</button>
 				</div>
 				${state.lastRun ? renderLastRun() : ''}
 				<div class="ap-kill">
 					<div class="t"><b>Kill switch.</b> Halts every autopilot action instantly.</div>
-					<button class="ap-btn danger" id="ap-kill">Halt autopilot</button>
+					<button class="ap-btn danger" id="ap-kill" type="button">Halt autopilot</button>
 				</div>
 			</div>`;
 		}

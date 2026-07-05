@@ -181,9 +181,15 @@ registerWalletTab({
 						txt = `${delta > 0 ? '+' : ''}${formatSol(delta)} SOL`;
 					}
 					const failed = a.success === false;
+					const timeStr = timeAgo(a.block_time);
+					const label = a.summary || (failed ? '' : 'transfer');
+					const metaText = [label, timeStr].filter(Boolean).join(' · ');
+					const failBadge = failed
+						? '<span class="awh-act-fail" title="This transaction failed on-chain">Failed</span>'
+						: '';
 					return `<li class="awh-act-row">
-						<a class="awh-mono awh-act-sig" href="${escapeHtml(explorerTxUrl(a.signature, net))}" target="_blank" rel="noopener">${escapeHtml(shortAddress(a.signature, 6, 4))}</a>
-						<span class="awh-act-meta">${escapeHtml(a.summary ? a.summary : failed ? 'failed' : 'transfer')} · ${escapeHtml(timeAgo(a.block_time))}</span>
+						<a class="awh-mono awh-act-sig" href="${escapeHtml(explorerTxUrl(a.signature, net))}" target="_blank" rel="noopener" aria-label="View transaction ${escapeHtml(shortAddress(a.signature, 6, 4))} on the block explorer">${escapeHtml(shortAddress(a.signature, 6, 4))}</a>
+						<span class="awh-act-meta">${failBadge}${escapeHtml(metaText)}</span>
 						<span class="awh-act-delta ${cls}">${escapeHtml(txt)}</span>
 					</li>`;
 				})

@@ -158,7 +158,7 @@ registerWalletTab({
 		}
 
 		function renderError(res) {
-			panel.innerHTML = `<div class="awh-card"><p class="awh-empty">Couldn’t load access settings — ${esc(res.message || 'try again')}.
+			panel.innerHTML = `<div class="awh-card"><p class="awh-empty" role="alert">Couldn’t load access settings — ${esc(res.message || 'try again')}.
 				<button class="awh-btn" type="button" data-act="retry">Try again</button></p></div>`;
 			panel.querySelector('[data-act="retry"]')?.addEventListener('click', () => { renderLoading(); load(); });
 		}
@@ -186,7 +186,7 @@ registerWalletTab({
 							<span class="awh-acc-key" aria-hidden="true">🔑</span>
 							<div>
 								<h2>Scoped access keys</h2>
-								<p class="awh-acc-lead">Give each skill, strategy, or integration its own narrow leash instead of the whole wallet. A key can only do what you grant — a set of actions, a spend ceiling, specific targets, and an expiry — and you can revoke any one of them instantly. ${activeCount} live right now.</p>
+								<p class="awh-acc-lead">Give each skill, strategy, or integration its own narrow leash instead of the whole wallet. A key can only do what you grant — a set of actions, a spend ceiling, specific targets, and an expiry — and you can revoke any one of them instantly. ${activeCount === 1 ? '1 key is' : activeCount + ' keys are'} live right now.</p>
 							</div>
 						</div>
 						<div class="awh-acc-mode">
