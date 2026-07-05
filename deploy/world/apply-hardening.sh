@@ -20,6 +20,13 @@ REGION=us-central1
 SERVICE=hyperfy-world
 RUNTIME_SA=hyperfy-world-sa@${PROJECT}.iam.gserviceaccount.com
 SECRET=hyperfy-admin-code
+# Build identity for `gcloud builds submit`. This project has no legacy Cloud
+# Build service account (newer GCP projects don't auto-create
+# <projectNumber>@cloudbuild.gserviceaccount.com), so an unqualified submit fails
+# with "Unknown service account". Build as the dedicated build SA the other
+# images use; override with BUILD_SERVICE_ACCOUNT if it's renamed. The
+# cloudbuild.yaml sets logging: CLOUD_LOGGING_ONLY, which a user-specified SA needs.
+BUILD_SA=${BUILD_SERVICE_ACCOUNT:-three-ws-build@${PROJECT}.iam.gserviceaccount.com}
 
 gcloud config set project "$PROJECT" >/dev/null
 
@@ -39,7 +46,9 @@ echo "Granted secretAccessor to $RUNTIME_SA."
 
 # Rebuild the image: picks up the pinned upstream ref and the server-side
 # upload-size patch in patches/.
-gcloud builds submit --config deploy/world/cloudbuild.yaml deploy/world/
+gcloud builds submit --config deploy/world/cloudbuild.yaml \
+  --service-account="projects/${PROJECT}/serviceAccounts/${BUILD_SA}" \
+  deploy/world/
 
 # Apply the service config: ADMIN_CODE + PUBLIC_MAX_UPLOAD_SIZE=16.
 gcloud run services replace deploy/world/cloudrun.yaml --region="$REGION"
