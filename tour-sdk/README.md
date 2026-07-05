@@ -42,7 +42,16 @@ after load.
 | `data-asset-base` | `https://three.ws` | `assetBase` |
 | `data-manifest-url` | `https://three.ws/animations/manifest.json` | `manifestUrl` |
 | `data-tts-endpoint` | off (paced captions) | `ttsEndpoint` |
+| `data-mode` | `guided` | `guided` (avatar walks itself) or `explore` (visitor drives it to checkpoints) |
 | `data-autostart` | off | `full` \| `quick` — start on load |
+
+**Explore mode** (`data-mode="explore"`, or `{ mode: 'explore' }`): instead of
+the avatar walking itself, the visitor drives it with arrow keys / WASD (or an
+on-screen joystick on touch) to glowing GTA-style checkpoints anchored to each
+stop's section. Walking into the active checkpoint stops the guide to spotlight
+and narrate that section, then the next lights up. Same curriculum, same
+`targets`, same avatars. It runs on the stops resolvable on the current page;
+reduced-motion visitors get the checkpoints auto-walked.
 
 Asset defaults point at the three.ws CDN, so the tag works with zero
 configuration. Building a store tour? See the step-by-step Shopify guide:

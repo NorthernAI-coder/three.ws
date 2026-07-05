@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-07-05",
+			"title": "Explore mode — walk the tour yourself, GTA-style checkpoints",
+			"summary": "Every guided tour can now become an interactive experience. Turn on Explore mode and instead of watching the 3D guide walk itself, YOU drive it — arrow keys or WASD on desktop, an on-screen joystick on mobile — to glowing checkpoints anchored to each section. Walk into a checkpoint and the guide stops, spotlights the section, and explains it; the next one lights up until you've found them all. It's built into the tour engine (@three-ws/tour 0.3.0, one attribute: data-mode=\"explore\"), so it works on the platform's own tour, on any embedded site, and in the Shopify store guide — the Tour Builder now has a one-click Guided/Explore toggle and previews both. Reduced-motion visitors get the same checkpoints and narration, auto-walked.",
+			"tags": [
+				"feature",
+				"sdk"
+			],
+			"link": "/tour-builder"
+		},
+		{
+			"date": "2026-07-05",
 			"title": "Dashboard: a top-to-bottom polish and accessibility pass across every page",
 			"summary": "We went through every page of the dashboard — Overview, Avatars, Agents, Library, Brain, Widgets, Walk, API, Developer Hub, $THREE, Holders, Analytics, Creator Studio, Monetize, Transactions, Tokens, Copy Trading, Sniper, Fleet, Capabilities, Pre-Launch Radar, Portfolio, Landscape, IRL, Community, Systems, Account, Referrals, Wallet Grinder and Settings — and raised each to the same bar. Loading now shows layout-matched skeletons instead of blank panels; empty states tell you what to do next with a real action; and a failed load shows a clear, retryable message instead of silently masquerading as \"no data.\" Every menu, tab, toggle and filter is now fully keyboard-operable with visible focus rings and proper screen-reader labels, status is shown with an icon and words (not colour alone), and everything respects reduced-motion. Along the way we fixed real bugs: several pages rendered with the wrong colours from missing design tokens, a built-but-unmounted conversion funnel on Analytics is now live, and a handful of leaks and dead buttons (a runaway timer, a stuck \"stop\" control, a one-way \"disable\" toggle) were repaired.",
 			"tags": [
