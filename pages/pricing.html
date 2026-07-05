@@ -116,7 +116,17 @@
 						<li>Advanced analytics dashboard</li>
 						<li>Priority email support &amp; SLA</li>
 					</ul>
-					<a href="/login?plan=pro" class="pricing-cta primary" id="pro-cta">Choose Pro</a>
+					<!-- data-no-transition: the site-wide view-transition script intercepts
+					     internal links at capture phase and navigates programmatically,
+					     which would defeat this CTA's signed-in click handler (it opens
+					     the checkout modal instead of navigating). -->
+					<a
+						href="/login?plan=pro"
+						class="pricing-cta primary"
+						id="pro-cta"
+						data-no-transition="1"
+						>Choose Pro</a
+					>
 					<div class="pricing-pay-assets" aria-label="Accepted payment assets">
 						Pay in <strong>USDC</strong>, <strong>SOL</strong>, or
 						<strong>$THREE</strong>

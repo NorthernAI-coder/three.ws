@@ -1482,6 +1482,10 @@
 
 .pc-sig-row { display: flex; gap: 8px; }
 
+/* .pricing-cta is width:100% by default — inside the signature row that
+   starves the input, so size the button to its label instead. */
+.pc-sig-row .pricing-cta { width: auto; flex-shrink: 0; }
+
 .pc-sig-row input {
 	flex: 1;
 	min-width: 0;
