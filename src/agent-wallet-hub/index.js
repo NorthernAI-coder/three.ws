@@ -221,7 +221,7 @@ export function mountAgentWalletHub({ mount, agent, initialTab, onNetworkChange 
 			<div class="awh-tabs" role="tablist" aria-label="Wallet sections">
 				${tabs
 					.map(
-						(t, i) => `
+						(t) => `
 					<button class="awh-tab" role="tab" type="button"
 						id="awh-tab-${escapeHtml(t.id)}"
 						data-awh-tab="${escapeHtml(t.id)}"

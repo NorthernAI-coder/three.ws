@@ -45,7 +45,7 @@ const GIVE_STYLE = `
 .awg-err .why { color: var(--ink-dim,#aaa); font-size: var(--text-2xs,.6875rem); margin-top:4px; text-transform:capitalize; }
 .awg-cause { display:flex; align-items:center; gap:10px; justify-content:space-between; flex-wrap:wrap; }
 .awg-cause-id { display:flex; flex-direction:column; gap:2px; min-width:0; }
-.awg-cause-id strong { font-size: var(--text-md,.8125rem); color: var(--ink-bright,#fff); }
+.awg-cause-id strong { font-size: var(--text-md,.8125rem); color: var(--ink-bright,#fff); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%; }
 .awg-cause-id .addr { font-family: var(--font-mono,ui-monospace,monospace); font-size: var(--text-2xs,.6875rem); color: var(--ink-dim,#888); word-break:break-all; }
 .awg-heart { font-size:22px; line-height:1; flex:none; }
 .awg-chips { display:flex; gap:6px; flex-wrap:wrap; margin:10px 0 6px; }

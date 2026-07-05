@@ -80,26 +80,35 @@ registerWalletTab({
 		let detachNet = null;
 
 		panel.innerHTML =
-			`<div class="awp-summary" id="awp-summary" aria-label="Wallet lifetime summary"></div>` +
+			`<div class="awp-summary" id="awp-summary" role="group" aria-label="Wallet lifetime summary"></div>` +
 			(ctx.isOwner ? `<div id="awp-toggle"></div>` : '') +
 			`<div id="awp-feed"></div>`;
 
 		const summaryHost = panel.querySelector('#awp-summary');
 		const feedHost = panel.querySelector('#awp-feed');
 
+		function skeletonSummary() {
+			return Array.from({ length: 4 }, () =>
+				`<dl class="awp-stat" aria-hidden="true"><span class="awp-skel-bar dt"></span><span class="awp-skel-bar dd"></span></dl>`,
+			).join('');
+		}
+
 		function renderSummary(s) {
+			summaryHost.removeAttribute('aria-busy');
 			if (!s) { summaryHost.style.display = 'none'; return; }
 			summaryHost.style.removeProperty('display');
 			const tipMain = s.tips.usd > 0 ? fmtUsd(s.tips.usd) : fmtSol(s.tips.sol);
 			const biggest = s.tips.biggest_usd > 0 ? fmtUsd(s.tips.biggest_usd) : (s.tips.biggest_sol > 0 ? fmtSol(s.tips.biggest_sol) : '—');
 			summaryHost.innerHTML =
-				`<div class="awp-stat"><dt>Tips received</dt><dd>${esc(tipMain)}<small>${s.tips.count} tip${s.tips.count === 1 ? '' : 's'}</small></dd></div>` +
-				`<div class="awp-stat"><dt>Biggest tip</dt><dd>${esc(biggest)}</dd></div>` +
-				`<div class="awp-stat"><dt>Public outflow</dt><dd>${esc(s.outflow.usd > 0 ? fmtUsd(s.outflow.usd) : fmtSol(s.outflow.sol))}<small>${s.outflow.count} move${s.outflow.count === 1 ? '' : 's'}</small></dd></div>` +
-				`<div class="awp-stat"><dt>Launches</dt><dd>${s.launches}</dd></div>`;
+				`<dl class="awp-stat"><dt>Tips received</dt><dd>${esc(tipMain)}<small>${s.tips.count} tip${s.tips.count === 1 ? '' : 's'}</small></dd></dl>` +
+				`<dl class="awp-stat"><dt>Biggest tip</dt><dd>${esc(biggest)}</dd></dl>` +
+				`<dl class="awp-stat"><dt>Public outflow</dt><dd>${esc(s.outflow.usd > 0 ? fmtUsd(s.outflow.usd) : fmtSol(s.outflow.sol))}<small>${s.outflow.count} move${s.outflow.count === 1 ? '' : 's'}</small></dd></dl>` +
+				`<dl class="awp-stat"><dt>Launches</dt><dd>${s.launches}</dd></dl>`;
 		}
 
 		async function loadSummary() {
+			summaryHost.setAttribute('aria-busy', 'true');
+			summaryHost.innerHTML = skeletonSummary();
 			const s = await fetchSummary(ctx.agentId, ctx.getNetwork());
 			if (!destroyed) renderSummary(s);
 		}

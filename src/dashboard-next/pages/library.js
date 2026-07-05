@@ -57,6 +57,7 @@ function writeTab(tab) {
 					aria-controls="tab-body"
 					id="tab-${t.key}"
 					type="button"
+					tabindex="-1"
 				>${esc(t.label)}</button>
 			`).join('')}
 		</div>

@@ -298,7 +298,7 @@ registerWalletTab({
 			return `<div class="awh-card">
 				<div class="awh-card-h">How it behaves</div>
 				<p class="awp-hint" style="margin-top:0;">No spend history on ${esc(ctx.getNetwork())} yet, so here’s how this policy would handle some common cases:</p>
-				${probes.length ? `<ul class="awp-syn">${probes.map((p) => `<li><span>${esc(p.label)}</span><span class="v ${p.denied ? 'no' : 'ok'}">${p.denied ? (p.decision === 'freeze' ? 'Freeze' : p.decision === 'step_up' ? 'Ask me' : 'Blocked') : 'Allowed'}</span></li>`).join('')}</ul>` : '<p class="awp-empty">Once your agent starts spending, you’ll see a real backtest here.</p>'}
+				${probes.length ? `<ul class="awp-syn">${probes.map((p) => `<li><span>${esc(p.label)}</span><span class="v ${p.denied ? 'no' : 'ok'}">${p.denied ? (p.decision === 'freeze' ? 'Freeze' : p.decision === 'step_up' ? 'Ask me' : 'Blocked') : 'Allowed'}</span></li>`).join('')}</ul>` : '<p class="awh-empty">Once your agent starts spending, you’ll see a real backtest here.</p>'}
 			</div>`;
 		}
 
