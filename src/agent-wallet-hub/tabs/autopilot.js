@@ -339,10 +339,10 @@ registerWalletTab({
 				? `<div class="note">${esc(r.last_note)}${explorer ? ` · <a href="${esc(explorer)}" target="_blank" rel="noopener">view tx ↗</a>` : ''}</div>`
 				: explorer ? `<div class="note"><a href="${esc(explorer)}" target="_blank" rel="noopener">view tx ↗</a></div>` : '';
 			const ctlHtml = withControls
-				? `<div class="ctl">${statusChip}<button class="ap-toggle" data-toggle="${esc(r.id)}">${r.paused ? 'Resume' : 'Pause'}</button></div>`
+				? `<div class="ctl">${statusChip}<button class="ap-toggle" type="button" data-toggle="${esc(r.id)}" aria-label="${r.paused ? 'Resume' : 'Pause'} rule: ${esc(r.label)}">${r.paused ? 'Resume' : 'Pause'}</button></div>`
 				: '';
 			return `<li class="ap-rule" data-paused="${r.paused ? 'true' : 'false'}">
-				<span class="ic">${KIND_ICON[r.kind] || '•'}</span>
+				<span class="ic" aria-hidden="true">${KIND_ICON[r.kind] || '•'}</span>
 				<div class="body"><div class="ttl">${esc(r.label)}</div>${noteHtml}</div>
 				${ctlHtml}
 			</li>`;

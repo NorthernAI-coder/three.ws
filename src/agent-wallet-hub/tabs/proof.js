@@ -17,6 +17,7 @@
 
 import { registerWalletTab } from '../registry.js';
 import { apiFetch } from '../../api.js';
+import { escapeHtml } from '../util.js';
 import { verifyInclusionProof } from '../../proof-of-custody/verifier.js';
 import { renderProofUI, injectProofStyle } from '../../proof-of-custody/ui.js';
 

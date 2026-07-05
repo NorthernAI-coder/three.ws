@@ -299,8 +299,8 @@ registerWalletTab({
 				? `<div class="awh-empty" style="padding:0 0 8px;">Migrated ${r.swept.sol ? `${r.swept.sol} SOL` : 'funds'}${r.swept.tokens?.length ? ` + ${r.swept.tokens.length} token${r.swept.tokens.length > 1 ? 's' : ''}` : ''} from the old address.</div>`
 				: '';
 			return `
-				<div class="awh-card awh-ok">
-					<div class="ic">✦</div>
+				<div class="awh-card awh-ok" role="status">
+					<div class="ic" aria-hidden="true">✦</div>
 					<div style="font-size:var(--text-md,.8125rem);font-weight:600;color:var(--ink-bright,#fff);margin-bottom:6px;">Vanity address applied</div>
 					<div class="awh-vn-addr" style="margin-bottom:8px;">${highlight(r.address, r.vanity_prefix, r.vanity_suffix)}</div>
 					${sweptLine}

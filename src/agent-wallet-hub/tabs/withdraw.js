@@ -27,11 +27,11 @@ const SOL_ADDR_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
 const WD_STYLE_ID = 'awh-withdraw-style';
 const WD_STYLE = `
-.awh-sub { display: flex; gap: 4px; margin-bottom: var(--space-4,16px); }
-.awh-sub button { appearance:none; font:inherit; font-size: var(--text-sm,.764rem); font-weight:500; color: var(--ink-dim,#888); background:transparent; border:1px solid transparent; border-radius: var(--radius-pill,999px); padding:5px 13px; cursor:pointer; transition: background var(--duration-fast,140ms), color var(--duration-fast,140ms); }
-.awh-sub button:hover { color: var(--ink,#e8e8e8); }
-.awh-sub button[aria-pressed="true"] { color: var(--ink-bright,#fff); background: var(--surface-2, rgba(255,255,255,.07)); border-color: var(--stroke,rgba(255,255,255,.1)); }
-.awh-sub button:focus-visible { outline: var(--focus-ring-width,2px) solid var(--focus-ring-color,#fff); outline-offset:2px; }
+.awh-wd-sub { display: flex; gap: 4px; margin-bottom: var(--space-4,16px); }
+.awh-wd-sub button { appearance:none; font:inherit; font-size: var(--text-sm,.764rem); font-weight:500; color: var(--ink-dim,#888); background:transparent; border:1px solid transparent; border-radius: var(--radius-pill,999px); padding:5px 13px; cursor:pointer; transition: background var(--duration-fast,140ms), color var(--duration-fast,140ms), border-color var(--duration-fast,140ms); }
+.awh-wd-sub button:hover { color: var(--ink,#e8e8e8); }
+.awh-wd-sub button[aria-pressed="true"] { color: var(--ink-bright,#fff); background: var(--surface-2, rgba(255,255,255,.07)); border-color: var(--stroke,rgba(255,255,255,.1)); }
+.awh-wd-sub button:focus-visible { outline: var(--focus-ring-width,2px) solid var(--focus-ring-color,#fff); outline-offset:2px; }
 
 .awh-fld { margin-bottom: var(--space-4,16px); }
 .awh-fld label { display:block; font-size: var(--text-sm,.764rem); color: var(--ink-dim,#888); margin-bottom:6px; }
@@ -207,7 +207,7 @@ registerWalletTab({
 
 		function subStrip() {
 			const item = (id, label) => `<button type="button" data-sub="${id}" aria-pressed="${state.view === id}">${esc(label)}</button>`;
-			return `<div class="awh-sub" role="tablist">${item('withdraw', 'Withdraw')}${item('limits', 'Limits & Safety')}${item('activity', 'Activity')}</div>`;
+			return `<div class="awh-wd-sub" role="group" aria-label="Withdraw sections">${item('withdraw', 'Withdraw')}${item('limits', 'Limits & Safety')}${item('activity', 'Activity')}</div>`;
 		}
 
 		function render() {

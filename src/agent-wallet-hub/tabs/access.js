@@ -29,7 +29,8 @@ const STYLE = `
 .awh-acc-mode .copy span { font-size:var(--text-2xs,.6875rem); color:var(--ink-dim,#888); line-height:1.45; }
 .awh-acc-switch { display:inline-flex; align-items:center; gap:8px; font-size:var(--text-sm,.764rem); color:var(--ink,#c8c8c8); white-space:nowrap; }
 .awh-acc-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
-.awh-acc-cap { border:1px solid var(--stroke,rgba(255,255,255,.08)); border-radius:var(--radius-md,10px); background:var(--surface-1,rgba(255,255,255,.03)); padding:12px 14px; display:flex; flex-direction:column; gap:8px; }
+.awh-acc-cap { border:1px solid var(--stroke,rgba(255,255,255,.08)); border-radius:var(--radius-md,10px); background:var(--surface-1,rgba(255,255,255,.03)); padding:12px 14px; display:flex; flex-direction:column; gap:8px; transition:border-color var(--duration-fast,140ms), background var(--duration-fast,140ms); }
+.awh-acc-cap:not(.is-dead):hover { border-color:var(--stroke-strong,rgba(255,255,255,.14)); background:var(--surface-2,rgba(255,255,255,.05)); }
 .awh-acc-cap.is-dead { opacity:.6; }
 .awh-acc-cap-top { display:flex; align-items:flex-start; gap:10px; }
 .awh-acc-cap-main { min-width:0; flex:1; display:flex; flex-direction:column; gap:2px; }

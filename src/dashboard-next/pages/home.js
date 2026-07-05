@@ -578,13 +578,22 @@ async function refreshActivity(host, ctx) {
 	const events = await collectActivity(ctx.widgets);
 
 	if (!events.length) {
+		ensureStateKitStyles();
+		// If the user has no live embed yet, point them at the step that unlocks
+		// activity; otherwise the feed is simply waiting for real visitor events.
+		const hasWidgets = (ctx.widgets?.length ?? 0) > 0;
 		host.innerHTML = `
 			<div class="dn-panel">
 				<div class="dn-panel-title">Recent activity</div>
-				<div class="dn-empty" style="padding:24px 12px">
-					<h3>Nothing here yet</h3>
-					<p>Visitor chats, payments, and embed views show up as soon as your agents are live.</p>
-				</div>
+				${emptyStateHTML({
+					icon: '',
+					title: 'Nothing here yet',
+					body: hasWidgets
+						? 'Visitor chats, payments, and embed views appear here the moment someone interacts with your agents.'
+						: 'Embed an agent on your site and visitor chats, payments, and views will stream in here in real time.',
+					actions: hasWidgets ? [] : [{ label: 'Embed an agent', href: '/dashboard/widgets', primary: true }],
+					compact: true,
+				})}
 			</div>
 		`;
 		return;
