@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-07-05",
+			"title": "Status page no longer reports a phantom outage — and graduation tracking runs clean",
+			"summary": "The public status page had been showing the x402 paid-API discovery feed and the 3D viewer as down for days while both were actually healthy: the uptime monitor was probing two URLs that never existed. The probes now hit the real public paths, and the falsely-recorded downtime history is purged so the 90-day uptime bars reflect the services, not the monitor bug. The pump.fun graduation tracker was also timing out on every heartbeat tick because it listened longer than the heartbeat allows — it now fits its budget and reports a clean run.",
+			"tags": [
+				"fix",
+				"infra"
+			],
+			"link": "/status"
+		},
+		{
+			"date": "2026-07-05",
 			"title": "2,000+ new motion-capture animations in the library",
 			"summary": "The animation library just grew from around 100 curated clips to over 2,000 — the full professional motion-capture set, every one retargeted to the universal three.ws skeleton so it plays on any humanoid avatar. Walks, runs, dances, combat, idles, reactions, sports, and hundreds more are all searchable in the animations gallery, previewable on a live avatar, and one click away from the pose studio or any embed. The clips are served from the CDN, so the site stays fast no matter how big the library gets.",
 			"tags": [

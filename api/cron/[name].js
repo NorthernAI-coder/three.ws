@@ -1647,7 +1647,12 @@ async function pumpfunSaveCursor(source, lastSeenMs, lastSignature) {
 // /api/pump/recent-graduations and the MCP graduations tool stay live. No
 // external bot or API key required — it's the public PumpPortal WebSocket.
 
-const GRAD_SYNC_WINDOW_MS = 100_000;
+// Must finish inside economy-tick's 60s per-engine budget (CALL_TIMEOUT_MS in
+// api/cron/economy-tick.js) — the every-minute heartbeat is this handler's only
+// real scheduler (its own vercel.json cron entry sits past Vercel's 40-cron
+// cutoff and never fires). A 100s window here read as `failed: timeout` on
+// every tick and stacked overlapping PumpPortal sockets.
+const GRAD_SYNC_WINDOW_MS = 45_000;
 
 async function handlePumpfunGraduationsSync(req, res) {
 	if (cors(req, res, { methods: 'GET,POST,OPTIONS' })) return;
