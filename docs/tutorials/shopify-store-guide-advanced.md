@@ -155,7 +155,7 @@ The one-tag install reads `data-*` attributes:
 
 ### Choosing the avatar
 
-`data-avatar` accepts any id from the guide roster: `realistic-female` (Ava), `realistic-male` (Leo), `selfie-girl` (Mira), `michelle`, `robot`, `xbot`, `fox`, `guide`, and more. Preview any of them live in the [Tour Builder](/tour-builder).
+`data-avatar` accepts any id from the guide roster: `realistic-female` (Ava), `realistic-male` (Leo), `selfie-girl` (Mira), `michelle`, `guide`, and `robot`. Preview each one live in the [Tour Builder](/tour-builder) — those are the guides verified to stand and walk correctly on a storefront.
 
 ### Your own avatar
 
