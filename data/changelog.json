@@ -68,8 +68,8 @@
 		},
 		{
 			"date": "2026-07-05",
-			"title": "2,000+ new motion-capture animations in the library",
-			"summary": "The animation library just grew from around 100 curated clips to over 2,000 — the full professional motion-capture set, every one retargeted to the universal three.ws skeleton so it plays on any humanoid avatar. Walks, runs, dances, combat, idles, reactions, sports, and hundreds more are all searchable in the animations gallery, previewable on a live avatar, and one click away from the pose studio or any embed. The clips are served from the CDN, so the site stays fast no matter how big the library gets.",
+			"title": "2,800+ new motion-capture animations in the library",
+			"summary": "The animation library just grew from around 100 curated clips to more than 2,800 — the full professional motion-capture set, including complete themed movement packs (breakdance, sword-and-shield combat, capoeira, zombie, rifle and pistol sets, and more), every one retargeted to the universal three.ws skeleton so it plays on any humanoid avatar. Walks, runs, dances, combat, idles, reactions, sports, and hundreds more are all searchable in the animations gallery, previewable on a live avatar, and one click away from the pose studio or any embed. The clips are served from the CDN, so the site stays fast no matter how big the library gets.",
 			"tags": [
 				"feature",
 				"improvement"
