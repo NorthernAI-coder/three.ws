@@ -89,7 +89,7 @@ const RULES = [
 	],
 	[
 		'interaction',
-		/\bcarry|lift(?:ing)?|pick(?:ing)? ?up|put(?:ting)? ?down|push(?:ing)?\b|pull(?:ing)?\b|open(?:ing)?\b|clos(?:e|ing)\b|door|button|lever|drink|eat(?:ing)?|phone|type|typing|keyboard|search(?:ing)?|inspect|grab(?:bing)?|throw(?:ing)?|toss(?:ing)?|catch(?:ing)?\b|hold(?:ing)?\b|torch|box(?:es)?\b|object|crate|drag(?:ging)?|hand ?off|give|take|steal|pay(?:ing)?|swipe|cpr|carried|carrying|picked up|placed|hostage|dice\b/,
+		/\bcarry|lift(?:ing)?|pick(?:ing)? ?up|put(?:ting)? ?down|push(?:ing)?\b|pull(?:ing)?\b|open(?:ing)?\b|clos(?:e|ing)\b|door|button|lever|drink|eat(?:ing)?|\bphone\b|\btyp(?:e|ing)\b|keyboard|search(?:ing)?|inspect|grab(?:bing)?|throw(?:ing)?|toss(?:ing)?|catch(?:ing)?\b|hold(?:ing)?\b|torch|box(?:es)?\b|object|crate|drag(?:ging)?|hand ?off|give|take|steal|pay(?:ing)?|swipe|cpr|carried|carrying|picked up|placed|hostage|dice\b/,
 	],
 	[
 		'locomotion',

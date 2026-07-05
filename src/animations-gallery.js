@@ -6,74 +6,105 @@
 //   • The built-in three.ws motion library (/animations/manifest.json) — the
 //     same curated clips the /pose studio ships with. Always present.
 //   • The full motion library (GET /api/animations/library) — the complete
-//     Mixamo-sourced catalog (~2,400 clips) hosted on the R2 CDN. Appears
-//     only once populated; the endpoint returns an empty list until the
-//     library pipeline (scripts/mixamo-all.mjs) has uploaded it.
+//     Mixamo-sourced catalog (~2,000 clips) hosted on the R2 CDN.
 //
-// All are normalized to one card shape, then filtered (search + loop/once) and
-// paginated entirely client-side — even the full catalog is just a few hundred
-// KB of metadata, so there's no need to round-trip the server on every keystroke.
+// All are normalized to one card shape — poster thumbnail, derived category
+// (src/animation-categories.js), duration, loop mode — then filtered (search +
+// category + loop/once), sorted, and paginated client-side; even the full
+// catalog is a few hundred KB of metadata.
 //
-// Card actions:
-//   • Preview (hover/click) — inline <iframe> of the embed viewer playing the
-//     clip on a live avatar (/embed/avatar).
-//   • Open in Studio        — /pose?anim=<id>. A community UUID opens the saved
-//     clip in the editor; a library name opens the matching preset.
+// Previews run through ONE shared WebGL engine (src/animations-live-preview.js):
+// hovering a card (or opening the detail modal) moves the singleton canvas into
+// that card and plays the retargeted clip on the preview avatar. No iframes,
+// no per-card GL contexts, nothing 3D loaded until the first preview.
+//
+// Deep links: ?clip=<id> opens the detail modal; q/cat/filter/sort round-trip
+// through the URL so filtered views are shareable.
 
-const PREVIEW_MODEL = '/avatars/cz.glb';
+import { GALLERY_CATEGORIES, galleryCategoryOf } from './animation-categories.js';
+import { getLivePreview } from './animations-live-preview.js';
+
 const API_BASE = '/api/animations/clips';
 const MANIFEST_URL = '/animations/manifest.json';
 const LIBRARY_API = '/api/animations/library';
-const PAGE_SIZE = 24;
+const PAGE_SIZE = 36;
 // Cap community pagination so a large catalog can't stall first paint.
 const COMMUNITY_MAX = 300;
+const HOVER_DELAY_MS = 130;
 
+const REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+const TOUCH_ONLY = window.matchMedia?.('(hover: none)').matches;
+
+const $ = (role) => document.querySelector(`[data-role="${role}"]`);
 const els = {
-	loading: document.querySelector('[data-role="loading"]'),
-	grid: document.querySelector('[data-role="grid"]'),
-	empty: document.querySelector('[data-role="empty"]'),
-	emptySearch: document.querySelector('[data-role="empty-search"]'),
-	emptySearchMsg: document.querySelector('[data-role="empty-search-msg"]'),
-	clearSearch: document.querySelector('[data-role="clear-search"]'),
-	error: document.querySelector('[data-role="error"]'),
-	retry: document.querySelector('[data-role="retry"]'),
-	search: document.querySelector('[data-role="search"]'),
-	chips: document.querySelector('[data-role="chips"]'),
-	loadMore: document.querySelector('[data-role="load-more"]'),
-	loadMoreBtn: document.querySelector('[data-role="load-more-btn"]'),
-	sentinel: document.querySelector('[data-role="sentinel"]'),
+	loading: $('loading'),
+	grid: $('grid'),
+	empty: $('empty'),
+	emptySearch: $('empty-search'),
+	emptySearchMsg: $('empty-search-msg'),
+	clearSearch: $('clear-search'),
+	error: $('error'),
+	retry: $('retry'),
+	search: $('search'),
+	chips: $('chips'),
+	typeFilter: $('type-filter'),
+	sort: $('sort'),
+	count: $('count'),
+	heroStats: $('hero-stats'),
+	loadMore: $('load-more'),
+	loadMoreBtn: $('load-more-btn'),
+	sentinel: $('sentinel'),
+	// Detail modal
+	modal: $('modal'),
+	modalStage: $('modal-stage'),
+	modalSpinner: $('modal-spinner'),
+	modalTitle: $('modal-title'),
+	modalMeta: $('modal-meta'),
+	modalTags: $('modal-tags'),
+	modalStudio: $('modal-studio'),
+	modalCopyLink: $('modal-copy-link'),
+	modalCopyEmbed: $('modal-copy-embed'),
+	modalPlay: $('modal-play'),
+	modalSpeed: $('modal-speed'),
+	modalSpeedVal: $('modal-speed-val'),
+	modalScrub: $('modal-scrub'),
+	modalTime: $('modal-time'),
+	modalClose: $('modal-close'),
+	modalPrev: $('modal-prev'),
+	modalNext: $('modal-next'),
+	modalError: $('modal-error'),
 };
 
+const params = new URLSearchParams(location.search);
 const state = {
-	query: new URLSearchParams(location.search).get('q') || '',
-	filter: new URLSearchParams(location.search).get('filter') || '',
-	all: [], // normalized items from both sources (community first)
-	filtered: [], // after search + loop/once filter
-	shown: 0, // count currently rendered
+	query: params.get('q') || '',
+	filter: params.get('filter') || '', // '' | loop | once
+	category: params.get('cat') || '', // '' | GALLERY_CATEGORIES key
+	sort: params.get('sort') || 'featured',
+	all: [],
+	filtered: [],
+	shown: 0,
 	loaded: false,
+	modalIndex: -1, // index into state.filtered while the modal is open
 };
+
+const live = getLivePreview();
 
 if (state.query) els.search.value = state.query;
-syncChips();
+if (els.sort) els.sort.value = state.sort;
 
 // ── URL state ──────────────────────────────────────────────────────────────
 
-function syncUrl() {
+function syncUrl(clipId) {
 	const p = new URLSearchParams();
 	if (state.query) p.set('q', state.query);
+	if (state.category) p.set('cat', state.category);
 	if (state.filter) p.set('filter', state.filter);
+	if (state.sort !== 'featured') p.set('sort', state.sort);
+	if (clipId) p.set('clip', clipId);
 	const qs = p.toString();
 	const next = qs ? `${location.pathname}?${qs}` : location.pathname;
-	if (next !== location.pathname + location.search) {
-		history.replaceState(null, '', next);
-	}
-}
-
-function syncChips() {
-	els.chips?.querySelectorAll('[data-filter]').forEach((btn) => {
-		const active = btn.dataset.filter === state.filter;
-		btn.setAttribute('aria-selected', String(active));
-	});
+	if (next !== location.pathname + location.search) history.replaceState(null, '', next);
 }
 
 // ── Fetch + normalize ───────────────────────────────────────────────────────
@@ -89,11 +120,10 @@ async function fetchLibrary() {
 async function fetchCommunity() {
 	const out = [];
 	let cursor = null;
-	// Bounded cursor walk — at most COMMUNITY_MAX items.
 	while (out.length < COMMUNITY_MAX) {
-		const params = new URLSearchParams({ include_public: 'true', visibility: 'public', limit: '50' });
-		if (cursor) params.set('cursor', cursor);
-		const res = await fetch(`${API_BASE}?${params}`, { credentials: 'include' });
+		const p = new URLSearchParams({ include_public: 'true', visibility: 'public', limit: '50' });
+		if (cursor) p.set('cursor', cursor);
+		const res = await fetch(`${API_BASE}?${p}`, { credentials: 'include' });
 		if (!res.ok) throw new Error(`HTTP ${res.status}`);
 		const data = await res.json();
 		const incoming = Array.isArray(data.items) ? data.items : [];
@@ -104,6 +134,13 @@ async function fetchCommunity() {
 	return out.slice(0, COMMUNITY_MAX).map(normalizeCommunityClip);
 }
 
+async function fetchFullLibrary() {
+	const res = await fetch(LIBRARY_API);
+	if (!res.ok) throw new Error(`HTTP ${res.status}`);
+	const data = await res.json();
+	return (Array.isArray(data.clips) ? data.clips : []).map(normalizeFullLibraryClip);
+}
+
 function normalizeLibraryClip(clip) {
 	return {
 		id: clip.name,
@@ -112,19 +149,12 @@ function normalizeLibraryClip(clip) {
 		loop: clip.loop !== false,
 		icon: clip.icon || '🎬',
 		tags: [],
-		duration_ms: null,
-		thumbnail_url: null,
+		category: galleryCategoryOf(clip.name, clip.label),
+		duration_ms: clip.duration ? Math.round(clip.duration * 1000) : null,
+		url: clip.url, // site-relative clip JSON — playable by the live preview
+		thumbnail_url: `/animations/thumbs/${encodeURIComponent(clip.name)}.webp`,
 		price: null,
 	};
-}
-
-// The full R2-hosted catalog. Empty (and therefore absent from the grid)
-// until the library pipeline has uploaded it.
-async function fetchFullLibrary() {
-	const res = await fetch(LIBRARY_API);
-	if (!res.ok) throw new Error(`HTTP ${res.status}`);
-	const data = await res.json();
-	return (Array.isArray(data.clips) ? data.clips : []).map(normalizeFullLibraryClip);
 }
 
 function normalizeFullLibraryClip(clip) {
@@ -135,8 +165,15 @@ function normalizeFullLibraryClip(clip) {
 		loop: clip.loop !== false,
 		icon: clip.icon || '🎬',
 		tags: clip.category ? [clip.category] : [],
+		category: galleryCategoryOf(clip.name, clip.label),
 		duration_ms: clip.duration ? Math.round(clip.duration * 1000) : null,
-		thumbnail_url: null,
+		url: clip.url, // absolute CDN url
+		// The library manifest publishes a `thumb` url per clip; older manifests
+		// predate thumbnails, so fall back to the CDN convention (thumbs live
+		// beside clips) and let the card's onerror show the icon placeholder.
+		thumbnail_url:
+			clip.thumb ||
+			(clip.url ? clip.url.replace('/clips/', '/thumbs/').replace(/\.json$/, '.webp') : null),
 		price: null,
 	};
 }
@@ -149,7 +186,9 @@ function normalizeCommunityClip(clip) {
 		loop: clip.loop !== false,
 		icon: '🎬',
 		tags: Array.isArray(clip.tags) ? clip.tags : [],
+		category: galleryCategoryOf(clip.id, clip.name),
 		duration_ms: clip.duration_ms || null,
+		url: null, // fetched through /api/animations/clips/:id by the preview engine
 		thumbnail_url: clip.thumbnail_url || null,
 		price: clip.price || null,
 	};
@@ -176,24 +215,132 @@ async function loadAll() {
 	const curatedNames = new Set(library.map((c) => c.id));
 	state.all = [...community, ...library, ...full.filter((c) => !curatedNames.has(c.id))];
 	state.loaded = true;
+
+	renderHeroStats();
+	renderChips();
 	applyFilters();
+
+	// ?clip= deep link → open the modal once data exists.
+	const wanted = new URLSearchParams(location.search).get('clip');
+	if (wanted) {
+		const idx = state.filtered.findIndex((c) => c.id === wanted);
+		if (idx >= 0) openModal(idx);
+		else {
+			const item = state.all.find((c) => c.id === wanted);
+			if (item) {
+				// Visible under different filters — clear them so the link works.
+				state.query = '';
+				state.category = '';
+				state.filter = '';
+				els.search.value = '';
+				renderChips();
+				applyFilters();
+				openModal(state.filtered.findIndex((c) => c.id === wanted));
+			}
+		}
+	}
 }
 
-// ── Filter + render ──────────────────────────────────────────────────────────
+// ── Hero stats + chips ───────────────────────────────────────────────────────
+
+function renderHeroStats() {
+	if (!els.heroStats) return;
+	const total = state.all.length;
+	const community = state.all.filter((c) => c.source === 'community').length;
+	const cats = new Set(state.all.map((c) => c.category)).size;
+	els.heroStats.textContent = `${total.toLocaleString()} clips · ${cats} categories${
+		community ? ` · ${community} community-authored` : ''
+	}`;
+}
+
+function renderChips() {
+	if (!els.chips) return;
+	const counts = new Map();
+	for (const item of state.all) counts.set(item.category, (counts.get(item.category) || 0) + 1);
+	els.chips.innerHTML = '';
+	const mk = (key, label, icon, count) => {
+		const btn = document.createElement('button');
+		btn.className = 'ag-chip';
+		btn.setAttribute('role', 'tab');
+		btn.dataset.cat = key;
+		btn.setAttribute('aria-selected', String(state.category === key));
+		btn.innerHTML = `${icon ? `<span aria-hidden="true">${icon}</span> ` : ''}${escHtml(label)}${
+			count != null ? ` <span class="ag-chip-count">${count.toLocaleString()}</span>` : ''
+		}`;
+		els.chips.appendChild(btn);
+	};
+	mk('', 'All', '', state.all.length);
+	for (const cat of GALLERY_CATEGORIES) {
+		const n = counts.get(cat.key);
+		if (n) mk(cat.key, cat.label, cat.icon, n);
+	}
+}
+
+function syncChips() {
+	els.chips?.querySelectorAll('[data-cat]').forEach((btn) => {
+		btn.setAttribute('aria-selected', String(btn.dataset.cat === state.category));
+	});
+}
+
+// ── Filter + sort + render ───────────────────────────────────────────────────
 
 function applyFilters() {
 	const q = state.query.toLowerCase();
 	state.filtered = state.all.filter((item) => {
 		if (state.filter === 'loop' && !item.loop) return false;
 		if (state.filter === 'once' && item.loop) return false;
+		if (state.category && item.category !== state.category) return false;
 		if (q) {
-			const hay = `${item.name} ${item.tags.join(' ')}`.toLowerCase();
+			const hay = `${item.name} ${item.tags.join(' ')} ${item.category}`.toLowerCase();
 			if (!hay.includes(q)) return false;
 		}
 		return true;
 	});
+	sortFiltered();
 	state.shown = 0;
+	renderCount();
 	renderGrid();
+}
+
+function sortFiltered() {
+	const arr = state.filtered;
+	switch (state.sort) {
+		case 'az':
+			arr.sort((a, b) => a.name.localeCompare(b.name));
+			break;
+		case 'za':
+			arr.sort((a, b) => b.name.localeCompare(a.name));
+			break;
+		case 'shortest':
+			arr.sort((a, b) => (a.duration_ms ?? 1e9) - (b.duration_ms ?? 1e9));
+			break;
+		case 'longest':
+			arr.sort((a, b) => (b.duration_ms ?? -1) - (a.duration_ms ?? -1));
+			break;
+		case 'shuffle': {
+			// Deterministic per page load, reshuffled when re-selected.
+			for (let i = arr.length - 1; i > 0; i--) {
+				const j = Math.floor(Math.random() * (i + 1));
+				[arr[i], arr[j]] = [arr[j], arr[i]];
+			}
+			break;
+		}
+		default:
+			// 'featured' — the assembled source order (community → curated → catalog).
+			break;
+	}
+}
+
+function renderCount() {
+	if (!els.count) return;
+	if (!state.loaded) {
+		els.count.textContent = '';
+		return;
+	}
+	const n = state.filtered.length;
+	els.count.textContent = n === state.all.length
+		? `${n.toLocaleString()} animations`
+		: `${n.toLocaleString()} of ${state.all.length.toLocaleString()}`;
 }
 
 function renderGrid() {
@@ -204,8 +351,8 @@ function renderGrid() {
 			showState('empty-search');
 			if (els.emptySearchMsg) {
 				els.emptySearchMsg.textContent = state.query
-					? `No animations match "${state.query}".`
-					: 'No animations match this filter.';
+					? `No animations match “${state.query}”.`
+					: 'No animations match these filters.';
 			}
 		}
 		return;
@@ -215,11 +362,14 @@ function renderGrid() {
 
 	const start = state.shown;
 	const end = Math.min(start + PAGE_SIZE, state.filtered.length);
-	if (start === 0) els.grid.innerHTML = '';
+	if (start === 0) {
+		live.stop();
+		els.grid.innerHTML = '';
+	}
 
 	const fragment = document.createDocumentFragment();
 	for (let i = start; i < end; i++) {
-		fragment.appendChild(buildCard(state.filtered[i]));
+		fragment.appendChild(buildCard(state.filtered[i], i));
 	}
 	els.grid.appendChild(fragment);
 	state.shown = end;
@@ -232,103 +382,250 @@ function showMore() {
 }
 
 function fmtDuration(ms) {
+	if (ms == null) return '';
 	const s = ms / 1000;
 	if (s < 60) return `${s.toFixed(1)}s`;
 	const m = Math.floor(s / 60);
 	return `${m}m ${Math.round(s % 60)}s`;
 }
 
-function buildCard(clip) {
+const CATEGORY_BY_KEY = new Map(GALLERY_CATEGORIES.map((c) => [c.key, c]));
+
+function sourceLabel(source) {
+	return source === 'community' ? 'Community' : source === 'mixamo' ? 'Mocap' : 'Studio';
+}
+
+// ── Card ────────────────────────────────────────────────────────────────────
+
+function buildCard(clip, index) {
 	const card = document.createElement('article');
 	card.className = 'ag-card';
-	card.setAttribute('aria-label', clip.name || 'Animation');
+	card.dataset.index = String(index);
 
-	const previewId = `ag-preview-${clip.source}-${clip.id}`;
+	const cat = CATEGORY_BY_KEY.get(clip.category);
 	const studioUrl = `/pose?anim=${encodeURIComponent(clip.id)}`;
-	const loopBadge = clip.loop;
-	const hasThumb = !!clip.thumbnail_url;
-	const sourceLabel =
-		clip.source === 'community' ? 'Community' : clip.source === 'mixamo' ? 'Library' : 'Built-in';
 
 	card.innerHTML = `
 		<div class="ag-card-preview" role="button" tabindex="0"
-			aria-label="Preview ${escHtml(clip.name || 'animation')}"
-			data-clip-id="${escHtml(clip.id)}">
-			${hasThumb
-				? `<img class="ag-card-thumb" src="${escHtml(clip.thumbnail_url)}" alt="" loading="lazy" />`
-				: `<div class="ag-card-thumb-placeholder" aria-hidden="true">${escHtml(clip.icon || '🎬')}</div>`
-			}
-			<div class="ag-card-preview-overlay" id="${escHtml(previewId)}"></div>
-			<div class="ag-play-hint" aria-hidden="true">
-				<div class="ag-play-icon">
-					<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-				</div>
-			</div>
+			aria-label="${escHtml(clip.name)} — open details">
+			${clip.thumbnail_url
+				? `<img class="ag-card-thumb" src="${escHtml(clip.thumbnail_url)}" alt="" loading="lazy" decoding="async" />`
+				: ''}
+			<div class="ag-card-thumb-fallback" aria-hidden="true" ${clip.thumbnail_url ? 'hidden' : ''}>${escHtml(clip.icon || '🎬')}</div>
+			<div class="ag-card-live" aria-hidden="true"></div>
+			<span class="ag-card-duration">${fmtDuration(clip.duration_ms)}</span>
+			${clip.loop ? '' : '<span class="ag-card-once" title="Plays once">once</span>'}
+			${clip.price ? `<span class="ag-card-price">$${(Number(clip.price.amount) / 1_000_000).toFixed(2)}</span>` : ''}
 		</div>
 		<div class="ag-card-meta">
-			<h3 class="ag-card-title" title="${escHtml(clip.name || '')}">${escHtml(clip.name || 'Untitled')}</h3>
-			<div class="ag-card-badges">
-				<span class="ag-badge ${loopBadge ? 'ag-badge--loop' : 'ag-badge--once'}">${loopBadge ? 'loop' : 'once'}</span>
-				<span class="ag-badge ag-badge--source">${sourceLabel}</span>
-				${clip.duration_ms ? `<span class="ag-badge">${fmtDuration(clip.duration_ms)}</span>` : ''}
-				${clip.price ? `<span class="ag-badge ag-badge--price">$${(Number(clip.price.amount) / 1_000_000).toFixed(2)}</span>` : ''}
+			<h3 class="ag-card-title" title="${escHtml(clip.name)}">${escHtml(clip.name)}</h3>
+			<div class="ag-card-sub">
+				<button class="ag-card-cat" data-cat-jump="${escHtml(clip.category)}"
+					title="Show all ${escHtml(cat?.label || 'More')} animations">${cat?.icon || ''} ${escHtml(cat?.label || 'More')}</button>
+				<span class="ag-card-source">${sourceLabel(clip.source)}</span>
 			</div>
-			${clip.tags?.length ? `<div class="ag-card-tags">${clip.tags.slice(0, 5).map((t) => `<span class="ag-tag">${escHtml(t)}</span>`).join('')}</div>` : ''}
 			<div class="ag-card-actions">
 				<a href="${escHtml(studioUrl)}" class="ag-card-btn ag-card-btn--primary"
-					title="Open this animation in the Studio to remix or apply to your avatar">
-					Open in Studio
-				</a>
-				<button class="ag-card-btn" data-preview="${escHtml(clip.id)}"
-					title="Preview this animation on a live avatar"
-					aria-label="Preview ${escHtml(clip.name || 'animation')}">
-					Preview
-				</button>
+					title="Open this animation in the Studio to remix or apply to your avatar">Open in Studio</a>
+				<button class="ag-card-btn" data-details
+					aria-label="Details and preview for ${escHtml(clip.name)}">Details</button>
 			</div>
 		</div>
 	`;
 
-	// Preview on hover (desktop) — lazy-load the embed iframe once.
 	const previewZone = card.querySelector('.ag-card-preview');
-	const overlay = card.querySelector('.ag-card-preview-overlay');
-	let iframeLoaded = false;
+	const liveHost = card.querySelector('.ag-card-live');
+	const img = card.querySelector('.ag-card-thumb');
+	const fallback = card.querySelector('.ag-card-thumb-fallback');
+	if (img && fallback) {
+		img.addEventListener('error', () => {
+			img.remove();
+			fallback.hidden = false;
+		});
+	}
 
-	const launchPreview = () => {
-		if (!iframeLoaded) {
-			iframeLoaded = true;
-			const iframe = document.createElement('iframe');
-			iframe.src = `/embed/avatar?model=${encodeURIComponent(PREVIEW_MODEL)}&anim=${encodeURIComponent(clip.id)}&hide-chrome=1&idle=off&bg=transparent`;
-			iframe.title = `Preview: ${clip.name || 'animation'}`;
-			iframe.setAttribute('loading', 'lazy');
-			iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
-			overlay.appendChild(iframe);
-		}
-		overlay.classList.add('is-active');
-	};
+	// Hover → live preview through the shared engine (skipped for touch and
+	// reduced-motion users; both get the full preview in the details modal).
+	if (!TOUCH_ONLY && !REDUCED_MOTION) {
+		let hoverTimer = 0;
+		previewZone.addEventListener('mouseenter', () => {
+			hoverTimer = setTimeout(() => {
+				card.classList.add('is-loading-preview');
+				live
+					.play(liveHost, clip)
+					.then(() => {
+						if (live.active === clip) card.classList.add('is-live');
+					})
+					.catch(() => {})
+					.finally(() => card.classList.remove('is-loading-preview'));
+			}, HOVER_DELAY_MS);
+		});
+		previewZone.addEventListener('mouseleave', () => {
+			clearTimeout(hoverTimer);
+			card.classList.remove('is-live', 'is-loading-preview');
+			if (live.active === clip) live.stop();
+		});
+	}
 
-	previewZone.addEventListener('mouseenter', launchPreview);
-	previewZone.addEventListener('click', launchPreview);
+	const open = () => openModal(index);
+	previewZone.addEventListener('click', open);
 	previewZone.addEventListener('keydown', (e) => {
 		if (e.key === 'Enter' || e.key === ' ') {
 			e.preventDefault();
-			launchPreview();
+			open();
 		}
 	});
-	previewZone.addEventListener('mouseleave', () => {
-		overlay.classList.remove('is-active');
-	});
-
-	// "Preview" button — same behavior as hover.
-	card.querySelector('[data-preview]')?.addEventListener('click', (e) => {
-		e.preventDefault();
-		launchPreview();
+	card.querySelector('[data-details]').addEventListener('click', open);
+	card.querySelector('[data-cat-jump]').addEventListener('click', (e) => {
+		state.category = e.currentTarget.dataset.catJump || '';
+		syncChips();
+		syncUrl();
+		applyFilters();
+		window.scrollTo({ top: 0, behavior: 'smooth' });
 	});
 
 	return card;
 }
 
 function escHtml(s) {
-	return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+	return String(s ?? '')
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;');
+}
+
+// ── Detail modal ─────────────────────────────────────────────────────────────
+
+function openModal(index) {
+	const clip = state.filtered[index];
+	if (!clip || !els.modal) return;
+	state.modalIndex = index;
+
+	els.modalTitle.textContent = clip.name;
+	const cat = CATEGORY_BY_KEY.get(clip.category);
+	els.modalMeta.innerHTML = [
+		cat ? `${cat.icon} ${escHtml(cat.label)}` : null,
+		clip.duration_ms ? escHtml(fmtDuration(clip.duration_ms)) : null,
+		clip.loop ? 'loops' : 'plays once',
+		escHtml(sourceLabel(clip.source)),
+	]
+		.filter(Boolean)
+		.map((x) => `<span>${x}</span>`)
+		.join('<span class="ag-dot" aria-hidden="true">·</span>');
+	els.modalTags.innerHTML = clip.tags?.length
+		? clip.tags.slice(0, 8).map((t) => `<span class="ag-tag">${escHtml(t)}</span>`).join('')
+		: '';
+	els.modalStudio.href = `/pose?anim=${encodeURIComponent(clip.id)}`;
+	els.modalError.hidden = true;
+	els.modalSpinner.hidden = false;
+	els.modalPrev.disabled = index <= 0;
+	els.modalNext.disabled = index >= state.filtered.length - 1;
+
+	// Transport defaults.
+	els.modalSpeed.value = '1';
+	els.modalSpeedVal.textContent = '1×';
+	els.modalScrub.value = '0';
+	setPlayIcon(false);
+
+	els.modal.hidden = false;
+	document.body.style.overflow = 'hidden';
+	els.modalClose.focus();
+	syncUrl(clip.id);
+
+	let scrubbing = false;
+	els.modalScrub.oninput = () => {
+		scrubbing = true;
+		live.seek(Number(els.modalScrub.value) / 1000);
+	};
+	els.modalScrub.onchange = () => {
+		scrubbing = false;
+	};
+
+	live
+		.play(els.modalStage, clip, {
+			onFrame: (t, d) => {
+				if (!scrubbing && d > 0) {
+					els.modalScrub.value = String(Math.round(((t % d) / d) * 1000));
+					els.modalTime.textContent = `${(t % d).toFixed(1)}s / ${d.toFixed(1)}s`;
+				}
+			},
+		})
+		.then(() => {
+			els.modalSpinner.hidden = true;
+			live.refit();
+		})
+		.catch(() => {
+			els.modalSpinner.hidden = true;
+			els.modalError.hidden = false;
+		});
+}
+
+function closeModal() {
+	if (els.modal.hidden) return;
+	els.modal.hidden = true;
+	document.body.style.overflow = '';
+	live.stop();
+	state.modalIndex = -1;
+	syncUrl();
+}
+
+function stepModal(delta) {
+	const next = state.modalIndex + delta;
+	if (next < 0 || next >= state.filtered.length) return;
+	// Ensure the card list has rendered far enough that "next" stays in sync
+	// with what the user returns to after closing.
+	while (state.shown <= next && state.shown < state.filtered.length) showMore();
+	openModal(next);
+}
+
+function setPlayIcon(paused) {
+	els.modalPlay.innerHTML = paused
+		? '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>'
+		: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="5" y="4" width="5" height="16"/><rect x="14" y="4" width="5" height="16"/></svg>';
+	els.modalPlay.setAttribute('aria-label', paused ? 'Play' : 'Pause');
+}
+
+els.modalPlay?.addEventListener('click', () => {
+	const paused = !live.isPaused();
+	live.setPaused(paused);
+	setPlayIcon(paused);
+});
+els.modalSpeed?.addEventListener('input', () => {
+	const f = Number(els.modalSpeed.value);
+	live.setSpeed(f);
+	els.modalSpeedVal.textContent = `${f}×`;
+});
+els.modalClose?.addEventListener('click', closeModal);
+els.modalPrev?.addEventListener('click', () => stepModal(-1));
+els.modalNext?.addEventListener('click', () => stepModal(1));
+els.modal?.addEventListener('click', (e) => {
+	if (e.target === els.modal) closeModal();
+});
+els.modalCopyLink?.addEventListener('click', async () => {
+	const clip = state.filtered[state.modalIndex];
+	if (!clip) return;
+	const url = `${location.origin}/animations?clip=${encodeURIComponent(clip.id)}`;
+	await navigator.clipboard.writeText(url).catch(() => {});
+	flashButton(els.modalCopyLink, 'Copied!');
+});
+els.modalCopyEmbed?.addEventListener('click', async () => {
+	const clip = state.filtered[state.modalIndex];
+	if (!clip) return;
+	const src = `${location.origin}/embed/avatar?anim=${encodeURIComponent(clip.id)}`;
+	const snippet = `<iframe src="${src}" width="360" height="480" style="border:0;border-radius:12px" allow="autoplay" title="${clip.name} — three.ws"></iframe>`;
+	await navigator.clipboard.writeText(snippet).catch(() => {});
+	flashButton(els.modalCopyEmbed, 'Copied!');
+});
+
+function flashButton(btn, msg) {
+	const prev = btn.textContent;
+	btn.textContent = msg;
+	btn.disabled = true;
+	setTimeout(() => {
+		btn.textContent = prev;
+		btn.disabled = false;
+	}, 1200);
 }
 
 // ── State display ──────────────────────────────────────────────────────────
@@ -351,29 +648,49 @@ els.search?.addEventListener('input', () => {
 		state.query = els.search.value.trim();
 		syncUrl();
 		if (state.loaded) applyFilters();
-	}, 200);
+	}, 180);
 });
 
 els.chips?.addEventListener('click', (e) => {
+	const btn = e.target.closest('[data-cat]');
+	if (!btn) return;
+	state.category = btn.dataset.cat;
+	syncChips();
+	syncUrl();
+	if (state.loaded) applyFilters();
+});
+
+els.typeFilter?.addEventListener('click', (e) => {
 	const btn = e.target.closest('[data-filter]');
 	if (!btn) return;
 	state.filter = btn.dataset.filter;
+	els.typeFilter.querySelectorAll('[data-filter]').forEach((b) => {
+		b.setAttribute('aria-pressed', String(b === btn));
+	});
 	syncUrl();
-	syncChips();
+	if (state.loaded) applyFilters();
+});
+
+els.sort?.addEventListener('change', () => {
+	state.sort = els.sort.value;
+	syncUrl();
 	if (state.loaded) applyFilters();
 });
 
 els.clearSearch?.addEventListener('click', () => {
 	state.query = '';
 	state.filter = '';
+	state.category = '';
 	els.search.value = '';
-	syncUrl();
+	els.typeFilter?.querySelectorAll('[data-filter]').forEach((b) => {
+		b.setAttribute('aria-pressed', String(b.dataset.filter === ''));
+	});
 	syncChips();
+	syncUrl();
 	if (state.loaded) applyFilters();
 });
 
 els.retry?.addEventListener('click', () => loadAll());
-
 els.loadMoreBtn?.addEventListener('click', showMore);
 
 // Infinite scroll sentinel.
@@ -382,10 +699,32 @@ if ('IntersectionObserver' in window && els.sentinel) {
 		(entries) => {
 			if (entries[0].isIntersecting) showMore();
 		},
-		{ rootMargin: '300px' },
+		{ rootMargin: '600px' },
 	);
 	observer.observe(els.sentinel);
 }
+
+// ── Keyboard ────────────────────────────────────────────────────────────────
+
+document.addEventListener('keydown', (e) => {
+	if (!els.modal.hidden) {
+		if (e.key === 'Escape') closeModal();
+		else if (e.key === 'ArrowLeft') stepModal(-1);
+		else if (e.key === 'ArrowRight') stepModal(1);
+		else if (e.key === ' ' && e.target === document.body) {
+			e.preventDefault();
+			els.modalPlay.click();
+		}
+		return;
+	}
+	const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '');
+	if (e.key === '/' && !typing) {
+		e.preventDefault();
+		els.search.focus();
+	} else if (e.key === 'Escape' && typing && document.activeElement === els.search) {
+		els.search.blur();
+	}
+});
 
 // ── Boot ───────────────────────────────────────────────────────────────────
 

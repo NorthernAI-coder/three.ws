@@ -132,6 +132,9 @@ const SOURCES_DIR   = join(ROOT, 'animation-sources');
 const LIBRARY_CONFIG_PATH   = join(__dirname, 'mixamo-library.config.json');
 const LIBRARY_STAGE_DIR     = join(ROOT, 'animation-sources/.library-clips');
 const LIBRARY_MANIFEST_PATH = join(LIBRARY_STAGE_DIR, 'manifest.json');
+// Poster thumbnails rendered by scripts/build-animation-thumbnails.mjs; each
+// uploads beside its clip and is published as the manifest entry's `thumb`.
+const LIBRARY_THUMBS_DIR    = join(ROOT, 'animation-sources/.library-thumbs');
 const UPLOAD_STATE_PATH     = join(__dirname, 'mixamo-upload-state.json');
 const LIBRARY_R2_PREFIX     = 'animations/library';
 
@@ -653,6 +656,33 @@ async function uploadLibrary() {
 			const sha = createHash('sha1').update(body).digest('hex');
 			const key = `${LIBRARY_R2_PREFIX}/clips/${entry.name}.json`;
 
+			// Poster thumbnail (optional — clips without one simply publish no
+			// `thumb` and the gallery falls back to its icon placeholder).
+			const thumbFile = join(LIBRARY_THUMBS_DIR, `${entry.name}.webp`);
+			const thumbKey = `${LIBRARY_R2_PREFIX}/thumbs/${entry.name}.webp`;
+			let thumbUrl = null;
+			if (existsSync(thumbFile)) {
+				const thumbBody = readFileSync(thumbFile);
+				const thumbSha = createHash('sha1').update(thumbBody).digest('hex');
+				if (state[`thumb:${entry.name}`] === thumbSha) {
+					thumbUrl = `${publicDomain}/${thumbKey}`;
+				} else {
+					try {
+						await client.send(new PutObjectCommand({
+							Bucket: bucket,
+							Key: thumbKey,
+							Body: thumbBody,
+							ContentType: 'image/webp',
+							CacheControl: 'public, max-age=604800',
+						}));
+						state[`thumb:${entry.name}`] = thumbSha;
+						thumbUrl = `${publicDomain}/${thumbKey}`;
+					} catch (err) {
+						console.warn(`\n  ⚠️  thumb ${entry.name}: ${err.message}`);
+					}
+				}
+			}
+
 			const clipMeta = {
 				name: entry.name,
 				label: entry.label,
@@ -662,6 +692,7 @@ async function uploadLibrary() {
 				...(entry.duration ? { duration: entry.duration } : {}),
 				bytes: body.length,
 				url: `${publicDomain}/${key}`,
+				...(thumbUrl ? { thumb: thumbUrl } : {}),
 			};
 
 			if (state[entry.name] === sha) {
