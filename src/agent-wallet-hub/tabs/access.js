@@ -281,11 +281,11 @@ registerWalletTab({
 						<div class="awh-acc-row">
 							<div class="awh-acc-field">
 								<label for="awh-acc-peruse">Max per use (USD)</label>
-								<input type="number" id="awh-acc-peruse" data-f="per_use" min="0" step="0.01" placeholder="optional" />
+								<input type="number" id="awh-acc-peruse" data-f="per_use" min="0" step="0.01" inputmode="decimal" placeholder="optional" />
 							</div>
 							<div class="awh-acc-field">
 								<label for="awh-acc-agg">Total budget (USD)</label>
-								<input type="number" id="awh-acc-agg" data-f="aggregate" min="0" step="0.01" placeholder="optional" />
+								<input type="number" id="awh-acc-agg" data-f="aggregate" min="0" step="0.01" inputmode="decimal" placeholder="optional" />
 							</div>
 							<div class="awh-acc-field">
 								<label for="awh-acc-ttl">Expires in</label>

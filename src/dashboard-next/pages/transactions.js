@@ -49,7 +49,7 @@ let visibleCount = PAGE_SIZE;
 								aria-selected="${i === 0 ? 'true' : 'false'}" data-filter="${f.key}">${esc(f.label)}</button>
 						`).join('')}
 					</div>
-					<div class="tx-toolbar-meta" data-slot="meta"></div>
+					<div class="tx-toolbar-meta" data-slot="meta" role="status" aria-live="polite"></div>
 				</div>
 				<div data-slot="body"></div>
 			</div>

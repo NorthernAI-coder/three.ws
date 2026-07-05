@@ -279,7 +279,7 @@ registerWalletTab({
 				${toggles}
 				<div class="sb-actions">
 					<div class="sb-seg" role="group" aria-label="Backtest window">
-						${[7, 30, 90].map((w) => `<button data-win="${w}" class="${w === state.window ? 'on' : ''}">${w}d</button>`).join('')}
+						${[7, 30, 90].map((w) => `<button type="button" data-win="${w}" class="${w === state.window ? 'on' : ''}" aria-pressed="${w === state.window}">${w}d</button>`).join('')}
 					</div>
 					<button class="sb-btn primary" id="sb-bt" ${state.backtesting ? 'disabled' : ''}>${state.backtesting ? '<span class="sb-spin"></span>Backtesting…' : 'Run backtest'}</button>
 					${state.backtestStale ? '<span class="sb-stale">edited — re-run the backtest</span>' : ''}
