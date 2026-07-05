@@ -5,11 +5,10 @@ export function loadConfig() {
 	}
 
 	const BROWSERBASE_API_KEY = process.env.BROWSERBASE_API_KEY || '';
+	// Browserbase resolves the project from the API key alone — BROWSERBASE_PROJECT_ID
+	// is NOT required and the caster never asks for one. It's still read (optional) so
+	// an environment that happens to set it keeps working, but its absence is normal.
 	const BROWSERBASE_PROJECT_ID = process.env.BROWSERBASE_PROJECT_ID || '';
-
-	if (BROWSERBASE_API_KEY && !BROWSERBASE_PROJECT_ID) {
-		throw new Error('BROWSERBASE_PROJECT_ID is required when BROWSERBASE_API_KEY is set');
-	}
 
 	// Stagehand's page.act()/page.extract() are LLM-driven — without a model + key
 	// they throw on the first real interaction. The provider-prefixed form

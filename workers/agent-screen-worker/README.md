@@ -39,9 +39,8 @@ docker run --env-file .env agent-screen-worker
 No Docker needed. Run as a plain Node process or in any VM:
 
 ```bash
-export BROWSERBASE_API_KEY=...
-export BROWSERBASE_PROJECT_ID=...
-export ANTHROPIC_API_KEY=...   # drives page.act()/page.extract() — see below
+export BROWSERBASE_API_KEY=...   # the only Browserbase value — no project id needed
+export ANTHROPIC_API_KEY=...     # drives page.act()/page.extract() — see below
 export AGENT_ID=...
 export AGENT_JWT=...
 npm start
@@ -61,7 +60,7 @@ npm start
 | `AGENT_JWT` | yes | — | Bearer token for that agent |
 | `PUSH_URL` | no | `https://three.ws/api/agent-screen-push` | Push endpoint override |
 | `BROWSERBASE_API_KEY` | no | — | Browserbase API key (cloud mode) |
-| `BROWSERBASE_PROJECT_ID` | no | — | Required when `BROWSERBASE_API_KEY` is set |
+| `BROWSERBASE_PROJECT_ID` | no | — | Not required — Browserbase resolves the project from the API key. Leave unset. |
 | `ANTHROPIC_API_KEY` | recommended | — | Drives `page.act()`/`page.extract()`. Without it the agent navigates + screenshots but can't type, click, or read pages. |
 | `STAGEHAND_MODEL` | no | `anthropic/claude-opus-4-8` | Model for act/extract. Keep the `anthropic/` prefix (routes to Stagehand's Anthropic client). Use `anthropic/claude-haiku-4-5` for cheaper, faster casting at high volume. |
 | `CYCLE_MS` | no | `30000` | Task loop cycle time in ms |

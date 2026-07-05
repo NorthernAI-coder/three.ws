@@ -58,9 +58,14 @@ const PORT_STYLE = `
 .awh-port-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm,.764rem); }
 .awh-port-table th { text-align: right; font-weight: 500; color: var(--ink-dim,#888); font-size: var(--text-2xs,.6875rem); text-transform: uppercase; letter-spacing: .04em; padding: 0 0 8px; border-bottom: 1px solid var(--stroke, rgba(255,255,255,.08)); }
 .awh-port-table th:first-child { text-align: left; }
-.awh-port-table td { text-align: right; padding: 9px 0; border-bottom: 1px solid var(--stroke, rgba(255,255,255,.06)); font-family: var(--font-mono, ui-monospace, monospace); }
-.awh-port-table td:first-child { text-align: left; font-family: inherit; }
+.awh-port-table td { text-align: right; padding: 9px 0; border-bottom: 1px solid var(--stroke, rgba(255,255,255,.06)); font-family: var(--font-mono, ui-monospace, monospace); white-space: nowrap; }
+.awh-port-table td:first-child { text-align: left; font-family: inherit; white-space: normal; }
+.awh-port-table td + td, .awh-port-table th + th { padding-left: 16px; }
+.awh-port-table td:last-child, .awh-port-table th:last-child { width: 1%; }
 .awh-port-table tr:last-child td { border-bottom: none; }
+.awh-port-table tbody tr { transition: background var(--duration-fast,140ms); }
+.awh-port-table tbody tr:hover td { background: var(--surface-1, rgba(255,255,255,.035)); }
+.awh-port-table td.col-val { color: var(--ink-bright,#fff); font-weight: 600; }
 .awh-port-asset { display: flex; align-items: center; gap: 9px; min-width: 0; }
 .awh-port-asset img { width: 22px; height: 22px; border-radius: 50%; flex: none; background: var(--surface-2, rgba(255,255,255,.05)); object-fit: cover; }
 .awh-port-asset .ph { width: 22px; height: 22px; border-radius: 50%; flex: none; background: var(--surface-3, rgba(255,255,255,.08)); display: inline-flex; align-items: center; justify-content: center; font-size: 9px; color: var(--ink-dim,#888); font-family: var(--font-mono, ui-monospace, monospace); }
@@ -366,7 +371,7 @@ registerWalletTab({
 						</div>
 					</td>
 					<td class="col-amt">${escapeHtml(amt)}</td>
-					<td>${value}</td>
+					<td class="col-val">${value}</td>
 					<td class="col-basis">${basis}</td>
 					<td>${upnl}</td>
 					<td>${tradeBtn}</td>

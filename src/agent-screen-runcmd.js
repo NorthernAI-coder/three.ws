@@ -27,12 +27,14 @@ export const RUNTIME_LABELS = {
 	bb: 'Browserbase',
 };
 
-// Browserbase keys are the only values the user supplies themselves — they come
-// from the user's Browserbase account, not from three.ws. Marked as explicit
-// angle-bracket placeholders so it's obvious they must be filled in.
+// The Browserbase API key is the only value the user supplies themselves — it
+// comes from the user's Browserbase account, not from three.ws. Marked as an
+// explicit angle-bracket placeholder so it's obvious it must be filled in.
+// NOTE: no BROWSERBASE_PROJECT_ID — Browserbase resolves the project from the API
+// key alone. Never emit a project-id placeholder; it would only be a value the
+// user has to hunt down for nothing.
 const BB_PLACEHOLDERS = [
 	['BROWSERBASE_API_KEY', '<your-bb-key>'],
-	['BROWSERBASE_PROJECT_ID', '<your-bb-project>'],
 ];
 
 // Anthropic key drives Stagehand's page.act()/page.extract() — the difference

@@ -36,11 +36,12 @@ describe('runtimeEnv', () => {
 		expect(env.ANTHROPIC_API_KEY).toBe('<your-anthropic-key>');
 	});
 
-	it('adds Browserbase creds only for the bb runtime', () => {
+	it('adds the Browserbase key only for the bb runtime — and never a project id', () => {
 		expect(runtimeEnv({ runtime: 'local', ...REAL }).map((e) => e[0])).not.toContain('BROWSERBASE_API_KEY');
 		const bb = runtimeEnv({ runtime: 'bb', ...REAL }).map((e) => e[0]);
 		expect(bb).toContain('BROWSERBASE_API_KEY');
-		expect(bb).toContain('BROWSERBASE_PROJECT_ID');
+		// Browserbase resolves the project from the key — a project id is never emitted
+		expect(bb).not.toContain('BROWSERBASE_PROJECT_ID');
 	});
 
 	it('joins PUSH_URL onto a non-prod origin (preview/staging hosts)', () => {
@@ -66,10 +67,10 @@ describe('buildRunCommand', () => {
 		expect(cmd.trim().endsWith(IMAGE_TAG)).toBe(true);
 	});
 
-	it('bb runtime carries the Browserbase creds and runs npm start', () => {
+	it('bb runtime carries the Browserbase key (no project id) and runs npm start', () => {
 		const cmd = buildRunCommand({ runtime: 'bb', ...REAL });
 		expect(cmd).toContain('BROWSERBASE_API_KEY=');
-		expect(cmd).toContain('BROWSERBASE_PROJECT_ID=');
+		expect(cmd).not.toContain('BROWSERBASE_PROJECT_ID');
 		expect(cmd.endsWith('npm start')).toBe(true);
 	});
 
