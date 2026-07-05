@@ -63,6 +63,14 @@
 			<description>The Pro plan is now a real self-serve upgrade you can buy on-chain. The pricing page checkout accepts USDC, SOL, or $THREE on Solana: pick your asset, scan a Solana Pay QR (or open it straight in your wallet), and your account upgrades the moment the payment finalizes. SOL and $THREE amounts are quoted at the live market price and pinned for the session, and paying in $THREE takes 20% off the sticker price — holding the coin already earns discounts, and now spending it does too.</description>
 		</item>
 		<item>
+			<title>Open in Studio now previews the animation instantly</title>
+			<link>https://three.ws/animations</link>
+			<guid isPermaLink="false">2026-07-05:Open in Studio now previews the animation instantly</guid>
+			<pubDate>Sun, 05 Jul 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Opening an animation from the gallery in the Animation Studio used to drop you onto an empty stage. Now it auto-loads a rigged avatar and plays the clip live the moment the page opens — no setup. Each animation previews on a character picked to fit it, and the new playback bar lets you scrub the clip’s timeline, pause on any frame, change speed, and export it as an animated GLB.</description>
+		</item>
+		<item>
 			<title>Payments a wallet silently rewrites now explain themselves instead of bouncing</title>
 			<link>https://three.ws/club</link>
 			<guid isPermaLink="false">2026-07-05:Payments a wallet silently rewrites now explain themselves instead of bouncing</guid>

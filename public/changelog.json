@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-05T10:43:25.209Z",
+	"generated_at": "2026-07-05T10:49:50.588Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -79,6 +79,16 @@
 			"link": "/pricing",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-07-05",
+			"type": "update",
+			"title": "Open in Studio now previews the animation instantly",
+			"summary": "Opening an animation from the gallery in the Animation Studio used to drop you onto an empty stage. Now it auto-loads a rigged avatar and plays the clip live the moment the page opens — no setup. Each animation previews on a character picked to fit it, and the new playback bar lets you scrub the clip’s timeline, pause on any frame, change speed, and export it as an animated GLB.",
+			"link": "/animations",
+			"tags": [
+				"improvement"
 			]
 		},
 		{
