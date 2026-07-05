@@ -139,13 +139,14 @@ function freshTab() {
 
 		<div class="wg-tabs" role="tablist" aria-label="Chain">
 			${Object.values(CHAINS).map((c) => `
-				<button class="wg-tab${c.key === active ? ' active' : ''}" role="tab" aria-selected="${c.key === active}" data-tab="${c.key}">
+				<button class="wg-tab${c.key === active ? ' active' : ''}" role="tab" id="wg-tab-${c.key}"
+					aria-selected="${c.key === active}" aria-controls="wg-tabpanel" tabindex="${c.key === active ? '0' : '-1'}" data-tab="${c.key}">
 					<span class="wg-glyph" aria-hidden="true">${c.glyph}</span> ${esc(c.label)}
 				</button>
 			`).join('')}
 		</div>
 
-		<div data-slot="tab"></div>
+		<div data-slot="tab" id="wg-tabpanel" role="tabpanel" aria-labelledby="wg-tab-${active}" tabindex="0"></div>
 
 		<div class="dn-panel wg-create2">
 			<div class="dn-panel-title">Grinding a contract address instead?</div>
@@ -155,19 +156,39 @@ function freshTab() {
 	`;
 
 	const tabHost = main.querySelector('[data-slot="tab"]');
+	const tabBtns = Array.from(main.querySelectorAll('[data-tab]'));
 	renderTab(tabHost);
 
-	main.querySelectorAll('[data-tab]').forEach((btn) => {
-		btn.addEventListener('click', () => {
-			if (btn.dataset.tab === active) return;
-			active = btn.dataset.tab;
-			main.querySelectorAll('[data-tab]').forEach((b) => {
-				const on = b.dataset.tab === active;
-				b.classList.toggle('active', on);
-				b.setAttribute('aria-selected', String(on));
-			});
-			renderTab(tabHost);
+	function selectTab(key, { focus = false } = {}) {
+		if (key === active) return;
+		active = key;
+		tabBtns.forEach((b) => {
+			const on = b.dataset.tab === active;
+			b.classList.toggle('active', on);
+			b.setAttribute('aria-selected', String(on));
+			b.tabIndex = on ? 0 : -1;
+			if (on && focus) b.focus();
 		});
+		tabHost.setAttribute('aria-labelledby', `wg-tab-${active}`);
+		renderTab(tabHost);
+	}
+
+	tabBtns.forEach((btn) => {
+		btn.addEventListener('click', () => selectTab(btn.dataset.tab));
+	});
+
+	// Roving-tabindex keyboard nav for the WAI-ARIA tablist pattern.
+	main.querySelector('.wg-tabs').addEventListener('keydown', (e) => {
+		const idx = tabBtns.findIndex((b) => b.dataset.tab === active);
+		if (idx < 0) return;
+		let next = null;
+		if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = (idx + 1) % tabBtns.length;
+		else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = (idx - 1 + tabBtns.length) % tabBtns.length;
+		else if (e.key === 'Home') next = 0;
+		else if (e.key === 'End') next = tabBtns.length - 1;
+		if (next === null) return;
+		e.preventDefault();
+		selectTab(tabBtns[next].dataset.tab, { focus: true });
 	});
 })();
 
@@ -381,6 +402,10 @@ async function startGrind(host, chain, t, refresh) {
 		t.result = chain.shape(result);
 		t.running = false;
 		t.paused = false;
+		// Clear the live progress bar — the result panel below carries the final
+		// attempts / duration / core count, so a still-animating bar would read as
+		// "still working" when the match is already found.
+		host.querySelector('[data-slot="progress"]').innerHTML = '';
 		refresh();
 		renderResult(host, chain, t.result);
 		toast('Match found ✦');
@@ -403,17 +428,33 @@ function renderProgress(host, p) {
 	const el = host.querySelector('[data-slot="progress"]');
 	if (!el) return;
 	const rate = p.rate ? `${fmtNum(Math.round(p.rate))}/s` : (p.paused ? 'paused' : '—');
-	el.innerHTML = `
-		<div class="wg-progress">
-			<div class="wg-progress-bar"><div class="wg-progress-fill${p.paused ? ' paused' : ''}"></div></div>
-			<div class="wg-progress-stats">
-				<div><span class="wg-stat">${fmtNum(p.attempts || 0)}</span><span class="wg-stat-label">attempts</span></div>
-				<div><span class="wg-stat">${esc(rate)}</span><span class="wg-stat-label">rate</span></div>
-				<div><span class="wg-stat">${esc(p.eta || '—')}</span><span class="wg-stat-label">est. remaining</span></div>
+
+	// Build the structure once, then update text/paused state in place. Rebuilding
+	// innerHTML on every progress tick restarts the CSS keyframe on the moving bar
+	// (visible jitter) and thrashes layout — this keeps it buttery smooth.
+	let box = el.querySelector('.wg-progress');
+	if (!box) {
+		el.innerHTML = `
+			<div class="wg-progress">
+				<div class="wg-progress-bar"><div class="wg-progress-fill"></div></div>
+				<div class="wg-progress-stats" role="status" aria-live="polite" aria-label="Grind progress">
+					<div><span class="wg-stat" data-p="attempts">0</span><span class="wg-stat-label">attempts</span></div>
+					<div><span class="wg-stat" data-p="rate">—</span><span class="wg-stat-label">rate</span></div>
+					<div><span class="wg-stat" data-p="eta">—</span><span class="wg-stat-label">est. remaining</span></div>
+				</div>
+				<div class="wg-sample" data-p="sample" hidden></div>
 			</div>
-			${p.sample ? `<div class="wg-sample">trying ${esc(p.sample)}</div>` : ''}
-		</div>
-	`;
+		`;
+		box = el.querySelector('.wg-progress');
+	}
+
+	box.querySelector('.wg-progress-fill').classList.toggle('paused', !!p.paused);
+	box.querySelector('[data-p="attempts"]').textContent = fmtNum(p.attempts || 0);
+	box.querySelector('[data-p="rate"]').textContent = rate;
+	box.querySelector('[data-p="eta"]').textContent = p.eta || '—';
+	const sampleEl = box.querySelector('[data-p="sample"]');
+	if (p.sample) { sampleEl.hidden = false; sampleEl.textContent = `trying ${p.sample}`; }
+	else { sampleEl.hidden = true; sampleEl.textContent = ''; }
 }
 
 // ── Result ───────────────────────────────────────────────────────────────────
@@ -433,11 +474,11 @@ function renderResult(host, chain, r) {
 			<div class="wg-addr">${highlightAddr(r.addressDisplay, pfx, sfx)}</div>
 			<button class="dn-btn" data-act="copy-addr" style="margin-top:8px">Copy address</button>
 
-			<div class="wg-result-label" style="margin-top:18px">${esc(r.secretLabel)}</div>
+			<div class="wg-result-label" style="margin-top:18px" id="wg-secret-label">${esc(r.secretLabel)}</div>
 			<div class="wg-secret-wrap">
-				<div class="wg-secret" data-slot="secret">${'•'.repeat(44)}</div>
+				<div class="wg-secret" data-slot="secret" role="textbox" aria-readonly="true" aria-labelledby="wg-secret-label" aria-label="Secret hidden — use Reveal to show">${'•'.repeat(44)}</div>
 				<div class="wg-secret-actions">
-					<button class="dn-btn" data-act="reveal">Reveal</button>
+					<button class="dn-btn" data-act="reveal" aria-pressed="false" aria-controls="wg-secret-label">Reveal</button>
 					<button class="dn-btn" data-act="copy-secret">Copy</button>
 					<button class="dn-btn primary" data-act="download">Download</button>
 				</div>
@@ -452,7 +493,9 @@ function renderResult(host, chain, r) {
 		revealed = !revealed;
 		secretEl.textContent = revealed ? r.secret : '•'.repeat(44);
 		secretEl.classList.toggle('shown', revealed);
+		secretEl.setAttribute('aria-label', revealed ? 'Secret key revealed' : 'Secret hidden — use Reveal to show');
 		e.currentTarget.textContent = revealed ? 'Hide' : 'Reveal';
+		e.currentTarget.setAttribute('aria-pressed', String(revealed));
 	});
 	el.querySelector('[data-act="copy-addr"]').addEventListener('click', () => copy(r.addressDisplay, 'Address copied'));
 	el.querySelector('[data-act="copy-secret"]').addEventListener('click', () => copy(r.secret, `${chain.keyLabel} copied`));
@@ -517,6 +560,9 @@ function toast(msg) {
 	if (!el) {
 		el = document.createElement('div');
 		el.id = 'dn-toast';
+		// Live region so copy/download/match feedback is announced, not just shown.
+		el.setAttribute('role', 'status');
+		el.setAttribute('aria-live', 'polite');
 		el.style.cssText = `
 			position:fixed;left:50%;bottom:32px;transform:translateX(-50%) translateY(20px);
 			background:rgba(20,21,28,0.95);border:1px solid var(--nxt-stroke-strong);
@@ -550,7 +596,10 @@ function injectStyles() {
 			border:1px solid var(--nxt-stroke); background:rgba(255,255,255,0.02); color:var(--nxt-ink-dim);
 			border-radius:999px; cursor:pointer; transition:all .16s; font-family:inherit; }
 		.wg-tab:hover { color:var(--nxt-ink); border-color:var(--nxt-stroke-strong); }
+		.wg-tab:active { transform:translateY(1px); }
 		.wg-tab.active { background:var(--nxt-accent); color:#000; border-color:var(--nxt-accent); font-weight:600; }
+		.wg-tab:focus-visible { outline:none; box-shadow:0 0 0 3px var(--nxt-accent-soft); }
+		#wg-tabpanel:focus-visible { outline:none; }
 		.wg-glyph { font-size:15px; }
 
 		.wg-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
@@ -587,6 +636,9 @@ function injectStyles() {
 			animation:wg-indeterminate 1.1s ease-in-out infinite; }
 		.wg-progress-fill.paused { animation:none; opacity:0.4; }
 		@keyframes wg-indeterminate { 0% { transform:translateX(-120%); } 100% { transform:translateX(320%); } }
+		@media (prefers-reduced-motion:reduce) {
+			.wg-progress-fill { animation:none; width:100%; opacity:0.45; }
+		}
 		.wg-progress-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
 		.wg-progress-stats > div { display:flex; flex-direction:column; gap:3px; }
 		.wg-stat { font-size:18px; font-weight:700; letter-spacing:-0.01em; font-variant-numeric:tabular-nums; }

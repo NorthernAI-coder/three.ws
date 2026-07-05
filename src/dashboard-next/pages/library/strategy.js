@@ -3,6 +3,7 @@
 // Debounced auto-save on input (800 ms). Save indicator chip.
 
 import { get, post, esc, relTime, ApiError } from '../../api.js';
+import { emptyStateHTML, errorStateHTML, attachRetry } from '../../../shared/state-kit.js';
 
 function friendly(err) {
 	if (!err) return 'Something went wrong.';
@@ -56,27 +57,28 @@ export async function renderStrategy(host) {
 
 	const body = host.querySelector('#strat-body');
 	const sel  = host.querySelector('#strat-agent');
+	let refreshTimer = null;
 
 	let agents = [];
 	try {
 		const res = await get('/api/agents');
 		agents = res?.agents || [];
 	} catch (err) {
-		body.innerHTML = `<div class="dn-empty"><h3>Couldn't load agents</h3><p>${esc(friendly(err))}</p></div>`;
+		body.innerHTML = errorStateHTML({ title: "Couldn't load agents", body: esc(friendly(err)) });
+		attachRetry(body, () => renderStrategy(host));
 		return;
 	}
 
 	if (!agents.length) {
-		body.innerHTML = `
-			<div class="dn-empty">
-				<h3>You don’t have any agents yet</h3>
-				<p>Strategy is scoped to one agent. Create one to get started.</p>
-				<div style="margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
-					<a class="dn-btn primary" href="/create">Create an agent</a>
-					<a class="dn-btn ghost"   href="/dashboard/account">Account</a>
-				</div>
-			</div>
-		`;
+		body.innerHTML = emptyStateHTML({
+			icon: '🎯',
+			title: "You don't have any agents yet",
+			body: 'Strategy is scoped to one agent. Create one to get started, then define what it optimizes for.',
+			actions: [
+				{ label: 'Create an agent', href: '/create', primary: true },
+				{ label: 'Account', href: '/dashboard/account' },
+			],
+		});
 		return;
 	}
 
@@ -93,6 +95,7 @@ export async function renderStrategy(host) {
 	await loadAgent(sel.value);
 
 	async function loadAgent(agentId) {
+		clearInterval(refreshTimer);
 		body.innerHTML = `<div class="dn-skeleton" style="height:380px;border-radius:10px"></div>`;
 		let initial = '';
 		let loadErr = null;
@@ -109,14 +112,15 @@ export async function renderStrategy(host) {
 		}
 
 		if (loadErr) {
-			body.innerHTML = `<div class="dn-empty"><h3>Couldn't load strategy</h3><p>${esc(friendly(loadErr))}</p></div>`;
+			body.innerHTML = errorStateHTML({ title: "Couldn't load strategy", body: esc(friendly(loadErr)) });
+			attachRetry(body, () => loadAgent(agentId));
 			return;
 		}
 
 		const placeholder = '{\n  "objective": "describe what this agent is optimizing for",\n  "constraints": []\n}';
 		body.innerHTML = `
 			<div class="strat-panel">
-				<textarea class="strat-textarea" id="strat-text" spellcheck="false" placeholder=${JSON.stringify(placeholder)}>${esc(initial)}</textarea>
+				<textarea class="strat-textarea" id="strat-text" spellcheck="false" aria-label="Agent strategy JSON" placeholder=${JSON.stringify(placeholder)}>${esc(initial)}</textarea>
 				<div class="strat-bar">
 					<span class="strat-chip" id="strat-chip">idle</span>
 					<span id="strat-msg"></span>
@@ -168,7 +172,7 @@ export async function renderStrategy(host) {
 			}
 		}
 
-		setInterval(() => {
+		refreshTimer = setInterval(() => {
 			if (lastSavedAt && chip.classList.contains('saved')) {
 				chip.textContent = `saved · ${relTime(lastSavedAt)}`;
 			}

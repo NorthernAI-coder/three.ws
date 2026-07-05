@@ -316,7 +316,8 @@ registerWalletTab({
 						<div class="awh-rec-actions">
 							<button class="awh-btn awh-btn--danger" type="button" data-act="cancel-process" data-rid="${escapeHtml(p.id)}" data-keep-enabled="1">${isInheritance ? '✋ I’m here — cancel inheritance' : 'Stop this recovery — it’s not me'}</button>
 						</div>
-						<p class="awh-rec-step-s" style="margin-top:8px;">Cancelling is instant and reversible-proof: control stays with you and the wallet is unfrozen. This is logged in your custody trail.</p>
+						${danger ? `<p class="awh-warn-irrev">This is the final step. The instant control transfers it can’t be undone — if this isn’t you, cancel now.</p>` : ''}
+							<p class="awh-rec-step-s" style="margin-top:8px;">Cancelling is instant and reversible-proof: control stays with you and the wallet is unfrozen. This is logged in your custody trail.</p>
 					</div>
 				</div>`;
 		}

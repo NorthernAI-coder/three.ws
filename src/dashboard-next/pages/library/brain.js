@@ -3,7 +3,7 @@
 // and live-test the brain against streaming responses — all from the dashboard.
 
 import { get, put, esc } from '../../api.js';
-import { emptyStateHTML, ensureStateKitStyles } from '../../../shared/state-kit.js';
+import { emptyStateHTML, errorStateHTML, attachRetry, ensureStateKitStyles } from '../../../shared/state-kit.js';
 ensureStateKitStyles();
 
 // ── Model registry ─────────────────────────────────────────────────────────────
@@ -322,6 +322,13 @@ export async function renderBrain(host) {
 			.bmd-ul { margin: 0.3em 0 0.4em 1.3em; padding: 0; }
 			.bmd-p { margin: 0 0 0.5em; }
 			.bmd-p:last-child { margin: 0; }
+
+			.br-test-err { color: var(--nxt-danger); }
+
+			@media (prefers-reduced-motion: reduce) {
+				.br-spin { animation: none; opacity: 0.7; }
+				.br-model-card { transition: none; }
+			}
 		</style>
 
 		<div class="br-layout">
@@ -346,7 +353,8 @@ export async function renderBrain(host) {
 		const res = await get('/api/agents');
 		agents = res?.agents || [];
 	} catch (err) {
-		contentEl.innerHTML = `<div class="dn-empty"><h3>Couldn't load agents</h3><p>${esc(friendly(err))}</p></div>`;
+		contentEl.innerHTML = errorStateHTML({ title: "Couldn't load agents", body: esc(friendly(err)) });
+		attachRetry(contentEl, () => renderBrain(host));
 		return;
 	}
 
@@ -376,11 +384,16 @@ export async function renderBrain(host) {
 			const r = await get(`/api/agents/${encodeURIComponent(agentId)}`);
 			agent = r?.agent;
 		} catch (err) {
-			contentEl.innerHTML = `<div class="dn-empty"><h3>Couldn't load agent</h3><p>${esc(friendly(err))}</p></div>`;
+			contentEl.innerHTML = errorStateHTML({ title: "Couldn't load agent", body: esc(friendly(err)) });
+			attachRetry(contentEl, () => loadAgent(agentId));
 			return;
 		}
 		if (!agent) {
-			contentEl.innerHTML = `<div class="dn-empty"><h3>Agent not found</h3></div>`;
+			contentEl.innerHTML = emptyStateHTML({
+				icon: '🔍',
+				title: 'Agent not found',
+				body: 'This agent may have been deleted. Pick another from the selector above.',
+			});
 			return;
 		}
 		renderAgentConfig(agent);
@@ -453,11 +466,11 @@ export async function renderBrain(host) {
 					<p class="br-section-sub" id="br-test-label">Using <strong id="br-test-model-name">${esc(currentInfo?.label || currentModel)}</strong> · system prompt above</p>
 				</div>
 				<div class="br-section-body">
-					<div class="br-test-messages" id="br-test-msgs">
+					<div class="br-test-messages" id="br-test-msgs" role="log" aria-live="polite" aria-relevant="additions text" aria-label="Live test conversation">
 						<div class="br-test-empty" id="br-test-empty">Send a message to test your agent's brain.</div>
 					</div>
 					<div class="br-test-input-row">
-						<textarea class="br-test-ta" id="br-test-input" placeholder="Test message… (⌘↵ to send)" rows="1"></textarea>
+						<textarea class="br-test-ta" id="br-test-input" placeholder="Test message… (⌘↵ to send)" rows="1" aria-label="Test message"></textarea>
 						<button class="dn-btn primary" id="br-test-send" type="button">Send</button>
 					</div>
 				</div>
@@ -577,6 +590,12 @@ export async function renderBrain(host) {
 			return el;
 		}
 
+		function setStreamingUi(on) {
+			testStreaming = on;
+			testSend.textContent = on ? 'Stop' : 'Send';
+			testSend.classList.toggle('primary', !on);
+		}
+
 		async function sendTestMessage() {
 			const text = testInput.value.trim();
 			if (!text || testStreaming) return;
@@ -585,38 +604,54 @@ export async function renderBrain(host) {
 			appendTestMsg('user', text);
 			testMessages.push({ role: 'user', content: text });
 
-			testStreaming = true;
-			testSend.disabled = true;
+			setStreamingUi(true);
 			testAbort = new AbortController();
 
 			const assistantEl = appendTestMsg('assistant', '', true);
 			const bodyEl = assistantEl.querySelector('.br-test-msg-body');
 			let accumulated = '';
+			let settled = false;
 			const m = getTestModel();
 
-			await streamBrain(m?.brain_key || 'anthropic', [...testMessages], promptTa.value.trim(), {
-				signal: testAbort.signal,
-				onChunk(delta) {
-					accumulated += delta;
-					bodyEl.innerHTML = renderMd(accumulated) + '<span class="br-spin"></span>';
-					msgsEl.scrollTop = msgsEl.scrollHeight;
-				},
-				onDone() {
-					bodyEl.innerHTML = renderMd(accumulated || '(no response)');
-					testMessages.push({ role: 'assistant', content: accumulated });
-					testStreaming = false;
-					testSend.disabled = false;
-					msgsEl.scrollTop = msgsEl.scrollHeight;
-				},
-				onError(msg) {
-					bodyEl.innerHTML = `<span style="color:#ff8a8a">${esc(msg)}</span>`;
-					testStreaming = false;
-					testSend.disabled = false;
-				},
-			});
+			try {
+				await streamBrain(m?.brain_key || 'anthropic', [...testMessages], promptTa.value.trim(), {
+					signal: testAbort.signal,
+					onChunk(delta) {
+						accumulated += delta;
+						bodyEl.innerHTML = renderMd(accumulated) + '<span class="br-spin"></span>';
+						msgsEl.scrollTop = msgsEl.scrollHeight;
+					},
+					onDone() {
+						if (settled) return;
+						settled = true;
+						const stopped = testAbort?.signal.aborted;
+						bodyEl.innerHTML = renderMd(accumulated || (stopped ? '(stopped)' : '(no response)'));
+						if (accumulated) testMessages.push({ role: 'assistant', content: accumulated });
+						setStreamingUi(false);
+						msgsEl.scrollTop = msgsEl.scrollHeight;
+					},
+					onError(msg) {
+						if (settled) return;
+						settled = true;
+						bodyEl.innerHTML = `<span class="br-test-err">${esc(msg)}</span>`;
+						setStreamingUi(false);
+					},
+				});
+			} catch (err) {
+				// A user-initiated abort surfaces here; the finally in streamBrain has
+				// already run onDone, so just make sure the UI is settled.
+				if (err?.name !== 'AbortError' && !settled) {
+					settled = true;
+					bodyEl.innerHTML = `<span class="br-test-err">${esc(friendly(err))}</span>`;
+					setStreamingUi(false);
+				}
+			}
 		}
 
-		testSend.addEventListener('click', sendTestMessage);
+		testSend.addEventListener('click', () => {
+			if (testStreaming) { testAbort?.abort(); return; }
+			sendTestMessage();
+		});
 		testInput.addEventListener('keydown', (e) => {
 			if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); sendTestMessage(); }
 		});

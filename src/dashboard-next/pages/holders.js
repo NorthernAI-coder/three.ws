@@ -11,6 +11,7 @@ import { mountShell } from '../shell.js';
 import { requireUser, get, esc, ApiError } from '../api.js';
 import { createThreeTokenData } from '../../pump/three-token-data.js';
 import { log } from '../../shared/log.js';
+import { skeletonHTML, emptyStateHTML, errorStateHTML, ensureStateKitStyles } from '../../shared/state-kit.js';
 
 const MONO = `'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace`;
 const PAGE_SIZE = 25;
@@ -109,6 +110,15 @@ function renderStanding(store) {
 	};
 	const unsub = store.subscribe(render);
 
+	// Delegated so the inline Retry (re-rendered on each state change) recovers
+	// the position without a full page reload.
+	section.addEventListener('click', (e) => {
+		const btn = e.target.closest('[data-action="retry-standing"]');
+		if (!btn) return;
+		btn.disabled = true;
+		Promise.resolve(store.refreshPosition()).finally(() => { btn.disabled = false; });
+	});
+
 	new MutationObserver((_m, obs) => {
 		if (!section.isConnected) { unsub(); obs.disconnect(); }
 	}).observe(document.body, { childList: true, subtree: true });
@@ -128,7 +138,10 @@ function standingBody(pos, token) {
 		case 'zero':
 			return emptyRow('You don’t hold $THREE yet — acquire some to climb the board.', 'Get $THREE', `https://pump.fun/coin/${esc(token.mint || '')}`, true);
 		case 'error':
-			return `<span style="color:var(--nxt-ink-fade);font-size:13.5px">Couldn’t load your standing right now.</span>`;
+			return `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+					<span style="color:var(--nxt-ink-fade);font-size:13.5px">Couldn’t load your standing right now.</span>
+					<button type="button" data-action="retry-standing" class="dn-btn" style="font-size:12px;padding:4px 10px">Retry</button>
+				</div>`;
 		case 'ok': {
 			const tier = tierFor(pos.pctOfSupply);
 			const cells = [
@@ -158,7 +171,7 @@ function renderBadge(store) {
 	section.innerHTML = `
 		<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px">
 			<div style="font-size:11.5px;color:var(--nxt-ink-fade);text-transform:uppercase;letter-spacing:0.06em">Holder Badge</div>
-			<button data-action="download-badge" class="dn-btn" disabled style="font-size:12px;padding:4px 10px">Download PNG</button>
+			<button data-action="download-badge" class="dn-btn" disabled aria-label="Download your holder badge as a PNG image" style="font-size:12px;padding:4px 10px">Download PNG</button>
 		</div>
 		<div data-slot="badge-body"></div>
 	`;
@@ -204,7 +217,7 @@ function badgeLocked(pos, token) {
 			? 'Link a Solana wallet that holds $THREE to unlock your badge.'
 			: 'Hold any amount of $THREE to unlock your shareable holder badge.';
 	return `<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
-		<div style="width:120px;height:68px;border-radius:10px;border:1px dashed var(--nxt-line);display:grid;place-items:center;color:var(--nxt-ink-fade);font-size:22px">🔒</div>
+		<div aria-hidden="true" style="width:120px;height:68px;border-radius:10px;border:1px dashed var(--nxt-line);display:grid;place-items:center;color:var(--nxt-ink-fade);font-size:22px">🔒</div>
 		<div style="flex:1;min-width:200px">
 			<div style="font-size:13.5px;color:var(--nxt-ink-fade);margin-bottom:8px">${esc(msg)}</div>
 			<a class="dn-btn" href="https://pump.fun/coin/${esc(token.mint || '')}" target="_blank" rel="noopener" style="font-size:12.5px">Get $THREE</a>
@@ -296,7 +309,7 @@ function renderLeaderboard(store) {
 		if (loading) return;
 		loading = true;
 		offset = Math.max(0, nextOffset);
-		body.innerHTML = `<div class="dn-skeleton" style="height:300px;border-radius:10px" aria-busy="true"></div>`;
+		body.innerHTML = `<div style="display:flex;flex-direction:column;gap:2px" aria-busy="true" aria-label="Loading leaderboard">${skeletonHTML(8, 'row')}</div>`;
 		pager.innerHTML = '';
 		try {
 			const data = await get(`/api/three-token/leaderboard?limit=${PAGE_SIZE}&offset=${offset}`);
@@ -312,11 +325,12 @@ function renderLeaderboard(store) {
 			renderPager();
 		} catch (err) {
 			log.error('[holders] leaderboard load failed', err);
-			body.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-				<span style="color:var(--nxt-ink-fade);font-size:13.5px">Couldn’t load the leaderboard.</span>
-				<button data-action="retry" class="dn-btn" style="font-size:12px;padding:4px 10px">Retry</button>
-			</div>`;
-			body.querySelector('[data-action="retry"]').addEventListener('click', () => load(offset));
+			ensureStateKitStyles();
+			body.innerHTML = errorStateHTML({
+				title: "Couldn't load the leaderboard",
+				body: 'The on-chain holder index was unreachable. Check your connection and try again.',
+			});
+			body.querySelector('[data-sk-retry]')?.addEventListener('click', () => load(offset));
 		} finally {
 			loading = false;
 		}
@@ -355,35 +369,47 @@ function renderLeaderboard(store) {
 
 function boardTable(rows, myWallet) {
 	const head = `
-		<div style="display:grid;grid-template-columns:56px 1fr 120px 110px;gap:8px;padding:0 10px 8px;font-size:11px;color:var(--nxt-ink-fade);text-transform:uppercase;letter-spacing:0.05em">
-			<div>Rank</div><div>Holder</div><div style="text-align:right">$THREE</div><div style="text-align:right">% Supply</div>
+		<div role="row" style="display:grid;grid-template-columns:56px 1fr 120px 110px;gap:8px;padding:0 10px 8px;font-size:11px;color:var(--nxt-ink-fade);text-transform:uppercase;letter-spacing:0.05em">
+			<div role="columnheader">Rank</div><div role="columnheader">Holder</div><div role="columnheader" style="text-align:right">$THREE</div><div role="columnheader" style="text-align:right">% Supply</div>
 		</div>`;
 	const body = rows.map((h) => {
 		const mine = myWallet && h.wallet === myWallet;
 		const medal = h.rank === 1 ? '🥇' : h.rank === 2 ? '🥈' : h.rank === 3 ? '🥉' : `#${h.rank}`;
+		const shortWallet = h.wallet_short || h.wallet || '';
+		const pctText = h.pct_of_supply != null ? fmtPct(h.pct_of_supply * 100) : '—';
+		const rowLabel = `Rank ${h.rank}${mine ? ' (you)' : ''}: ${shortWallet}, ${fmtCompact(h.amount)} $THREE, ${pctText} of supply`;
 		return `
-		<div data-wallet="${esc(h.wallet)}" style="display:grid;grid-template-columns:56px 1fr 120px 110px;gap:8px;align-items:center;padding:9px 10px;border-radius:8px;${mine ? 'background:rgba(245,197,24,0.10);' : ''}font-size:13.5px">
-			<div style="font-weight:700;font-family:${MONO}">${medal}</div>
-			<div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-				<a href="https://solscan.io/account/${esc(h.wallet)}" target="_blank" rel="noopener" style="font-family:${MONO};color:inherit;text-decoration:none" title="${esc(h.wallet)}">${esc(h.wallet_short || h.wallet)}</a>
+		<div role="row" data-wallet="${esc(h.wallet)}" aria-label="${esc(rowLabel)}" style="display:grid;grid-template-columns:56px 1fr 120px 110px;gap:8px;align-items:center;padding:9px 10px;border-radius:8px;${mine ? 'background:rgba(245,197,24,0.10);' : ''}font-size:13.5px;transition:background .12s">
+			<div role="cell" style="font-weight:700;font-family:${MONO}"><span aria-hidden="true">${medal}</span></div>
+			<div role="cell" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+				<a href="https://solscan.io/account/${esc(h.wallet)}" target="_blank" rel="noopener" style="font-family:${MONO};color:inherit;text-decoration:none" title="View ${esc(h.wallet)} on Solscan">${esc(shortWallet)}</a>
 				${mine ? '<span style="margin-left:8px;font-size:10.5px;color:#F5C518;font-weight:700">YOU</span>' : ''}
 			</div>
-			<div style="text-align:right;font-family:${MONO}">${fmtCompact(h.amount)}</div>
-			<div style="text-align:right;font-family:${MONO};color:var(--nxt-ink-fade)">${h.pct_of_supply != null ? fmtPct(h.pct_of_supply * 100) : '—'}</div>
+			<div role="cell" style="text-align:right;font-family:${MONO}">${fmtCompact(h.amount)}</div>
+			<div role="cell" style="text-align:right;font-family:${MONO};color:var(--nxt-ink-fade)">${pctText}</div>
 		</div>`;
 	}).join('');
-	return head + `<div style="display:flex;flex-direction:column;gap:2px">${body}</div>`;
+	return `<div style="overflow-x:auto"><div role="table" aria-label="$THREE holder leaderboard" style="min-width:440px">${head}<div style="display:flex;flex-direction:column;gap:2px">${body}</div></div></div>`;
 }
 
 function emptyBoard(offset) {
+	ensureStateKitStyles();
 	if (offset > 0) {
-		return `<div style="text-align:center;color:var(--nxt-ink-fade);font-size:13.5px;padding:40px 0">No more holders on this page.</div>`;
+		return emptyStateHTML({
+			icon: '',
+			title: 'No more holders',
+			body: "You've reached the end of the leaderboard. Go back a page to see the top holders.",
+			compact: true,
+		});
 	}
-	return `<div style="text-align:center;padding:48px 0">
-		<div style="font-size:30px;margin-bottom:10px">🏆</div>
-		<div style="color:var(--nxt-ink-fade);font-size:13.5px;margin-bottom:14px">No holders to show yet — be one of the first.</div>
-		<a class="dn-btn" href="/dashboard/three-token" style="font-size:12.5px">View $THREE</a>
-	</div>`;
+	return emptyStateHTML({
+		icon: '🏆',
+		title: 'No holders to show yet',
+		body: 'The leaderboard fills as wallets acquire $THREE. Be one of the first to claim a spot.',
+		actions: [
+			{ label: 'View $THREE', href: '/dashboard/three-token', primary: true },
+		],
+	});
 }
 
 function emptyRow(message, ctaLabel, href, external = false) {

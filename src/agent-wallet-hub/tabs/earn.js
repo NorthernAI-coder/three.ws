@@ -25,10 +25,9 @@ import {
 	fetchEconomy,
 	fetchPricing,
 	savePricing,
-	fetchLimits,
 	setFrozen,
 } from '../../agent-economy-hub.js';
-import { formatUsd, timeAgo, shortAddress, explorerTxUrl, explorerAddressUrl } from '../util.js';
+import { timeAgo, shortAddress, explorerTxUrl, explorerAddressUrl } from '../util.js';
 
 const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 const SEEN_KEY = (id) => `tws-earn-seen:${id}`;
@@ -278,6 +277,10 @@ registerWalletTab({
 				h.innerHTML = `<h2 class="awh-card-h">Earning engine</h2><div class="awh-earn-skel" aria-busy="true"><span></span><span></span></div>`;
 				return;
 			}
+			if (state.error) {
+				h.innerHTML = `<h2 class="awh-card-h">Earning engine</h2><div class="awh-empty" role="alert">Couldn’t load your skills. <button class="awh-btn awh-bal-mini" type="button" data-act="reload">Retry</button></div>`;
+				return;
+			}
 			if (!skills.length) {
 				h.innerHTML = `<h2 class="awh-card-h">Earning engine</h2>
 					<div class="awh-earn-empty"><strong>No skills to price yet.</strong>Add skills to this agent, then set a price so other people — and other agents — can pay to use them.</div>
@@ -422,6 +425,10 @@ registerWalletTab({
 				h.innerHTML = `<h2 class="awh-card-h">Autonomous spending</h2><div class="awh-earn-skel" aria-busy="true"><span></span><span></span></div>`;
 				return;
 			}
+			if (state.error) {
+				h.innerHTML = `<h2 class="awh-card-h">Autonomous spending</h2><div class="awh-empty" role="alert">Couldn’t load spending limits. <button class="awh-btn awh-bal-mini" type="button" data-act="reload">Retry</button></div>`;
+				return;
+			}
 			const p = state.econ.policy;
 			const spend = state.econ.spending.x402;
 			const frozen = p.frozen;
@@ -490,6 +497,10 @@ registerWalletTab({
 			if (!h) return;
 			if (state.loading) {
 				h.innerHTML = `<h2 class="awh-card-h">Receipts</h2><div class="awh-earn-skel" aria-busy="true"><span></span><span></span></div>`;
+				return;
+			}
+			if (state.error) {
+				h.innerHTML = `<h2 class="awh-card-h">Receipts</h2><div class="awh-empty" role="alert">Couldn’t load receipts. <button class="awh-btn awh-bal-mini" type="button" data-act="reload">Retry</button></div>`;
 				return;
 			}
 			const rows = state.econ.receipts || [];

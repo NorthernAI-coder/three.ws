@@ -151,9 +151,9 @@ registerWalletTab({
 							${bar('Closed trades', closed, req.min_closed, closed >= req.min_closed)}
 							${bar('Unique coins', coins, req.min_unique_coins, coins >= req.min_unique_coins)}
 							<div class="asg-bar"><div class="lbl"><span>Churn (lower is better)</span><b>${churn.toFixed(0)}% / ≤${req.max_churn_pct}%</b></div>
-								<div class="asg-track"><span class="asg-fill ${churn <= req.max_churn_pct ? 'met' : ''}" style="width:${Math.min(100, churn <= req.max_churn_pct ? 100 : 40)}%"></span></div></div>
+								<div class="asg-track" role="progressbar" aria-label="Churn" aria-valuemin="0" aria-valuemax="${req.max_churn_pct}" aria-valuenow="${churn.toFixed(0)}" aria-valuetext="${churn.toFixed(0)}% churn, target ${req.max_churn_pct}% or lower${churn <= req.max_churn_pct ? ' — met' : ''}"><span class="asg-fill ${churn <= req.max_churn_pct ? 'met' : ''}" style="width:${Math.min(100, churn <= req.max_churn_pct ? 100 : 40)}%"></span></div></div>
 							<div class="asg-bar"><div class="lbl"><span>Realized P&amp;L</span><b>${realized > 0 ? '✓ positive' : 'must be positive'}</b></div>
-								<div class="asg-track"><span class="asg-fill ${realized > 0 ? 'met' : ''}" style="width:${realized > 0 ? 100 : 10}%"></span></div></div>
+								<div class="asg-track" role="img" aria-label="Realized profit and loss ${realized > 0 ? 'positive — met' : 'not yet positive'}"><span class="asg-fill ${realized > 0 ? 'met' : ''}" style="width:${realized > 0 ? 100 : 10}%"></span></div></div>
 						</div>
 						<p class="asg-note">Keep trading from this agent's wallet — the moment it clears the bar, publishing unlocks here automatically.</p>
 					</div>`;
@@ -165,8 +165,8 @@ registerWalletTab({
 			const slugLink = f.slug ? `<a class="asg-feedlink" href="/signals/${encodeURIComponent(f.slug)}" target="_blank" rel="noopener">View public feed ↗</a>` : '';
 			const statusBtn = feed
 				? (f.status === 'active'
-					? `<button class="asg-btn sm" data-feed-status="paused">Pause feed</button>`
-					: `<button class="asg-btn sm primary" data-feed-status="active">Resume feed</button>`)
+					? `<button class="asg-btn sm" type="button" data-feed-status="paused">Pause feed</button>`
+					: `<button class="asg-btn sm primary" type="button" data-feed-status="active">Resume feed</button>`)
 				: '';
 			return `
 				<div class="asg-card">
@@ -193,10 +193,10 @@ registerWalletTab({
 							<select class="asg-sel" id="asg-vis"><option value="public" ${v('visibility', 'public') === 'public' ? 'selected' : ''}>Public (in directory)</option><option value="unlisted" ${v('visibility') === 'unlisted' ? 'selected' : ''}>Unlisted</option></select></div>
 					</div>
 					<div style="display:flex; gap:8px; flex-wrap:wrap;">
-						<button class="asg-btn primary" id="asg-publish">${feed ? 'Save changes' : 'Publish feed'}</button>
+						<button class="asg-btn primary" type="button" id="asg-publish">${feed ? 'Save changes' : 'Publish feed'}</button>
 						${statusBtn}
 					</div>
-					<p class="asg-note" id="asg-pub-note"></p>
+					<p class="asg-note" id="asg-pub-note" role="status" aria-live="polite"></p>
 				</div>`;
 		}
 
@@ -286,12 +286,12 @@ registerWalletTab({
 					</div>
 					<div class="asg-sub-actions">
 						${s.killed
-							? `<button class="asg-btn sm primary" data-act="resume">Resume</button>`
-							: `<button class="asg-btn sm danger" data-act="kill">Kill now</button>`}
-						${!s.killed && s.status === 'active' ? `<button class="asg-btn sm" data-act="pause">Pause</button>` : ''}
-						${!s.killed && s.status === 'paused' ? `<button class="asg-btn sm" data-act="resume">Resume</button>` : ''}
-						<button class="asg-btn sm" data-act="sync">Sync now</button>
-						<button class="asg-btn sm" data-act="stop">Stop</button>
+							? `<button class="asg-btn sm primary" type="button" data-act="resume">Resume</button>`
+							: `<button class="asg-btn sm danger" type="button" data-act="kill">Kill now</button>`}
+						${!s.killed && s.status === 'active' ? `<button class="asg-btn sm" type="button" data-act="pause">Pause</button>` : ''}
+						${!s.killed && s.status === 'paused' ? `<button class="asg-btn sm" type="button" data-act="resume">Resume</button>` : ''}
+						<button class="asg-btn sm" type="button" data-act="sync">Sync now</button>
+						<button class="asg-btn sm" type="button" data-act="stop">Stop</button>
 					</div>
 				</div>`;
 		}

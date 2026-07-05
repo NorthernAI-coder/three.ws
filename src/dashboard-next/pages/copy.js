@@ -9,6 +9,7 @@
 
 import { mountShell } from '../shell.js';
 import { requireUser, get, post, del, esc, relTime } from '../api.js';
+import { errorStateHTML, ensureStateKitStyles, attachRetry } from '../../shared/state-kit.js';
 
 const SKIP_LABEL = {
 	below_mcap_floor: 'Below your market-cap floor',
@@ -38,17 +39,17 @@ function pumpUrl(mint) { return `https://pump.fun/coin/${encodeURIComponent(mint
 const STYLE = `
 <style>
 .cp-wrap { display: grid; gap: 20px; }
-.cp-sec { border: 1px solid var(--nxt-stroke); background: var(--nxt-panel); border-radius: var(--nxt-radius); padding: 18px; }
+.cp-sec { border: 1px solid var(--nxt-stroke); background: var(--nxt-bg-2); border-radius: var(--nxt-radius); padding: 18px; }
 .cp-sec-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
 .cp-sec-h h2 { font-size: 16px; margin: 0; }
-.cp-sec-h .cp-count { font-size: 12px; color: var(--nxt-ink-faint); font-variant-numeric: tabular-nums; }
-.cp-empty { color: var(--nxt-ink-faint); font-size: 13px; padding: 18px 0; text-align: center; }
-.cp-item { display: grid; grid-template-columns: 36px 1fr auto; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--nxt-line); }
+.cp-sec-h .cp-count { font-size: 12px; color: var(--nxt-ink-dim); font-variant-numeric: tabular-nums; }
+.cp-empty { color: var(--nxt-ink-dim); font-size: 13px; padding: 18px 0; text-align: center; }
+.cp-item { display: grid; grid-template-columns: 36px 1fr auto; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--nxt-stroke); }
 .cp-item:last-child { border-bottom: 0; }
 .cp-av { width: 36px; height: 36px; border-radius: 9px; object-fit: cover; background: var(--nxt-bg-2); border: 1px solid var(--nxt-stroke); }
 .cp-mid { min-width: 0; }
 .cp-title { font-weight: 600; font-size: 14px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-.cp-sub { font-size: 12px; color: var(--nxt-ink-faint); margin-top: 2px; }
+.cp-sub { font-size: 12px; color: var(--nxt-ink-dim); margin-top: 2px; }
 .cp-sub a { color: var(--nxt-ink-dim); text-decoration: none; border-bottom: 1px dotted var(--nxt-stroke-strong); }
 .cp-sub a:hover { color: var(--nxt-ink); }
 .cp-side { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
@@ -58,7 +59,7 @@ const STYLE = `
 .cp-tag.sell { color: var(--nxt-warn); border-color: color-mix(in srgb, var(--nxt-warn) 40%, transparent); }
 .cp-tag.on { color: var(--nxt-success); }
 .cp-tag.paused { color: var(--nxt-warn); }
-.cp-tag.skipped, .cp-tag.expired, .cp-tag.dismissed { color: var(--nxt-ink-faint); }
+.cp-tag.skipped, .cp-tag.expired, .cp-tag.dismissed { color: var(--nxt-ink-dim); }
 .cp-tag.acted { color: var(--nxt-success); }
 .cp-btn { font-size: 12px; padding: 5px 12px; border-radius: var(--nxt-radius-sm); border: 1px solid var(--nxt-stroke); background: var(--nxt-bg-2); color: var(--nxt-ink); cursor: pointer; text-decoration: none; transition: border-color .14s, transform .14s; white-space: nowrap; }
 .cp-btn:hover { border-color: var(--nxt-stroke-strong); transform: translateY(-1px); }
@@ -66,7 +67,7 @@ const STYLE = `
 .cp-btn.ghost { background: transparent; }
 .cp-skeleton { height: 56px; border-radius: 10px; background: var(--nxt-bg-2); animation: cp-pulse 1.4s ease infinite; }
 @keyframes cp-pulse { 0%,100% { opacity: .55 } 50% { opacity: 1 } }
-.cp-note { font-size: 12px; color: var(--nxt-ink-faint); margin: 0 0 14px; }
+.cp-note { font-size: 12px; color: var(--nxt-ink-dim); margin: 0 0 14px; }
 .cp-oracle { display: inline-flex; }
 .cp-ob { display: inline-flex; align-items: center; gap: 3px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 2px 7px; text-decoration: none; font-size: 11px; transition: border-color .12s; }
 .cp-ob:hover { border-color: rgba(255,255,255,0.22); }
@@ -75,10 +76,10 @@ const STYLE = `
 .cp-stats { display: flex; gap: 2px; margin-bottom: 16px; border-radius: var(--nxt-radius); overflow: hidden; border: 1px solid var(--nxt-stroke); }
 .cp-stat { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 10px 8px; background: var(--nxt-bg-2); gap: 2px; }
 .cp-stat-val { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.cp-stat-lbl { font-size: 11px; color: var(--nxt-ink-faint); white-space: nowrap; }
-.cp-stat-detail { display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; background: var(--nxt-stroke); border-radius: 50%; font-size: 9px; color: var(--nxt-ink-faint); cursor: help; }
+.cp-stat-lbl { font-size: 11px; color: var(--nxt-ink-dim); white-space: nowrap; }
+.cp-stat-detail { display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; background: var(--nxt-stroke); border-radius: 50%; font-size: 9px; color: var(--nxt-ink-dim); cursor: help; }
 .cp-stat-sol .cp-stat-val { color: var(--nxt-accent); }
-.cp-hint { display: block; font-size: var(--text-2xs, 11px); color: var(--nxt-ink-faint); margin-top: 4px; line-height: 1.4; }
+.cp-hint { display: block; font-size: var(--text-2xs, 11px); color: var(--nxt-ink-dim); margin-top: 4px; line-height: 1.4; }
 
 /* smart money directory */
 .sm-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
@@ -90,7 +91,7 @@ const STYLE = `
 .sm-search { font-size: 12px; padding: 5px 10px; border-radius: var(--nxt-radius-sm); border: 1px solid var(--nxt-stroke); background: var(--nxt-bg-2); color: var(--nxt-ink); min-width: 150px; }
 .sm-search:focus { outline: none; border-color: var(--nxt-accent); }
 .sm-sort { font-size: 12px; padding: 5px 8px; border-radius: var(--nxt-radius-sm); border: 1px solid var(--nxt-stroke); background: var(--nxt-bg-2); color: var(--nxt-ink); cursor: pointer; }
-.sm-item { display: grid; grid-template-columns: 38px 1fr auto; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--nxt-line); }
+.sm-item { display: grid; grid-template-columns: 38px 1fr auto; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--nxt-stroke); }
 .sm-item:last-child { border-bottom: 0; }
 .sm-av { width: 38px; height: 38px; border-radius: 10px; object-fit: cover; background: var(--nxt-bg-2); border: 1px solid var(--nxt-stroke); display: grid; place-items: center; font-weight: 700; font-size: 14px; color: var(--nxt-ink-dim); overflow: hidden; }
 .sm-av img { width: 100%; height: 100%; object-fit: cover; }
@@ -102,7 +103,7 @@ const STYLE = `
 .sm-tw { font-size: 12px; color: var(--nxt-ink-dim); text-decoration: none; }
 .sm-tw:hover { color: var(--nxt-accent); }
 .sm-tags { display: inline-flex; gap: 5px; flex-wrap: wrap; margin-top: 4px; }
-.sm-tag { font-size: 10px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--nxt-stroke); color: var(--nxt-ink-faint); text-transform: capitalize; }
+.sm-tag { font-size: 10px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--nxt-stroke); color: var(--nxt-ink-dim); text-transform: capitalize; }
 .sm-tag.smart_money { color: #34d399; border-color: color-mix(in srgb, #34d399 38%, transparent); }
 .sm-tag.kol { color: #c084fc; border-color: color-mix(in srgb, #c084fc 38%, transparent); }
 .sm-tag.launchpad { color: #60a5fa; border-color: color-mix(in srgb, #60a5fa 38%, transparent); }
@@ -112,13 +113,35 @@ const STYLE = `
 .sm-metric { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
 .sm-metric-val { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .sm-metric-val.pos { color: var(--nxt-success); }
-.sm-metric-lbl { font-size: 10px; color: var(--nxt-ink-faint); text-transform: uppercase; letter-spacing: .04em; }
+.sm-metric-lbl { font-size: 10px; color: var(--nxt-ink-dim); text-transform: uppercase; letter-spacing: .04em; }
 .sm-track { font-size: 12px; padding: 6px 13px; border-radius: var(--nxt-radius-sm); border: 1px solid var(--nxt-stroke); background: var(--nxt-bg-2); color: var(--nxt-ink); text-decoration: none; white-space: nowrap; transition: border-color .14s, transform .14s; }
 .sm-track:hover { border-color: var(--nxt-stroke-strong); transform: translateY(-1px); }
 .sm-more { display: flex; justify-content: center; margin-top: 14px; }
 @media (max-width: 640px) { .sm-item { grid-template-columns: 38px 1fr; } .sm-stats { grid-column: 1 / -1; justify-content: flex-start; padding-left: 50px; } }
 
 @media (max-width: 560px) { .cp-item { grid-template-columns: 1fr; } .cp-side { justify-content: flex-start; } .cp-av { display: none; } .cp-stats { flex-wrap: wrap; } .cp-stat { min-width: 45%; } }
+
+/* Narrow: let the smart-money search claim its own row so controls never overflow */
+@media (max-width: 520px) { .sm-search { flex: 1 1 100%; min-width: 0; } .sm-spacer { display: none; } }
+
+/* Interaction states — pressed, disabled, and keyboard focus rings on every control */
+.cp-btn:active, .sm-track:active { transform: translateY(0); }
+.cp-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+.cp-btn:focus-visible, .sm-track:focus-visible, .sm-chip:focus-visible, .cp-ob:focus-visible,
+.cp-sub a:focus-visible, .sm-name a:focus-visible, .sm-tw:focus-visible {
+	outline: 2px solid var(--nxt-accent); outline-offset: 2px; border-radius: var(--nxt-radius-sm);
+}
+.sm-search:focus-visible, .sm-sort:focus-visible { outline: 2px solid var(--nxt-accent); outline-offset: 1px; }
+.cp-stat-detail:focus-visible { outline: 2px solid var(--nxt-accent); outline-offset: 2px; }
+.cp-sec { transition: border-color .16s ease; }
+.cp-item { transition: opacity .2s ease; }
+
+/* Honor reduced-motion: kill the skeleton pulse and hover lifts */
+@media (prefers-reduced-motion: reduce) {
+	.cp-skeleton { animation: none; }
+	.cp-btn, .sm-track, .sm-chip, .cp-item { transition: none; }
+	.cp-btn:hover, .sm-track:hover { transform: none; }
+}
 </style>`;
 
 function img(e) { return e.leader_image || e.leader_avatar || '/favicon.ico'; }
@@ -143,9 +166,9 @@ function intentRow(e) {
 		</div>
 		<div class="cp-side">
 			${amount}
-			<a class="cp-btn primary" href="${pumpUrl(e.mint)}" target="_blank" rel="noopener" data-act="open">${isBuy ? 'Buy now ↗' : 'Sell ↗'}</a>
-			<button class="cp-btn" data-act="acted">Mark copied</button>
-			<button class="cp-btn ghost" data-act="dismissed">Dismiss</button>
+			<a class="cp-btn primary" href="${pumpUrl(e.mint)}" target="_blank" rel="noopener" data-act="open" aria-label="${isBuy ? 'Buy' : 'Sell'} ${esc(e.symbol || 'coin')} on pump.fun (opens in a new tab)">${isBuy ? 'Buy now ↗' : 'Sell ↗'}</a>
+			<button type="button" class="cp-btn" data-act="acted" aria-label="Mark ${esc(e.symbol || 'coin')} intent as copied">Mark copied</button>
+			<button type="button" class="cp-btn ghost" data-act="dismissed" aria-label="Dismiss ${esc(e.symbol || 'coin')} intent">Dismiss</button>
 		</div>
 	</div>`;
 }
@@ -163,9 +186,9 @@ function subRow(s) {
 			<div class="cp-sub">${esc(sizingLabel(s))} · cap ${Number(s.per_trade_cap_sol)} ◎ · ${Number(s.daily_budget_sol)} ◎/day · ${Number(s.pending_count) || 0} pending${s.min_oracle_score != null ? ` · Oracle ≥${s.min_oracle_score}` : ''}${s.telegram_chat_id ? ' · TG alerts on' : ''}</div>
 		</div>
 		<div class="cp-side">
-			<button class="cp-btn" data-sub-act="${paused ? 'active' : 'paused'}">${paused ? 'Resume' : 'Pause'}</button>
+			<button type="button" class="cp-btn" data-sub-act="${paused ? 'active' : 'paused'}" aria-label="${paused ? 'Resume' : 'Pause'} copying ${esc(s.leader_name || 'trader')}">${paused ? 'Resume' : 'Pause'}</button>
 			<a class="cp-btn ghost" href="${traderHref(s.leader_agent_id)}">Edit</a>
-			<button class="cp-btn ghost" data-sub-act="stopped">Stop</button>
+			<button type="button" class="cp-btn ghost" data-sub-act="stopped" aria-label="Stop copying ${esc(s.leader_name || 'trader')}">Stop</button>
 		</div>
 	</div>`;
 }
@@ -192,7 +215,7 @@ function earningsSection(earnings) {
 			<div class="cp-sec-h"><h2>Performance fees owed</h2><span class="cp-count">${fmtSol(total)}</span></div>
 			<p class="cp-note">Charged only on gains above your all-time peak. 80% goes to the trader, 15% to treasury, 5% to $THREE holders. Settlement ratchets your high-water mark so the same profit is never billed twice.</p>
 			<div id="cp-earn-rows">${rows}</div>
-			<div id="cp-earn-status" style="display:none;font-size:12px;color:var(--nxt-ink-faint);padding:10px 0"></div>
+			<div id="cp-earn-status" style="display:none;font-size:12px;color:var(--nxt-ink-dim);padding:10px 0"></div>
 		</section>`;
 }
 
@@ -225,7 +248,7 @@ function historyStats(hist) {
 		</div>
 		<div class="cp-stat">
 			<span class="cp-stat-val">${skipped.length}</span>
-			<span class="cp-stat-lbl">Skipped${skipped.length && skipBreakdown ? ` <span class="cp-stat-detail" title="${esc(skipBreakdown)}">?</span>` : ''}</span>
+			<span class="cp-stat-lbl">Skipped${skipped.length && skipBreakdown ? ` <span class="cp-stat-detail" tabindex="0" role="img" aria-label="Skip reasons: ${esc(skipBreakdown)}" title="${esc(skipBreakdown)}">?</span>` : ''}</span>
 		</div>
 		<div class="cp-stat">
 			<span class="cp-stat-val">${dismissed.length}</span>
@@ -326,8 +349,12 @@ async function loadAndRender(host) {
 			get('/api/copy/earnings').then((r) => r).catch(() => ({ items: [], total_fee_owed_sol: 0 })),
 		]);
 	} catch {
-		host.innerHTML = `<div class="cp-sec"><div class="cp-empty">Couldn't load your copies. <button class="cp-btn" id="cp-reload">Retry</button></div></div>`;
-		host.querySelector('#cp-reload')?.addEventListener('click', () => loadAndRender(host));
+		ensureStateKitStyles();
+		host.innerHTML = `<div class="cp-sec">${errorStateHTML({
+			title: "Couldn't load your copies",
+			body: 'We had trouble reaching the copy-trading service. Check your connection and try again.',
+		})}</div>`;
+		attachRetry(host, () => loadAndRender(host));
 		return;
 	}
 
@@ -563,11 +590,11 @@ async function mountSmartMoney(host) {
 			</div>
 			<p class="cp-note">Ecosystem-proven wallets from gmgn.ai's smart-money taxonomy — ranked by 30-day realized profit across Solana and BSC. Vet a trader's live history before you mirror them.</p>
 			<div class="sm-controls">
-				<div class="sm-chips" id="sm-cat">${SM_CATS.map((c) => `<button class="sm-chip ${c.key === '' ? 'is-active' : ''}" data-cat="${c.key}">${c.label}</button>`).join('')}</div>
+				<div class="sm-chips" id="sm-cat" role="group" aria-label="Filter wallets by category">${SM_CATS.map((c) => `<button type="button" class="sm-chip ${c.key === '' ? 'is-active' : ''}" data-cat="${c.key}" aria-pressed="${c.key === '' ? 'true' : 'false'}">${c.label}</button>`).join('')}</div>
 				<span class="sm-spacer"></span>
-				<div class="sm-chips" id="sm-chain">${SM_CHAINS.map((c) => `<button class="sm-chip ${c.key === '' ? 'is-active' : ''}" data-chain="${c.key}">${c.label}</button>`).join('')}</div>
-				<input class="sm-search" id="sm-q" type="search" placeholder="Search name, @handle, address" autocomplete="off" spellcheck="false" />
-				<select class="sm-sort" id="sm-sort">${SM_SORTS.map((s) => `<option value="${s.key}">${s.label}</option>`).join('')}</select>
+				<div class="sm-chips" id="sm-chain" role="group" aria-label="Filter wallets by chain">${SM_CHAINS.map((c) => `<button type="button" class="sm-chip ${c.key === '' ? 'is-active' : ''}" data-chain="${c.key}" aria-pressed="${c.key === '' ? 'true' : 'false'}">${c.label}</button>`).join('')}</div>
+				<input class="sm-search" id="sm-q" type="search" placeholder="Search name, @handle, address" aria-label="Search smart-money wallets by name, handle, or address" autocomplete="off" spellcheck="false" />
+				<select class="sm-sort" id="sm-sort" aria-label="Sort wallets">${SM_SORTS.map((s) => `<option value="${s.key}">${s.label}</option>`).join('')}</select>
 			</div>
 			<div id="sm-rows"><div class="cp-skeleton"></div><div class="cp-skeleton" style="margin-top:4px"></div><div class="cp-skeleton" style="margin-top:4px"></div></div>
 			<div class="sm-more" id="sm-more"></div>
@@ -611,14 +638,14 @@ async function mountSmartMoney(host) {
 	host.querySelector('#sm-cat').addEventListener('click', (e) => {
 		const btn = e.target.closest('[data-cat]');
 		if (!btn) return;
-		host.querySelectorAll('#sm-cat .sm-chip').forEach((b) => b.classList.toggle('is-active', b === btn));
+		host.querySelectorAll('#sm-cat .sm-chip').forEach((b) => { const on = b === btn; b.classList.toggle('is-active', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
 		state.category = btn.dataset.cat;
 		load(false);
 	});
 	host.querySelector('#sm-chain').addEventListener('click', (e) => {
 		const btn = e.target.closest('[data-chain]');
 		if (!btn) return;
-		host.querySelectorAll('#sm-chain .sm-chip').forEach((b) => b.classList.toggle('is-active', b === btn));
+		host.querySelectorAll('#sm-chain .sm-chip').forEach((b) => { const on = b === btn; b.classList.toggle('is-active', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
 		state.chain = btn.dataset.chain;
 		load(false);
 	});

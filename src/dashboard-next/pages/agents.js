@@ -19,7 +19,7 @@ import { openLaunchTokenModal } from '../../pump/launch-token-modal.js';
 import { onchainBadgeHTML } from '../../shared/onchain-badge.js';
 import { coinChipHTML } from '../../shared/agent-coin.js';
 import { walletChipHTML, wireWalletChips } from '../../shared/agent-wallet-chip.js';
-import { skeletonHTML, emptyStateHTML, ensureStateKitStyles } from '../../shared/state-kit.js';
+import { skeletonHTML, emptyStateHTML, errorStateHTML, attachRetry, ensureStateKitStyles } from '../../shared/state-kit.js';
 import { rigBadgeHTML, matchesRigFilter, RIG_FILTERS } from '../../shared/rig-status.js';
 ensureStateKitStyles();
 
@@ -98,6 +98,20 @@ function toast(msg) {
 			safeGet('/api/avatars?limit=50'),
 		]);
 
+		// safeGet returns null only when the request itself failed — a genuinely
+		// empty account resolves to { agents: [] }. Distinguish the two so a
+		// network failure shows a recoverable error, not a misleading empty state.
+		if (agentsResp === null) {
+			host.removeAttribute('aria-busy');
+			host.innerHTML = errorStateHTML({
+				title: "Couldn't load your agents",
+				body: 'We could not reach the agents service. Check your connection and try again.',
+				scope: 'agents',
+			});
+			attachRetry(host, () => location.reload());
+			return;
+		}
+
 		const agents = agentsResp?.agents || [];
 		const avatars = avatarsResp?.avatars || [];
 
@@ -136,13 +150,40 @@ function toast(msg) {
 			return filtered;
 		}
 
+		function clearAgentFilters() {
+			currentFilter = '';
+			currentRig = 'all';
+			const si = main.querySelector('[data-action="filter-search"]');
+			if (si) si.value = '';
+			main.querySelectorAll('[data-action="rig-chip"]').forEach((x) => {
+				const on = x.getAttribute('data-rig') === 'all';
+				x.classList.toggle('active', on);
+				x.setAttribute('aria-selected', on ? 'true' : 'false');
+			});
+			rerender();
+		}
+
 		function rerender() {
 			const filtered = getFilteredAgents();
+			const hasFilter = Boolean(currentFilter) || currentRig !== 'all';
 			const countEl = main.querySelector('[data-slot="agents-count"]');
 			if (countEl) {
-				countEl.textContent = currentFilter
+				countEl.textContent = hasFilter
 					? `${filtered.length} of ${agents.length} agent${agents.length !== 1 ? 's' : ''}`
 					: `${agents.length} agent${agents.length !== 1 ? 's' : ''}`;
+			}
+			// Filtered down to nothing while agents exist → a distinct "no match"
+			// state with a working reset, not the first-run onboarding empty state.
+			if (!filtered.length && agents.length) {
+				host.removeAttribute('aria-busy');
+				host.innerHTML = emptyStateHTML({
+					icon: '🔍',
+					title: 'No agents match',
+					body: 'No agents match your current search or rig filter. Clear them to see all your agents.',
+					actions: [{ label: 'Clear filters', id: 'clear-agent-filters', primary: true }],
+				});
+				host.querySelector('[data-sk-action="clear-agent-filters"]')?.addEventListener('click', clearAgentFilters);
+				return;
 			}
 			renderAgents(host, filtered, avatars, main);
 		}
@@ -186,6 +227,9 @@ function toast(msg) {
 			});
 		});
 
+		// Arrow-key roving across the rig-filter tablist (ARIA automatic activation).
+		main.querySelectorAll('[role="tablist"]').forEach(wireTablistKeys);
+
 		main.querySelector('[data-action="create-agent"]').addEventListener('click', () => {
 			openCreateModal(host, agents, avatars);
 		});
@@ -197,6 +241,26 @@ function toast(msg) {
 		}
 	}
 })();
+
+// Arrow-key roving across a role="tablist" chip group: move focus and activate
+// (ARIA automatic-activation pattern), matching the existing click path.
+function wireTablistKeys(container) {
+	if (!container) return;
+	container.addEventListener('keydown', (e) => {
+		if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(e.key)) return;
+		const tabs = [...container.querySelectorAll('[role="tab"]')];
+		if (!tabs.length) return;
+		const cur = tabs.indexOf(document.activeElement);
+		let next;
+		if (e.key === 'Home') next = 0;
+		else if (e.key === 'End') next = tabs.length - 1;
+		else if (e.key === 'ArrowRight') next = (cur + 1) % tabs.length;
+		else next = (cur - 1 + tabs.length) % tabs.length;
+		e.preventDefault();
+		tabs[next].focus();
+		tabs[next].click();
+	});
+}
 
 async function safeGet(url) {
 	try {
@@ -275,6 +339,8 @@ function renderAgents(host, agents, avatars, root) {
 			try {
 				const r = await get(`/api/agents/${encodeURIComponent(id)}/reputation`);
 				showReputationPanel(btn.closest('.dn-panel'), r);
+					const repOpen = !!btn.closest('.dn-panel')?.querySelector('[data-reputation-panel]');
+					btn.setAttribute('aria-expanded', repOpen ? 'true' : 'false');
 			} catch {
 				toast('Reputation data unavailable');
 			} finally {
@@ -509,7 +575,7 @@ function agentCard(a, avatars) {
 					<button class="dn-btn ghost" data-action="edit-agent" data-id="${esc(a.id)}" style="padding:5px 10px;font-size:12px">Edit</button>
 					<button class="dn-btn ghost" data-action="persona-agent" data-id="${esc(a.id)}" style="padding:5px 10px;font-size:12px">Persona</button>
 					<a class="dn-btn ghost" href="/dashboard/library#tab=brain" style="padding:5px 10px;font-size:12px;text-decoration:none">Brain</a>
-					<button class="dn-btn ghost" data-action="view-reputation" data-id="${esc(a.id)}" style="padding:5px 10px;font-size:12px">Reputation</button>
+					<button class="dn-btn ghost" data-action="view-reputation" data-id="${esc(a.id)}" aria-expanded="false" style="padding:5px 10px;font-size:12px">Reputation</button>
 					${onchain ? '' : `<button class="dn-btn ghost" data-action="deploy-onchain" data-id="${esc(a.id)}" style="padding:5px 10px;font-size:12px">Deploy onchain</button>`}
 					${pumpMint ? '' : `<button class="dn-btn ghost" data-action="deploy-pump" data-id="${esc(a.id)}" style="padding:5px 10px;font-size:12px">Deploy Pump.fun</button>`}
 					<button class="dn-btn ghost" data-action="screen-caster" data-id="${esc(a.id)}" style="padding:5px 10px;font-size:12px" title="Get screen caster credentials">
@@ -1478,6 +1544,26 @@ function injectStyles() {
 				flex: 1 1 auto;
 				text-align: center;
 			}
+		}
+
+		/* Keyboard focus rings — tokens only */
+		.dn-agents-rig-chip:focus-visible,
+		.dn-agents-search:focus-visible,
+		.dn-agents-sort:focus-visible {
+			outline: 2px solid var(--nxt-accent);
+			outline-offset: 2px;
+		}
+
+		/* Card enter — subtle. No fill-mode so any panel hover state still wins. */
+		@keyframes dn-agent-card-in {
+			from { opacity: 0; transform: translateY(6px); }
+			to   { opacity: 1; transform: translateY(0); }
+		}
+		.dn-agent-card { animation: dn-agent-card-in 240ms ease; }
+
+		@media (prefers-reduced-motion: reduce) {
+			.dn-agent-card { animation: none; }
+			svg[style*="dn-spin"] { animation: none !important; }
 		}
 	`;
 	document.head.appendChild(css);

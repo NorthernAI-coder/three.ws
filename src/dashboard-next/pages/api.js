@@ -20,7 +20,7 @@
 
 import { mountShell } from '../shell.js';
 import { requireUser, get, post, del, put, esc, relTime, ApiError } from '../api.js';
-import { errorStateHTML, emptyStateHTML, ensureStateKitStyles } from '../../shared/state-kit.js';
+import { errorStateHTML, emptyStateHTML, skeletonHTML, ensureStateKitStyles } from '../../shared/state-kit.js';
 
 // Scopes accepted by /api/keys — match api/keys/index.js ALLOWED_SCOPES exactly.
 const SCOPES = [
@@ -129,6 +129,16 @@ const KEY_PLACEHOLDER = 'YOUR_API_KEY';
 	state.widgets = widgetsRes.status === 'fulfilled' ? (widgetsRes.value?.widgets || []) : [];
 	state.agents  = agentsRes.status  === 'fulfilled' ? (agentsRes.value?.agents || [])   : [];
 
+	// Track which sources genuinely failed (vs. legitimately empty) so each
+	// section can show a recoverable error state with Retry rather than an
+	// "empty" state that hides a network problem.
+	state.errors = {
+		keys:    keysRes.status    === 'rejected',
+		avatars: avatarsRes.status === 'rejected',
+		widgets: widgetsRes.status === 'rejected',
+		agents:  agentsRes.status  === 'rejected',
+	};
+
 	state.selectedKeyForMcp = pickDisplayKey(state.keys);
 	state.embed.selection = pickDefaultEmbedTarget(state.avatars, state.widgets, state.agents);
 
@@ -227,6 +237,49 @@ function openModal(html) {
 
 function origin() {
 	return location.origin.replace(/\/$/, '');
+}
+
+// ── Per-section retry loaders ─────────────────────────────────────────────
+// Re-fetch a single data source and re-render just the sections it feeds, so a
+// transient failure in one endpoint never forces a full-page reload.
+
+async function reloadKeys(state) {
+	const slot = document.querySelector('[data-section="keys"] [data-slot="keys-body"]');
+	if (slot) slot.innerHTML = skeletonHTML(3, 'row');
+	try {
+		const res = await get('/api/keys');
+		state.keys = res?.keys || [];
+		state.errors.keys = false;
+	} catch {
+		state.errors.keys = true;
+	}
+	state.selectedKeyForMcp = pickDisplayKey(state.keys);
+	renderKeys(document.querySelector('[data-section="keys"]'), state);
+	renderMcp(document.querySelector('[data-section="mcp"]'), state);
+}
+
+async function reloadEmbedData(state) {
+	const host = document.querySelector('[data-section="embed"]');
+	if (host) host.innerHTML = skeletonHTML(3, 'row');
+	const [av, wg] = await Promise.allSettled([get('/api/avatars?limit=200'), get('/api/widgets')]);
+	state.errors.avatars = av.status === 'rejected';
+	state.errors.widgets = wg.status === 'rejected';
+	state.avatars = av.status === 'fulfilled' ? (av.value?.avatars || []) : [];
+	state.widgets = wg.status === 'fulfilled' ? (wg.value?.widgets || []) : [];
+	renderEmbed(document.querySelector('[data-section="embed"]'), state);
+}
+
+async function reloadAgents(state) {
+	const host = document.querySelector('[data-section="policy"]');
+	if (host) host.innerHTML = skeletonHTML(3, 'row');
+	try {
+		const res = await get('/api/agents');
+		state.agents = res?.agents || [];
+		state.errors.agents = false;
+	} catch {
+		state.errors.agents = true;
+	}
+	renderPolicy(document.querySelector('[data-section="policy"]'), state);
 }
 
 // ── Section 0: Agent Toolkit ──────────────────────────────────────────────
@@ -353,7 +406,7 @@ function openConnectClaudeModal(state) {
 			<div class="dn-modal-block-label">Claude Code — one command</div>
 			<div class="dn-code-block">
 				<pre><code data-snippet="cc-cli">${esc(cliCmd)}</code></pre>
-				<button type="button" class="dn-code-copy" data-copy="cc-cli">Copy</button>
+				<button type="button" class="dn-code-copy" data-copy="cc-cli" aria-label="Copy Claude Code command">Copy</button>
 			</div>
 		</div>
 
@@ -362,7 +415,7 @@ function openConnectClaudeModal(state) {
 			<p class="dn-modal-hint">Add to <code>claude_desktop_config.json</code>, then restart Claude Desktop.</p>
 			<div class="dn-code-block">
 				<pre><code data-snippet="cc-desktop">${esc(desktopCfg)}</code></pre>
-				<button type="button" class="dn-code-copy" data-copy="cc-desktop">Copy</button>
+				<button type="button" class="dn-code-copy" data-copy="cc-desktop" aria-label="Copy Claude Desktop config">Copy</button>
 			</div>
 		</div>
 
@@ -402,22 +455,36 @@ function renderKeys(host, state) {
 			</div>
 			<button class="dn-btn primary" data-act="new-key">+ New key</button>
 		</div>
-		<div data-slot="keys-body">${hasKeys ? renderKeysTable(list) : renderKeysEmpty()}</div>
+		<div data-slot="keys-body">${
+			state.errors?.keys
+				? errorStateHTML({
+					title: "Couldn't load your API keys",
+					body: 'We had trouble reaching the key service. Check your connection and try again.',
+					scope: 'keys',
+				})
+				: hasKeys ? renderKeysTable(list) : renderKeysEmpty()
+		}</div>
 	`;
 
 	host.querySelector('[data-act="new-key"]').addEventListener('click', () => openNewKeyModal(state));
+	host.querySelector('[data-sk-action="create-key"]')?.addEventListener('click', () => openNewKeyModal(state));
+	host.querySelector('[data-sk-retry]')?.addEventListener('click', () => reloadKeys(state));
 	host.querySelectorAll('[data-act="revoke"]').forEach((btn) => {
 		btn.addEventListener('click', () => confirmRevokeKey(state, btn.dataset.keyId, btn.dataset.keyName));
 	});
 }
 
 function renderKeysEmpty() {
-	return `
-		<div class="dn-empty">
-			<h3>No keys yet</h3>
-			<p>Issue one to start hitting the API or connect an MCP client.</p>
-		</div>
-	`;
+	return emptyStateHTML({
+		icon: '🔑',
+		title: 'No API keys yet',
+		body: 'Issue a bearer token to start hitting the public API or connect an MCP client like Claude or Cursor.',
+		actions: [
+			{ label: '+ New key', id: 'create-key', primary: true },
+			{ label: 'Read the API docs', href: '/docs/api-reference', id: 'api-docs' },
+		],
+		compact: true,
+	});
 }
 
 function renderKeysTable(keys) {
@@ -447,7 +514,7 @@ function renderKeysTable(keys) {
 							<td><span class="dn-dim">${esc(relTime(k.created_at))}</span></td>
 							<td><span class="dn-dim">${k.last_used_at ? esc(relTime(k.last_used_at)) : 'never'}</span></td>
 							<td style="text-align:right">
-								<button class="dn-btn danger" data-act="revoke" data-key-id="${esc(k.id)}" data-key-name="${esc(k.name)}">Revoke</button>
+								<button class="dn-btn danger" data-act="revoke" data-key-id="${esc(k.id)}" data-key-name="${esc(k.name)}" aria-label="Revoke API key ${esc(k.name)}">Revoke</button>
 							</td>
 						</tr>
 					`).join('')}
@@ -553,7 +620,7 @@ function openKeyRevealModal(key) {
 		</div>
 		<div class="dn-code-block">
 			<pre><code data-secret>${esc(key.secret)}</code></pre>
-			<button type="button" class="dn-code-copy" data-copy>Copy</button>
+			<button type="button" class="dn-code-copy" data-copy aria-label="Copy secret API key">Copy</button>
 		</div>
 		<div class="dn-modal-foot">
 			<button type="button" class="dn-btn primary" data-modal-close data-autofocus>I've saved it</button>
@@ -643,9 +710,9 @@ function renderMcp(host, state) {
 			</div>
 		` : ''}
 
-		<div class="dn-tabs" role="tablist">
+		<div class="dn-tabs" role="tablist" aria-label="MCP client configs">
 			${MCP_TABS.map((t, i) => `
-				<button class="dn-tab ${i === 0 ? 'active' : ''}" role="tab" data-mcp-tab="${esc(t.id)}">${esc(t.label)}</button>
+				<button class="dn-tab ${i === 0 ? 'active' : ''}" role="tab" aria-selected="${i === 0 ? 'true' : 'false'}" data-mcp-tab="${esc(t.id)}">${esc(t.label)}</button>
 			`).join('')}
 		</div>
 
@@ -675,7 +742,11 @@ function renderMcp(host, state) {
 
 	host.querySelectorAll('[data-mcp-tab]').forEach((btn) => {
 		btn.addEventListener('click', () => {
-			host.querySelectorAll('[data-mcp-tab]').forEach((b) => b.classList.toggle('active', b === btn));
+			host.querySelectorAll('[data-mcp-tab]').forEach((b) => {
+				const on = b === btn;
+				b.classList.toggle('active', on);
+				b.setAttribute('aria-selected', on ? 'true' : 'false');
+			});
 			host.querySelectorAll('[data-mcp-panel]').forEach((p) => {
 				p.hidden = p.dataset.mcpPanel !== btn.dataset.mcpTab;
 			});
@@ -736,7 +807,7 @@ function renderMcpSnippet(tabId, mcpUrl, token) {
 	return `
 		<div class="dn-code-block">
 			<pre><code data-snippet="${id}" class="dn-lang-${lang}">${esc(snippet)}</code></pre>
-			<button type="button" class="dn-code-copy" data-copy="${id}">Copy</button>
+			<button type="button" class="dn-code-copy" data-copy="${id}" aria-label="Copy ${esc(tabId)} MCP config">Copy</button>
 		</div>
 	`;
 }
@@ -784,6 +855,7 @@ const EMBED_TABS = [
 function renderEmbed(host, state) {
 	const targets = buildEmbedTargets(state.avatars, state.widgets, state.agents);
 	if (!targets.length) {
+		const dataFailed = state.errors?.avatars || state.errors?.widgets;
 		host.innerHTML = `
 			<div class="dn-section-head">
 				<div>
@@ -791,12 +863,26 @@ function renderEmbed(host, state) {
 					<div class="dn-panel-sub">Drop your avatar or widget into any web page.</div>
 				</div>
 			</div>
-			<div class="dn-empty">
-				<h3>Nothing to embed yet</h3>
-				<p>Create an avatar or widget first, then come back here for the snippet.</p>
-				<a class="dn-btn" href="/dashboard/avatars">Go to avatars</a>
-			</div>
+			<div data-slot="embed-body">${
+				dataFailed
+					? errorStateHTML({
+						title: "Couldn't load embed targets",
+						body: 'We had trouble loading your avatars and widgets. Check your connection and try again.',
+						scope: 'embed',
+					})
+					: emptyStateHTML({
+						icon: '🎬',
+						title: 'Nothing to embed yet',
+						body: 'Create an avatar first, then come back for a copy-paste embed snippet with a live preview.',
+						actions: [
+							{ label: 'Create an avatar', href: '/dashboard/avatars', id: 'go-avatars', primary: true },
+							{ label: 'Embed docs', href: '/docs/mcp', id: 'embed-docs' },
+						],
+						compact: true,
+					})
+			}</div>
 		`;
+		host.querySelector('[data-sk-retry]')?.addEventListener('click', () => reloadEmbedData(state));
 		return;
 	}
 
@@ -812,7 +898,7 @@ function renderEmbed(host, state) {
 			</div>
 			<label class="dn-mcp-key-picker">
 				<span class="dn-dim">Target:</span>
-				<select data-embed-target>
+				<select data-embed-target aria-label="Embed target avatar or widget">
 					${targets.map((t) => `
 						<option value="${esc(t.kind)}:${esc(t.id)}" ${state.embed.selection?.kind === t.kind && state.embed.selection?.id === t.id ? 'selected' : ''}>
 							${esc(t.kind === 'avatar' ? 'Avatar' : 'Widget')} · ${esc(t.label)}
@@ -856,9 +942,9 @@ function renderEmbed(host, state) {
 					<span>Hide chrome (controls + watermark)</span>
 				</label>
 
-				<div class="dn-tabs" role="tablist" style="margin-top:14px">
+				<div class="dn-tabs" role="tablist" aria-label="Embed snippet format" style="margin-top:14px">
 					${EMBED_TABS.map((t) => `
-						<button class="dn-tab ${state.embed.tab === t.id ? 'active' : ''}" role="tab" data-embed-tab="${esc(t.id)}">${esc(t.label)}</button>
+						<button class="dn-tab ${state.embed.tab === t.id ? 'active' : ''}" role="tab" aria-selected="${state.embed.tab === t.id ? 'true' : 'false'}" data-embed-tab="${esc(t.id)}">${esc(t.label)}</button>
 					`).join('')}
 				</div>
 				<div data-slot="embed-snippet" style="margin-top:12px"></div>
@@ -890,7 +976,11 @@ function renderEmbed(host, state) {
 	host.querySelectorAll('[data-embed-tab]').forEach((b) => {
 		b.addEventListener('click', () => {
 			state.embed.tab = b.dataset.embedTab;
-			host.querySelectorAll('[data-embed-tab]').forEach((x) => x.classList.toggle('active', x === b));
+			host.querySelectorAll('[data-embed-tab]').forEach((x) => {
+				const on = x === b;
+				x.classList.toggle('active', on);
+				x.setAttribute('aria-selected', on ? 'true' : 'false');
+			});
 			renderEmbedSnippet(host, state);
 		});
 	});
@@ -933,7 +1023,7 @@ function renderEmbedSnippet(host, state) {
 	slot.innerHTML = `
 		<div class="dn-code-block">
 			<pre><code data-snippet="embed">${esc(snippet)}</code></pre>
-			<button type="button" class="dn-code-copy" data-copy="embed">Copy</button>
+			<button type="button" class="dn-code-copy" data-copy="embed" aria-label="Copy embed snippet">Copy</button>
 		</div>
 	`;
 	slot.querySelector('[data-copy]').addEventListener('click', (e) => {
@@ -1038,7 +1128,13 @@ function renderPolicy(host, state) {
 			</div>
 		</div>
 		<div data-slot="policy-body">
-			${agents.length
+			${state.errors?.agents
+				? errorStateHTML({
+					title: "Couldn't load your agents",
+					body: 'We had trouble loading your agents to configure embed policies. Check your connection and try again.',
+					scope: 'policy',
+				})
+				: agents.length
 				? `<div class="dn-policy-table">
 					<div class="dn-policy-head">
 						<div>Agent</div>
@@ -1062,9 +1158,10 @@ function renderPolicy(host, state) {
 	`;
 
 	host.querySelector('[data-act="why-policy"]').addEventListener('click', () => openPolicyExplainer());
+	host.querySelector('[data-sk-retry]')?.addEventListener('click', () => reloadAgents(state));
 
 	// Lazy-load each agent's current policy and wire the row controls.
-	agents.forEach((agent, i) => initPolicyRow(host, state, agent, i));
+	if (!state.errors?.agents) agents.forEach((agent, i) => initPolicyRow(host, state, agent, i));
 }
 
 function renderPolicyRow(agent, i) {
@@ -1358,6 +1455,24 @@ function injectStyles() {
 		.dn-toast { background: rgba(20,21,28,0.95); border: 1px solid var(--nxt-stroke); border-radius: var(--nxt-radius-sm); padding: 10px 14px; font-size: 13px; color: var(--nxt-ink); box-shadow: 0 8px 24px rgba(0,0,0,0.4); transition: opacity 0.25s ease; pointer-events: auto; }
 		.dn-toast-danger { border-color: rgba(150,155,163,0.4); color: var(--nxt-danger); }
 		.dn-toast-info { color: var(--nxt-ink); }
+
+		/* Keyboard focus rings — visible only for keyboard users, never on mouse click */
+		.dn-tab:focus-visible, .dn-link:focus-visible, .dn-code-copy:focus-visible,
+		.dn-toolkit-cmd-copy:focus-visible, .dn-toolkit-card-doc:focus-visible,
+		.dn-mcp-key-picker select:focus-visible, .dn-knob input:focus-visible,
+		.dn-knob select:focus-visible, .dn-policy-row select:focus-visible,
+		.dn-policy-row textarea:focus-visible, .dn-field input:focus-visible,
+		.dn-field select:focus-visible, .dn-scope-row input:focus-visible {
+			outline: 2px solid var(--nxt-accent); outline-offset: 2px;
+		}
+		.dn-toolkit-card:focus-within { border-color: var(--nxt-accent); }
+
+		/* Honor reduced-motion: drop transforms and transitions, keep state changes instant */
+		@media (prefers-reduced-motion: reduce) {
+			.dn-toolkit-card, .dn-tab, .dn-code-copy, .dn-toolkit-cmd-copy,
+			.dn-toolkit-card-doc, .dn-toast { transition: none; }
+			.dn-toolkit-card:hover { transform: none; }
+		}
 	`;
 	document.head.appendChild(style);
 }

@@ -13,9 +13,10 @@
 //   GET  /api/sniper/stream     → SSE: position events
 
 import { mountShell } from '../shell.js';
-import { requireUser, get, post, esc, relTime, ApiError } from '../api.js';
+import { requireUser, get, post, esc, relTime } from '../api.js';
 import { StudioAdapter } from '../studio-adapter.js';
 import { mountMoneyStudio } from '../../studio/money/money-studio.js';
+import { skeletonHTML, emptyStateHTML, errorStateHTML, ensureStateKitStyles, attachRetry } from '../../shared/state-kit.js';
 
 const SOL = 1_000_000_000n;
 const lamportsToSol = (l) => Number(BigInt(l || '0')) / 1e9;
@@ -210,15 +211,29 @@ const STYLE = `<style>
 .sn-pos { color: var(--nxt-success); }
 .sn-neg { color: var(--nxt-danger, #f87171); }
 
-/* skeleton */
-.sn-sk { height: 80px; border-radius: var(--nxt-radius); background: var(--nxt-bg-2); animation: sn-sk 1.4s ease infinite; margin-bottom: 12px; }
-@keyframes sn-sk { 0%,100% { opacity: .5 } 50% { opacity: 1 } }
+/* boot skeleton wrapper (shimmer rows come from the shared state-kit) */
+.sn-boot-sk { display: grid; gap: 10px; }
 
 /* arm modal overlay */
 .sn-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); backdrop-filter: blur(6px); z-index: 900; display: flex; align-items: center; justify-content: center; padding: 16px; }
 .sn-modal { background: var(--nxt-bg); border: 1px solid var(--nxt-stroke-strong); border-radius: var(--nxt-radius); padding: 24px; width: 100%; max-width: 480px; }
 .sn-modal h2 { font-size: 16px; margin: 0 0 16px; }
 .sn-modal-foot { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+/* focus rings — keyboard operability on every interactive control, incl. the
+   safety controls (arm/disarm, kill switch) and the collapsible card head */
+.sn-card-head:focus-visible { outline: 2px solid var(--nxt-accent); outline-offset: -2px; border-radius: var(--nxt-radius); }
+.sn-toggle-btn:focus-visible, .sn-btn:focus-visible, .sn-pos-link:focus-visible,
+.sn-hist-link:focus-visible, .sn-hist-more:focus-visible, .sn-link:focus-visible,
+.sn-subtab:focus-visible { outline: 2px solid var(--nxt-accent); outline-offset: 2px; }
+
+/* honor reduced-motion — kill pulses, shimmer and hover lifts for users who ask */
+@media (prefers-reduced-motion: reduce) {
+	.sn-live-dot { animation: none; }
+	.sn-chevron { transition: none; }
+	.sn-kpi:hover, .sn-btn:hover, .sn-toggle-btn:hover, .sn-pos-sell:hover,
+	.sn-pos-link:hover, .sn-card:hover { transform: none; }
+}
 </style>`;
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
@@ -227,18 +242,27 @@ const STYLE = `<style>
 	try {
 		const main = await mountShell();
 		await requireUser();
+		ensureStateKitStyles();
 
 		main.innerHTML = `
 			<h1 class="dn-h1">Sniper Strategies</h1>
 			<p class="dn-h1-sub">Manage your autonomous trading agents — budgets, filters, exits, and live positions.</p>
-			<div id="sn-root"><div class="sn-sk"></div><div class="sn-sk"></div></div>
+			<div id="sn-root" class="sn-boot-sk" aria-busy="true">${skeletonHTML(3, 'row')}</div>
 		`;
 		main.insertAdjacentHTML('beforeend', STYLE);
 
 		await refresh(main.querySelector('#sn-root'));
 	} catch (e) {
 		const root = document.getElementById('sn-root');
-		if (root) root.innerHTML = `<p class="sn-empty">${esc(e.message || 'Error loading strategies')}</p>`;
+		if (root) {
+			root.classList.remove('sn-boot-sk');
+			root.removeAttribute('aria-busy');
+			root.innerHTML = errorStateHTML({
+				title: "Couldn't load your strategies",
+				body: esc(e.message || 'The strategy service is unavailable right now. Check your connection and try again.'),
+			});
+			attachRetry(root, () => location.reload());
+		}
 	}
 })();
 
@@ -262,6 +286,8 @@ async function refresh(root) {
 	_strategies = stratData.strategies || [];
 	_agents = agentData.agents || [];
 
+	root.classList.remove('sn-boot-sk');
+	root.removeAttribute('aria-busy');
 	root.innerHTML = render();
 	wireEvents(root);
 	startSse();
@@ -329,8 +355,9 @@ function stratCard(s) {
 	const walletBal = s.wallet_sol != null ? s.wallet_sol : null;
 	const walletWarn = walletBal != null && walletBal < lamportsToSol(s.per_trade_lamports || '0') + 0.003;
 
+	const label = s.agent_name || s.agent_id;
 	return `<div class="sn-card ${armed ? 'armed' : ''}" data-agent="${esc(s.agent_id)}">
-		<div class="sn-card-head" data-toggle="card">
+		<div class="sn-card-head" data-toggle="card" role="button" tabindex="0" aria-expanded="false" aria-label="Expand ${esc(label)} strategy details">
 			<img loading="lazy" decoding="async" class="sn-av" src="${esc(img)}" alt="" onerror="this.style.visibility='hidden'" />
 			<div class="sn-info">
 				<div class="sn-name">${esc(s.agent_name || s.agent_id)}</div>
@@ -354,10 +381,10 @@ function stratCard(s) {
 			</div>
 			<div class="sn-pane" data-pane="strategy" data-agent="${esc(s.agent_id)}">
 				<div class="sn-toggles">
-					<button class="sn-toggle-btn ${armed ? 'active' : ''}" data-action="toggle-enabled" data-agent="${esc(s.agent_id)}">
+					<button class="sn-toggle-btn ${armed ? 'active' : ''}" data-action="toggle-enabled" data-agent="${esc(s.agent_id)}" aria-label="${s.enabled ? 'Disarm this agent — stop opening new positions' : 'Arm this agent — allow it to trade real SOL from its own wallet'}">
 						${s.enabled ? 'Disarm' : 'Arm strategy'}
 					</button>
-					<button class="sn-toggle-btn ${s.kill_switch ? 'active danger' : 'danger'}" data-action="toggle-kill" data-agent="${esc(s.agent_id)}">
+					<button class="sn-toggle-btn ${s.kill_switch ? 'active danger' : 'danger'}" data-action="toggle-kill" data-agent="${esc(s.agent_id)}" aria-label="${s.kill_switch ? 'Clear the kill switch and allow trading to resume' : 'Trip the kill switch — immediately halt all trading for this agent'}">
 						${s.kill_switch ? 'Clear kill switch' : 'Kill switch'}
 					</button>
 					<a class="sn-toggle-btn" href="/trader/${esc(s.agent_id)}" target="_blank" rel="noopener">Track record ↗</a>
@@ -678,7 +705,13 @@ function renderPositions(positions) {
 	const el = document.getElementById('sn-positions');
 	if (!el) return;
 	if (!positions.length) {
-		el.innerHTML = '<p class="sn-empty">No open positions right now. When the sniper buys, positions appear here live.</p>';
+		el.innerHTML = emptyStateHTML({
+			icon: '',
+			compact: true,
+			live: true,
+			title: 'No open positions right now',
+			body: 'When an armed agent buys, its position appears here live with real-time PnL — no refresh needed.',
+		});
 		return;
 	}
 	el.innerHTML = positions.map(posRow).join('');
@@ -947,7 +980,8 @@ async function loadTradeHistory(root, append = false) {
 			});
 		}
 	} catch {
-		mount.innerHTML = `<div class="sn-hist"><div class="sn-hist-head"><h3>Trade History</h3></div><div class="sn-empty" style="padding:20px 18px;color:var(--nxt-ink-faint)">Couldn't load trade history.</div></div>`;
+		mount.innerHTML = `<div class="sn-hist"><div class="sn-hist-head"><h3>Trade History</h3></div>${errorStateHTML({ title: "Couldn't load trade history", body: 'Your closed snipes will show here once the history service responds.' })}</div>`;
+		mount.querySelector('[data-sk-retry]')?.addEventListener('click', () => loadTradeHistory(root, false));
 	} finally {
 		_histLoading = false;
 	}
@@ -995,7 +1029,8 @@ function wireEvents(root) {
 
 		const head = e.target.closest('[data-toggle="card"]');
 		if (head) {
-			head.closest('.sn-card')?.classList.toggle('open');
+			const open = head.closest('.sn-card')?.classList.toggle('open');
+			head.setAttribute('aria-expanded', open ? 'true' : 'false');
 			return;
 		}
 
@@ -1013,6 +1048,17 @@ function wireEvents(root) {
 
 		// Arm btn
 		if (e.target.id === 'sn-arm-btn') { openArmModal(root); return; }
+	});
+
+	// Keyboard operability for the collapsible card head (role="button").
+	// Enter/Space toggle it; Space is prevented from scrolling the page.
+	root.addEventListener('keydown', (e) => {
+		if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+		const head = e.target.closest('[data-toggle="card"]');
+		if (!head || head !== e.target) return;
+		e.preventDefault();
+		const open = head.closest('.sn-card')?.classList.toggle('open');
+		head.setAttribute('aria-expanded', open ? 'true' : 'false');
 	});
 
 	// Form submits

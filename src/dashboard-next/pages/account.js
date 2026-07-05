@@ -5,6 +5,20 @@
 
 import { mountShell } from '../shell.js';
 import { requireUser, get, post, patch, del, esc, relTime, initialsOf } from '../api.js';
+import { skeletonHTML, errorStateHTML, ensureStateKitStyles } from '../../shared/state-kit.js';
+
+// Loading placeholder — a stack of shimmer rows sized for a table/list slot.
+function skelStack(count) {
+	return `<div style="display:flex;flex-direction:column;gap:8px">${skeletonHTML(count, 'row')}</div>`;
+}
+
+// Recoverable error slot — real Retry button wired to the caller's loader.
+// The button is recreated on every render, so no listener ever stacks.
+function showLoadError(host, { title, body }, retry) {
+	host.innerHTML = errorStateHTML({ title, body });
+	const btn = host.querySelector('[data-sk-retry]');
+	if (btn && typeof retry === 'function') btn.addEventListener('click', () => retry());
+}
 
 const CHAIN_STYLES = {
 	solana:   { label: 'Solana',   bg: 'rgba(200, 202, 208, 0.14)', border: 'rgba(200, 202, 208, 0.28)', ink: '#c5c7cc' },
@@ -58,6 +72,8 @@ function toast(msg) {
 	if (!el) {
 		el = document.createElement('div');
 		el.id = 'dn-toast';
+		el.setAttribute('role', 'status');
+		el.setAttribute('aria-live', 'polite');
 		el.style.cssText = `
 			position:fixed;left:50%;bottom:32px;transform:translateX(-50%) translateY(20px);
 			background:rgba(20,21,28,0.95);border:1px solid var(--nxt-stroke-strong);
@@ -98,6 +114,7 @@ async function copyToClipboard(text) {
 (async function boot() {
 	const main = await mountShell();
 	const me = await requireUser();
+	ensureStateKitStyles();
 
 	main.innerHTML = `
 		<h1 class="dn-h1">Account</h1>
@@ -113,7 +130,7 @@ async function copyToClipboard(text) {
 					<div class="dn-panel-title">AI Provider Keys</div>
 					<div class="dn-panel-sub" style="margin:0">Bring your own API key to unlock AI models. Your keys are encrypted and never shared.</div>
 				</div>
-				<div data-slot="provider-keys"><div class="dn-skeleton" style="height:80px"></div></div>
+				<div data-slot="provider-keys">${skelStack(3)}</div>
 			</section>
 
 			<section class="dn-panel" id="wallets" data-section="wallets">
@@ -124,7 +141,7 @@ async function copyToClipboard(text) {
 					</div>
 					<a class="dn-btn primary" href="#wallets" data-link="wallets">+ Link wallet</a>
 				</div>
-				<div data-slot="wallets"><div class="dn-skeleton" style="height:120px"></div></div>
+				<div data-slot="wallets">${skelStack(3)}</div>
 			</section>
 
 			<section class="dn-panel" data-section="vanity">
@@ -148,7 +165,7 @@ async function copyToClipboard(text) {
 					</div>
 					<a class="dn-btn" href="/vanity-wallet">+ Register a domain</a>
 				</div>
-				<div data-slot="sns"><div class="dn-skeleton" style="height:80px"></div></div>
+				<div data-slot="sns">${skelStack(2)}</div>
 			</section>
 
 			<section class="dn-panel" id="delegation" data-section="delegation">
@@ -159,7 +176,7 @@ async function copyToClipboard(text) {
 					</div>
 					<button class="dn-btn" type="button" data-action="open-delegation-console">Open delegation console →</button>
 				</div>
-				<div data-slot="delegation"><div class="dn-skeleton" style="height:80px"></div></div>
+				<div data-slot="delegation">${skelStack(3)}</div>
 				<div data-slot="delegation-console" hidden></div>
 			</section>
 
@@ -171,7 +188,7 @@ async function copyToClipboard(text) {
 					</div>
 					<button class="dn-btn" data-action="export-csv">Export CSV</button>
 				</div>
-				<div data-slot="actions"><div class="dn-skeleton" style="height:200px"></div></div>
+				<div data-slot="actions">${skelStack(6)}</div>
 			</section>
 
 			<section class="dn-panel" data-section="quick-links">
@@ -265,7 +282,10 @@ async function loadProviderKeys(host) {
 		const r = await get('/api/user/provider-keys');
 		renderProviderKeys(host, r?.keys || {});
 	} catch (err) {
-		host.innerHTML = `<div class="dn-empty" style="padding:16px"><h3>Couldn't load keys</h3><p>${esc(err?.message || 'Try again.')}</p></div>`;
+		showLoadError(host, {
+			title: 'Couldn’t load provider keys',
+			body: esc(err?.message || 'Check your connection and try again.'),
+		}, () => loadProviderKeys(host));
 	}
 }
 
@@ -471,7 +491,7 @@ function startEditUsername(host, me) {
 		" />
 		<button class="dn-btn primary" data-action="save-username" style="padding:5px 11px">Save</button>
 		<button class="dn-btn ghost" data-action="cancel-username" style="padding:5px 9px">Cancel</button>
-		<span data-slot="username-err" style="color:#e5484d;font-size:12px;flex-basis:100%"></span>
+		<span data-slot="username-err" role="alert" style="color:var(--nxt-danger);font-size:12px;flex-basis:100%"></span>
 	`;
 	const input = row.querySelector('input');
 	const errEl = row.querySelector('[data-slot="username-err"]');
@@ -521,7 +541,10 @@ async function loadWallets(host) {
 		renderWallets(host, wallets);
 		return wallets;
 	} catch (err) {
-		host.innerHTML = `<div class="dn-empty"><h3>Couldn't load wallets</h3><p>${esc(err?.message || 'Try again in a moment.')}</p></div>`;
+		showLoadError(host, {
+			title: 'Couldn’t load wallets',
+			body: esc(err?.message || 'Check your connection and try again.'),
+		}, () => loadWallets(host));
 		return [];
 	}
 }
@@ -548,7 +571,7 @@ function renderWallets(host, wallets) {
 					<span style="display:inline-flex;align-items:center">${star}${chainChip(w)}</span>
 				</td>
 				<td style="padding:11px 12px">
-					<button class="dn-copy" data-copy="${esc(w.address)}" title="${esc(w.address)} · click to copy" style="
+					<button class="dn-copy" data-copy="${esc(w.address)}" title="${esc(w.address)} · click to copy" aria-label="Copy wallet address ${esc(w.address)}" style="
 						font-family:${MONO};font-size:12.5px;
 						background:transparent;border:none;color:var(--nxt-ink);
 						padding:0;cursor:pointer;letter-spacing:0.01em;
@@ -573,11 +596,11 @@ function renderWallets(host, wallets) {
 			<table style="width:100%;border-collapse:collapse">
 				<thead>
 					<tr style="background:rgba(255,255,255,0.02);text-align:left">
-						<th style="padding:9px 12px;font-size:11.5px;color:var(--nxt-ink-fade);font-weight:500;text-transform:uppercase;letter-spacing:0.04em">Chain</th>
-						<th style="padding:9px 12px;font-size:11.5px;color:var(--nxt-ink-fade);font-weight:500;text-transform:uppercase;letter-spacing:0.04em">Address</th>
-						<th style="padding:9px 12px;font-size:11.5px;color:var(--nxt-ink-fade);font-weight:500;text-transform:uppercase;letter-spacing:0.04em">Linked</th>
-						<th style="padding:9px 12px;font-size:11.5px;color:var(--nxt-ink-fade);font-weight:500;text-transform:uppercase;letter-spacing:0.04em"></th>
-						<th style="padding:9px 12px"></th>
+						<th scope="col" style="padding:9px 12px;font-size:11.5px;color:var(--nxt-ink-fade);font-weight:500;text-transform:uppercase;letter-spacing:0.04em">Chain</th>
+						<th scope="col" style="padding:9px 12px;font-size:11.5px;color:var(--nxt-ink-fade);font-weight:500;text-transform:uppercase;letter-spacing:0.04em">Address</th>
+						<th scope="col" style="padding:9px 12px;font-size:11.5px;color:var(--nxt-ink-fade);font-weight:500;text-transform:uppercase;letter-spacing:0.04em">Linked</th>
+						<th scope="col" style="padding:9px 12px;font-size:11.5px;color:var(--nxt-ink-fade);font-weight:500;text-transform:uppercase;letter-spacing:0.04em"></th>
+						<th scope="col" style="padding:9px 12px"><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Actions</span></th>
 					</tr>
 				</thead>
 				<tbody>${rows}</tbody>
@@ -640,7 +663,7 @@ async function renderSns(host, wallets) {
 		return;
 	}
 
-	host.innerHTML = `<div data-slot="sns-rows"><div class="dn-skeleton" style="height:60px"></div></div>`;
+	host.innerHTML = `<div data-slot="sns-rows">${skelStack(solanaWallets.length)}</div>`;
 	const rowsHost = host.querySelector('[data-slot="sns-rows"]');
 
 	const lookups = await Promise.all(
@@ -671,7 +694,7 @@ async function renderSns(host, wallets) {
 				<span style="font-family:${MONO};font-size:13px;color:var(--nxt-ink)">${esc(h.domain)}</span>
 			</td>
 			<td style="padding:11px 12px">
-				<button class="dn-copy" data-copy="${esc(h.wallet.address)}" title="${esc(h.wallet.address)}" style="
+				<button class="dn-copy" data-copy="${esc(h.wallet.address)}" title="${esc(h.wallet.address)}" aria-label="Copy wallet address ${esc(h.wallet.address)}" style="
 					font-family:${MONO};font-size:12.5px;
 					background:transparent;border:none;color:var(--nxt-ink-dim);
 					padding:0;cursor:pointer;
@@ -691,10 +714,10 @@ async function renderSns(host, wallets) {
 			<table style="width:100%;border-collapse:collapse">
 				<thead>
 					<tr style="background:rgba(255,255,255,0.02);text-align:left">
-						<th style="padding:9px 12px;font-size:11.5px;color:var(--nxt-ink-fade);font-weight:500;text-transform:uppercase;letter-spacing:0.04em">Domain</th>
-						<th style="padding:9px 12px;font-size:11.5px;color:var(--nxt-ink-fade);font-weight:500;text-transform:uppercase;letter-spacing:0.04em">Wallet</th>
-						<th style="padding:9px 12px;font-size:11.5px;color:var(--nxt-ink-fade);font-weight:500;text-transform:uppercase;letter-spacing:0.04em">Status</th>
-						<th style="padding:9px 12px"></th>
+						<th scope="col" style="padding:9px 12px;font-size:11.5px;color:var(--nxt-ink-fade);font-weight:500;text-transform:uppercase;letter-spacing:0.04em">Domain</th>
+						<th scope="col" style="padding:9px 12px;font-size:11.5px;color:var(--nxt-ink-fade);font-weight:500;text-transform:uppercase;letter-spacing:0.04em">Wallet</th>
+						<th scope="col" style="padding:9px 12px;font-size:11.5px;color:var(--nxt-ink-fade);font-weight:500;text-transform:uppercase;letter-spacing:0.04em">Status</th>
+						<th scope="col" style="padding:9px 12px"><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Actions</span></th>
 					</tr>
 				</thead>
 				<tbody>${rows}</tbody>
@@ -749,9 +772,9 @@ async function loadDelegations(host, consoleHost) {
 				<table style="width:100%;border-collapse:collapse">
 					<thead>
 						<tr style="background:rgba(255,255,255,0.02);text-align:left">
-							<th style="padding:9px 12px;font-size:11.5px;color:var(--nxt-ink-fade);font-weight:500;text-transform:uppercase;letter-spacing:0.04em">Agent</th>
-							<th style="padding:9px 12px;font-size:11.5px;color:var(--nxt-ink-fade);font-weight:500;text-transform:uppercase;letter-spacing:0.04em">Delegate wallet</th>
-							<th style="padding:9px 12px"></th>
+							<th scope="col" style="padding:9px 12px;font-size:11.5px;color:var(--nxt-ink-fade);font-weight:500;text-transform:uppercase;letter-spacing:0.04em">Agent</th>
+							<th scope="col" style="padding:9px 12px;font-size:11.5px;color:var(--nxt-ink-fade);font-weight:500;text-transform:uppercase;letter-spacing:0.04em">Delegate wallet</th>
+							<th scope="col" style="padding:9px 12px"><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Actions</span></th>
 						</tr>
 					</thead>
 					<tbody>${rows}</tbody>
@@ -759,7 +782,10 @@ async function loadDelegations(host, consoleHost) {
 			</div>
 		`;
 	} catch (err) {
-		host.innerHTML = `<div class="dn-empty" style="padding:24px 16px"><h3>Couldn't load agents</h3><p>${esc(err?.message || 'Try again in a moment.')}</p></div>`;
+		showLoadError(host, {
+			title: 'Couldn’t load agents',
+			body: esc(err?.message || 'Check your connection and try again.'),
+		}, () => loadDelegations(host, consoleHost));
 	}
 }
 
@@ -820,11 +846,11 @@ async function runDelegation(host) {
 	const message = (messageEl?.value || '').trim();
 
 	if (!toAgentId) {
-		result.innerHTML = `<div style="color:var(--nxt-danger,#ff8a8a);font-size:13px">Pick an agent to delegate to.</div>`;
+		result.innerHTML = `<div role="alert" style="color:var(--nxt-danger);font-size:13px">Pick an agent to delegate to.</div>`;
 		return;
 	}
 	if (!message) {
-		result.innerHTML = `<div style="color:var(--nxt-danger,#ff8a8a);font-size:13px">Enter a message for the agent to answer.</div>`;
+		result.innerHTML = `<div role="alert" style="color:var(--nxt-danger);font-size:13px">Enter a message for the agent to answer.</div>`;
 		messageEl?.focus();
 		return;
 	}
@@ -852,7 +878,7 @@ async function runDelegation(host) {
 					: status === 503
 						? 'Delegation is temporarily unavailable. Try again shortly.'
 						: err?.message || 'Delegation failed. Try again.';
-		result.innerHTML = `<div style="border:1px solid rgba(255,86,86,0.3);background:rgba(255,86,86,0.08);color:#ffb4b4;border-radius:var(--nxt-radius-sm);padding:12px;font-size:13px;line-height:1.5">${esc(msg)}</div>`;
+		result.innerHTML = `<div role="alert" style="border:1px solid color-mix(in srgb, var(--nxt-danger) 40%, transparent);background:color-mix(in srgb, var(--nxt-danger) 12%, transparent);color:var(--nxt-danger);border-radius:var(--nxt-radius-sm);padding:12px;font-size:13px;line-height:1.5">${esc(msg)}</div>`;
 	} finally {
 		runBtn.disabled = false;
 		runBtn.textContent = 'Run delegation';
@@ -883,7 +909,21 @@ async function loadActions(host, append = false) {
 		}
 		renderActions(host, items, append);
 	} catch (err) {
-		host.innerHTML = `<div class="dn-empty"><h3>Couldn't load audit log</h3><p>${esc(err?.message || 'Try again in a moment.')}</p></div>`;
+		if (append) {
+			// A failed "load older" shouldn't wipe the rows already on screen —
+			// surface the failure on the load-more control instead.
+			const more = host.querySelector('[data-slot="actions-more"]');
+			if (more) {
+				more.innerHTML = `<button class="dn-btn" data-action="load-more">Retry loading older</button>`;
+				more.querySelector('[data-action="load-more"]').addEventListener('click', () => loadActions(host, true));
+			}
+			toast(err?.message ? `Couldn’t load older: ${err.message}` : 'Couldn’t load older entries');
+			return;
+		}
+		showLoadError(host, {
+			title: 'Couldn’t load audit log',
+			body: esc(err?.message || 'Check your connection and try again.'),
+		}, () => loadActions(host));
 	}
 }
 
@@ -918,11 +958,11 @@ function renderActions(host, items, append) {
 				<table style="width:100%;border-collapse:collapse">
 					<thead>
 						<tr style="background:rgba(255,255,255,0.02);text-align:left">
-							<th style="padding:9px 12px;font-size:11.5px;color:var(--nxt-ink-fade);font-weight:500;text-transform:uppercase;letter-spacing:0.04em">When</th>
-							<th style="padding:9px 12px;font-size:11.5px;color:var(--nxt-ink-fade);font-weight:500;text-transform:uppercase;letter-spacing:0.04em">Category</th>
-							<th style="padding:9px 12px;font-size:11.5px;color:var(--nxt-ink-fade);font-weight:500;text-transform:uppercase;letter-spacing:0.04em">Event</th>
-							<th style="padding:9px 12px;font-size:11.5px;color:var(--nxt-ink-fade);font-weight:500;text-transform:uppercase;letter-spacing:0.04em">IP</th>
-							<th style="padding:9px 12px;font-size:11.5px;color:var(--nxt-ink-fade);font-weight:500;text-transform:uppercase;letter-spacing:0.04em">Agent</th>
+							<th scope="col" style="padding:9px 12px;font-size:11.5px;color:var(--nxt-ink-fade);font-weight:500;text-transform:uppercase;letter-spacing:0.04em">When</th>
+							<th scope="col" style="padding:9px 12px;font-size:11.5px;color:var(--nxt-ink-fade);font-weight:500;text-transform:uppercase;letter-spacing:0.04em">Category</th>
+							<th scope="col" style="padding:9px 12px;font-size:11.5px;color:var(--nxt-ink-fade);font-weight:500;text-transform:uppercase;letter-spacing:0.04em">Event</th>
+							<th scope="col" style="padding:9px 12px;font-size:11.5px;color:var(--nxt-ink-fade);font-weight:500;text-transform:uppercase;letter-spacing:0.04em">IP</th>
+							<th scope="col" style="padding:9px 12px;font-size:11.5px;color:var(--nxt-ink-fade);font-weight:500;text-transform:uppercase;letter-spacing:0.04em">Agent</th>
 						</tr>
 					</thead>
 					<tbody>${rowsHtml}</tbody>

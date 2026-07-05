@@ -225,6 +225,7 @@ registerWalletTab({
 			backtestError: null,
 			backtestStale: false,
 			arming: false,
+			armed: false,        // true once armed on-chain; cleared on any edit or re-compile
 		};
 
 		// ── renderers ──────────────────────────────────────────────────────────
@@ -287,7 +288,7 @@ registerWalletTab({
 				${renderBacktest()}
 				${state.armed ? `<div class="sb-notes blue" role="status" style="margin-top:14px"><strong>Armed ✓</strong><div style="margin-top:4px">This agent is now sniping on its own wallet, under its spend guards. Edit any field above and re-arm to update it, or <a class="sb-dash" href="${esc(dashUrl)}" style="display:inline-flex">manage it on the Sniper dashboard</a>.</div></div>` : ''}
 				<div class="sb-actions" style="border-top:1px solid var(--stroke,rgba(255,255,255,.08));padding-top:14px;margin-top:18px">
-					<button type="button" class="sb-btn primary" id="sb-arm" ${canArm && !state.arming ? '' : 'disabled'} ${state.arming ? 'aria-busy="true"' : ''}>${state.arming ? '<span class="sb-spin"></span>Arming…' : (state.armed ? 'Re-arm with changes →' : 'Arm this strategy →')}</button>
+					<button type="button" class="sb-btn primary" id="sb-arm" ${canArm && !state.arming ? '' : 'disabled'} ${state.arming ? 'aria-busy="true"' : ''}>${state.arming ? '<span class="sb-spin"></span>Arming…' : (state.armed ? 'Re-arm →' : 'Arm this strategy →')}</button>
 					<span class="sb-via" style="margin:0">Arms on this agent's own funded wallet, under its spend guards. Disarm any time from the dashboard.</span>
 				</div>
 			</div>`;
@@ -317,10 +318,10 @@ registerWalletTab({
 
 		function renderBacktest() {
 			if (state.backtesting) {
-				return `<div class="sb-card" style="margin-top:14px;background:var(--surface-1,rgba(255,255,255,.02))"><div class="sb-skel" style="width:40%"></div><div class="sb-skel"></div><div class="sb-skel" style="width:70%"></div></div>`;
+				return `<div class="sb-card" style="margin-top:14px;background:var(--surface-1,rgba(255,255,255,.02))" role="status" aria-busy="true" aria-label="Backtesting against real launch history"><div class="sb-skel" style="width:40%"></div><div class="sb-skel"></div><div class="sb-skel" style="width:70%"></div></div>`;
 			}
 			if (state.backtestError) {
-				return `<div class="sb-err" style="margin-top:14px">${esc(state.backtestError)} <button class="sb-btn ghost" id="sb-bt-retry" style="margin-left:8px;padding:4px 10px">Retry</button></div>`;
+				return `<div class="sb-err" role="alert" style="margin-top:14px">${esc(state.backtestError)} <button type="button" class="sb-btn ghost" id="sb-bt-retry" style="margin-left:8px;padding:4px 10px">Retry</button></div>`;
 			}
 			const b = state.backtest;
 			if (!b) return '';
@@ -359,7 +360,7 @@ registerWalletTab({
 				</div>
 
 				<div class="sb-dist">
-					<div class="sb-dist-bar">
+					<div class="sb-dist-bar" role="img" aria-label="ROI distribution: worst ${fmtPctNum(m.roi_worst_pct, true)}, p10 ${fmtPctNum(m.roi_p10_pct, true)}, median ${fmtPctNum(m.roi_median_pct, true)}, p90 ${fmtPctNum(m.roi_p90_pct, true)}, best ${fmtPctNum(m.roi_best_pct, true)}">
 						<div class="sb-dist-band" style="left:${pos(m.roi_p10_pct)};right:calc(100% - ${pos(m.roi_p90_pct)})"></div>
 						<div class="sb-dist-med" style="left:${pos(m.roi_median_pct)}"></div>
 						<div class="sb-dist-zero" style="left:${pos(0)}"></div>
@@ -368,7 +369,7 @@ registerWalletTab({
 				</div>
 
 				${total ? `<div style="margin-top:14px">
-					<div class="sb-splits">
+					<div class="sb-splits" role="img" aria-label="Outcome mix: ${od.graduated || 0} graduated, ${od.pumped || 0} pumped, ${od.flat || 0} flat, ${od.rugged || 0} rugged">
 						<i style="background:#4ade80;width:${pctOf(od.graduated)}%"></i><i style="background:#34d399;width:${pctOf(od.pumped)}%"></i><i style="background:#888;width:${pctOf(od.flat)}%"></i><i style="background:#f87171;width:${pctOf(od.rugged)}%"></i>
 					</div>
 					<div class="sb-splits-legend">
@@ -423,12 +424,13 @@ registerWalletTab({
 		function invalidateBacktest() {
 			if (state.backtest || state.backtestError) { state.backtest = null; state.backtestError = null; }
 			state.backtestStale = true;
+			state.armed = false; // the armed config no longer matches the edited one
 		}
 
 		async function onCompile() {
 			const text = (panel.querySelector('#sb-src')?.value || '').trim();
 			if (text.length < 3) { ctx.toast('Describe your strategy first.'); return; }
-			state.compiling = true; state.compileError = null; state.source = text; render();
+			state.compiling = true; state.compileError = null; state.source = text; state.armed = false; render();
 			const res = await call('/api/sniper/compile', { method: 'POST', body: { agent_id: agentId, network: ctx.getNetwork(), text } });
 			if (destroyed) return;
 			state.compiling = false;
@@ -467,6 +469,7 @@ registerWalletTab({
 			if (destroyed) return;
 			state.arming = false;
 			if (!res.ok) { ctx.toast(res.message || 'Could not arm the strategy.'); render(); return; }
+			state.armed = true;
 			ctx.toast('Armed — this agent is now sniping on its own wallet.');
 			render();
 		}

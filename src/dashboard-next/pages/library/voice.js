@@ -6,6 +6,7 @@
 // Cloning a fresh voice from a recording lives on /dashboard/settings.
 
 import { get, put, esc } from '../../api.js';
+import { emptyStateHTML, errorStateHTML, attachRetry } from '../../../shared/state-kit.js';
 
 const PREVIEW_MAX = 240;
 const DEFAULT_PREVIEW = 'Hi, this is your agent speaking. Ready when you are.';
@@ -68,7 +69,8 @@ export async function renderVoice(host) {
 	]);
 
 	if (agentsRes.status === 'rejected') {
-		list.innerHTML = `<div class="dn-empty"><h3>Couldn't load agents</h3><p>${esc(friendly(agentsRes.reason))}</p></div>`;
+		list.innerHTML = errorStateHTML({ title: "Couldn't load agents", body: esc(friendly(agentsRes.reason)) });
+		attachRetry(list, () => renderVoice(host));
 		return;
 	}
 	agents = agentsRes.value?.agents || [];
@@ -80,13 +82,12 @@ export async function renderVoice(host) {
 	}
 
 	if (!agents.length) {
-		list.innerHTML = `
-			<div class="dn-empty">
-				<h3>You don't have any agents yet</h3>
-				<p>Voices are scoped to an agent. Create one to start.</p>
-				<div style="margin-top:12px"><a class="dn-btn primary" href="/create">Create an agent</a></div>
-			</div>
-		`;
+		list.innerHTML = emptyStateHTML({
+			icon: '🎙️',
+			title: "You don't have any agents yet",
+			body: 'Voices are scoped to an agent. Create one to give it a voice, then preview it against your own text.',
+			actions: [{ label: 'Create an agent', href: '/create', primary: true }],
+		});
 		return;
 	}
 

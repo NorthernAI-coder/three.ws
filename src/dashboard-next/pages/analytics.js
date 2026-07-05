@@ -42,7 +42,7 @@ let me = null;
 
 function renderSkeletons(root) {
 	root.innerHTML = `
-		<div class="ana-range-bar">${RANGES.map(r => `<button class="ana-range-btn${r.key === range.key ? ' is-active' : ''}">${r.label}</button>`).join('')}</div>
+		<div class="ana-range-bar" role="group" aria-label="Select analytics time range">${RANGES.map(r => `<button type="button" class="ana-range-btn${r.key === range.key ? ' is-active' : ''}" aria-pressed="${r.key === range.key}" disabled>${r.label}</button>`).join('')}</div>
 		<div class="ana-kpi-row">${Array.from({ length: 4 }, () => `<div class="dn-panel ana-kpi"><div class="dn-skeleton" style="height:12px;width:80px;margin-bottom:8px"></div><div class="dn-skeleton" style="height:28px;width:100px"></div></div>`).join('')}</div>
 		<div class="dn-panel" style="min-height:280px"><div class="dn-skeleton" style="height:12px;width:120px;margin-bottom:16px"></div><div class="dn-skeleton" style="height:220px;width:100%"></div></div>
 		<div class="ana-two-col">
@@ -129,6 +129,7 @@ async function loadAndRender(root) {
 		renderSkillBreakdown(bySkill),
 		renderAgentTable(agentList, widgetList, widgetStats)
 	));
+	root.appendChild(renderFunnel({ totalViews, totalChats, revPayments }));
 	root.appendChild(renderActivityTable(recentPayments));
 
 	root.querySelector('.ana-range-bar')?.addEventListener('click', e => {
@@ -144,6 +145,14 @@ async function loadAndRender(root) {
 }
 
 function safe(fn) { return fn().catch(() => null); }
+
+// Honor the OS "reduce motion" setting — charts render their final frame at once
+// instead of animating in.
+function prefersReducedMotion() {
+	return typeof window !== 'undefined'
+		&& typeof window.matchMedia === 'function'
+		&& window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
 
 // -- KPIs --
 
@@ -321,7 +330,9 @@ function paintCanvasLineChart(host, timeseries) {
 		if (progress < 1) requestAnimationFrame(draw);
 	}
 
-	requestAnimationFrame(draw);
+	// Skip the reveal animation entirely under reduced-motion — draw the final frame.
+	if (prefersReducedMotion()) draw(startTime + duration);
+	else requestAnimationFrame(draw);
 
 	// Tooltip
 	canvas.addEventListener('mousemove', (e) => {
@@ -439,7 +450,8 @@ function paintHorizontalBarChart(host, bySkill) {
 		if (progress < 1) requestAnimationFrame(draw);
 	}
 
-	requestAnimationFrame(draw);
+	if (prefersReducedMotion()) draw(startTime + duration);
+	else requestAnimationFrame(draw);
 }
 
 // -- Agent table --
@@ -614,9 +626,12 @@ function renderFunnel({ totalViews, totalChats, revPayments }) {
 function renderRangeBar(root) {
 	const bar = document.createElement('div');
 	bar.className = 'ana-range-bar';
-	bar.innerHTML = RANGES.map(r =>
-		`<button class="ana-range-btn${r.key === range.key ? ' is-active' : ''}" data-range="${r.key}">${r.label}</button>`
-	).join('');
+	bar.setAttribute('role', 'group');
+	bar.setAttribute('aria-label', 'Select analytics time range');
+	bar.innerHTML = RANGES.map(r => {
+		const active = r.key === range.key;
+		return `<button type="button" class="ana-range-btn${active ? ' is-active' : ''}" data-range="${r.key}" aria-pressed="${active}" aria-label="Show the last ${esc(r.label)}">${r.label}</button>`;
+	}).join('');
 	return bar;
 }
 

@@ -65,6 +65,7 @@ let state = { ...DEFAULTS };
 		`;
 
 		const host = main.querySelector('[data-slot="content"]');
+		injectWalkStyles();
 
 		const prefsResp = await safeGet('/api/dashboard/prefs');
 		hydrateState(prefsResp?.prefs || prefsResp || {});
@@ -187,7 +188,7 @@ function renderRoster() {
 			<div class="dn-panel-title">Default avatar</div>
 			<div class="dn-panel-sub" style="margin:2px 0 0">Loaded for first-time visitors and whenever none is stored. ${WALK_AVATARS.length} in the roster.</div>
 		</div>
-		<div data-slot="roster-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px"></div>
+		<div data-slot="roster-grid" role="group" aria-label="Default companion avatar" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(130px,100%),1fr));gap:10px"></div>
 	`;
 	const grid = panel.querySelector('[data-slot="roster-grid"]');
 	grid.innerHTML = WALK_AVATARS.map((a) => avatarCard(a)).join('');
@@ -201,6 +202,22 @@ function renderRoster() {
 			refreshDerived();
 			applyLive();
 		});
+	});
+
+	// Roving arrow-key navigation across the roster (focus only — selection
+	// stays on click / Enter / Space, which buttons handle natively).
+	grid.addEventListener('keydown', (ev) => {
+		if (!['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(ev.key)) return;
+		const cards = [...grid.querySelectorAll('[data-avatar]')];
+		const i = cards.indexOf(document.activeElement);
+		if (i === -1) return;
+		ev.preventDefault();
+		let n = i;
+		if (ev.key === 'ArrowRight' || ev.key === 'ArrowDown') n = (i + 1) % cards.length;
+		else if (ev.key === 'ArrowLeft' || ev.key === 'ArrowUp') n = (i - 1 + cards.length) % cards.length;
+		else if (ev.key === 'Home') n = 0;
+		else if (ev.key === 'End') n = cards.length - 1;
+		cards[n]?.focus();
 	});
 	return panel;
 }
@@ -248,7 +265,7 @@ function renderDelivery() {
 			<div class="dn-panel-title">Asset delivery</div>
 			<div class="dn-panel-sub" style="margin:2px 0 0">Where the avatar GLBs, animation manifest, and "make your own" link resolve. Defaults serve from this origin — override to point at a CDN.</div>
 		</div>
-		<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px">
+		<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:14px">
 			${labeledField('assetBase', 'Asset base', state.assetBase, 'https://cdn.example.com', 'Prepended to static GLB paths.')}
 			${labeledField('apiBase', 'API base', state.apiBase, 'https://api.example.com', 'Prepended to the /api/avatars/<id>/glb proxy.')}
 			${labeledField('manifestUrl', 'Manifest URL', state.manifestUrl, '/animations/manifest.json', 'Shared animation manifest for retargeted rigs.')}
@@ -577,6 +594,31 @@ function hexSoft(hex) {
 	if (!m) return 'rgba(255,255,255,0.04)';
 	const n = parseInt(m[1], 16);
 	return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, 0.16)`;
+}
+
+// Scoped hover / focus / reduced-motion polish for the roster cards. Inline
+// styles can't express pseudo-classes, so the interactive states live here.
+function injectWalkStyles() {
+	if (document.getElementById('dn-walk-styles')) return;
+	const style = document.createElement('style');
+	style.id = 'dn-walk-styles';
+	style.textContent = `
+		.dn-walk-card:not([aria-pressed="true"]):hover {
+			border-color: var(--nxt-stroke-strong) !important;
+			background: rgba(255,255,255,0.05) !important;
+		}
+		.dn-walk-card:hover { transform: translateY(-2px); }
+		.dn-walk-card:active { transform: translateY(0); }
+		.dn-walk-card:focus-visible {
+			outline: 2px solid var(--nxt-accent);
+			outline-offset: 2px;
+		}
+		@media (prefers-reduced-motion: reduce) {
+			.dn-walk-card { transition: none !important; }
+			.dn-walk-card:hover, .dn-walk-card:active { transform: none; }
+		}
+	`;
+	document.head.appendChild(style);
 }
 
 function toast(msg) {

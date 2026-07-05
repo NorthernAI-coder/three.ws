@@ -227,7 +227,7 @@ registerWalletTab({
 				return `<div class="awh-pay-skel" aria-busy="true"><span></span><span></span><span></span></div>`;
 			}
 			if (state.searchError) {
-				return `<div class="awh-empty">Could not reach the bazaar. <button class="awh-btn awh-bal-mini" type="button" data-act="retry-search">Retry</button></div>`;
+				return `<div class="awh-empty" role="alert">Could not reach the bazaar. <button class="awh-btn awh-bal-mini" type="button" data-act="retry-search">Retry</button></div>`;
 			}
 			if (!state.searched) {
 				return `<p class="awh-pay-hint">Search above to find a paid API to call from this agent's wallet.</p>`;
@@ -400,7 +400,7 @@ registerWalletTab({
 				return head + `<div class="awh-pay-skel" aria-busy="true" style="margin-top:12px"><span></span><span></span><span></span></div>`;
 			}
 			if (state.previewError) {
-				return head + `<div class="awh-pay-err">${escapeHtml(state.previewError)}</div>
+				return head + `<div class="awh-pay-err" role="alert">${escapeHtml(state.previewError)}</div>
 					<div class="awh-pay-actions"><button class="awh-btn" type="button" data-act="retry-preview">Try again</button></div>`;
 			}
 			const p = state.preview;
@@ -447,8 +447,7 @@ registerWalletTab({
 				<div class="awh-pay-actions">
 					<button class="awh-btn awh-btn--primary" type="button" data-act="pay" ${insufficient || !p?.payable ? 'disabled' : ''}>Pay ${escapeHtml(priceStr)}</button>
 					<button class="awh-btn" type="button" data-act="back">Cancel</button>
-				</div>
-				<div data-host="payflow"></div>`;
+				</div>`;
 		}
 
 		function renderFlow() {
@@ -456,7 +455,7 @@ registerWalletTab({
 				.map(
 					(s) => `<li class="awh-pay-step ${s.active ? 'is-active' : ''}">${escapeHtml(s.label)}${s.detail ? ` <span class="detail">· ${escapeHtml(s.detail)}</span>` : ''}</li>`,
 				)
-				.join('')}</ul>${state.payError ? `<div class="awh-pay-err">${escapeHtml(state.payError)}</div><div class="awh-pay-actions"><button class="awh-btn" type="button" data-act="retry-preview">Try again</button><button class="awh-btn" type="button" data-act="back">Back</button></div>` : ''}`;
+				.join('')}</ul>${state.payError ? `<div class="awh-pay-err" role="alert">${escapeHtml(state.payError)}</div><div class="awh-pay-actions"><button class="awh-btn" type="button" data-act="retry-preview">Try again</button><button class="awh-btn" type="button" data-act="back">Back</button></div>` : ''}`;
 		}
 
 		function renderReceipt() {
@@ -558,7 +557,7 @@ registerWalletTab({
 				return `<div class="awh-pay-skel" aria-busy="true"><span></span><span></span></div>`;
 			}
 			if (state.activityError) {
-				return `<div class="awh-empty">Could not load payment activity. <button class="awh-btn awh-bal-mini" type="button" data-act="retry-activity">Retry</button></div>`;
+				return `<div class="awh-empty" role="alert">Could not load payment activity. <button class="awh-btn awh-bal-mini" type="button" data-act="retry-activity">Retry</button></div>`;
 			}
 			const rows = state.activity || [];
 			if (!rows.length) {

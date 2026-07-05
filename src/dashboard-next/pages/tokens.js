@@ -12,10 +12,33 @@
 //   POST /api/pump/withdraw-confirm        body { tx }
 
 import { mountShell } from '../shell.js';
-import { requireUser, get, post, esc, relTime, formatUsdc, ApiError } from '../api.js';
-import { errorStateHTML, ensureStateKitStyles } from '../../shared/state-kit.js';
+import { requireUser, get, esc, ApiError } from '../api.js';
+import { errorStateHTML, emptyStateHTML, ensureStateKitStyles, attachRetry } from '../../shared/state-kit.js';
 
-const MONO = `'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace`;
+// Page-scoped polish that the shared shell CSS doesn't cover: keyboard focus
+// rings on this page's custom controls, stat-cell hover feedback, and a
+// reduced-motion guard. Injected once, idempotent.
+const TOKENS_STYLE_ID = 'dn-tokens-styles';
+function ensureTokensStyles() {
+	if (typeof document === 'undefined' || document.getElementById(TOKENS_STYLE_ID)) return;
+	const style = document.createElement('style');
+	style.id = TOKENS_STYLE_ID;
+	style.textContent = `
+		.tk-stat { transition: border-color .14s ease, background .14s ease; }
+		.tk-stat:hover { border-color: var(--nxt-stroke-strong); }
+		.tk-card .dn-btn:focus-visible,
+		.tk-card a:focus-visible,
+		.tk-dialog button:focus-visible,
+		.tk-copy:focus-visible {
+			outline: 2px solid var(--nxt-accent); outline-offset: 2px; border-radius: var(--nxt-radius-sm);
+		}
+		.tk-copy.is-copied { color: var(--nxt-ink); border-color: var(--nxt-stroke-strong); }
+		@media (prefers-reduced-motion: reduce) {
+			.tk-stat, .tk-bond-fill { transition: none !important; }
+		}
+	`;
+	(document.head || document.documentElement).appendChild(style);
+}
 
 function toast(msg) {
 	let el = document.getElementById('dn-toast');
@@ -47,18 +70,17 @@ function toast(msg) {
 	try {
 		const main = await mountShell();
 		await requireUser();
+		ensureTokensStyles();
 
 		main.innerHTML = `
-			<div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:6px">
+			<header style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:6px">
 				<div>
 					<h1 class="dn-h1">Tokens</h1>
 					<p class="dn-h1-sub">Pump.fun tokens launched by your agents. Track performance, manage royalties, withdraw earnings.</p>
 				</div>
 				<a class="dn-btn primary" href="/pump-dashboard">Open Token Cockpit →</a>
-			</div>
-			<div data-slot="content" style="display:flex;flex-direction:column;gap:16px">
-				<div class="dn-skeleton" style="height:200px;border-radius:12px"></div>
-			</div>
+			</header>
+			<div data-slot="content" style="display:flex;flex-direction:column;gap:16px">${skeletonMarkup()}</div>
 		`;
 
 		const host = main.querySelector('[data-slot="content"]');
@@ -73,8 +95,17 @@ function toast(msg) {
 	}
 })();
 
+// Structured skeleton mirroring the real layout (summary strip + token cards)
+// so the loading frame reads as content, never a spinner.
+function skeletonMarkup() {
+	const stat = `<div class="dn-skeleton" style="height:78px;border-radius:var(--nxt-radius)"></div>`;
+	const strip = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">${stat.repeat(4)}</div>`;
+	const card = `<div class="dn-skeleton" style="height:220px;border-radius:var(--nxt-radius)"></div>`;
+	return `<div style="display:flex;flex-direction:column;gap:16px" aria-hidden="true">${strip}${card}${card}</div>`;
+}
+
 async function loadTokens(host) {
-	host.innerHTML = `<div class="dn-skeleton" style="height:200px;border-radius:12px"></div>`;
+	host.innerHTML = skeletonMarkup();
 
 	const [agentsSettled, dashSettled] = await Promise.allSettled([
 		get('/api/agents'),
@@ -96,7 +127,7 @@ async function loadTokens(host) {
 			title: "Couldn't load your tokens",
 			body: 'We had trouble reaching the token service. Check your connection and try again.',
 		});
-		host.querySelector('[data-sk-retry]')?.addEventListener('click', () => loadTokens(host));
+		attachRetry(host, () => loadTokens(host));
 		return;
 	}
 
@@ -146,27 +177,23 @@ async function safeGet(url) {
 function renderEmpty() {
 	const panel = document.createElement('div');
 	panel.className = 'dn-panel';
-	panel.style.textAlign = 'center';
-	panel.style.padding = '48px 24px';
-	panel.innerHTML = `
-		<div style="font-size:40px;margin-bottom:16px">🚀</div>
-		<h3 style="font-size:17px;font-weight:600;margin:0 0 8px">No tokens launched yet</h3>
-		<p style="color:var(--nxt-ink-dim);margin:0 0 20px;font-size:14px;max-width:440px;margin-left:auto;margin-right:auto">
-			Launch a Pump.fun token from any of your agents to give it a tradeable on-chain identity.
-			You earn royalties on every trade.
-		</p>
-		<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
-			<a class="dn-btn primary" href="/dashboard/agents">Go to Agents →</a>
-			<a class="dn-btn" href="/pump-dashboard">Open Token Cockpit →</a>
-		</div>
-	`;
+	panel.innerHTML = emptyStateHTML({
+		icon: '🚀',
+		title: 'No tokens launched yet',
+		body: 'Launch a Pump.fun token from any of your agents to give it a tradeable on-chain identity. You earn royalties on every trade.',
+		actions: [
+			{ label: 'Go to Agents →', href: '/dashboard/agents', primary: true },
+			{ label: 'Open Token Cockpit →', href: '/pump-dashboard' },
+		],
+	});
 	return panel;
 }
 
 // ── Summary strip ──────────────────────────────────────────────────────────
 
 function renderSummaryStrip(tokenData) {
-	const wrap = document.createElement('div');
+	const wrap = document.createElement('section');
+	wrap.setAttribute('aria-label', 'Token portfolio summary');
 	wrap.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px';
 
 	const totalHolders = tokenData.reduce((s, td) => s + Number(td.stats?.holder_count || td.token?.holder_count || 0), 0);
@@ -194,8 +221,8 @@ function renderSummaryStrip(tokenData) {
 // ── Token card ─────────────────────────────────────────────────────────────
 
 function renderTokenCard({ agent, mint, token, stats, coin }) {
-	const panel = document.createElement('div');
-	panel.className = 'dn-panel';
+	const panel = document.createElement('article');
+	panel.className = 'dn-panel tk-card';
 
 	const name = esc(agent.name || agent.display_name || 'Agent');
 	const ticker = esc(String(token?.symbol || token?.ticker || agent.meta?.pumpfun?.symbol || agent.meta?.token?.symbol || 'TOKEN').toUpperCase());
@@ -227,8 +254,8 @@ function renderTokenCard({ agent, mint, token, stats, coin }) {
 				${description ? `<div style="font-size:12.5px;color:var(--nxt-ink-fade);margin-top:6px;max-width:480px">${esc(String(description).slice(0, 140))}</div>` : ''}
 			</div>
 			<div style="display:flex;gap:6px;flex-shrink:0">
-				${mint ? `<a class="dn-btn ghost" href="https://pump.fun/coin/${encodeURIComponent(mint)}" target="_blank" rel="noopener" style="padding:5px 10px;font-size:12px">pump.fun ↗</a>` : ''}
-				<a class="dn-btn" href="/dashboard/agents" style="padding:5px 10px;font-size:12px">Agent →</a>
+				${mint ? `<a class="dn-btn ghost" href="https://pump.fun/coin/${encodeURIComponent(mint)}" target="_blank" rel="noopener" aria-label="View $${ticker} on pump.fun (opens in a new tab)" style="padding:5px 10px;font-size:12px">pump.fun ↗</a>` : ''}
+				<a class="dn-btn" href="/dashboard/agents" aria-label="Open the ${name} agent" style="padding:5px 10px;font-size:12px">Agent →</a>
 			</div>
 		</div>
 
@@ -246,8 +273,8 @@ function renderTokenCard({ agent, mint, token, stats, coin }) {
 					<span style="color:var(--nxt-ink-dim)">Bonding curve progress</span>
 					<span>${Number(bondingPct).toFixed(1)}%</span>
 				</div>
-				<div style="height:6px;border-radius:3px;background:var(--nxt-stroke);overflow:hidden">
-					<div style="height:100%;width:${Math.min(100, Number(bondingPct)).toFixed(1)}%;background:var(--nxt-accent);transition:width 400ms ease"></div>
+				<div role="progressbar" aria-label="Bonding curve progress" aria-valuenow="${Math.round(Number(bondingPct))}" aria-valuemin="0" aria-valuemax="100" style="height:6px;border-radius:3px;background:var(--nxt-stroke);overflow:hidden">
+					<div class="tk-bond-fill" style="height:100%;width:${Math.min(100, Number(bondingPct)).toFixed(1)}%;background:var(--nxt-accent);transition:width 400ms ease"></div>
 				</div>
 			</div>
 		` : ''}
@@ -255,20 +282,25 @@ function renderTokenCard({ agent, mint, token, stats, coin }) {
 		${mint ? `
 			<div class="tk-oracle-slot" data-oracle-mint="${esc(mint)}" style="margin-bottom:14px"></div>
 			<div style="display:flex;gap:8px;flex-wrap:wrap">
-				<button class="dn-btn primary" data-action="fees" style="font-size:12.5px">Fees &amp; rewards</button>
+				<button type="button" class="dn-btn primary" data-action="fees" style="font-size:12.5px">Fees &amp; rewards</button>
 				<a class="dn-btn" href="/oracle/coin/${encodeURIComponent(mint)}" rel="noopener" style="font-size:12.5px">Oracle ↗</a>
-				<a class="dn-btn" href="/pump-3d-agent?mint=${encodeURIComponent(mint)}" target="_blank" rel="noopener" style="font-size:12.5px">3D Agent view ↗</a>
-				<a class="dn-btn" href="https://solscan.io/token/${encodeURIComponent(mint)}" target="_blank" rel="noopener" style="font-size:12.5px">Solscan ↗</a>
-				${mint ? `<button class="dn-btn" data-action="copy-mint" data-mint="${esc(mint)}" style="font-size:12.5px">Copy CA</button>` : ''}
+				<a class="dn-btn" href="/pump-3d-agent?mint=${encodeURIComponent(mint)}" target="_blank" rel="noopener" aria-label="Open the 3D agent view for $${ticker} (opens in a new tab)" style="font-size:12.5px">3D Agent view ↗</a>
+				<a class="dn-btn" href="https://solscan.io/token/${encodeURIComponent(mint)}" target="_blank" rel="noopener" aria-label="View $${ticker} on Solscan (opens in a new tab)" style="font-size:12.5px">Solscan ↗</a>
+				<button type="button" class="dn-btn tk-copy" data-action="copy-mint" data-mint="${esc(mint)}" aria-label="Copy the $${ticker} contract address" style="font-size:12.5px">Copy CA</button>
 			</div>
 		` : ''}
 	`;
 
 	panel.querySelectorAll('[data-action="copy-mint"]').forEach((btn) => {
+		const label = btn.textContent;
 		btn.addEventListener('click', async () => {
 			try {
 				await navigator.clipboard.writeText(btn.dataset.mint);
 				toast('Contract address copied');
+				btn.classList.add('is-copied');
+				btn.textContent = 'Copied ✓';
+				clearTimeout(btn._t);
+				btn._t = setTimeout(() => { btn.classList.remove('is-copied'); btn.textContent = label; }, 1400);
 			} catch {
 				toast('Copy failed');
 			}
@@ -302,23 +334,44 @@ async function getMe() {
 }
 
 async function openFeesModal({ mint, network, creator, agentId, symbol, name }) {
+	const opener = document.activeElement;
+	const titleId = 'tk-fees-title';
 	const backdrop = document.createElement('div');
 	backdrop.style.cssText = 'position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.62);backdrop-filter:blur(4px);display:flex;align-items:flex-start;justify-content:center;padding:5vh 16px;overflow:auto';
 	const panel = document.createElement('div');
+	panel.className = 'tk-dialog';
+	panel.setAttribute('role', 'dialog');
+	panel.setAttribute('aria-modal', 'true');
+	panel.setAttribute('aria-labelledby', titleId);
+	panel.tabIndex = -1;
 	panel.style.cssText = 'background:var(--nxt-bg,#0d0d12);border:1px solid var(--nxt-stroke,rgba(255,255,255,.1));border-radius:14px;max-width:560px;width:100%;box-shadow:0 24px 80px rgba(0,0,0,.5)';
 	const head = document.createElement('div');
 	head.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--nxt-stroke,rgba(255,255,255,.08))';
-	head.innerHTML = `<strong style="font-size:15px">Fees &amp; rewards · ${esc(symbol || 'Coin')}</strong><button type="button" aria-label="Close" style="background:none;border:none;color:inherit;font-size:22px;line-height:1;cursor:pointer">×</button>`;
+	head.innerHTML = `<strong id="${titleId}" style="font-size:15px">Fees &amp; rewards · ${esc(symbol || 'Coin')}</strong><button type="button" aria-label="Close dialog" style="background:none;border:none;color:inherit;font-size:22px;line-height:1;cursor:pointer">×</button>`;
 	const inner = document.createElement('div');
 	inner.style.cssText = 'padding:8px';
 	panel.append(head, inner);
 	backdrop.appendChild(panel);
 	document.body.appendChild(backdrop);
-	const onEsc = (e) => { if (e.key === 'Escape') close(); };
-	const close = () => { backdrop.remove(); document.removeEventListener('keydown', onEsc); };
+	const onEsc = (e) => {
+		if (e.key === 'Escape') { close(); return; }
+		// Keep tab focus inside the dialog while it's open.
+		if (e.key !== 'Tab') return;
+		const f = panel.querySelectorAll('a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])');
+		if (!f.length) return;
+		const first = f[0], last = f[f.length - 1];
+		if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+		else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+	};
+	const close = () => {
+		backdrop.remove();
+		document.removeEventListener('keydown', onEsc);
+		if (opener && typeof opener.focus === 'function') opener.focus();
+	};
 	head.querySelector('button').addEventListener('click', close);
 	backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
 	document.addEventListener('keydown', onEsc);
+	head.querySelector('button').focus();
 	try {
 		const user = await getMe();
 		const { mountFeesPanel } = await import(/* @vite-ignore */ '/studio/fees-panel.js');
@@ -391,8 +444,8 @@ async function enrichTokenCardsOracle(cards) {
 
 function statCell(label, value) {
 	return `
-		<div style="padding:10px;background:rgba(255,255,255,0.02);border-radius:8px;border:1px solid var(--nxt-stroke)">
-			<div style="font-size:11.5px;color:var(--nxt-ink-fade);margin-bottom:4px">${esc(label)}</div>
+		<div class="tk-stat" style="padding:10px;background:rgba(255,255,255,0.02);border-radius:8px;border:1px solid var(--nxt-stroke)">
+			<div style="font-size:11.5px;color:var(--nxt-ink-dim);margin-bottom:4px">${esc(label)}</div>
 			<div style="font-size:14px;font-weight:600">${esc(value)}</div>
 		</div>
 	`;

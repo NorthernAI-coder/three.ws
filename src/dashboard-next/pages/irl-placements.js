@@ -212,7 +212,10 @@ const STYLE = `
 .irl-skill { font-size: 11px; padding: 3px 9px; border-radius: 999px; background: color-mix(in srgb, #7c3aed 12%, transparent); color: #a78bfa; border: 1px solid color-mix(in srgb, #7c3aed 30%, transparent); white-space: nowrap; }
 .irl-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: var(--nxt-radius-sm); border: 1px solid var(--nxt-stroke); background: var(--nxt-bg-2); color: var(--nxt-ink); cursor: pointer; font-size: 13px; font-weight: 600; text-decoration: none; transition: border-color .14s, transform .12s; }
 .irl-btn:hover { border-color: var(--nxt-stroke-strong); transform: translateY(-1px); }
+.irl-btn:active { transform: translateY(0); }
+.irl-btn:focus-visible { outline: 2px solid var(--nxt-accent); outline-offset: 2px; }
 .irl-btn.primary { background: var(--nxt-accent); color: #061018; border-color: transparent; }
+.irl-btn.primary:hover { filter: brightness(1.06); }
 
 /* New-interactions banner */
 .irl-feed-banner { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: var(--nxt-radius); border: 1px solid color-mix(in srgb, var(--nxt-accent) 28%, transparent); background: color-mix(in srgb, var(--nxt-accent) 7%, transparent); }
@@ -255,6 +258,7 @@ const STYLE = `
 /* Inline link-style button (matches section-label affordances) */
 .irl-link-btn { background: none; border: none; padding: 0; cursor: pointer; color: var(--nxt-accent); font: inherit; font-size: 12px; font-weight: 600; }
 .irl-link-btn:hover { text-decoration: underline; }
+.irl-link-btn:focus-visible { outline: 2px solid var(--nxt-accent); outline-offset: 2px; border-radius: 4px; }
 .irl-link-btn:disabled { opacity: .6; cursor: default; text-decoration: none; }
 .irl-link-btn.danger { color: var(--nxt-danger, #f87171); }
 
@@ -266,7 +270,8 @@ const STYLE = `
 .irl-modal-title { font-size: 16px; font-weight: 700; color: var(--nxt-ink); }
 .irl-modal-sub { font-size: 12px; color: var(--nxt-ink-faint); margin-top: 2px; }
 .irl-modal-x { background: none; border: none; color: var(--nxt-ink-faint); font-size: 22px; line-height: 1; cursor: pointer; padding: 0 4px; border-radius: 8px; transition: color .14s; }
-.irl-modal-x:hover, .irl-modal-x:focus-visible { color: var(--nxt-ink); outline: none; }
+.irl-modal-x:hover, .irl-modal-x:focus-visible { color: var(--nxt-ink); }
+.irl-modal-x:focus-visible { outline: 2px solid var(--nxt-accent); outline-offset: 2px; }
 .irl-modal-body { padding: 6px 18px 18px; overflow-y: auto; }
 .irl-svc-sec { padding-top: 14px; }
 .irl-svc-sec-h { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--nxt-ink-faint); margin-bottom: 10px; }
@@ -320,11 +325,14 @@ const STYLE = `
 .irl-card-body { border-top: 1px solid var(--nxt-line, var(--nxt-stroke)); padding: 12px 16px; display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
 .irl-caption { font-size: 13px; color: var(--nxt-ink-dim); flex: 1; min-width: 120px; cursor: pointer; padding: 4px 6px; border-radius: 6px; border: 1px solid transparent; transition: border-color .12s; }
 .irl-caption:hover { border-color: var(--nxt-stroke); }
+.irl-caption:focus-visible { outline: 2px solid var(--nxt-accent); outline-offset: 1px; border-color: var(--nxt-stroke); }
 .irl-caption-edit { display: flex; gap: 8px; flex: 1; min-width: 180px; }
 .irl-caption-input { flex: 1; background: var(--nxt-bg-2); border: 1px solid var(--nxt-accent); border-radius: 6px; color: var(--nxt-ink); padding: 5px 10px; font-size: 13px; font-family: inherit; outline: none; }
 .irl-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; flex-wrap: wrap; }
 .irl-action { font-size: 12px; padding: 5px 12px; border-radius: var(--nxt-radius-sm); border: 1px solid var(--nxt-stroke); background: var(--nxt-bg-2); color: var(--nxt-ink); cursor: pointer; text-decoration: none; white-space: nowrap; transition: border-color .12s; }
 .irl-action:hover { border-color: var(--nxt-stroke-strong); }
+.irl-action:active { transform: translateY(1px); }
+.irl-action:focus-visible { outline: 2px solid var(--nxt-accent); outline-offset: 2px; }
 .irl-action.remove { color: var(--nxt-danger, #f87171); border-color: color-mix(in srgb, var(--nxt-danger, #f87171) 30%, transparent); }
 .irl-action.remove:hover { background: color-mix(in srgb, var(--nxt-danger, #f87171) 8%, transparent); }
 
@@ -398,9 +406,6 @@ const STYLE = `
 .irl-loc-field input:focus { border-color: var(--nxt-accent); }
 .irl-loc-field.heading input { width: 86px; }
 
-.irl-empty { text-align: center; padding: 60px 20px; color: var(--nxt-ink-faint); }
-.irl-empty b { display: block; font-size: 16px; color: var(--nxt-ink); margin-bottom: 8px; }
-.irl-skel { height: 120px; border-radius: var(--nxt-radius); background: var(--nxt-bg-2); animation: irl-pulse 1.4s ease infinite; }
 @keyframes irl-pulse { 0%,100%{opacity:.55} 50%{opacity:1} }
 
 /* Header actions + inbox button */
@@ -439,6 +444,12 @@ const STYLE = `
 .irl-reply-hint.ok { color: var(--nxt-success); }
 .irl-reply-hint.err { color: var(--nxt-danger, #f87171); }
 .irl-inbox-flash { margin: 4px 0 10px; padding: 9px 12px; border-radius: 9px; font-size: 12.5px; font-weight: 600; color: var(--nxt-success); background: color-mix(in srgb, var(--nxt-success) 10%, transparent); border: 1px solid color-mix(in srgb, var(--nxt-success) 28%, transparent); }
+
+@media (prefers-reduced-motion: reduce) {
+	.irl-modal-back, .irl-modal, .irlmap-savebar, .irl-reply-box { animation: none; }
+	.irl-btn:hover, .irl-action:active, .irl-btn:active { transform: none; }
+	.irl-btn, .irl-action { transition: border-color .14s; }
+}
 </style>`;
 
 let userPos = null;
@@ -528,7 +539,7 @@ function cardHtml(pin, ixList) {
 		</div>
 
 		<div class="irl-card-body">
-			<div class="irl-caption" data-caption="${esc(caption)}" title="Click to edit caption">${caption ? esc(caption) : '<span style="color:var(--nxt-ink-faint);font-style:italic">Add a caption…</span>'}</div>
+			<div class="irl-caption" data-caption="${esc(caption)}" role="button" tabindex="0" aria-label="Edit caption" title="Click or press Enter to edit caption">${caption ? esc(caption) : '<span style="color:var(--nxt-ink-faint);font-style:italic">Add a caption…</span>'}</div>
 			<div class="irl-actions">
 				<button class="irl-action" data-outfit="${esc(pin.id)}">Change outfit</button>
 				<button class="irl-action" data-loc-toggle>Move on map</button>
@@ -951,7 +962,15 @@ function wireCardEvents(list, pins) {
 		const idx = pins.findIndex((p) => p.id === id);
 		if (idx >= 0) pins.splice(idx, 1);
 		if (!list.querySelector('.irl-card')) {
-			list.innerHTML = `<div class="irl-empty"><b>No placements</b>All agents removed. <a class="irl-btn" href="/irl" style="display:inline-flex;margin-top:12px">Place a new one →</a></div>`;
+			// Same designed empty state as the first-load path — one consistent zero-state.
+			list.innerHTML = emptyStateHTML({
+				icon: '📍',
+				title: 'No agents placed',
+				body: 'You removed your last placement. Open IRL and pin an agent to a real-world spot to make it visible to everyone who visits.',
+				actions: [{ label: 'Open IRL', href: '/irl', primary: true }],
+			});
+			const placeBtn = rootEl?.querySelector('#irl-place-btn');
+			if (placeBtn) placeBtn.textContent = '+ Place agent ↗';
 		}
 	}
 
@@ -1078,6 +1097,16 @@ function wireCardEvents(list, pins) {
 			} catch { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
 		}
 	});
+
+	// Keyboard parity for the click-to-edit caption (role="button"): Enter / Space
+	// opens the inline editor exactly as a pointer click does.
+	list.addEventListener('keydown', (e) => {
+		const captionEl = e.target.closest?.('.irl-caption');
+		if (captionEl && (e.key === 'Enter' || e.key === ' ')) {
+			e.preventDefault();
+			captionEl.click();
+		}
+	});
 }
 
 function makeNode(html) {
@@ -1087,7 +1116,7 @@ function makeNode(html) {
 }
 function restoreCaption(card, caption) {
 	const editEl = card.querySelector('.irl-caption-edit');
-	const node = makeNode(`<div class="irl-caption" data-caption="${esc(caption)}" title="Click to edit caption">${caption ? esc(caption) : '<span style="color:var(--nxt-ink-faint);font-style:italic">Add a caption…</span>'}</div>`);
+	const node = makeNode(`<div class="irl-caption" data-caption="${esc(caption)}" role="button" tabindex="0" aria-label="Edit caption" title="Click or press Enter to edit caption">${caption ? esc(caption) : '<span style="color:var(--nxt-ink-faint);font-style:italic">Add a caption…</span>'}</div>`);
 	editEl?.replaceWith(node);
 }
 
@@ -2080,6 +2109,11 @@ function openServicesModal(agentId, agentName) {
 		await requireUser();
 		await mount(el);
 	} catch (e) {
-		el.innerHTML = `<div class="irl-empty"><b>Couldn't load your IRL agents</b>${esc(e?.message || 'Please try again.')}</div>${STYLE}`;
+		ensureStateKitStyles();
+		el.innerHTML = STYLE + errorStateHTML({
+			title: "Couldn't load your IRL agents",
+			body: esc(e?.message || 'Check your connection and try again.'),
+		});
+		el.querySelector('[data-sk-retry]')?.addEventListener('click', () => location.reload());
 	}
 })();

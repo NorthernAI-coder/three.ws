@@ -722,7 +722,6 @@ registerWalletTab({
 			</div>`;
 		}
 		function historyRowHtml(it) {
-			const net = ctx.getNetwork();
 			if (it.source === 'sniper') {
 				const pnl = it.pnl_sol;
 				const cls = pnl == null ? '' : pnl >= 0 ? 'awh-tr-pnl-pos' : 'awh-tr-pnl-neg';

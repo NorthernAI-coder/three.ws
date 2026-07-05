@@ -8,6 +8,10 @@
 import { mountShell } from '../shell.js';
 import { requireUser, esc } from '../api.js';
 
+function prefersReducedMotion() {
+	return typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+}
+
 // ── Competitive data (real research, May 2026) ─────────────────────────────
 
 const MARKET = {
@@ -239,6 +243,24 @@ const THREAT_LABELS = {
 
 let activeCategory = 'all';
 let expandedCards = new Set();
+let _lsResizeBound = false;
+
+// Canvas charts are raster — on viewport resize they stretch and blur. Repaint
+// both from their live DOM slots (debounced) so they stay crisp at any width.
+function bindResize() {
+	if (_lsResizeBound) return;
+	_lsResizeBound = true;
+	let t;
+	window.addEventListener('resize', () => {
+		clearTimeout(t);
+		t = setTimeout(() => {
+			const map = document.querySelector('[data-slot="map"]');
+			if (map) paintPositionMap(map);
+			const growth = document.querySelector('[data-slot="growth-chart"]');
+			if (growth) paintGrowthChart(growth);
+		}, 160);
+	});
+}
 
 (async function boot() {
 	const main = await mountShell();
@@ -262,6 +284,7 @@ let expandedCards = new Set();
 
 	const root = main.querySelector('[data-slot="root"]');
 	renderAll(root);
+	bindResize();
 })().catch(err => {
 	if (err?.message === 'redirecting') return;
 	const main = document.querySelector('.dn-main-inner') || document.body;
@@ -391,7 +414,9 @@ function paintPositionMap(host) {
 
 	let progress = 0;
 	const duration = 800;
-	const startTime = performance.now();
+	// Reduced motion: seed the clock a full duration in the past so the first
+	// frame lands on the final state — no motion, no wasted RAF churn.
+	const startTime = prefersReducedMotion() ? performance.now() - duration : performance.now();
 
 	function draw(now) {
 		progress = Math.min(1, (now - startTime) / duration);
@@ -547,8 +572,16 @@ function renderCategoryFilter() {
 	bar.setAttribute('role', 'tablist');
 	bar.setAttribute('aria-label', 'Competitor categories');
 	bar.innerHTML = CATEGORIES.map(c =>
-		`<button class="ls-cat-btn${c.key === activeCategory ? ' is-active' : ''}" role="tab" aria-selected="${c.key === activeCategory}" data-cat="${c.key}">${esc(c.label)}${c.key !== 'all' ? ` <span class="ls-cat-count">${COMPETITORS.filter(comp => comp.category === c.key).length}</span>` : ''}</button>`
+		`<button class="ls-cat-btn${c.key === activeCategory ? ' is-active' : ''}" role="tab" aria-selected="${c.key === activeCategory}" tabindex="${c.key === activeCategory ? '0' : '-1'}" data-cat="${c.key}">${esc(c.label)}${c.key !== 'all' ? ` <span class="ls-cat-count">${COMPETITORS.filter(comp => comp.category === c.key).length}</span>` : ''}</button>`
 	).join('');
+
+	const selectCategory = (key) => {
+		activeCategory = key;
+		const root = document.querySelector('[data-slot="root"]');
+		if (root) renderAll(root);
+		// renderAll rebuilds the bar; restore focus onto the freshly-rendered tab.
+		document.querySelector(`.ls-cat-btn[data-cat="${key}"]`)?.focus();
+	};
 
 	bar.addEventListener('click', e => {
 		const btn = e.target.closest('.ls-cat-btn');
@@ -556,6 +589,20 @@ function renderCategoryFilter() {
 		activeCategory = btn.dataset.cat;
 		const root = document.querySelector('[data-slot="root"]');
 		if (root) renderAll(root);
+	});
+
+	// WAI-ARIA tabs: arrow / Home / End move selection across the filter.
+	bar.addEventListener('keydown', e => {
+		if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(e.key)) return;
+		e.preventDefault();
+		const keys = CATEGORIES.map(c => c.key);
+		const cur = keys.indexOf(activeCategory);
+		let next = cur;
+		if (e.key === 'ArrowRight') next = (cur + 1) % keys.length;
+		else if (e.key === 'ArrowLeft') next = (cur - 1 + keys.length) % keys.length;
+		else if (e.key === 'Home') next = 0;
+		else next = keys.length - 1;
+		selectCategory(keys[next]);
 	});
 	return bar;
 }
@@ -720,6 +767,12 @@ function paintGrowthChart(host) {
 	canvas.setAttribute('aria-hidden', 'true');
 	host.appendChild(canvas);
 
+	const tooltip = document.createElement('div');
+	tooltip.className = 'ls-map-tooltip';
+	tooltip.setAttribute('role', 'tooltip');
+	tooltip.style.display = 'none';
+	host.appendChild(tooltip);
+
 	const dpr = window.devicePixelRatio || 1;
 	const rect = host.getBoundingClientRect();
 	canvas.width = Math.round(rect.width * dpr);
@@ -739,17 +792,10 @@ function paintGrowthChart(host) {
 	const slotW = innerW / totalSlots;
 	const barW = Math.min(60, slotW - barGap);
 
-	let progress = 0;
-	const duration = 900;
-	const startTime = performance.now();
-
-	function draw(now) {
-		progress = Math.min(1, (now - startTime) / duration);
-		const eased = 1 - Math.pow(1 - progress, 3);
-
+	function drawChart(eased, hoverIndex) {
 		ctx.clearRect(0, 0, W, H);
 
-		// Grid
+		// Grid + y-axis ticks
 		ctx.strokeStyle = 'rgba(255,255,255,0.04)';
 		ctx.lineWidth = 0.5;
 		for (let i = 0; i <= 5; i++) {
@@ -767,6 +813,12 @@ function paintGrowthChart(host) {
 			const x = cx - barW / 2;
 			const barH = (p.value / max) * innerH * eased;
 			const y = PAD.top + innerH - barH;
+
+			// Hover column wash — telegraphs which bar the tooltip belongs to.
+			if (i === hoverIndex) {
+				ctx.fillStyle = 'rgba(255,255,255,0.05)';
+				ctx.fillRect(cx - slotW / 2, PAD.top, slotW, innerH);
+			}
 
 			const grad = ctx.createLinearGradient(0, y, 0, PAD.top + innerH);
 			if (p.year >= 2026) {
@@ -790,6 +842,12 @@ function paintGrowthChart(host) {
 			ctx.closePath();
 			ctx.fill();
 
+			if (i === hoverIndex) {
+				ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+				ctx.lineWidth = 1;
+				ctx.stroke();
+			}
+
 			if (eased > 0.5) {
 				ctx.fillStyle = p.year >= 2026 ? '#ffffff' : 'rgba(255,255,255,0.6)';
 				ctx.font = 'bold 12px Inter, system-ui, sans-serif';
@@ -810,23 +868,50 @@ function paintGrowthChart(host) {
 			ctx.textAlign = 'right';
 			ctx.fillText(MARKET.cagr + '% CAGR', W - PAD.right, PAD.top + 16);
 		}
-
-		if (progress < 1) requestAnimationFrame(draw);
 	}
 
-	requestAnimationFrame(draw);
+	const duration = 900;
+	const startTime = prefersReducedMotion() ? performance.now() - duration : performance.now();
+	let settled = false;
+
+	function animate(now) {
+		const progress = Math.min(1, (now - startTime) / duration);
+		drawChart(1 - Math.pow(1 - progress, 3), -1);
+		if (progress < 1) requestAnimationFrame(animate);
+		else settled = true;
+	}
+	requestAnimationFrame(animate);
 
 	canvas.addEventListener('mousemove', e => {
+		if (!settled) return;
 		const br = canvas.getBoundingClientRect();
 		const mx = e.clientX - br.left;
-		let closest = null;
-		let closestDist = slotW;
+		const my = e.clientY - br.top;
+		let idx = -1;
+		let closestDist = slotW / 2;
 		TAM_PROJECTION.forEach((p, i) => {
 			const cx = PAD.left + slotW * i + slotW / 2;
 			const d = Math.abs(cx - mx);
-			if (d < closestDist) { closestDist = d; closest = p; }
+			if (d < closestDist) { closestDist = d; idx = i; }
 		});
-		canvas.title = closest ? `${closest.year}: $${closest.value}B TAM` : '';
+		if (idx >= 0) {
+			const p = TAM_PROJECTION[idx];
+			drawChart(1, idx);
+			tooltip.innerHTML = `<strong>${p.year}</strong><br>$${p.value.toFixed(2)}B addressable market`;
+			tooltip.style.display = 'block';
+			const cx = PAD.left + slotW * idx + slotW / 2;
+			tooltip.style.left = Math.min(Math.max(cx - 60, 4), W - 150) + 'px';
+			tooltip.style.top = Math.max(my - 52, 4) + 'px';
+			canvas.style.cursor = 'pointer';
+		} else {
+			drawChart(1, -1);
+			tooltip.style.display = 'none';
+			canvas.style.cursor = 'default';
+		}
+	});
+	canvas.addEventListener('mouseleave', () => {
+		if (settled) drawChart(1, -1);
+		tooltip.style.display = 'none';
 	});
 }
 
@@ -868,7 +953,7 @@ function injectStyles() {
 .ls-diff-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 .ls-diff-card { padding: 24px; position: relative; transition: border-color 0.2s, transform 0.2s; }
 .ls-diff-card:hover { border-color: var(--nxt-stroke-strong); transform: translateY(-2px); }
-.ls-diff-card:focus-visible { outline: 2px solid var(--stroke-strong); outline-offset: 2px; border-radius: var(--nxt-radius); }
+.ls-diff-card:focus-visible { outline: 2px solid var(--nxt-stroke-strong); outline-offset: 2px; border-radius: var(--nxt-radius); }
 .ls-diff-icon { width: 36px; height: 36px; color: #888888; margin-bottom: 14px; }
 .ls-diff-icon svg { width: 100%; height: 100%; }
 .ls-diff-card-title { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
@@ -879,7 +964,7 @@ function injectStyles() {
 .ls-cat-bar { display: flex; gap: 6px; flex-wrap: wrap; }
 .ls-cat-btn { padding: 7px 16px; border: 1px solid var(--nxt-stroke); border-radius: var(--nxt-radius-pill); background: none; color: var(--nxt-ink-dim); font: inherit; font-size: 12px; font-weight: 500; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; display: flex; align-items: center; gap: 6px; }
 .ls-cat-btn:hover { background: rgba(255,255,255,0.04); color: var(--nxt-ink); }
-.ls-cat-btn:focus-visible { outline: 2px solid var(--stroke-strong); outline-offset: 2px; }
+.ls-cat-btn:focus-visible { outline: 2px solid var(--nxt-stroke-strong); outline-offset: 2px; }
 .ls-cat-btn.is-active { background: rgba(255,255,255,0.06); color: #ffffff; border-color: rgba(255,255,255,0.15); }
 .ls-cat-count { font-size: 10px; background: rgba(255,255,255,0.06); padding: 1px 6px; border-radius: 10px; }
 .ls-cat-btn.is-active .ls-cat-count { background: rgba(255,255,255,0.10); }
@@ -907,7 +992,7 @@ function injectStyles() {
 .ls-comp-sw-list li::before { content: '•'; margin-right: 6px; }
 .ls-comp-toggle { display: flex; align-items: center; justify-content: center; width: 100%; padding: 4px; background: none; border: none; color: var(--nxt-ink-fade); cursor: pointer; transition: color 0.15s; margin-top: 4px; }
 .ls-comp-toggle:hover { color: var(--nxt-ink); }
-.ls-comp-toggle:focus-visible { outline: 2px solid var(--stroke-strong); outline-offset: 2px; border-radius: 4px; }
+.ls-comp-toggle:focus-visible { outline: 2px solid var(--nxt-stroke-strong); outline-offset: 2px; border-radius: 4px; }
 .ls-comp-chevron { width: 16px; height: 16px; transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
 .ls-comp-chevron.is-open { transform: rotate(180deg); }
 

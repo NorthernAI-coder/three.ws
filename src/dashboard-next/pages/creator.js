@@ -639,7 +639,7 @@ function openRulesModal(skill, onSaved) {
 	function paintRules() {
 		const rules = STATE.rules.filter((r) => r.skill_name === skill);
 		rulesHost.innerHTML = rules.length
-			? `<table class="cs-table"><thead><tr><th>Type</th><th>Condition</th><th style="text-align:right">Price</th><th>Status</th><th></th></tr></thead><tbody>${rules.map(ruleRow).join('')}</tbody></table>`
+			? `<table class="cs-table"><thead><tr><th scope="col">Type</th><th scope="col">Condition</th><th scope="col" style="text-align:right">Price</th><th scope="col">Status</th><th scope="col"><span class="cs-sr-only">Actions</span></th></tr></thead><tbody>${rules.map(ruleRow).join('')}</tbody></table>`
 			: `<div class="cs-rule-empty">No rules yet — buyers pay the list price.</div>`;
 		rulesHost.querySelectorAll('[data-action="del-rule"]').forEach((b) => b.addEventListener('click', async () => {
 			b.disabled = true;
@@ -739,11 +739,11 @@ function renderSkillAnalytics() {
 		<div style="overflow-x:auto">
 			<table class="cs-table">
 				<thead><tr>
-					<th>Skill</th>
-					<th style="text-align:right">Calls</th>
-					<th style="text-align:right">Buyers</th>
-					<th style="text-align:right">Success</th>
-					<th style="text-align:right">Avg latency</th>
+					<th scope="col">Skill</th>
+					<th scope="col" style="text-align:right">Calls</th>
+					<th scope="col" style="text-align:right">Buyers</th>
+					<th scope="col" style="text-align:right">Success</th>
+					<th scope="col" style="text-align:right">Avg latency</th>
 				</tr></thead>
 				<tbody>
 					${bySkill.map((s) => `
@@ -871,7 +871,7 @@ function renderRoyaltyLedger() {
 		body.innerHTML = `
 			<div style="overflow-x:auto">
 				<table class="cs-table">
-					<thead><tr><th>When</th><th>Skill</th><th>Agent</th><th style="text-align:right">Amount</th><th>Status</th></tr></thead>
+					<thead><tr><th scope="col">When</th><th scope="col">Skill</th><th scope="col">Agent</th><th scope="col" style="text-align:right">Amount</th><th scope="col">Status</th></tr></thead>
 					<tbody>${sorted.map(ledgerRow).join('')}</tbody>
 				</table>
 			</div>
@@ -932,7 +932,7 @@ function renderWithdrawals(host) {
 		body.innerHTML = `
 			<div style="overflow-x:auto">
 				<table class="cs-table">
-					<thead><tr><th>Requested</th><th>Chain</th><th style="text-align:right">Amount</th><th>Status</th><th>Tx</th></tr></thead>
+					<thead><tr><th scope="col">Requested</th><th scope="col">Chain</th><th scope="col" style="text-align:right">Amount</th><th scope="col">Status</th><th scope="col">Tx</th></tr></thead>
 					<tbody>${ws.map(withdrawalRow).join('')}</tbody>
 				</table>
 			</div>`;
@@ -1056,19 +1056,48 @@ function downloadCsv(csv, filename) {
 }
 
 function modal(innerHTML) {
+	const prevFocus = document.activeElement;
 	const overlay = document.createElement('div');
 	overlay.className = 'cs-overlay';
 	overlay.innerHTML = `<div role="dialog" aria-modal="true" class="cs-modal">${innerHTML}</div>`;
 	document.body.appendChild(overlay);
-	const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey); };
-	const onKey = (e) => { if (e.key === 'Escape') close(); };
+	const dialog = overlay.querySelector('.cs-modal');
+
+	// Label the dialog by its own heading so screen readers announce it on open.
+	const titleEl = dialog.querySelector('.cs-modal-title');
+	if (titleEl) {
+		if (!titleEl.id) titleEl.id = `cs-modal-title-${Math.random().toString(36).slice(2, 8)}`;
+		dialog.setAttribute('aria-labelledby', titleEl.id);
+	}
+
+	const close = () => {
+		overlay.remove();
+		document.removeEventListener('keydown', onKey);
+		if (prevFocus && typeof prevFocus.focus === 'function') prevFocus.focus();
+	};
+	const onKey = (e) => {
+		if (e.key === 'Escape') { close(); return; }
+		if (e.key === 'Tab') trapTab(e, dialog);
+	};
 	document.addEventListener('keydown', onKey);
 	overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
 	overlay.querySelectorAll('[data-action="cancel"]').forEach((b) => b.addEventListener('click', close));
 	overlay.close = close;
-	const focusable = overlay.querySelector('input,select,button');
+	const focusable = dialog.querySelector('input,select,button,textarea');
 	focusable?.focus();
 	return overlay;
+}
+
+// Keep keyboard focus inside an open dialog (WAI-ARIA modal pattern).
+function trapTab(e, container) {
+	const nodes = [...container.querySelectorAll(
+		'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])',
+	)].filter((el) => el.offsetParent !== null);
+	if (!nodes.length) return;
+	const first = nodes[0];
+	const last = nodes[nodes.length - 1];
+	if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+	else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
 }
 
 let toastTimer = null;
@@ -1077,6 +1106,8 @@ function toast(msg, isError = false) {
 	if (!host) {
 		host = document.createElement('div');
 		host.className = 'cs-toast';
+		host.setAttribute('role', 'status');
+		host.setAttribute('aria-live', 'polite');
 		document.body.appendChild(host);
 	}
 	host.textContent = msg;
@@ -1181,7 +1212,13 @@ function injectStyles() {
 		/* Toast */
 		.cs-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--nxt-bg-1);border:1px solid var(--nxt-stroke-strong);color:var(--nxt-ink);padding:12px 20px;border-radius:var(--nxt-radius-sm,10px);font-size:13.5px;z-index:1100;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;box-shadow:0 8px 30px rgba(0,0,0,0.4)}
 		.cs-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-		@media(max-width:640px){.cs-ladder{grid-template-columns:repeat(2,1fr)}}
+		.cs-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+			.cs-price-card{transition:border-color .15s ease}
+			.cs-price-card:hover{border-color:var(--nxt-stroke-strong)}
+			.cs-ladder-cell{transition:border-color .15s ease,background .15s ease}
+			.cs-ladder-cell:hover{border-color:var(--nxt-stroke-strong)}
+			@media(max-width:640px){.cs-ladder{grid-template-columns:repeat(2,1fr)}.cs-price-figures{gap:16px}}
+			@media(prefers-reduced-motion:reduce){.cs-step,.cs-toast,.cs-price-card,.cs-ladder-cell{transition:none}}
 	`;
 	const style = document.createElement('style');
 	style.textContent = css;

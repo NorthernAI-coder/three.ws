@@ -126,18 +126,26 @@ registerWalletTab({
 
 		async function load() {
 			const res = await call(`/api/agents/${encodeURIComponent(agentId)}/solana/guard`);
+			if (res.status === 401) { renderSignedOut(); return; }
 			if (!res.ok) { renderError(res); return; }
 			state = res.data;
 			render();
 		}
 
 		function renderLoading() {
-			panel.innerHTML = `<div class="awh-card"><div class="awh-guard-skel"></div></div><div class="awh-card"><div class="awh-guard-skel"></div></div>`;
+			panel.innerHTML = `<div class="awh-card" role="status" aria-busy="true" aria-label="Loading self-defense"><div class="awh-guard-skel"></div></div><div class="awh-card" aria-hidden="true"><div class="awh-guard-skel"></div></div>`;
+		}
+
+		function renderSignedOut() {
+			const next = encodeURIComponent(location.pathname + location.search + location.hash);
+			panel.innerHTML = `<div class="awh-card"><div class="awh-guard"><div class="awh-guard-head"><span class="awh-guard-shield" aria-hidden="true">🛡️</span><div style="flex:1;"><h2>Sign in to control your wallet's defenses</h2><p class="awh-guard-lead">The self-defending wallet is private to its owner. Sign in to review flagged activity and manage the guard.</p></div></div><div class="awh-flag-acts"><a class="awh-btn awh-btn--primary" href="/login?next=${next}">Sign in</a></div></div></div>`;
 		}
 
 		function renderError(res) {
-			panel.innerHTML = `<div class="awh-card"><p class="awh-empty">Couldn’t load the guard — ${escapeHtml(res.message || 'try again')}. <button class="awh-btn" type="button" data-act="retry">Try again</button></p></div>`;
-			panel.querySelector('[data-act="retry"]')?.addEventListener('click', () => { renderLoading(); load(); });
+			panel.innerHTML = `<div class="awh-card"><p class="awh-empty" role="alert">Couldn’t load the guard — ${escapeHtml(res.message || 'try again')}. <button class="awh-btn" type="button" data-act="retry">Try again</button></p></div>`;
+			const retry = panel.querySelector('[data-act="retry"]');
+			retry?.addEventListener('click', () => { renderLoading(); load(); });
+			retry?.focus();
 		}
 
 		function factorsHTML(factors) {

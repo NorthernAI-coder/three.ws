@@ -153,17 +153,35 @@ function wireFilters(root) {
 		}, 280);
 	});
 
-	root.querySelectorAll('[data-rig]').forEach((btn) => {
-		btn.addEventListener('click', () => {
-			const v = btn.getAttribute('data-rig');
-			if (state.filter.rigged === v) return;
+	const rigBtns = [...root.querySelectorAll('[data-rig]')];
+	// Roving tabindex: only the selected tab is in the tab order; arrows move within.
+	rigBtns.forEach((b) => b.setAttribute('tabindex', b.getAttribute('aria-selected') === 'true' ? '0' : '-1'));
+	const selectRig = (btn) => {
+		const v = btn.getAttribute('data-rig');
+		if (state.filter.rigged !== v) {
 			state.filter.rigged = v;
-			root.querySelectorAll('[data-rig]').forEach((x) => {
-				const on = x === btn;
-				x.classList.toggle('active', on);
-				x.setAttribute('aria-selected', on ? 'true' : 'false');
-			});
 			loadInitial(root);
+		}
+		rigBtns.forEach((x) => {
+			const on = x === btn;
+			x.classList.toggle('active', on);
+			x.setAttribute('aria-selected', on ? 'true' : 'false');
+			x.setAttribute('tabindex', on ? '0' : '-1');
+		});
+	};
+	rigBtns.forEach((btn, i) => {
+		btn.addEventListener('click', () => selectRig(btn));
+		btn.addEventListener('keydown', (e) => {
+			let next = -1;
+			if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = (i + 1) % rigBtns.length;
+			else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = (i - 1 + rigBtns.length) % rigBtns.length;
+			else if (e.key === 'Home') next = 0;
+			else if (e.key === 'End') next = rigBtns.length - 1;
+			else return;
+			e.preventDefault();
+			const target = rigBtns[next];
+			target.focus();
+			selectRig(target);
 		});
 	});
 
@@ -282,7 +300,7 @@ function avatarCard(root, a) {
 				<a class="ca-hover-btn" href="/avatars/${encodeURIComponent(a.id)}" target="_blank" rel="noopener">Live page</a>
 				<a class="ca-hover-btn" href="/app#avatar=${encodeURIComponent(a.id)}">Remix in 3D</a>
 			</div>
-			<button type="button" class="ca-more" data-more aria-haspopup="menu" aria-label="More actions">
+			<button type="button" class="ca-more" data-more aria-haspopup="menu" aria-expanded="false" aria-label="More actions">
 				<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true"><circle cx="8" cy="3" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="8" cy="13" r="1.4"/></svg>
 			</button>
 		</div>
@@ -300,11 +318,12 @@ function avatarCard(root, a) {
 		</div>
 	`;
 
-	el.querySelector('[data-more]').addEventListener('click', (e) => {
+	const moreBtn = el.querySelector('[data-more]');
+	moreBtn.addEventListener('click', (e) => {
 		e.stopPropagation();
-		if (_openMenu && _openMenu.dataset.for === a.id) { closeOpenMenu(); return; }
+		if (_openMenu && _openMenu.dataset.for === a.id) { moreBtn.setAttribute('aria-expanded', 'false'); closeOpenMenu(); return; }
 		closeOpenMenu();
-		openMenu(root, el.querySelector('[data-more]'), a);
+		openMenu(root, moreBtn, a);
 	});
 
 	return el;
@@ -327,25 +346,51 @@ function openMenu(root, anchor, a) {
 		} },
 	];
 	menu.innerHTML = items.map((item, i) =>
-		`<button type="button" class="ca-menu-item" data-i="${i}" role="menuitem">${esc(item.label)}</button>`
+		`<button type="button" class="ca-menu-item" data-i="${i}" role="menuitem" tabindex="-1">${esc(item.label)}</button>`
 	).join('');
 	document.body.appendChild(menu);
 	positionMenu(menu, anchor);
 	requestAnimationFrame(() => menu.classList.add('open'));
 	_openMenu = menu;
 
-	menu.querySelectorAll('[data-i]').forEach((b) => {
-		b.addEventListener('click', () => { const i = Number(b.dataset.i); closeOpenMenu(); items[i].run(); });
+	const menuItems = [...menu.querySelectorAll('[data-i]')];
+	const focusItem = (i) => {
+		const n = menuItems.length;
+		const idx = ((i % n) + n) % n;
+		menuItems[idx]?.focus();
+	};
+	anchor.setAttribute('aria-expanded', 'true');
+	// Move focus into the menu so it's operable by keyboard the moment it opens.
+	setTimeout(() => focusItem(0), 0);
+
+	menuItems.forEach((b, i) => {
+		b.addEventListener('click', () => { const idx = Number(b.dataset.i); closeMenu(); items[idx].run(); });
+		b.addEventListener('keydown', (e) => {
+			if (e.key === 'ArrowDown') { e.preventDefault(); focusItem(i + 1); }
+			else if (e.key === 'ArrowUp') { e.preventDefault(); focusItem(i - 1); }
+			else if (e.key === 'Home') { e.preventDefault(); focusItem(0); }
+			else if (e.key === 'End') { e.preventDefault(); focusItem(menuItems.length - 1); }
+		});
 	});
 
-	const onDocClick = (e) => {
-		if (menu.contains(e.target) || anchor.contains(e.target)) return;
-		closeOpenMenu();
+	const teardown = () => {
 		document.removeEventListener('click', onDocClick);
 		document.removeEventListener('keydown', onKey);
 	};
+	// Close and restore focus to the trigger so keyboard users aren't stranded.
+	const closeMenu = ({ restoreFocus = false } = {}) => {
+		teardown();
+		anchor.setAttribute('aria-expanded', 'false');
+		closeOpenMenu();
+		if (restoreFocus) anchor.focus();
+	};
+	const onDocClick = (e) => {
+		if (menu.contains(e.target) || anchor.contains(e.target)) return;
+		closeMenu();
+	};
 	const onKey = (e) => {
-		if (e.key === 'Escape') { closeOpenMenu(); document.removeEventListener('click', onDocClick); document.removeEventListener('keydown', onKey); }
+		if (e.key === 'Escape') { e.preventDefault(); closeMenu({ restoreFocus: true }); }
+		else if (e.key === 'Tab') { closeMenu(); }
 	};
 	setTimeout(() => {
 		document.addEventListener('click', onDocClick);
@@ -526,6 +571,8 @@ function injectStyles() {
 			transition: all 0.12s ease;
 		}
 		.ca-chip:hover { color: var(--nxt-ink); background: rgba(255,255,255,0.04); }
+		.ca-chip:active { transform: translateY(1px); }
+		.ca-chip:focus-visible { outline: 2px solid var(--nxt-accent); outline-offset: 2px; }
 		.ca-chip.active {
 			background: rgba(255,255,255,0.08);
 			border-color: var(--nxt-stroke-strong);
@@ -544,7 +591,10 @@ function injectStyles() {
 			background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6' fill='none' stroke='%239ca0aa' stroke-width='1.5'><path d='M1 1l4 4 4-4'/></svg>");
 			background-repeat: no-repeat;
 			background-position: right 10px center;
+			transition: border-color 0.12s ease;
 		}
+		.ca-sort select:hover { border-color: var(--nxt-stroke-strong); }
+		.ca-sort select:focus-visible { outline: 2px solid var(--nxt-accent); outline-offset: 2px; }
 
 		.ca-stat {
 			font-size: 12px;
@@ -619,6 +669,7 @@ function injectStyles() {
 		.ca-card:hover .ca-more,
 		.ca-more:focus-visible { opacity: 1; }
 		.ca-more:hover { background: var(--nxt-bg-3); border-color: var(--nxt-stroke-strong); }
+		.ca-more:focus-visible { outline: 2px solid var(--nxt-accent); outline-offset: 2px; }
 
 		.ca-hover-actions {
 			position: absolute;
@@ -657,6 +708,7 @@ function injectStyles() {
 			background: rgba(14, 15, 22, 0.9);
 			border-color: var(--nxt-stroke-strong);
 		}
+		.ca-hover-btn:focus-visible { outline: 2px solid var(--nxt-accent); outline-offset: 2px; }
 
 		.ca-body { padding: 10px 4px 4px; }
 		.ca-name-row {
@@ -723,7 +775,9 @@ function injectStyles() {
 			cursor: pointer;
 			font-family: inherit;
 		}
-		.ca-menu-item:hover { background: rgba(255,255,255,0.06); }
+		.ca-menu-item:hover,
+		.ca-menu-item:focus-visible { background: rgba(255,255,255,0.06); outline: none; }
+		.ca-menu-item:focus-visible { box-shadow: inset 0 0 0 1px var(--nxt-stroke-strong); }
 
 		/* Load more */
 		.ca-loadmore {
@@ -774,6 +828,11 @@ function injectStyles() {
 		}
 		.ca-toast.show { opacity: 1; transform: translateY(0); }
 		.ca-toast.err { border-color: rgba(150,155,163,0.4); }
+
+		@media (prefers-reduced-motion: reduce) {
+			.ca-card, .ca-card:hover, .ca-more, .ca-hover-actions, .ca-menu, .ca-toast { transition: none; }
+			.ca-card:hover { transform: none; }
+		}
 
 		@media (max-width: 720px) {
 			.ca-head { flex-direction: column; align-items: stretch; }

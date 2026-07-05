@@ -15,6 +15,7 @@ import { requireUser, esc, relTime, ApiError } from '../api.js';
 import { fetchTokenConfig, fetchTokenPrice } from '../../token-pay.js';
 import { fetchAllowanceStatus, grantAllowance, revokeAllowance } from '../../three-allowance.js';
 import { createThreeTokenData } from '../../pump/three-token-data.js';
+import { errorStateHTML, ensureStateKitStyles } from '../../shared/state-kit.js';
 
 const MONO = `'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace`;
 // THREE_MINT is fetched live from /api/token/config below. This fallback is
@@ -82,7 +83,7 @@ function toast(msg) {
 (async function boot() {
 	try {
 		const main = await mountShell();
-		const me = await requireUser();
+		await requireUser();
 
 		main.innerHTML = `
 			<div style="margin-bottom:6px">
@@ -94,11 +95,7 @@ function toast(msg) {
 					</div>
 				</div>
 			</div>
-			<div data-slot="content" style="display:flex;flex-direction:column;gap:20px">
-				${skeletonGrid(4)}
-				${skeletonBlock(280)}
-				${skeletonBlock(200)}
-			</div>
+			<div data-slot="content" style="display:flex;flex-direction:column;gap:20px"></div>
 		`;
 
 		const host = main.querySelector('[data-slot="content"]');
@@ -106,45 +103,74 @@ function toast(msg) {
 		// Single source of truth for all $THREE data — price, protocol metrics,
 		// revenue share, activity, burns, and the signed-in holder's live position.
 		// The store wraps the same /api/three-token/* endpoints this page used to
-		// fetch inline; centralising them keeps every section (and the new position
+		// fetch inline; centralising them keeps every section (and the position
 		// widget) reading one consistent snapshot. It polls protocol + activity and
 		// tears itself down when `host` leaves the DOM.
 		const store = createThreeTokenData({ pollMs: 30_000, anchorEl: host, autoStart: false });
-		const [, tokenConfig] = await Promise.all([
-			store.refresh(),
-			fetchTokenConfig().catch(() => null),
-		]);
 
-		const snap = store.getState();
-		const stats = snap.protocol.status === 'ok'
-			? { token: snap.protocol.token, protocol: snap.protocol.protocol }
-			: null;
-		const revenueShare = snap.revenueShare.status === 'ok' && !snap.revenueShare.unauthenticated
-			? snap.revenueShare
-			: null;
-		const activity = snap.activity.status === 'ok' ? { events: snap.activity.events } : null;
+		// Load + render is a retryable unit: if the protocol snapshot can't be
+		// reached (network down) we show a recoverable error rather than a
+		// dashboard of blank "—" metrics that reads as deceptively empty.
+		async function hydrate() {
+			host.innerHTML = `
+				${skeletonGrid(4)}
+				${skeletonBlock(280)}
+				${skeletonBlock(200)}
+			`;
 
-		// Canonical mint comes from the store's /stats payload (single source);
-		// fall back to /api/token/config only if stats didn't resolve.
-		if (snap.protocol.token?.mint) THREE_MINT = snap.protocol.token.mint;
-		else if (tokenConfig?.mint) THREE_MINT = tokenConfig.mint;
+			let tokenConfig = null;
+			try {
+				[, tokenConfig] = await Promise.all([
+					store.refresh(),
+					fetchTokenConfig().catch(() => null),
+				]);
+			} catch {
+				// Swallow — the status check below drives the error state uniformly
+				// whether refresh rejected or resolved with an error status.
+			}
 
-		host.innerHTML = '';
+			const snap = store.getState();
 
-		host.appendChild(renderHeroMetrics(stats));
-		host.appendChild(renderPositionWidget(store));
-		host.appendChild(renderAccruedRewards(store));
-		host.appendChild(renderSpendAllowance());
-		host.appendChild(renderUtilityPillars(stats));
-		host.appendChild(renderLiveConverter(tokenConfig));
-		host.appendChild(renderRevenueShare(stats, revenueShare));
-		host.appendChild(renderDeployBurn(stats));
-		host.appendChild(renderActivityFeed(activity));
-		host.appendChild(renderTokenInfo());
+			if (snap.protocol.status !== 'ok') {
+				ensureStateKitStyles();
+				host.innerHTML = errorStateHTML({
+					title: "Couldn't load $THREE data",
+					body: 'We had trouble reaching the protocol feed. Check your connection and try again.',
+				});
+				host.querySelector('[data-sk-retry]')?.addEventListener('click', hydrate);
+				return;
+			}
 
-		// Resolve the holder's on-chain position now that the widget is mounted; it
-		// subscribes to the store and renders the result (or its empty/error state).
-		store.refreshPosition();
+			const stats = { token: snap.protocol.token, protocol: snap.protocol.protocol };
+			const revenueShare = snap.revenueShare.status === 'ok' && !snap.revenueShare.unauthenticated
+				? snap.revenueShare
+				: null;
+			const activity = snap.activity.status === 'ok' ? { events: snap.activity.events } : null;
+
+			// Canonical mint comes from the store's /stats payload (single source);
+			// fall back to /api/token/config only if stats didn't resolve.
+			if (snap.protocol.token?.mint) THREE_MINT = snap.protocol.token.mint;
+			else if (tokenConfig?.mint) THREE_MINT = tokenConfig.mint;
+
+			host.innerHTML = '';
+
+			host.appendChild(renderHeroMetrics(stats));
+			host.appendChild(renderPositionWidget(store));
+			host.appendChild(renderAccruedRewards(store));
+			host.appendChild(renderSpendAllowance());
+			host.appendChild(renderUtilityPillars(stats));
+			host.appendChild(renderLiveConverter(tokenConfig));
+			host.appendChild(renderRevenueShare(stats, revenueShare));
+			host.appendChild(renderDeployBurn(stats));
+			host.appendChild(renderActivityFeed(activity));
+			host.appendChild(renderTokenInfo());
+
+			// Resolve the holder's on-chain position now that the widget is mounted;
+			// it subscribes to the store and renders its own empty/error state.
+			store.refreshPosition();
+		}
+
+		await hydrate();
 	} catch (err) {
 		if (err instanceof ApiError && err.status === 401) {
 			location.href = `/login?return=${encodeURIComponent(location.pathname)}`;
@@ -702,7 +728,7 @@ function renderLiveConverter(tokenConfig) {
 		? Object.entries(tokenConfig.split_policies)
 				.map(
 					([key, legs]) =>
-						`<div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--nxt-stroke)">
+						`<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--nxt-stroke)">
 					<span style="font-size:12px;color:var(--nxt-ink-dim);flex:0 0 160px">${esc(key.replace(/_/g, ' '))}</span>
 					${legs
 						.map(
@@ -773,7 +799,7 @@ function renderLiveConverter(tokenConfig) {
 				: ''
 		}
 
-		<style>@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.4}}</style>
+		<style>@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.4}}@media (prefers-reduced-motion:reduce){@keyframes pulse-dot{0%,100%{opacity:1}}}</style>
 	`;
 
 	const usdInput = section.querySelector('[data-input="usd"]');
@@ -921,7 +947,7 @@ function renderRevenueShare(stats, revenueData) {
 	`;
 
 	const style = document.createElement('style');
-	style.textContent = `@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:0.4}}`;
+	style.textContent = `@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:0.4}}@media (prefers-reduced-motion:reduce){@keyframes pulse-dot{0%,100%{opacity:1}}}`;
 	section.appendChild(style);
 
 	const input = section.querySelector('[data-input="holdings"]');

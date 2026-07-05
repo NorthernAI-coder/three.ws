@@ -3,6 +3,7 @@
 // them add a note attached to a chosen agent.
 
 import { get, post, esc, relTime } from '../../api.js';
+import { emptyStateHTML, errorStateHTML, attachRetry, skeletonHTML } from '../../../shared/state-kit.js';
 
 function friendly(err) {
 	if (!err) return 'Something went wrong.';
@@ -21,7 +22,7 @@ export async function renderMemory(host) {
 				<h2 class="dn-panel-title" style="font-size:17px;margin:0 0 4px">Persistent agent memory</h2>
 				<div class="dn-panel-sub" style="margin:0">Notes your agents have saved from past conversations — or add your own.</div>
 			</div>
-			<button class="dn-btn primary" id="mem-add-toggle" type="button">+ Add a note</button>
+			<button class="dn-btn primary" id="mem-add-toggle" type="button" aria-expanded="false" aria-controls="mem-add">+ Add a note</button>
 		</div>
 
 		<div id="mem-add" class="mem-add" hidden>
@@ -80,24 +81,26 @@ export async function renderMemory(host) {
 	`;
 
 	const listEl = host.querySelector('#mem-list');
+	listEl.innerHTML = `<div class="mem-list">${skeletonHTML(4, 'text')}</div>`;
 
 	let agents = [];
 	try {
 		const res = await get('/api/agents');
 		agents = res?.agents || [];
 	} catch (err) {
-		listEl.innerHTML = `<div class="dn-empty"><h3>Couldn't load agents</h3><p>${esc(friendly(err))}</p></div>`;
+		listEl.innerHTML = errorStateHTML({ title: "Couldn't load agents", body: esc(friendly(err)) });
+		attachRetry(listEl, () => renderMemory(host));
+		host.querySelector('#mem-add-toggle').disabled = true;
 		return;
 	}
 
 	if (!agents.length) {
-		listEl.innerHTML = `
-			<div class="dn-empty">
-				<h3>You don’t have any agents yet</h3>
-				<p>Memories are scoped to an agent. Create one to start saving notes.</p>
-				<div style="margin-top:12px"><a class="dn-btn primary" href="/create">Create an agent</a></div>
-			</div>
-		`;
+		listEl.innerHTML = emptyStateHTML({
+			icon: '🧠',
+			title: "You don't have any agents yet",
+			body: 'Memories are scoped to an agent. Create one to start saving notes it can recall later.',
+			actions: [{ label: 'Create an agent', href: '/create', primary: true }],
+		});
 		host.querySelector('#mem-add-toggle').disabled = true;
 		return;
 	}
@@ -132,12 +135,11 @@ export async function renderMemory(host) {
 			html.push(`<div class="dn-empty" style="margin-bottom:12px"><h3>Some agents' memories couldn't be loaded</h3><p>${errors.map((e) => `${esc(e.agent)}: ${esc(friendly({ message: e.message }))}`).join(' · ')}</p></div>`);
 		}
 		if (!all.length) {
-			html.push(`
-				<div class="dn-empty">
-					<h3>No memories yet</h3>
-					<p>Your agents will save notes here from their conversations — or you can add one yourself.</p>
-				</div>
-			`);
+			html.push(emptyStateHTML({
+				title: 'No memories yet',
+				body: 'Your agents will save notes here from their conversations — or you can add one yourself.',
+				actions: [{ label: '+ Add a note', id: 'mem-empty-add', primary: true }],
+			}));
 		} else {
 			html.push('<div class="mem-list">');
 			for (const e of all) {
@@ -165,6 +167,10 @@ export async function renderMemory(host) {
 				btn.textContent = collapsed ? 'Show more' : 'Show less';
 			});
 		});
+		listEl.querySelector('[data-sk-action="mem-empty-add"]')?.addEventListener('click', () => {
+			host.querySelector('#mem-add-toggle')?.click();
+			host.querySelector('#mem-add-content')?.focus();
+		});
 	}
 
 	const addPanel  = host.querySelector('#mem-add');
@@ -173,10 +179,12 @@ export async function renderMemory(host) {
 	const submitBtn = host.querySelector('#mem-add-submit');
 	const statusEl  = host.querySelector('#mem-add-status');
 
-	toggleBtn.addEventListener('click', () => {
-		addPanel.hidden = !addPanel.hidden;
-	});
-	cancelBtn.addEventListener('click', () => { addPanel.hidden = true; });
+	function setAddOpen(open) {
+		addPanel.hidden = !open;
+		toggleBtn.setAttribute('aria-expanded', String(open));
+	}
+	toggleBtn.addEventListener('click', () => setAddOpen(addPanel.hidden));
+	cancelBtn.addEventListener('click', () => setAddOpen(false));
 	submitBtn.addEventListener('click', async () => {
 		const agentId = agentSel.value;
 		const type    = host.querySelector('#mem-add-type').value;
@@ -195,7 +203,7 @@ export async function renderMemory(host) {
 			renderList();
 			statusEl.textContent = 'Saved.';
 			host.querySelector('#mem-add-content').value = '';
-			setTimeout(() => { statusEl.textContent = ''; addPanel.hidden = true; }, 600);
+			setTimeout(() => { statusEl.textContent = ''; setAddOpen(false); }, 600);
 		} catch (err) {
 			statusEl.textContent = friendly(err);
 		} finally {
