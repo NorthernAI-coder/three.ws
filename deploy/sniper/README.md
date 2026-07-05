@@ -76,6 +76,7 @@ shared ops-alert credentials and may already exist for other workers — reuse t
 | `SNIPER_NETWORK` | `mainnet` | `mainnet` \| `devnet`. |
 | `SNIPER_GLOBAL_KILL` | `0` | `1` halts all **new** buys; open positions still manage/exit. |
 | `SNIPER_HEARTBEAT_MS` | `30000` | Liveness heartbeat cadence → `bot_heartbeat` → `/api/sniper/status`. |
+| `SNIPER_HEARTBEAT_SELF_HEAL_MS` | `900000` | Dead-man switch: heartbeat writes failing continuously this long → `exit(1)` so Cloud Run restarts the worker with fresh connections/secrets (kills the up-but-zombie failure mode). `0` disables. |
 | `SNIPER_FEED_WATCHDOG_MS` | `180000` | Re-subscribe + alert if the feed is silent this long. |
 | `SNIPER_ERROR_ALERT_THRESHOLD` / `_WINDOW_MS` | `5` / `600000` | Executor/RPC errors in the window that trip an ops alert. |
 | `SNIPER_ANNOUNCE` | `1` | Announce boot/shutdown to the ops channel. |

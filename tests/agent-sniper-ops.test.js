@@ -12,6 +12,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { loadConfig } from '../workers/agent-sniper/config.js';
 import { makeErrorTracker } from '../workers/agent-sniper/error-tracker.js';
+import { shouldSelfHeal } from '../workers/agent-sniper/heartbeat.js';
 
 const SNIPER_KEYS = Object.keys(process.env).filter((k) => k.startsWith('SNIPER_'));
 
@@ -130,5 +131,27 @@ describe('agent-sniper error-spike tracker', () => {
 		t.record('second');
 		expect(t.lastError).toBe('second');
 		expect(t.total).toBe(2);
+	});
+});
+
+// Heartbeat dead-man switch — the worker must restart itself (Cloud Run brings
+// it back with fresh connections + secrets) once heartbeat writes have failed
+// continuously past the self-heal window, instead of running as a 36-hour
+// zombie the way it did on 2026-07-03. Transient blips inside the window must
+// NOT trigger it, and 0 disables it.
+describe('agent-sniper heartbeat self-heal verdict', () => {
+	const NOW = 1_800_000_000_000;
+
+	it('does not fire inside the failure window (a Neon blip is not a death)', () => {
+		expect(shouldSelfHeal(NOW - 5 * 60_000, NOW, 15 * 60_000)).toBe(false);
+	});
+
+	it('fires once writes have failed continuously past the window', () => {
+		expect(shouldSelfHeal(NOW - 16 * 60_000, NOW, 15 * 60_000)).toBe(true);
+	});
+
+	it('is disabled by a non-positive window', () => {
+		expect(shouldSelfHeal(NOW - 10 * 3_600_000, NOW, 0)).toBe(false);
+		expect(shouldSelfHeal(NOW - 10 * 3_600_000, NOW, -1)).toBe(false);
 	});
 });

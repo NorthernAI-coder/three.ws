@@ -110,6 +110,15 @@ no-op if unset, so set them):
 - **Money-feed silence** — no on-chain agent activity on `/api/pulse` for 90+
   minutes, the end-to-end signal that catches anything the per-engine checks
   miss.
+- **Sniper worker dead** — the Cloud Run worker's `bot_heartbeat` row stale for
+  10+ minutes (worker crashed, crash-looping, or zombied on dead DB writes;
+  oracle scoring and all sniping stop with it). Surfaced as the `sniper`
+  subsystem in `/api/status` and paged through the subsystem digest. The July
+  2026 outage — heartbeat frozen 36 hours, `scored_24h` flat at 0, zero pages —
+  is exactly this. The worker also carries its own dead-man switch now: if its
+  heartbeat writes fail continuously for 15 minutes
+  (`SNIPER_HEARTBEAT_SELF_HEAL_MS`, 0 disables), it exits so Cloud Run restarts
+  it with fresh connections and freshly resolved secrets.
 
 Escalation is streak-gated like the subsystem digest: page on first sight,
 re-page hourly while the problem persists (so a stall can't hide behind one
