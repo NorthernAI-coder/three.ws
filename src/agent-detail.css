@@ -114,24 +114,31 @@ a {
 	min-width: 0;
 }
 
-/* Masonry card field — tile the stacked cards across the full width.
-   column-width auto-fits as many columns as the viewport allows; tall
-   and short cards balance into even columns. The hero stays full-width
-   above this grid; the footer stays below it. */
+/* Card field — tile the stacked cards across the full width. This is a
+   CSS Grid, not a CSS multi-column context, on purpose: multi-column
+   (`column-width`) strands every card into the leftmost column and lets the
+   page overflow straight down whenever its content can't balance — the
+   "single narrow column beside a huge dead gutter, page runs off the bottom"
+   failure this page used to hit. `repeat(auto-fit, minmax(min(100%, 360px),
+   1fr))` can't do that: it packs as many ~360px tracks as fit and STRETCHES
+   them to fill the row, collapsing empty tracks so a short field (few cards)
+   still spans the full width instead of hugging the left edge. `min(100%,
+   360px)` keeps a lone card full-width instead of overflowing on sub-360px
+   viewports. The hero stays full-width above this grid; the footer below. */
 .ad-cards {
-	/* 380px tiles let a second column form as soon as the content field
-	   clears ~800px, so tablet / split-screen / collapsed-sidebar widths
-	   get a balanced two-up grid instead of one stretched column. */
-	column-width: 380px;
-	column-gap: 16px;
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
+	align-items: start;
+	gap: 16px;
 	padding: 4px 24px 0;
 }
 .ad-cards > .ad-card,
 .ad-cards > details {
-	margin: 0 0 16px;
-	width: 100%;
-	break-inside: avoid;
-	-webkit-column-break-inside: avoid;
+	margin: 0;
+	/* Let a grid track shrink below its content's min-content width so a wide
+	   child (mono address, live canvas, embed) can't blow a column out and
+	   force the whole field wider than the viewport. */
+	min-width: 0;
 }
 
 .ad-banner {
@@ -784,10 +791,9 @@ div.ad-hero-avatar canvas {
 	color: var(--ad-text);
 }
 
-/* Below 1024px the 220px sidebar would leave too little room for the card
-   field to form two columns, stranding a single narrow column beside dead
-   space. Drop the sidebar (its links live in the global nav too) and give
-   the content the full width so the masonry can tile properly. */
+/* Below 1024px the 220px sidebar leaves too little room for the card field
+   to form two columns. Drop the sidebar (its links live in the global nav
+   too) and give the content the full width so the grid can tile two-up. */
 @media (max-width: 1024px) {
 	.ad-shell {
 		grid-template-columns: 1fr;

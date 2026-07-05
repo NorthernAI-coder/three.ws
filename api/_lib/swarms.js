@@ -741,9 +741,7 @@ export async function listSwarms({ network = 'mainnet', status = null, limit = 3
 			select s.* from swarms s
 			where s.network = ${net} and s.status in ('open','active','paused')
 			order by (s.status = 'active') desc, s.created_at desc limit ${limit} offset ${offset}`;
-	const out = [];
-	for (const s of rows) out.push(await summarizeSwarm(s));
-	return out;
+	return summarizeSwarms(rows);
 }
 
 /** Every swarm the user owns or is (or was) a member of, any status — for "My swarms". */
@@ -755,25 +753,57 @@ export async function listSwarmsForUser(userId) {
 		order by s.created_at desc
 		limit 100
 	`;
+	return summarizeSwarms(rows);
+}
+
+/**
+ * Summarize a batch of swarm rows for a directory listing. Aggregate stats for
+ * every swarm are fetched in two grouped queries (not two-per-swarm) so a long
+ * directory stays a fixed cost. A single member/position sub-query failure
+ * degrades to zeroed stats for the whole batch rather than 500-ing the endpoint,
+ * and a malformed individual row is skipped — a public directory must never die
+ * on one bad record.
+ */
+async function summarizeSwarms(rows) {
+	if (!rows.length) return [];
+	const swarmIds = rows.map((s) => s.id);
+	const treasuryIds = [...new Set(rows.map((s) => s.treasury_agent_id).filter(Boolean))];
+
+	const [memberRows, tradeRows] = await Promise.all([
+		sql`
+			select swarm_id,
+			       count(*) filter (where status = 'active')::int as members,
+			       coalesce(sum(contribution_lamports) filter (where status = 'active'),0)::numeric as contributed,
+			       coalesce(sum(withdrawn_lamports),0)::numeric as withdrawn
+			from swarm_members where swarm_id = any(${swarmIds}) group by swarm_id
+		`.catch(() => []),
+		treasuryIds.length
+			? sql`
+				select agent_id, network,
+				       count(*)::int as closed,
+				       coalesce(sum(realized_pnl_lamports),0)::numeric as pnl,
+				       count(*) filter (where realized_pnl_lamports > 0)::int as wins,
+				       count(*) filter (where status in ('open','opening','closing'))::int as open
+				from agent_sniper_positions where agent_id = any(${treasuryIds}) group by agent_id, network
+			`.catch(() => [])
+			: Promise.resolve([]),
+	]);
+
+	const memberBy = new Map(memberRows.map((r) => [r.swarm_id, r]));
+	const tradeBy = new Map(tradeRows.map((r) => [`${r.agent_id}|${r.network}`, r]));
+
 	const out = [];
-	for (const s of rows) out.push(await summarizeSwarm(s));
+	for (const s of rows) {
+		try {
+			out.push(summarizeSwarmRow(s, memberBy.get(s.id), tradeBy.get(`${s.treasury_agent_id}|${s.network}`)));
+		} catch {
+			// A malformed row (e.g. unparseable policy) must not sink the whole list.
+		}
+	}
 	return out;
 }
 
-async function summarizeSwarm(swarm) {
-	const [agg] = await sql`
-		select count(*) filter (where status = 'active')::int as members,
-		       coalesce(sum(contribution_lamports) filter (where status = 'active'),0)::numeric as contributed,
-		       coalesce(sum(withdrawn_lamports),0)::numeric as withdrawn
-		from swarm_members where swarm_id = ${swarm.id}
-	`;
-	const [trades] = await sql`
-		select count(*)::int as closed,
-		       coalesce(sum(realized_pnl_lamports),0)::numeric as pnl,
-		       count(*) filter (where realized_pnl_lamports > 0)::int as wins,
-		       count(*) filter (where status in ('open','opening','closing'))::int as open
-		from agent_sniper_positions where agent_id = ${swarm.treasury_agent_id} and network = ${swarm.network}
-	`;
+function summarizeSwarmRow(swarm, agg, trades) {
 	const lamports = (v) => (v == null ? 0 : Number(String(v).split('.')[0]) / LAMPORTS_PER_SOL);
 	const closed = Number(trades?.closed || 0);
 	return {
