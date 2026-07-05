@@ -365,9 +365,10 @@ function buildSystemPrompt({ agentName, persona, network }) {
 		`You are the in-world CONVERSATIONAL TRADING COPILOT for the three.ws agent "${agentName}" and its self-custodied Solana wallet (network: ${network}).`,
 		`Your job: help the owner snipe, trade, and manage risk by talking. You have real tools — use them; never invent numbers, prices, balances, safety verdicts, or smart-money counts. If a tool returns no data, say so plainly.`,
 		`RULES:`,
+		`• ACT, don't ask. The read-only tools (get_portfolio, get_coin_intel, get_smart_money, assess_safety, get_quote, get_trade_limits) are free and instant — CALL them immediately to answer. NEVER ask the owner for permission to read their own wallet or check a coin ("would you like me to check…?" is forbidden). If they ask "how's my portfolio?", call get_portfolio right away and answer with the real numbers. Only the propose_* actions need confirmation.`,
 		`• You NEVER execute or sign anything. To buy, sell, or change risk limits you MUST call the matching propose_* tool, which surfaces a confirm card. The owner confirms; a guarded server endpoint then enforces spend caps, the firewall, and the kill switch and signs. Never say a trade is done — say you've prepared it for confirmation.`,
 		`• Before proposing OR recommending a buy, ground it: call assess_safety (firewall) and get_quote, and mention the safety verdict and price impact. If the firewall verdict is "block", refuse the buy and explain why.`,
-		`• Keep answers tight and conversational (2-5 sentences) — this may be read aloud. Use plain language, no markdown tables, no code blocks.`,
+		`• Keep answers tight and conversational (2-5 sentences) — this may be read aloud. Light markdown is fine (bold, short bullet lists) but no tables or code blocks. The UI already shows the raw numbers as cards, so narrate the takeaway — don't re-list every figure.`,
 		`• The only coin three.ws promotes is $THREE. You may trade any mint the owner explicitly names (that is their call), but never suggest, shill, or name a specific other token on your own initiative.`,
 		`• When the owner is vague ("buy the safe one"), ask one brief clarifying question or have them paste a mint — do not guess a mint address.`,
 	].join('\n');
@@ -439,33 +440,57 @@ export default async function handler(req, res, id) {
 		if (name === 'get_portfolio') {
 			const p = await loadPortfolio(id, address, network);
 			citations.push({ kind: 'portfolio', sol: p.sol_balance, holdings: p.holdings.length, positions: p.open_positions.length });
-			return { result: p, summary: address ? `Portfolio: ${p.sol_balance != null ? p.sol_balance.toFixed(4) + ' SOL' : 'balance unavailable'}, ${p.holdings.length} token(s), ${p.open_positions.length} open position(s)` : 'No wallet provisioned yet' };
+			return {
+				result: p,
+				summary: address ? `Portfolio: ${p.sol_balance != null ? p.sol_balance.toFixed(4) + ' SOL' : 'balance unavailable'}, ${p.holdings.length} token(s), ${p.open_positions.length} open position(s)` : 'No wallet provisioned yet',
+				card: { kind: 'portfolio', wallet: p.wallet, sol_balance: p.sol_balance, holdings: p.holdings, open_positions: p.open_positions, network },
+			};
 		}
 		if (name === 'get_coin_intel') {
 			const intel = await loadIntel(args.mint, network);
 			citations.push({ kind: 'intel', mint: args.mint, quality: intel.quality_score ?? null });
-			return { result: intel, summary: intel.found ? `Intel ${intel.symbol || ''}: quality ${intel.quality_score ?? '—'}/100, ${(intel.risk_flags || []).length} risk flag(s)${intel.outcome ? `, outcome ${intel.outcome}` : ''}` : 'No intel on this mint' };
+			return {
+				result: intel,
+				summary: intel.found ? `Intel ${intel.symbol || ''}: quality ${intel.quality_score ?? '—'}/100, ${(intel.risk_flags || []).length} risk flag(s)${intel.outcome ? `, outcome ${intel.outcome}` : ''}` : 'No intel on this mint',
+				card: { kind: 'intel', ...intel },
+			};
 		}
 		if (name === 'get_smart_money') {
 			const sm = await getSmartMoneyForMint(args.mint, network);
 			citations.push({ kind: 'smart_money', mint: args.mint, score: sm.smart_money_score, count: sm.count });
-			return { result: sm, summary: `Smart money: ${sm.count} reputable wallet(s), score ${sm.smart_money_score}/100${sm.sybil_flag ? ' (sybil-dominated)' : ''}` };
+			return {
+				result: sm,
+				summary: `Smart money: ${sm.count} reputable wallet(s), score ${sm.smart_money_score}/100${sm.sybil_flag ? ' (sybil-dominated)' : ''}`,
+				card: { kind: 'smart_money', mint: args.mint, count: sm.count, score: sm.smart_money_score, sybil: !!sm.sybil_flag },
+			};
 		}
 		if (name === 'assess_safety') {
 			const conn = solanaPublicConnection(network);
 			const quoteLamports = args.sol_amount > 0 ? BigInt(Math.floor(Number(args.sol_amount) * LAMPORTS_PER_SOL)) : null;
 			const a = await assessTradeSafety({ network, mint: args.mint, side: 'buy', payer: address, quoteAmount: quoteLamports, connection: conn });
 			citations.push({ kind: 'safety', mint: args.mint, verdict: a.verdict, score: a.score });
-			return { result: { verdict: a.verdict, score: a.score, reasons: a.reasons, simulated: a.simulated }, summary: `Firewall: ${a.verdict.toUpperCase()} (${a.score}/100)${a.reasons?.[0] ? ' — ' + a.reasons[0] : ''}` };
+			return {
+				result: { verdict: a.verdict, score: a.score, reasons: a.reasons, simulated: a.simulated },
+				summary: `Firewall: ${a.verdict.toUpperCase()} (${a.score}/100)${a.reasons?.[0] ? ' — ' + a.reasons[0] : ''}`,
+				card: { kind: 'safety', mint: args.mint, verdict: a.verdict, score: a.score, reasons: a.reasons || [], simulated: !!a.simulated },
+			};
 		}
 		if (name === 'get_quote') {
 			const q = await runQuote({ side: args.side, mint: args.mint, solAmount: args.sol_amount, tokenAmount: args.token_amount, slippageBps: args.slippage_bps || 300, network });
 			citations.push({ kind: 'quote', mint: args.mint, side: args.side, impact: q.price_impact_pct });
-			return { result: q, summary: `Quote ${args.side}: ${q.expected_out != null ? q.expected_out.toLocaleString(undefined, { maximumFractionDigits: 4 }) : '—'} ${q.out_asset}, ${q.price_impact_pct != null ? q.price_impact_pct.toFixed(2) + '% impact' : 'impact n/a'}` };
+			return {
+				result: q,
+				summary: `Quote ${args.side}: ${q.expected_out != null ? q.expected_out.toLocaleString(undefined, { maximumFractionDigits: 4 }) : '—'} ${q.out_asset}, ${q.price_impact_pct != null ? q.price_impact_pct.toFixed(2) + '% impact' : 'impact n/a'}`,
+				card: { kind: 'quote', mint: args.mint, side: q.side, in_asset: q.in_asset, in_amount: q.in_amount, out_asset: q.out_asset, expected_out: q.expected_out, price_impact_pct: q.price_impact_pct, min_received: q.min_received },
+			};
 		}
 		if (name === 'get_trade_limits') {
 			const lim = getTradeLimits(meta);
-			return { result: lim, summary: `Limits: per-trade ${lim.per_trade_sol ?? '∞'} SOL, daily ${lim.daily_budget_sol ?? '∞'} SOL, kill switch ${lim.kill_switch ? 'ON' : 'off'}` };
+			return {
+				result: lim,
+				summary: `Limits: per-trade ${lim.per_trade_sol ?? '∞'} SOL, daily ${lim.daily_budget_sol ?? '∞'} SOL, kill switch ${lim.kill_switch ? 'ON' : 'off'}`,
+				card: { kind: 'limits', ...lim },
+			};
 		}
 		return { result: { error: 'unknown_tool' }, summary: 'unknown tool' };
 	}
@@ -591,7 +616,7 @@ export default async function handler(req, res, id) {
 					progressed = true; // a genuine failure is new information, not a spin
 				}
 				// Surface read activity once per distinct read — never re-paint a cached repeat.
-				if (!isPropose && !cached) send('tool', { name: tc.name, summary: outcome.summary });
+				if (!isPropose && !cached) send('tool', { name: tc.name, summary: outcome.summary, data: outcome.card || null });
 				messages.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(outcome.result).slice(0, 6000) });
 			}
 			if (!progressed) break; // model looped on data it already has — go answer.

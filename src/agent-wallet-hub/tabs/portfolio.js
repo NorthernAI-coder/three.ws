@@ -25,13 +25,26 @@ const PORT_STYLE = `
 .awh-port-nw { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4,16px); flex-wrap: wrap; }
 .awh-port-nw-main { min-width: 0; }
 .awh-port-nw-label { font-size: var(--text-2xs,.6875rem); text-transform: uppercase; letter-spacing: .06em; color: var(--ink-dim,#888); }
-.awh-port-nw-usd { font-family: var(--font-display, system-ui); font-size: var(--text-xl, 1.618rem); font-weight: 700; color: var(--ink-bright,#fff); line-height: 1.1; margin-top: 4px; }
-.awh-port-nw-sol { font-size: var(--text-sm,.764rem); color: var(--ink-dim,#888); margin-top: 4px; }
-.awh-port-spark { flex: 0 0 auto; }
-.awh-port-spark svg { display: block; }
-.awh-port-pnl-row { display: flex; gap: var(--space-4,16px); flex-wrap: wrap; margin-top: var(--space-3,12px); }
-.awh-port-pnl { font-size: var(--text-sm,.764rem); color: var(--ink-dim,#888); }
-.awh-port-pnl b { font-family: var(--font-mono, ui-monospace, monospace); font-weight: 600; }
+.awh-port-nw-usd { font-family: var(--font-display, system-ui); font-size: clamp(2rem, 6vw, 2.6rem); font-weight: 800; letter-spacing: -.02em; color: var(--ink-bright,#fff); line-height: 1.05; margin-top: 6px; font-variant-numeric: tabular-nums; }
+.awh-port-nw-sol { font-size: var(--text-sm,.764rem); color: var(--ink-dim,#888); margin-top: 6px; font-variant-numeric: tabular-nums; }
+.awh-port-spark { flex: 0 0 auto; align-self: center; }
+.awh-port-spark svg { display: block; overflow: visible; }
+.awh-port-pnl-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: var(--space-4,16px); }
+.awh-port-pnl { display: inline-flex; align-items: center; gap: 7px; font-size: var(--text-2xs,.6875rem); text-transform: uppercase; letter-spacing: .05em; color: var(--ink-dim,#888); background: var(--surface-1, rgba(255,255,255,.03)); border: 1px solid var(--stroke, rgba(255,255,255,.08)); border-radius: var(--radius-pill,999px); padding: 5px 11px; }
+.awh-port-pnl b { font-family: var(--font-mono, ui-monospace, monospace); font-weight: 700; font-size: var(--text-sm,.764rem); letter-spacing: 0; text-transform: none; }
+
+/* Allocation — portfolio composition at a glance. */
+.awh-alloc { margin-top: var(--space-4,16px); }
+.awh-alloc-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 9px; }
+.awh-alloc-head .k { font-size: var(--text-2xs,.6875rem); text-transform: uppercase; letter-spacing: .06em; color: var(--ink-dim,#888); }
+.awh-alloc-head .v { font-size: var(--text-2xs,.6875rem); color: var(--ink-faint,#666); font-family: var(--font-mono, ui-monospace, monospace); }
+.awh-alloc-bar { display: flex; height: 12px; border-radius: var(--radius-pill,999px); overflow: hidden; background: var(--surface-2, rgba(255,255,255,.05)); box-shadow: inset 0 0 0 1px var(--stroke, rgba(255,255,255,.06)); }
+.awh-alloc-seg { flex: 0 0 auto; min-width: 2px; background: var(--c,#888); }
+.awh-alloc-seg:not(:last-child) { box-shadow: inset -1.5px 0 0 rgba(0,0,0,.45); }
+.awh-alloc-legend { display: flex; flex-wrap: wrap; gap: 7px 16px; margin-top: 12px; }
+.awh-alloc-key { display: inline-flex; align-items: center; gap: 7px; font-size: var(--text-2xs,.6875rem); color: var(--ink-dim,#888); }
+.awh-alloc-key i { width: 9px; height: 9px; border-radius: 3px; background: var(--c,#888); flex: none; }
+.awh-alloc-key b { color: var(--ink-bright,#fff); font-family: var(--font-mono, ui-monospace, monospace); font-weight: 600; font-size: var(--text-2xs,.6875rem); }
 .awh-pos { color: var(--success,#4ade80); }
 .awh-neg { color: var(--danger,#f87171); }
 .awh-live { display: inline-flex; align-items: center; gap: 5px; font-size: var(--text-2xs,.6875rem); color: var(--ink-dim,#888); }
@@ -66,10 +79,27 @@ const PORT_STYLE = `
 .awh-attr-val { font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--text-sm,.764rem); }
 .awh-attr-sub { font-size: var(--text-2xs,.6875rem); color: var(--ink-dim,#888); font-family: var(--font-mono, ui-monospace, monospace); }
 
-.awh-risk-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: var(--space-3,12px); }
-.awh-risk-cell { background: var(--surface-1, rgba(255,255,255,.03)); border: 1px solid var(--stroke, rgba(255,255,255,.08)); border-radius: var(--radius-md,10px); padding: var(--space-3,12px); }
+.awh-risk-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(124px, 1fr)); gap: var(--space-3,12px); }
+.awh-risk-cell { position: relative; overflow: hidden; background: var(--surface-1, rgba(255,255,255,.03)); border: 1px solid var(--stroke, rgba(255,255,255,.08)); border-radius: var(--radius-md,10px); padding: var(--space-3,12px); transition: border-color var(--duration-fast,140ms), transform var(--duration-fast,140ms), background var(--duration-fast,140ms); }
+.awh-risk-cell::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--accent, transparent); opacity: .8; }
+.awh-risk-cell:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--accent, #fff) 45%, var(--stroke, rgba(255,255,255,.12))); background: var(--surface-2, rgba(255,255,255,.05)); }
 .awh-risk-k { font-size: var(--text-2xs,.6875rem); text-transform: uppercase; letter-spacing: .04em; color: var(--ink-dim,#888); }
-.awh-risk-v { font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--text-lg,1.236rem); font-weight: 700; color: var(--ink-bright,#fff); margin-top: 4px; }
+.awh-risk-v { font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--text-lg,1.236rem); font-weight: 700; color: var(--ink-bright,#fff); margin-top: 4px; font-variant-numeric: tabular-nums; }
+.awh-risk-meter { height: 4px; border-radius: var(--radius-pill,999px); background: var(--surface-2, rgba(255,255,255,.06)); margin-top: 10px; overflow: hidden; }
+.awh-risk-meter > span { display: block; height: 100%; border-radius: inherit; background: var(--accent, #888); }
+
+/* Staggered entrance — first paint only (gated by .awh-anim-in on the panel). */
+.awh-anim-in > .awh-card { animation: awh-rise .5s cubic-bezier(.2,.7,.2,1) both; }
+.awh-anim-in > .awh-card:nth-child(1) { animation-delay: .02s; }
+.awh-anim-in > .awh-card:nth-child(2) { animation-delay: .09s; }
+.awh-anim-in > .awh-card:nth-child(3) { animation-delay: .16s; }
+.awh-anim-in > .awh-card:nth-child(4) { animation-delay: .23s; }
+.awh-anim-in .awh-alloc-bar { animation: awh-wipe .8s .18s cubic-bezier(.2,.7,.2,1) both; }
+.awh-anim-in .awh-risk-meter > span { animation: awh-meter .8s .12s cubic-bezier(.2,.7,.2,1) both; }
+@keyframes awh-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes awh-wipe { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes awh-meter { from { transform: scaleX(0); transform-origin: left; } to { transform: scaleX(1); } }
+@media (prefers-reduced-motion: reduce) { .awh-anim-in > .awh-card, .awh-anim-in .awh-alloc-bar, .awh-anim-in .awh-risk-meter > span { animation: none; } }
 .awh-flags { list-style: none; margin: var(--space-3,12px) 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .awh-flag { display: flex; gap: 9px; align-items: flex-start; font-size: var(--text-sm,.764rem); padding: 9px 11px; border-radius: var(--radius-md,10px); border: 1px solid var(--stroke, rgba(255,255,255,.08)); background: var(--surface-1, rgba(255,255,255,.03)); }
 .awh-flag::before { content: '•'; flex: none; }
@@ -107,23 +137,54 @@ function fmtSolSigned(sol) {
 }
 function pnlClass(n) { return n > 0 ? 'awh-pos' : n < 0 ? 'awh-neg' : ''; }
 
-function sparkline(points, w = 132, h = 38) {
+function sparkline(points, w = 150, h = 46) {
 	const vals = points.filter((v) => Number.isFinite(v));
 	if (vals.length < 2) return '';
 	const min = Math.min(...vals);
 	const max = Math.max(...vals);
 	const span = max - min || 1;
+	const pad = 3;
 	const stepX = w / (vals.length - 1);
-	const pts = vals.map((v, i) => {
+	const xy = vals.map((v, i) => {
 		const x = i * stepX;
-		const y = h - ((v - min) / span) * (h - 4) - 2;
-		return `${x.toFixed(1)},${y.toFixed(1)}`;
+		const y = h - pad - ((v - min) / span) * (h - pad * 2);
+		return [x, y];
 	});
+	const line = xy.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+	const area = `${line} L${w},${h} L0,${h} Z`;
+	const [ex, ey] = xy[xy.length - 1];
 	const up = vals[vals.length - 1] >= vals[0];
 	const stroke = up ? 'var(--success,#4ade80)' : 'var(--danger,#f87171)';
 	return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="Net worth trend">
-		<polyline fill="none" stroke="${stroke}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" points="${pts.join(' ')}" />
+		<defs><linearGradient id="awhSparkFill" x1="0" y1="0" x2="0" y2="1">
+			<stop offset="0" stop-color="${stroke}" stop-opacity=".26" />
+			<stop offset="1" stop-color="${stroke}" stop-opacity="0" />
+		</linearGradient></defs>
+		<path d="${area}" fill="url(#awhSparkFill)" stroke="none" />
+		<path d="${line}" fill="none" stroke="${stroke}" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round" />
+		<circle cx="${ex.toFixed(1)}" cy="${ey.toFixed(1)}" r="3.5" fill="${stroke}" fill-opacity=".22" />
+		<circle cx="${ex.toFixed(1)}" cy="${ey.toFixed(1)}" r="1.9" fill="${stroke}" />
 	</svg>`;
+}
+
+// Allocation-segment colour: SOL (Solana violet), $THREE (platform green), stables
+// (teal), and a rotating warm palette for volatile positions. Gradients read richer
+// than flats in the composition bar.
+const ALLOC_RISK_PALETTE = ['#fb923c', '#f472b6', '#facc15', '#c084fc', '#38bdf8', '#f87171'];
+function allocColor(h, riskIndex) {
+	if (h.isNative) return 'linear-gradient(90deg,#9945FF,#8752F3)';
+	if (h.is_three) return 'linear-gradient(90deg,#34d399,#10b981)';
+	if (h.stable) return 'linear-gradient(90deg,#2dd4bf,#14b8a6)';
+	return ALLOC_RISK_PALETTE[riskIndex % ALLOC_RISK_PALETTE.length];
+}
+
+// Heat colour for a 0..100 "more is worse" share (concentration, exposure).
+function heatColor(pct) {
+	if (pct == null || !Number.isFinite(pct)) return 'var(--ink-faint,#666)';
+	if (pct >= 75) return 'var(--danger,#f87171)';
+	if (pct >= 50) return 'var(--warn,#fbbf24)';
+	if (pct >= 25) return '#a3e635';
+	return 'var(--success,#4ade80)';
 }
 
 registerWalletTab({
@@ -146,6 +207,7 @@ registerWalletTab({
 			spark: [], // net-worth USD history for the sparkline
 			live: false,
 			streamDown: false, // SSE permanently closed → live updates paused
+			animated: false, // entrance animation plays once, not on every live tick
 		};
 
 		function pushSpark(usd) {
@@ -199,6 +261,10 @@ registerWalletTab({
 				${renderAttribution(d)}
 				${renderRisk(d)}
 			`;
+			// Entrance animation runs on the first populated paint only — live stream
+			// re-renders (every few seconds) must not replay it.
+			if (!state.animated) { panel.classList.add('awh-anim-in'); state.animated = true; }
+			else panel.classList.remove('awh-anim-in');
 			wire();
 		}
 
@@ -225,6 +291,44 @@ registerWalletTab({
 					<span class="awh-port-pnl">Realized <b class="${pnlClass(realized)}">${escapeHtml(fmtSolSigned(realized))}</b></span>
 					<span class="awh-port-pnl">Unrealized <b class="${pnlClass(unrealized)}">${escapeHtml(fmtSolSigned(unrealized))}</b></span>
 				</div>
+				${renderAllocation(d)}
+			</div>`;
+		}
+
+		function renderAllocation(d) {
+			const valued = (d.holdings || []).filter((h) => Number.isFinite(h.usd_value) && h.usd_value > 0);
+			const total = valued.reduce((s, h) => s + h.usd_value, 0);
+			if (!valued.length || total <= 0) return '';
+
+			// Cap segments so the bar stays legible; fold the tail into "Other".
+			const MAX_SEG = 7;
+			let segs = valued.slice();
+			if (valued.length > MAX_SEG) {
+				const head = valued.slice(0, MAX_SEG - 1);
+				const tail = valued.slice(MAX_SEG - 1);
+				const otherUsd = tail.reduce((s, h) => s + h.usd_value, 0);
+				segs = [...head, { symbol: `+${tail.length} more`, usd_value: otherUsd, _other: true }];
+			}
+
+			let riskI = 0;
+			const parts = segs.map((h) => {
+				const pct = (h.usd_value / total) * 100;
+				const color = h._other ? 'var(--surface-3, rgba(255,255,255,.14))' : allocColor(h, h.isNative || h.stable || h.is_three ? 0 : riskI++);
+				const sym = escapeHtml(h.symbol || '?');
+				const label = `${sym} · ${pct.toFixed(pct < 10 ? 1 : 0)}% · ${formatUsd(h.usd_value) || ''}`;
+				return {
+					seg: `<span class="awh-alloc-seg" style="flex-basis:${pct.toFixed(2)}%; --c:${color};" title="${escapeHtml(label)}"></span>`,
+					key: `<span class="awh-alloc-key"><i style="--c:${color};"></i>${sym} <b>${pct.toFixed(pct < 10 ? 1 : 0)}%</b></span>`,
+				};
+			});
+			const summary = segs.map((h) => `${h.symbol} ${((h.usd_value / total) * 100).toFixed(0)}%`).join(', ');
+			return `<div class="awh-alloc">
+				<div class="awh-alloc-head">
+					<span class="k">Allocation</span>
+					<span class="v">${valued.length} priced asset${valued.length === 1 ? '' : 's'}</span>
+				</div>
+				<div class="awh-alloc-bar" role="img" aria-label="Allocation: ${escapeHtml(summary)}">${parts.map((p) => p.seg).join('')}</div>
+				<div class="awh-alloc-legend">${parts.map((p) => p.key).join('')}</div>
 			</div>`;
 		}
 
@@ -321,18 +425,27 @@ registerWalletTab({
 			// Concentration is the largest *volatile* position — holding SOL/stables
 			// is reserve, not a risk bet. "None" when nothing is at tape risk.
 			const hasRisk = (r.risk_assets_count ?? 0) > 0;
+			const topRisk = hasRisk ? (r.top_risk_position_pct ?? 0) : 0;
 			const conc = !hasRisk ? 'None' : (r.top_risk_position_pct != null ? `${r.top_risk_position_pct}%` : '—');
+			const dd = r.max_drawdown_pct;
+			// [label, value, help, meter fraction 0..1 | null, accent colour]
 			const cells = [
-				['Reserve', r.reserve_pct != null ? `${r.reserve_pct}%` : '—', 'SOL + stables — dry powder ready to deploy, no tape risk'],
-				['Concentration', conc, 'Largest single memecoin position, as a share of net worth'],
-				['Tape exposure', r.exposure_pct != null ? `${r.exposure_pct}%` : '—', 'Share of net worth in volatile memecoins'],
-				['Max drawdown', r.max_drawdown_pct != null ? `${r.max_drawdown_pct}%` : '—', 'Largest realized drop from a net-worth peak'],
-				['Realized vol', r.realized_volatility_pct != null ? `${r.realized_volatility_pct}%` : '—', 'Standard deviation of per-trade returns'],
+				['Reserve', r.reserve_pct != null ? `${r.reserve_pct}%` : '—', 'SOL + stables — dry powder ready to deploy, no tape risk',
+					r.reserve_pct != null ? r.reserve_pct / 100 : null, 'var(--success,#4ade80)'],
+				['Concentration', conc, 'Largest single memecoin position, as a share of net worth',
+					hasRisk ? topRisk / 100 : 0, heatColor(hasRisk ? topRisk : 0)],
+				['Tape exposure', r.exposure_pct != null ? `${r.exposure_pct}%` : '—', 'Share of net worth in volatile memecoins',
+					r.exposure_pct != null ? r.exposure_pct / 100 : null, heatColor(r.exposure_pct)],
+				['Max drawdown', dd != null ? `${dd}%` : '—', 'Largest realized drop from a net-worth peak',
+					dd != null ? Math.min(dd, 100) / 100 : null, heatColor(dd)],
+				['Realized vol', r.realized_volatility_pct != null ? `${r.realized_volatility_pct}%` : '—', 'Standard deviation of per-trade returns',
+					null, 'var(--ink-faint,#666)'],
 			];
-			const grid = cells.map(([k, v, help]) =>
-				`<div class="awh-risk-cell" title="${escapeHtml(help)}">
+			const grid = cells.map(([k, v, help, frac, accent]) =>
+				`<div class="awh-risk-cell" style="--accent:${accent};" title="${escapeHtml(help)}">
 					<div class="awh-risk-k">${escapeHtml(k)}</div>
 					<div class="awh-risk-v">${escapeHtml(v)}</div>
+					${frac != null ? `<div class="awh-risk-meter"><span style="width:${(Math.max(0, Math.min(1, frac)) * 100).toFixed(1)}%;"></span></div>` : ''}
 				</div>`).join('');
 			const flags = (d.risk_flags || []).map((f) =>
 				`<li class="awh-flag is-${escapeHtml(f.level)}">${escapeHtml(f.text)}</li>`).join('');

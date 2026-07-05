@@ -55,6 +55,14 @@
 			<description>The animation gallery at three.ws/animations got a ground-up upgrade. All 2,100+ clips now show a real poster image of the avatar mid-motion instead of a blank tile, and hovering any card plays the full animation live in 3D. Clips are organized into 16 browsable categories (dance, combat, weapons, sports, and more) with search, sorting, and loop filters, and every clip has its own shareable link with playback controls — scrub the timeline, change the speed, then send it straight to the Animation Studio or copy an embed snippet for your own site.</description>
 		</item>
 		<item>
+			<title>Animation Studio — avatars no longer crumple when you preview a motion</title>
+			<link>https://three.ws/pose</link>
+			<guid isPermaLink="false">2026-07-05:Animation Studio — avatars no longer crumple when you preview a motion</guid>
+			<pubDate>Sun, 05 Jul 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Loading your own avatar and playing a preset like Facepalm sometimes folded the whole character into a heap on the floor — even though the studio reported a clean &quot;100% retargeted.&quot; The baked motion clips carry a per-bone scale and length channel from the character they were authored on, and those were being stamped onto your avatar, overwriting its own proportions. The Animation Studio now drives only what's actually motion — the joint rotations and the root's travel — and leaves every rig's bone lengths and scale untouched, so any avatar (tall, short, generated, Mixamo) plays every clip standing up in its own body. The &quot;retargeted&quot; percentage now counts only those real motion channels, so it reflects what you see.</description>
+		</item>
+		<item>
 			<title>Faster, steadier pages under load — cache now compresses what it stores</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-07-05:Faster, steadier pages under load — cache now compresses what it stores</guid>

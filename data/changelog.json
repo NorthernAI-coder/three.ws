@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-07-05",
+			"title": "Animation Studio — avatars no longer crumple when you preview a motion",
+			"summary": "Loading your own avatar and playing a preset like Facepalm sometimes folded the whole character into a heap on the floor — even though the studio reported a clean \"100% retargeted.\" The baked motion clips carry a per-bone scale and length channel from the character they were authored on, and those were being stamped onto your avatar, overwriting its own proportions. The Animation Studio now drives only what's actually motion — the joint rotations and the root's travel — and leaves every rig's bone lengths and scale untouched, so any avatar (tall, short, generated, Mixamo) plays every clip standing up in its own body. The \"retargeted\" percentage now counts only those real motion channels, so it reflects what you see.",
+			"tags": [
+				"fix"
+			],
+			"link": "/pose"
+		},
+		{
+			"date": "2026-07-05",
 			"title": "Trading Copilot no longer freezes after reading your wallet",
 			"summary": "When you asked the Copilot about your portfolio, it sometimes read your wallet, then read it again, and got stuck on \"Analyzing…\" with the typing dots spinning forever — you'd see the same \"Portfolio: … 6 tokens\" line twice and never get an answer. The Copilot now remembers what it just looked up within a single reply, so a repeated lookup is instant instead of a wasted round, and the moment it starts going in circles it stops and answers with what it already knows. As a backstop, the chat now detects a genuinely dead connection and offers a Retry instead of hanging — so it can never leave you staring at a frozen indicator again.",
 			"tags": [

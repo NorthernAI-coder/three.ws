@@ -8,8 +8,11 @@
 // (and export) that rig we rewrite each track's bone name to the *actual* node
 // name on the target, drop tracks the rig has no bone for, and rescale the hip
 // translation so root motion lands at the new rig's height instead of the
-// authoring rig's. The result binds cleanly in both THREE.AnimationMixer
-// (preview) and THREE.GLTFExporter (animated-GLB export).
+// authoring rig's. We retarget only the true-motion channels — joint rotations
+// and the root (Hips) translation — and skip the clips' per-bone position/scale
+// channels, which encode the *authoring* rig's bone lengths and would crush a
+// differently-proportioned avatar into a heap. The result binds cleanly in both
+// THREE.AnimationMixer (preview) and THREE.GLTFExporter (animated-GLB export).
 //
 // Pure module — three + the canonicalizer only — so it runs unchanged in the
 // browser (the /pose gallery) and in Node (the apply_animation MCP tool, vitest).
@@ -423,9 +426,11 @@ export function retargetClip(clip, canonicalToNode, opts = {}) {
 	const minCoverage = opts.minCoverage ?? MIN_COVERAGE;
 	const corrections = bindCorrections(opts.targetRest, opts.targetWorldRest);
 	const hipsPosCorrection = hipPositionCorrection(opts.hipsParentWorldQuat, corrections);
-	const total = clip.tracks.length;
 	const dropped = [];
 	const tracks = [];
+	// Denominator counts only *retargetable* tracks (see below), so a clip baked
+	// with per-bone position/scale channels still reports honest coverage.
+	let total = 0;
 
 	for (const track of clip.tracks) {
 		const dot = track.name.indexOf('.');
@@ -433,6 +438,21 @@ export function retargetClip(clip, canonicalToNode, opts = {}) {
 		const boneRaw = track.name.slice(0, dot);
 		const property = track.name.slice(dot + 1);
 		const canonical = canonicalizeBoneName(boneRaw) || boneRaw;
+
+		// The clips are baked from cz with a full position/quaternion/scale channel
+		// per bone. A bone's local scale and its local position (its fixed offset
+		// from its parent — i.e. the skeleton's bone lengths) are *structure of the
+		// authoring rig*, not motion. Rewriting them onto a differently-proportioned
+		// or differently-scaled avatar overwrites that rig's own bone lengths with
+		// cz's centimetre-vs-metre offsets and folds the whole skeleton into a heap —
+		// even though every bone "matches", so coverage lies at 100%. Only joint
+		// rotations and the root (Hips) translation are true motion; retarget those
+		// and skip the structural channels so every rig keeps its own proportions.
+		const retargetable =
+			property === 'quaternion' || (property === 'position' && canonical === 'Hips');
+		if (!retargetable) continue;
+
+		total++;
 		const nodeName = canonicalToNode.get(canonical);
 		if (!nodeName) {
 			dropped.push(canonical);
@@ -448,10 +468,11 @@ export function retargetClip(clip, canonicalToNode, opts = {}) {
 			// down") without skewing limbs.
 			const correction = corrections.get(canonical);
 			if (correction) correctQuaternionTrack(next.values, correction);
-		} else if (property === 'position' && canonical === 'Hips') {
-			// Root motion: the clip authors hip translation in the authoring rig's
-			// world-Y-up frame; re-express it in the target's hips-parent frame so it
-			// travels the same world direction on any rig, then scale for height.
+		} else {
+			// Root motion (Hips.position): the clip authors hip translation in the
+			// authoring rig's world-Y-up frame; re-express it in the target's
+			// hips-parent frame so it travels the same world direction on any rig,
+			// then scale for height.
 			if (hipsPosCorrection) rotateVectorTrack(next.values, hipsPosCorrection);
 			if (hipScale !== 1) {
 				for (let i = 0; i < next.values.length; i++) next.values[i] *= hipScale;
