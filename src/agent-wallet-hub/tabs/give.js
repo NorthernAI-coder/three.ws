@@ -224,9 +224,9 @@ registerWalletTab({
 					<div class="awg-fld">
 						<label for="awg-cause-addr">Cause wallet — address or .sol name</label>
 						<input class="awg-in" id="awg-cause-addr" autocomplete="off" spellcheck="false" placeholder="Wallet address or name.sol" value="${esc(p.name || p.address || '')}">
-						<div class="awg-resolved" id="awg-cause-resolved" hidden></div>
+						<div class="awg-resolved" id="awg-cause-resolved" role="status" aria-live="polite" hidden></div>
 					</div>
-					<div class="awg-err" id="awg-cause-err" hidden></div>
+					<div class="awg-err" id="awg-cause-err" role="alert" hidden></div>
 					<div class="awg-actions">
 						${state.pref ? '<button class="awh-btn" id="awg-cause-cancel" type="button" style="flex:1;">Cancel</button>' : ''}
 						<button class="awh-btn awh-btn--primary" id="awg-cause-save" type="button" style="flex:2;">Save cause</button>
@@ -317,7 +317,7 @@ registerWalletTab({
 					${spare === null && !state.holdingsErr
 						? '<div class="awg-skel" style="width:60%"></div><div class="awg-skel"></div>'
 						: state.holdingsErr
-							? `<div class="awg-err">Couldn’t load balances.<div class="why">${esc(state.holdingsErr)}</div></div><button class="awh-btn" id="awg-reload" type="button">Retry</button>`
+							? `<div class="awg-err" role="alert">Couldn’t load balances.<div class="why">${esc(state.holdingsErr)}</div></div><button class="awh-btn" id="awg-reload" type="button">Retry</button>`
 							: renderSpare(spare)}
 				</div>`;
 		}
@@ -343,7 +343,7 @@ registerWalletTab({
 
 		function renderGiveForm() {
 			if (state.holdings === null && !state.holdingsErr) return '<div class="awg-skel" style="width:50%"></div><div class="awg-skel"></div><div class="awg-skel" style="width:30%"></div>';
-			if (state.holdingsErr) return `<div class="awg-err">Couldn’t load balances.<div class="why">${esc(state.holdingsErr)}</div></div><button class="awh-btn" id="awg-reload2" type="button">Retry</button>`;
+			if (state.holdingsErr) return `<div class="awg-err" role="alert">Couldn’t load balances.<div class="why">${esc(state.holdingsErr)}</div></div><button class="awh-btn" id="awg-reload2" type="button">Retry</button>`;
 			const assets = assetList();
 			if (!assets.length) return `<div class="awh-empty" style="padding:8px 0;">This wallet holds no funds on ${esc(ctx.getNetwork())} yet. Fund it from the Deposit tab, then give from here.</div>`;
 			const a = assets[Math.min(state.selectedAsset, assets.length - 1)];
@@ -363,7 +363,7 @@ registerWalletTab({
 					<input class="awg-in" id="awg-amount" type="text" inputmode="decimal" placeholder="0.0" value="${esc(state.amount)}">
 					<div class="awg-note" id="awg-avail">Available: ${esc(fmtAmount(a.max, a.decimals))} ${esc(a.name)}</div>
 				</div>
-				<div class="awg-err" id="awg-give-err" hidden></div>
+				<div class="awg-err" id="awg-give-err" role="alert" hidden></div>
 				<button class="awh-btn awh-btn--primary" id="awg-review" type="button" style="width:100%;">Review donation</button>`;
 		}
 
@@ -394,7 +394,7 @@ registerWalletTab({
 						<div class="r"><span>Network</span><span class="v">${esc(ctx.getNetwork())}</span></div>
 					</div>
 					<div class="awg-warn" role="note">⚠ Crypto transfers are final. Once submitted, this donation cannot be undone or reversed.</div>
-					<div class="awg-err" id="awg-cf-err" hidden></div>
+					<div class="awg-err" id="awg-cf-err" role="alert" hidden></div>
 					<div class="awg-actions">
 						<button class="awh-btn" id="awg-back" type="button" style="flex:1;" ${state.phase === 'sending' ? 'disabled' : ''}>Back</button>
 						<button class="awh-btn awh-btn--primary" id="awg-confirm" type="button" style="flex:2;" ${state.phase === 'sending' ? 'disabled' : ''}>

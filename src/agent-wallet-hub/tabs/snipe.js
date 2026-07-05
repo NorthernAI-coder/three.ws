@@ -281,12 +281,13 @@ registerWalletTab({
 					<div class="sb-seg" role="group" aria-label="Backtest window">
 						${[7, 30, 90].map((w) => `<button type="button" data-win="${w}" class="${w === state.window ? 'on' : ''}" aria-pressed="${w === state.window}">${w}d</button>`).join('')}
 					</div>
-					<button class="sb-btn primary" id="sb-bt" ${state.backtesting ? 'disabled' : ''}>${state.backtesting ? '<span class="sb-spin"></span>Backtesting…' : 'Run backtest'}</button>
-					${state.backtestStale ? '<span class="sb-stale">edited — re-run the backtest</span>' : ''}
+					<button type="button" class="sb-btn primary" id="sb-bt" ${state.backtesting ? 'disabled' : ''} ${state.backtesting ? 'aria-busy="true"' : ''}>${state.backtesting ? '<span class="sb-spin"></span>Backtesting…' : 'Run backtest'}</button>
+					${state.backtestStale ? '<span class="sb-stale" role="status">edited — re-run the backtest</span>' : ''}
 				</div>
 				${renderBacktest()}
+				${state.armed ? `<div class="sb-notes blue" role="status" style="margin-top:14px"><strong>Armed ✓</strong><div style="margin-top:4px">This agent is now sniping on its own wallet, under its spend guards. Edit any field above and re-arm to update it, or <a class="sb-dash" href="${esc(dashUrl)}" style="display:inline-flex">manage it on the Sniper dashboard</a>.</div></div>` : ''}
 				<div class="sb-actions" style="border-top:1px solid var(--stroke,rgba(255,255,255,.08));padding-top:14px;margin-top:18px">
-					<button class="sb-btn primary" id="sb-arm" ${canArm && !state.arming ? '' : 'disabled'}>${state.arming ? '<span class="sb-spin"></span>Arming…' : 'Arm this strategy →'}</button>
+					<button type="button" class="sb-btn primary" id="sb-arm" ${canArm && !state.arming ? '' : 'disabled'} ${state.arming ? 'aria-busy="true"' : ''}>${state.arming ? '<span class="sb-spin"></span>Arming…' : (state.armed ? 'Re-arm with changes →' : 'Arm this strategy →')}</button>
 					<span class="sb-via" style="margin:0">Arms on this agent's own funded wallet, under its spend guards. Disarm any time from the dashboard.</span>
 				</div>
 			</div>`;

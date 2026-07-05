@@ -87,7 +87,9 @@ function writeTab(tab) {
 				border-radius: 999px;
 				transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
 			}
-			.lib-tab:hover { color: var(--nxt-ink); border-color: rgba(255,255,255,0.16); }
+			.lib-tab:hover { color: var(--nxt-ink); border-color: var(--nxt-stroke-strong); }
+			.lib-tab:active { transform: translateY(0.5px); }
+			.lib-tab:focus-visible { outline: 2px solid var(--nxt-accent); outline-offset: 2px; }
 			.lib-tab[aria-selected="true"] {
 				background: rgba(106, 220, 142, 0.16);
 				color: #b3f0c5;
@@ -98,6 +100,10 @@ function writeTab(tab) {
 				display: grid;
 				gap: 10px;
 				padding: 8px 0;
+			}
+			@media (prefers-reduced-motion: reduce) {
+				.lib-tab { transition: none; }
+				.lib-tab:active { transform: none; }
 			}
 		</style>
 	`;

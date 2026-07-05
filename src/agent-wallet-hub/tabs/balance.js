@@ -67,6 +67,7 @@ registerWalletTab({
 	order: 10,
 	ownerOnly: false,
 	mount({ panel, ctx }) {
+		injectBalanceStyle();
 		const { escapeHtml, shortAddress, copyToClipboard, toast } = ctx;
 		let pollTimer = null;
 		let detachNet = null;

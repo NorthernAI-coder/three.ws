@@ -22,7 +22,8 @@ const STYLE = `
 .awh-rec-lead { color: var(--ink-dim,#888); font-size: var(--text-sm,.764rem); line-height: 1.55; margin: 0 0 4px; max-width: 60ch; }
 .awh-rec-shield { display:inline-grid; place-items:center; width:30px; height:30px; border-radius:var(--radius-md,10px); background: color-mix(in srgb, var(--wallet-accent,#8b5cf6) 16%, transparent); border:1px solid color-mix(in srgb, var(--wallet-accent,#8b5cf6) 36%, transparent); color: var(--wallet-accent-ink,#c4b5fd); font-size:15px; flex:none; }
 .awh-rec-roster { list-style:none; margin:8px 0 0; padding:0; display:flex; flex-direction:column; gap:6px; }
-.awh-rec-g { display:flex; align-items:center; gap:10px; padding:8px 10px; border:1px solid var(--stroke,rgba(255,255,255,.08)); border-radius:var(--radius-md,10px); background:var(--surface-1,rgba(255,255,255,.03)); }
+.awh-rec-g { display:flex; align-items:center; gap:10px; padding:8px 10px; border:1px solid var(--stroke,rgba(255,255,255,.08)); border-radius:var(--radius-md,10px); background:var(--surface-1,rgba(255,255,255,.03)); transition:border-color var(--duration-fast,140ms); }
+.awh-rec-g:hover { border-color:var(--stroke-strong,rgba(255,255,255,.14)); }
 .awh-rec-g img, .awh-rec-g .awh-rec-ava { width:26px; height:26px; border-radius:50%; object-fit:cover; background:var(--surface-3,rgba(255,255,255,.08)); flex:none; display:grid; place-items:center; font-size:11px; color:var(--ink-dim,#888); }
 .awh-rec-g-main { display:flex; flex-direction:column; min-width:0; flex:1; }
 .awh-rec-g-name { font-size:var(--text-sm,.764rem); color:var(--ink-bright,#fff); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -145,7 +146,7 @@ registerWalletTab({
 			if (err) {
 				panel.innerHTML = `
 					<div class="awh-card">
-						<p class="awh-empty">Couldn’t load recovery settings — ${escapeHtml(err.message || 'try again')}.
+						<p class="awh-empty" role="alert">Couldn’t load recovery settings — ${escapeHtml(err.message || 'try again')}.
 						<button class="awh-btn" type="button" data-act="retry">Try again</button></p>
 					</div>`;
 				panel.querySelector('[data-act="retry"]')?.addEventListener('click', () => { renderLoading(); load(); });
