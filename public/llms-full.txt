@@ -1372,11 +1372,23 @@ URL: https://three.ws/tutorials/solana-agent-reputation
 
 Read a Solana agent's A–D trust grade and the attestations behind it, then leave your own on-chain vouch.
 
-### Tutorial · 3D Store Guide for Shopify
+### Tour Builder — design a 3D store guide, no code
+
+URL: https://three.ws/tour-builder
+
+A live, no-code playground: point and click on a demo storefront to build a 3D guide that walks and narrates it, preview it instantly, then copy the exact snippet into your Shopify theme.
+
+### Tutorial · 3D Store Guide for Shopify (No Code)
 
 URL: https://three.ws/tutorials/shopify-store-guide
 
-A guide avatar walks your Shopify storefront, spotlights the hero, bestsellers, and reviews, and narrates each one — two script tags in theme.liquid, free roam included.
+Design a walking 3D store guide in the Tour Builder playground, preview it, and paste it into Shopify — point, click, done, no code.
+
+### Tutorial · Customize Your Shopify 3D Store Guide
+
+URL: https://three.ws/tutorials/shopify-store-guide-advanced
+
+Hand-tune the store guide: exact section targeting, multi-page tours, real spoken voices, your own avatar, autostart, deep links, and the JavaScript API.
 
 ### Status
 

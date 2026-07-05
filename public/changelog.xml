@@ -7,6 +7,22 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Tour Builder — design a 3D store guide, no code</title>
+			<link>https://three.ws/tour-builder</link>
+			<guid isPermaLink="false">2026-07-05:Tour Builder — design a 3D store guide, no code</guid>
+			<pubDate>Sun, 05 Jul 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>A live, no-code playground: point and click on a demo storefront to build a 3D guide that walks and narrates it, preview it instantly, then copy the exact snippet into your Shopify theme.</description>
+		</item>
+		<item>
+			<title>Tutorial · Customize Your Shopify 3D Store Guide</title>
+			<link>https://three.ws/tutorials/shopify-store-guide-advanced</link>
+			<guid isPermaLink="false">2026-07-05:Tutorial · Customize Your Shopify 3D Store Guide</guid>
+			<pubDate>Sun, 05 Jul 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Hand-tune the store guide: exact section targeting, multi-page tours, real spoken voices, your own avatar, autostart, deep links, and the JavaScript API.</description>
+		</item>
+		<item>
 			<title>@three-ws/retarget — the animation engine behind every avatar, now a standalone package</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-07-05:@three-ws/retarget — the animation engine behind every avatar, now a standalone package</guid>
@@ -111,6 +127,14 @@
 			<description>The on-chain sniper worker went quiet on July 3 and nothing noticed: the status page showed the engine offline and zero launches scored, but no alert fired. The platform's watchdog now checks the sniper's own heartbeat every 5 minutes and pages the ops channel within 10 minutes of a stall, with hourly re-pages until it recovers. The worker also gained a dead-man switch: if it loses its database for 15 minutes straight it restarts itself instead of running as a zombie that scores nothing.</description>
 		</item>
 		<item>
+			<title>Tour Builder — design a walking 3D store guide with zero code</title>
+			<link>https://three.ws/tour-builder</link>
+			<guid isPermaLink="false">2026-07-05:Tour Builder — design a walking 3D store guide with zero code</guid>
+			<pubDate>Sun, 05 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Building a guided 3D tour for your store used to mean hand-writing a JSON file. Now there's a live, Wix-style playground at /tour-builder: a demo storefront on one side, a point-and-click editor on the other. Pick who guides the tour, click the sections you want it to walk to, type what it should say, and hit Preview to watch the real tour run exactly as your visitors will see it. When it looks right, one click gives you the curriculum file plus the exact snippets to paste into Shopify. The Shopify tutorial is rebuilt around it — a ten-minute no-code path — with a new advanced guide for multi-page tours, exact section targeting, real spoken voices, custom avatars, deep links, and the JavaScript API.</description>
+		</item>
+		<item>
 			<title>Wallet chips on avatar and agent cards no longer overflow their card</title>
 			<link>https://three.ws/dashboard/avatars</link>
 			<guid isPermaLink="false">2026-07-05:Wallet chips on avatar and agent cards no longer overflow their card</guid>
@@ -127,12 +151,12 @@
 			<description>Live global cryptocurrency market data: total market cap, dominance, Fear &amp; Greed, and the top coins with prices, 24h/7d moves, and 7d sparklines. Every coin links to a rich /coin/:id detail page with an interactive chart, market stats, related news, and official links.</description>
 		</item>
 		<item>
-			<title>Tutorial · 3D Store Guide for Shopify</title>
+			<title>Tutorial · 3D Store Guide for Shopify (No Code)</title>
 			<link>https://three.ws/tutorials/shopify-store-guide</link>
-			<guid isPermaLink="false">2026-07-04:Tutorial · 3D Store Guide for Shopify</guid>
+			<guid isPermaLink="false">2026-07-04:Tutorial · 3D Store Guide for Shopify (No Code)</guid>
 			<pubDate>Sat, 04 Jul 2026 12:00:00 GMT</pubDate>
 			<category>launch</category>
-			<description>A guide avatar walks your Shopify storefront, spotlights the hero, bestsellers, and reviews, and narrates each one — two script tags in theme.liquid, free roam included.</description>
+			<description>Design a walking 3D store guide in the Tour Builder playground, preview it, and paste it into Shopify — point, click, done, no code.</description>
 		</item>
 		<item>
 			<title>30+ background jobs were unreachable in production — payouts, subscriptions, and buybacks are back</title>

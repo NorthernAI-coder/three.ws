@@ -153,15 +153,25 @@
 		{
 			slug: 'shopify-store-guide',
 			tier: 'easy',
-			title: 'Add a 3D store guide to your Shopify theme',
-			blurb: 'A guide avatar walks your storefront, spotlights the hero, bestsellers, and reviews, and narrates each one — two script tags in theme.liquid, free roam included.',
-			builds: 'A 3D guided tour + page narrator running on your live Shopify store',
-			time: '20 min',
+			title: 'Add a 3D store guide to Shopify (no code)',
+			blurb: 'Point and click in a live playground to build a 3D guide that walks your store and narrates it, preview it instantly, then paste it into Shopify. No code, ten minutes.',
+			builds: 'A walking, narrating 3D store guide live on your Shopify store',
+			time: '10 min',
 			previewModel: '/avatars/realistic-female.glb',
-			ctaPrimary: { label: 'Read the tour SDK docs', href: 'https://www.npmjs.com/package/@three-ws/tour' },
+			ctaPrimary: { label: 'Open the Tour Builder', href: '/tour-builder' },
 		},
 
 		/* ────────────────────────── MIDDLE ────────────────────────── */
+		{
+			slug: 'shopify-store-guide-advanced',
+			tier: 'middle',
+			title: 'Customize your Shopify 3D store guide',
+			blurb: 'Hand-tune the store guide: exact section targeting, multi-page tours across your catalog, real spoken voices, your own avatar, autostart, deep links, and the JavaScript API.',
+			builds: 'A fully customized, multi-page 3D store tour with voice and custom avatar',
+			time: '30 min',
+			previewModel: '/avatars/realistic-male.glb',
+			ctaPrimary: { label: 'Open the Tour Builder', href: '/tour-builder' },
+		},
 		{
 			slug: 'first-agent',
 			tier: 'middle',

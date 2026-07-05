@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-07-05",
+			"title": "Tour Builder — design a walking 3D store guide with zero code",
+			"summary": "Building a guided 3D tour for your store used to mean hand-writing a JSON file. Now there's a live, Wix-style playground at /tour-builder: a demo storefront on one side, a point-and-click editor on the other. Pick who guides the tour, click the sections you want it to walk to, type what it should say, and hit Preview to watch the real tour run exactly as your visitors will see it. When it looks right, one click gives you the curriculum file plus the exact snippets to paste into Shopify. The Shopify tutorial is rebuilt around it — a ten-minute no-code path — with a new advanced guide for multi-page tours, exact section targeting, real spoken voices, custom avatars, deep links, and the JavaScript API.",
+			"tags": [
+				"feature",
+				"docs"
+			],
+			"link": "/tour-builder"
+		},
+		{
+			"date": "2026-07-05",
 			"title": "Faster, steadier pages under load — cache now compresses what it stores",
 			"summary": "Behind the scenes, three.ws caches heavy data (live money flows, trending snapshots, leaderboards) in a shared store so pages stay fast without re-crunching everything on every visit. When that store sits far from our servers, the largest of those writes were timing out and quietly falling back to a per-server memory copy that vanishes on restart — so under traffic, pages kept hitting the origin and slowed down. Those payloads are now gzip-compressed before they're stored, shrinking them 5–10×, which lets them land in the shared cache instead of timing out. The result is fewer cache misses, less origin load, and steadier response times on data-heavy pages during busy periods. No action needed — it just works.",
 			"tags": [
