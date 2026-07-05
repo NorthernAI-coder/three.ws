@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tour Builder — design a 3D store guide, then paste it into Shopify | three.ws</title>
+<meta name="description" content="A live, no-code playground: point and click to build a 3D guide that walks your store and narrates it, preview it instantly, then copy the exact snippet into your Shopify theme." />
+<link rel="canonical" href="https://three.ws/tour-builder" />
+<meta property="og:title" content="three.ws Tour Builder — build a walking 3D store guide, no code" />
+<meta property="og:description" content="Point, click, and narrate. Design a 3D guide on a live demo store, preview it, then paste it into Shopify." />
+<meta property="og:url" content="https://three.ws/tour-builder" />
+<meta property="og:type" content="website" />
+<style>
+	:root {
+		/* three.ws-ish dark chrome for the editor, light store canvas */
+		--edge: #14161d; --edge-2: #1b1e27; --edge-3: #232734;
+		--line: #2c3140; --line-2: #3a4051;
+		--ink: #eef0f6; --muted: #9aa2b4; --faint: #6b7180;
+		--accent: #6ee7b7; --accent-2: #34d399; --accent-ink: #06231a;
+		--danger: #f87171; --warn: #fbbf24; --info: #60a5fa;
+		--r: 12px; --r-sm: 8px;
+		--drawer-w: 400px;
+		--font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, system-ui, sans-serif;
+	}
+	* { box-sizing: border-box; margin: 0; }
+	html, body { height: 100%; }
+	body { font: 15px/1.55 var(--font); background: #0b0c10; color: var(--ink); overflow: hidden; }
+	button, input, textarea, select { font: inherit; color: inherit; }
+	button { cursor: pointer; }
+	a { color: var(--accent-2); }
+
+	/* ─────────────────────────── layout ─────────────────────────── */
+	#stage { position: fixed; inset: 0; overflow: auto; background: var(--bg, #fffdf9); transition: left .28s cubic-bezier(.4,0,.2,1); }
+	body:not(.drawer-collapsed):not(.previewing) #stage { left: var(--drawer-w); }
+	body.previewing #stage, body.drawer-collapsed #stage { left: 0; }
+
+	/* ─────────────────────────── editor drawer ─────────────────────────── */
+	#drawer {
+		position: fixed; top: 0; left: 0; bottom: 0; width: var(--drawer-w);
+		background: var(--edge); border-right: 1px solid var(--line);
+		display: flex; flex-direction: column; z-index: 40;
+		transition: transform .28s cubic-bezier(.4,0,.2,1);
+	}
+	body.drawer-collapsed #drawer, body.previewing #drawer { transform: translateX(calc(-1 * var(--drawer-w))); }
+
+	.dr-head { padding: 16px 18px 14px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 10px; }
+	.dr-logo { font-weight: 800; letter-spacing: .02em; font-size: 16px; }
+	.dr-logo b { color: var(--accent); }
+	.dr-badge { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--accent-ink); background: var(--accent); padding: 2px 7px; border-radius: 999px; font-weight: 700; }
+	.dr-head .spacer { flex: 1; }
+	.icon-btn { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid var(--line); background: var(--edge-2); border-radius: var(--r-sm); color: var(--muted); transition: .15s; }
+	.icon-btn:hover { color: var(--ink); border-color: var(--line-2); background: var(--edge-3); }
+
+	.dr-body { flex: 1; overflow-y: auto; padding: 16px 18px 20px; }
+	.dr-body::-webkit-scrollbar { width: 10px; } .dr-body::-webkit-scrollbar-thumb { background: var(--line); border-radius: 8px; border: 3px solid var(--edge); }
+
+	.sec { margin-bottom: 22px; }
+	.sec > label.h { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .09em; color: var(--faint); margin-bottom: 9px; font-weight: 700; }
+
+	input[type=text], textarea, select {
+		width: 100%; background: var(--edge-2); border: 1px solid var(--line); border-radius: var(--r-sm);
+		padding: 9px 11px; outline: none; transition: .15s;
+	}
+	input[type=text]:focus, textarea:focus, select:focus { border-color: var(--accent-2); box-shadow: 0 0 0 3px rgba(52,211,153,.13); }
+	textarea { resize: vertical; min-height: 58px; line-height: 1.45; }
+	::placeholder { color: var(--faint); }
+
+	/* avatar picker */
+	.avatars { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
+	.av { border: 1.5px solid var(--line); background: var(--edge-2); border-radius: var(--r-sm); padding: 8px 4px 6px; text-align: center; transition: .15s; }
+	.av:hover { border-color: var(--line-2); background: var(--edge-3); }
+	.av.sel { border-color: var(--accent); background: rgba(52,211,153,.1); }
+	.av .dot { width: 30px; height: 30px; border-radius: 50%; margin: 0 auto 5px; display: grid; place-items: center; font-size: 15px; background: linear-gradient(140deg, var(--edge-3), var(--edge)); border: 1px solid var(--line); }
+	.av.sel .dot { background: linear-gradient(140deg, var(--accent-2), var(--accent)); color: var(--accent-ink); border-color: transparent; }
+	.av .nm { font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.av.sel .nm { color: var(--ink); }
+
+	/* stops */
+	.stops { display: flex; flex-direction: column; gap: 10px; }
+	.stop { border: 1px solid var(--line); background: var(--edge-2); border-radius: var(--r); overflow: hidden; }
+	.stop-top { display: flex; align-items: center; gap: 8px; padding: 9px 10px; background: var(--edge-3); border-bottom: 1px solid var(--line); }
+	.stop-num { width: 22px; height: 22px; border-radius: 6px; background: var(--edge); border: 1px solid var(--line); display: grid; place-items: center; font-size: 12px; font-weight: 700; color: var(--muted); flex: none; }
+	.stop-title { flex: 1; background: transparent !important; border: none !important; padding: 2px 0 !important; font-weight: 600; box-shadow: none !important; }
+	.mini { width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--line); background: var(--edge); color: var(--faint); display: grid; place-items: center; font-size: 13px; transition: .15s; flex: none; }
+	.mini:hover { color: var(--ink); border-color: var(--line-2); }
+	.mini.on { color: var(--warn); border-color: var(--warn); }
+	.mini.del:hover { color: var(--danger); border-color: var(--danger); }
+	.stop-body { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+	.target-row { display: flex; align-items: center; gap: 7px; }
+	.target-chip { flex: 1; font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--info); background: var(--edge); border: 1px dashed var(--line-2); border-radius: 6px; padding: 6px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.target-chip.empty { color: var(--faint); font-style: italic; font-family: var(--font); }
+	.pick-btn { font-size: 12px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--accent-2); background: rgba(52,211,153,.12); color: var(--accent); font-weight: 600; white-space: nowrap; }
+	.pick-btn:hover { background: rgba(52,211,153,.2); }
+
+	.add-stop { width: 100%; margin-top: 10px; padding: 11px; border: 1.5px dashed var(--line-2); background: transparent; border-radius: var(--r); color: var(--muted); font-weight: 600; transition: .15s; }
+	.add-stop:hover { border-color: var(--accent-2); color: var(--accent); background: rgba(52,211,153,.06); }
+
+	.empty-stops { text-align: center; padding: 22px 12px; color: var(--faint); border: 1px dashed var(--line); border-radius: var(--r); font-size: 13.5px; line-height: 1.6; }
+
+	/* drawer footer actions */
+	.dr-foot { padding: 13px 18px; border-top: 1px solid var(--line); display: flex; gap: 9px; background: var(--edge); }
+	.btn { flex: 1; padding: 11px; border-radius: var(--r-sm); font-weight: 700; border: 1px solid var(--line-2); background: var(--edge-3); transition: .15s; display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+	.btn:hover { background: var(--line); }
+	.btn.primary { background: linear-gradient(135deg, var(--accent-2), var(--accent)); color: var(--accent-ink); border-color: transparent; }
+	.btn.primary:hover { filter: brightness(1.06); }
+	.btn:disabled { opacity: .45; cursor: not-allowed; }
+
+	/* collapsed reopen tab */
+	#reopen { position: fixed; top: 16px; left: 16px; z-index: 45; display: none; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 999px; background: var(--edge); border: 1px solid var(--line-2); color: var(--ink); font-weight: 700; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+	body.drawer-collapsed:not(.previewing) #reopen { display: inline-flex; }
+	#reopen:hover { border-color: var(--accent-2); }
+
+	/* ─────────────────────────── pick mode ─────────────────────────── */
+	body.picking #stage { cursor: crosshair; }
+	#pick-hint { position: fixed; top: 18px; left: 50%; transform: translateX(-50%); z-index: 60; display: none; align-items: center; gap: 12px; padding: 11px 18px; border-radius: 999px; background: var(--edge); border: 1px solid var(--accent-2); color: var(--ink); font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+	body.picking #pick-hint { display: inline-flex; }
+	#pick-hint .esc { font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 2px 7px; }
+	#pick-outline { position: fixed; z-index: 55; border: 2px solid var(--accent); background: rgba(52,211,153,.14); border-radius: 6px; pointer-events: none; display: none; transition: all .06s linear; box-shadow: 0 0 0 100vmax rgba(6,10,8,.35); }
+	body.picking #pick-outline.show { display: block; }
+
+	/* ─────────────────────────── preview exit ─────────────────────────── */
+	#exit-preview { position: fixed; top: 16px; right: 16px; z-index: 2147483600; display: none; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 999px; background: var(--edge); border: 1px solid var(--line-2); color: var(--ink); font-weight: 700; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+	body.previewing #exit-preview { display: inline-flex; }
+	#exit-preview:hover { border-color: var(--danger); color: var(--danger); }
+
+	/* ─────────────────────────── export modal ─────────────────────────── */
+	#modal-scrim { position: fixed; inset: 0; z-index: 2147483610; background: rgba(4,6,10,.66); backdrop-filter: blur(3px); display: none; align-items: center; justify-content: center; padding: 24px; }
+	#modal-scrim.open { display: flex; }
+	.modal { width: min(720px, 100%); max-height: 88vh; overflow-y: auto; background: var(--edge); border: 1px solid var(--line-2); border-radius: 16px; box-shadow: 0 30px 80px rgba(0,0,0,.6); }
+	.modal-head { padding: 20px 24px 16px; border-bottom: 1px solid var(--line); display: flex; align-items: flex-start; gap: 12px; }
+	.modal-head h2 { font-size: 20px; margin-bottom: 3px; }
+	.modal-head p { color: var(--muted); font-size: 13.5px; }
+	.modal-body { padding: 20px 24px 24px; }
+	.step { margin-bottom: 22px; }
+	.step h3 { font-size: 14px; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+	.step .n { width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-size: 12px; font-weight: 800; flex: none; }
+	.step p { color: var(--muted); font-size: 13px; margin: 0 0 9px 30px; }
+	.code { position: relative; margin-left: 30px; background: #0c0e14; border: 1px solid var(--line); border-radius: var(--r-sm); padding: 13px 14px; padding-right: 46px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; line-height: 1.6; color: #cdd3e0; white-space: pre-wrap; word-break: break-all; overflow-x: auto; }
+	.code .tok-tag { color: #7dd3fc; } .code .tok-attr { color: #6ee7b7; } .code .tok-str { color: #fcd34d; }
+	.copy { position: absolute; top: 8px; right: 8px; padding: 5px 10px; font-size: 11.5px; font-weight: 700; border-radius: 6px; border: 1px solid var(--line-2); background: var(--edge-3); color: var(--muted); }
+	.copy:hover { color: var(--ink); } .copy.done { color: var(--accent); border-color: var(--accent-2); }
+	.dl-row { margin-left: 30px; }
+	.modal-foot { padding: 14px 24px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; gap: 10px; }
+
+	/* toast */
+	#toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); z-index: 2147483620; background: var(--edge); border: 1px solid var(--accent-2); color: var(--ink); padding: 11px 18px; border-radius: 10px; font-weight: 600; font-size: 13.5px; opacity: 0; pointer-events: none; transition: .25s; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+	#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+	/* ─────────────────────────── the demo storefront (light) ─────────────────────────── */
+	.store { --bg: #fffdf9; --sink: #121212; --smut: #5c5c5c; --saccent: #2e4b3f; --sline: #e8e4dc; --scard: #f6f3ec; color: var(--sink); font: 15px/1.6 "Helvetica Neue", Arial, sans-serif; background: var(--bg); }
+	.store a { color: inherit; text-decoration: none; }
+	.store .announce { background: var(--saccent); color: #fff; text-align: center; padding: 8px 16px; font-size: 13px; letter-spacing: .04em; }
+	.store header { display: flex; align-items: center; justify-content: space-between; padding: 18px 5%; border-bottom: 1px solid var(--sline); position: sticky; top: 0; background: var(--bg); z-index: 30; }
+	.store .logo { font-size: 21px; font-weight: 800; letter-spacing: .05em; }
+	.store nav { display: flex; gap: 26px; font-size: 14px; }
+	.store nav a:hover { text-decoration: underline; text-underline-offset: 4px; }
+	.store .cart { font-size: 14px; border: 1px solid var(--sline); border-radius: 999px; padding: 8px 15px; }
+	.store .hero { display: grid; grid-template-columns: 1fr 1fr; gap: 4vw; align-items: center; padding: 8vh 5%; }
+	.store .hero h1 { font-size: clamp(30px, 4vw, 52px); line-height: 1.08; font-weight: 700; letter-spacing: -.01em; }
+	.store .hero p { margin: 18px 0 26px; color: var(--smut); font-size: 17px; max-width: 44ch; }
+	.store .cta { display: inline-block; background: var(--saccent); color: #fff; padding: 14px 30px; border-radius: 4px; font-weight: 700; transition: transform .15s; }
+	.store .cta:hover { transform: translateY(-1px); }
+	.store .hero-art { aspect-ratio: 4/3; border-radius: 10px; background: linear-gradient(135deg,#dfe8df,#b9ccbb 55%,#8fae94); }
+	.store section.shelf { padding: 7vh 5%; }
+	.store section.shelf > h2 { font-size: 29px; font-weight: 700; margin-bottom: 6px; }
+	.store .sub { color: var(--smut); margin-bottom: 32px; }
+	.store .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 24px; }
+	.store .product { background: var(--scard); border-radius: 10px; overflow: hidden; transition: transform .18s, box-shadow .18s; }
+	.store .product:hover { transform: translateY(-3px); box-shadow: 0 12px 28px rgba(0,0,0,.08); }
+	.store .product .ph { aspect-ratio: 1; }
+	.store .product .meta { padding: 13px 15px 17px; }
+	.store .product h3 { font-size: 15px; font-weight: 600; }
+	.store .product .price { color: var(--smut); font-size: 14px; margin-top: 4px; }
+	.store .story { display: grid; grid-template-columns: 1fr 1fr; gap: 4vw; align-items: center; background: var(--scard); }
+	.store .story .copy { padding: 7vh 5%; }
+	.store .story h2 { font-size: 29px; margin-bottom: 14px; }
+	.store .story p { color: var(--smut); max-width: 50ch; }
+	.store .story .art { min-height: 320px; background: linear-gradient(160deg,#e8dfd2,#cdb99b 60%,#a98f68); }
+	.store .reviews { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 22px; }
+	.store .review { border: 1px solid var(--sline); border-radius: 10px; padding: 22px; }
+	.store .review .stars { color: #c98f19; letter-spacing: 2px; margin-bottom: 10px; }
+	.store .review p { color: var(--smut); font-size: 14px; }
+	.store .review .who { margin-top: 13px; font-size: 13px; font-weight: 600; }
+	.store .policies { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 24px; }
+	.store .policy h3 { font-size: 16px; margin-bottom: 6px; }
+	.store .policy p { color: var(--smut); font-size: 14px; }
+	.store footer.site { border-top: 1px solid var(--sline); padding: 6vh 5%; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 20px; color: var(--smut); font-size: 13px; }
+
+	@media (max-width: 900px) {
+		:root { --drawer-w: 100%; }
+		body:not(.drawer-collapsed):not(.previewing) #stage { left: 0; filter: blur(2px) brightness(.6); pointer-events: none; }
+		.store .hero, .store .story { grid-template-columns: 1fr; }
+		.store nav { display: none; }
+	}
+</style>
+</head>
+<body class="drawer-collapsed-none">
+
+<!-- ══════════════════ EDITOR DRAWER ══════════════════ -->
+<aside id="drawer">
+	<div class="dr-head">
+		<div class="dr-logo">three<b>.</b>ws</div>
+		<span class="dr-badge">Tour Builder</span>
+		<div class="spacer"></div>
+		<button class="icon-btn" id="collapse" title="Hide panel (see the full store)" aria-label="Hide panel">‹</button>
+	</div>
+
+	<div class="dr-body">
+		<div class="sec">
+			<label class="h" for="tour-title">Tour name</label>
+			<input type="text" id="tour-title" placeholder="Store tour" value="Store tour" />
+		</div>
+
+		<div class="sec">
+			<label class="h">Who guides the tour</label>
+			<div class="avatars" id="avatars"></div>
+		</div>
+
+		<div class="sec">
+			<label class="h">Stops — where the guide walks &amp; what it says</label>
+			<div class="stops" id="stops"></div>
+			<button class="add-stop" id="add-stop">+ Add a stop</button>
+		</div>
+	</div>
+
+	<div class="dr-foot">
+		<button class="btn" id="preview" title="Watch it exactly as your visitors will">▶ Preview</button>
+		<button class="btn primary" id="export">⬇ Get the code</button>
+	</div>
+</aside>
+
+<button id="reopen">✎ Edit tour</button>
+
+<!-- ══════════════════ PICK MODE ══════════════════ -->
+<div id="pick-hint"><span>👆 Click the section you want the guide to walk to</span><span class="esc">Esc to cancel</span></div>
+<div id="pick-outline"></div>
+
+<!-- ══════════════════ PREVIEW EXIT ══════════════════ -->
+<button id="exit-preview">✕ Exit preview</button>
+
+<!-- ══════════════════ THE LIVE DEMO STORE ══════════════════ -->
+<main id="stage">
+	<div class="store">
+		<div class="announce">Free shipping on orders over $60 · Summer collection is live</div>
+		<header>
+			<a class="logo" href="javascript:void(0)">NORTHWIND&nbsp;GOODS</a>
+			<nav><a href="javascript:void(0)">Home</a><a href="javascript:void(0)">Catalog</a><a href="javascript:void(0)">About</a><a href="javascript:void(0)">Reviews</a><a href="javascript:void(0)">Shipping</a></nav>
+			<a class="cart" href="javascript:void(0)">Cart · 0</a>
+		</header>
+
+		<section class="hero" id="hero">
+			<div>
+				<h1>Handcrafted homeware for slow mornings</h1>
+				<p>Small-batch ceramics, linen, and oak — made by workshops we know by name. Every piece is finished by hand and built to outlast trends.</p>
+				<a class="cta" id="hero-cta" href="javascript:void(0)">Shop the collection</a>
+			</div>
+			<div class="hero-art" role="img" aria-label="Stoneware mugs on an oak shelf"></div>
+		</section>
+
+		<section class="shelf" id="featured">
+			<h2>Featured products</h2>
+			<p class="sub">This season's most-loved pieces, restocked weekly.</p>
+			<div class="grid">
+				<a class="product" href="javascript:void(0)"><div class="ph" style="background:linear-gradient(140deg,#dcd5c9,#b8ad99)"></div><div class="meta"><h3>Stoneware Mug — Fog</h3><div class="price">$28.00</div></div></a>
+				<a class="product" href="javascript:void(0)"><div class="ph" style="background:linear-gradient(140deg,#d7e0d7,#9fb5a1)"></div><div class="meta"><h3>Linen Table Runner</h3><div class="price">$54.00</div></div></a>
+				<a class="product" href="javascript:void(0)"><div class="ph" style="background:linear-gradient(140deg,#e6dccd,#c2a678)"></div><div class="meta"><h3>Oak Serving Board</h3><div class="price">$72.00</div></div></a>
+				<a class="product" href="javascript:void(0)"><div class="ph" style="background:linear-gradient(140deg,#ded8d2,#a89f96)"></div><div class="meta"><h3>Ceramic Pour-Over Set</h3><div class="price">$96.00</div></div></a>
+				<a class="product" href="javascript:void(0)"><div class="ph" style="background:linear-gradient(140deg,#e0dbd3,#bfb2a0)"></div><div class="meta"><h3>Wool Throw — Oat</h3><div class="price">$148.00</div></div></a>
+				<a class="product" href="javascript:void(0)"><div class="ph" style="background:linear-gradient(140deg,#d9dfd9,#8fa892)"></div><div class="meta"><h3>Botanical Candle No. 4</h3><div class="price">$36.00</div></div></a>
+			</div>
+		</section>
+
+		<section class="story" id="story">
+			<div class="copy">
+				<h2>Our story</h2>
+				<p>Northwind started in a garage kiln in 2019. Today we partner with eleven independent workshops across the Pacific Northwest, paying fair rates and releasing pieces only when they're ready. No seasons rushed, no corners cut.</p>
+			</div>
+			<div class="art" role="img" aria-label="A potter trimming a bowl on a wheel"></div>
+		</section>
+
+		<section class="shelf" id="reviews">
+			<h2>What customers say</h2>
+			<p class="sub">4.9 average across 2,300+ reviews.</p>
+			<div class="reviews">
+				<div class="review"><div class="stars">★★★★★</div><p>"The pour-over set is the best-made thing in my kitchen. You can feel the hand in it."</p><div class="who">— Maya R., Portland</div></div>
+				<div class="review"><div class="stars">★★★★★</div><p>"Ordered Monday, arrived Thursday, beautifully packed. The mug is somehow better in person."</p><div class="who">— Devon K., Austin</div></div>
+				<div class="review"><div class="stars">★★★★★</div><p>"Bought the throw as a gift and immediately ordered a second one for myself."</p><div class="who">— Priya S., Chicago</div></div>
+			</div>
+		</section>
+
+		<section class="shelf" id="policies">
+			<h2>Shipping &amp; returns</h2>
+			<p class="sub">The boring stuff, made painless.</p>
+			<div class="policies">
+				<div class="policy"><h3>Fast, tracked shipping</h3><p>Orders ship within 48 hours from our Seattle studio. Free over $60.</p></div>
+				<div class="policy"><h3>60-day returns</h3><p>Not right for your home? Send it back within 60 days, no questions.</p></div>
+				<div class="policy"><h3>Lifetime repair</h3><p>If a piece chips or a seam frays, we repair or replace it. Forever.</p></div>
+			</div>
+		</section>
+
+		<footer class="site">
+			<div>© Northwind Goods — a demo storefront for the three.ws Tour Builder</div>
+			<div>This is a sandbox · your real store's sections work the same way</div>
+		</footer>
+	</div>
+</main>
+
+<!-- ══════════════════ EXPORT MODAL ══════════════════ -->
+<div id="modal-scrim">
+	<div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+		<div class="modal-head">
+			<div style="flex:1">
+				<h2 id="modal-title">Ship it to Shopify</h2>
+				<p>Three copy-pastes and your store has a walking 3D guide. Everything below is generated from the tour you just built.</p>
+			</div>
+			<button class="icon-btn" id="modal-close" aria-label="Close">✕</button>
+		</div>
+		<div class="modal-body">
+			<div class="step">
+				<h3><span class="n">1</span> Upload your tour script</h3>
+				<p>In Shopify admin → <b>Content → Files</b>, upload this file, then copy the URL Shopify gives it.</p>
+				<div class="dl-row"><button class="btn" id="dl-json" style="flex:none; padding:9px 16px;">⬇ Download curriculum.json</button></div>
+			</div>
+			<div class="step">
+				<h3><span class="n">2</span> Add the guide to your theme</h3>
+				<p>Online Store → Themes → <b>⋯ → Edit code</b> → <b>layout/theme.liquid</b>. Paste this right before <code>&lt;/body&gt;</code>, and swap the URL for the one from step 1.</p>
+				<div class="code" id="snippet-embed"><button class="copy" data-copy="snippet-embed">Copy</button></div>
+			</div>
+			<div class="step">
+				<h3><span class="n">3</span> Add a "Take the tour" button</h3>
+				<p>Drop this anywhere in your theme — a section, a Custom Liquid block, your header. Any element with <code>data-tour-start</code> becomes a start button.</p>
+				<div class="code" id="snippet-button"><button class="copy" data-copy="snippet-button">Copy</button></div>
+			</div>
+		</div>
+		<div class="modal-foot">
+			<a class="btn" href="/tutorials/shopify-store-guide" style="flex:none; padding:10px 16px; text-decoration:none;">Full written guide →</a>
+			<button class="btn primary" id="modal-done" style="flex:none; padding:10px 20px;">Done</button>
+		</div>
+	</div>
+</div>
+
+<div id="toast"></div>
+
+<script src="/tour-builder/tour.global.js" defer></script>
+<script type="module" src="/tour-builder/builder.js" defer></script>
+</body>
+</html>
