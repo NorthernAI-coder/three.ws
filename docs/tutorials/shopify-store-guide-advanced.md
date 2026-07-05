@@ -148,6 +148,7 @@ The one-tag install reads `data-*` attributes:
 | --- | --- | --- |
 | `data-curriculum` | — (required) | URL of your curriculum JSON |
 | `data-avatar` | `realistic-female` | Which guide walks the store — any avatar id (see below) |
+| `data-mode` | `guided` | `guided` (the avatar walks itself) or `explore` (the visitor drives it — see below) |
 | `data-autostart` | off | `full` or `quick` — start the tour automatically on page load |
 | `data-tts-endpoint` | off | A POST endpoint that returns audio for spoken narration. Without it, narration plays as paced on-screen captions |
 | `data-asset-base` | `https://three.ws` | Where avatar GLBs load from — point at your own CDN to self-host |
@@ -164,6 +165,28 @@ Bring a custom rigged GLB by self-hosting: upload your `.glb`, set `data-asset-b
 ### Real spoken narration
 
 By default, narration shows as timed captions — zero setup, no API key. For an actual **voice**, set `data-tts-endpoint` to an HTTPS endpoint that accepts `POST { text, voice }` and returns audio (`audio/mpeg`). Any text-to-speech service works behind a tiny proxy; the seven built-in voice ids are `nova`, `alloy`, `echo`, `fable`, `onyx`, `sage`, `shimmer`. Point the endpoint at your own worker so your keys stay server-side.
+
+---
+
+## Explore mode — let visitors drive the guide
+
+Set `data-mode="explore"` (or pick **🕹 Explore** in the [Tour Builder](/tour-builder)) and the tour becomes an interactive, GTA-style experience: instead of the avatar walking itself, **the visitor drives it** with the arrow keys (or WASD) on desktop and an on-screen joystick on mobile. Each stop becomes a glowing **checkpoint** anchored to its section. Walk the avatar into the active checkpoint and it stops, spotlights the section, and narrates it — then the next checkpoint lights up. Reach them all to finish.
+
+```html
+<script src="https://unpkg.com/@three-ws/tour@0.3.0/dist/tour.global.js"
+        data-tour
+        data-mode="explore"
+        data-curriculum="https://cdn.shopify.com/s/files/…/curriculum.json"
+        defer></script>
+```
+
+Everything else works the same — same curriculum, same `targets`, same avatars, same start button. The checkpoint order follows your stop order. Notes:
+
+- **It's single-page.** Explore runs on the stops resolvable on the current page (a checkpoint the visitor can't reach isn't useful). For a whole-catalog walkthrough, use `guided` mode with multi-page `path`s.
+- **Reduced motion is respected.** Visitors with "reduce motion" enabled get the same checkpoints and narration, auto-walked in order — no driving, no motion.
+- **The HUD** shows progress (`🎯 2 / 5`) and a hint; there's an always-visible ✕ to leave. It never blocks your store — the avatar and markers are pass-through.
+
+Explore is the more memorable, playful experience (great for a launch, a lookbook, or a brand that wants visitors to *play*); `guided` is the lower-effort, higher-completion default for pure conversion. Preview both in the [Tour Builder](/tour-builder) before you choose.
 
 ---
 
