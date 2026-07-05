@@ -38,11 +38,17 @@ function actionFrom(req) {
 	return String(seg || '').toLowerCase();
 }
 
-// Fire-and-forget settlement audit. A DB hiccup must never fail a settle the
-// buyer already funded — the ledger backfill (x402_ring_ledger) is the economic
-// source of truth; this table is the per-op facilitator trail.
+// Settlement audit. A DB hiccup must never fail a settle the buyer already
+// funded — the ledger backfill (x402_ring_ledger) is the economic source of
+// truth; this table is the per-op facilitator trail. Returns the write promise
+// (never rejects — a DB error resolves after being logged) so the caller can
+// AWAIT it before responding: on Vercel the function is frozen the instant the
+// response is sent, so a truly fire-and-forget INSERT is dropped before it
+// flushes (observed: every external /verify + /settle left this table empty
+// despite 200 responses). Awaiting keeps the instance alive for the ~1 RPC the
+// write costs, which is negligible against the on-chain settle it records.
 function logOp(row) {
-	sql`
+	return sql`
 		INSERT INTO x402_self_facilitator_log
 			(action, network, payer, pay_to, mint, amount_atomic, tx_sig,
 			 fee_lamports, ok, reject_reason, idempotency_key)
@@ -119,7 +125,7 @@ export default wrap(async (req, res) => {
 
 	if (action === 'verify') {
 		const result = verifyRingPayment({ paymentPayload, requirement });
-		logOp({
+		await logOp({
 			action: 'verify',
 			network: requirement.network,
 			payer: result.payer,
@@ -138,7 +144,7 @@ export default wrap(async (req, res) => {
 		// No eager sponsor-key load: self-pay settles need no sponsor at all, and
 		// sponsor-mode settles load the key lazily inside settleRingPayment.
 		const result = await settleRingPayment({ paymentPayload, requirement });
-		logOp({
+		await logOp({
 			action: 'settle',
 			network: requirement.network,
 			payer: result.payer,
