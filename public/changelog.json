@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-05T04:26:17.161Z",
+	"generated_at": "2026-07-05T04:31:12.739Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -15,6 +15,17 @@
 			"tags": [
 				"sdk",
 				"feature"
+			]
+		},
+		{
+			"date": "2026-07-05",
+			"type": "update",
+			"title": "The agent economy now watches itself and pages the team",
+			"summary": "After weeks of the agent-to-agent economy silently stalling and being diagnosed hours late, the platform now monitors it as a system: every 5 minutes it checks that the per-minute heartbeat is alive, that no engine is failing or stuck on a fixable problem (missing config, an unfundable payment, a full database), and that real on-chain agent activity is still flowing. Any of those pages the ops channel immediately, keeps re-paging hourly until fixed, and announces recovery. The status page's JSON feed also keeps 24 hours of health history so anyone can see exactly when a stall began.",
+			"link": null,
+			"tags": [
+				"improvement",
+				"infra"
 			]
 		},
 		{
