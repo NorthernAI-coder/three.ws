@@ -15,6 +15,7 @@
 
 import { registerWalletTab } from '../registry.js';
 import { consumeCsrfToken } from '../../api.js';
+import { shortAddress } from '../util.js';
 
 const STYLE_ID = 'awh-guard-style';
 const STYLE = `
@@ -104,7 +105,6 @@ function ago(ts) {
 	if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
 	return `${Math.floor(s / 86400)}d ago`;
 }
-function shortAddr(a) { return a ? `${a.slice(0, 4)}…${a.slice(-4)}` : ''; }
 function scoreClass(s) { return s >= 0.7 ? 'hi' : s >= 0.4 ? 'mid' : 'lo'; }
 
 registerWalletTab({
@@ -153,7 +153,7 @@ registerWalletTab({
 						<span class="awh-flag-sum">${escapeHtml(f.summary || 'Unusual activity')}</span>
 						<span class="awh-score ${scoreClass(f.score)}">risk ${Math.round((f.score || 0) * 100)}</span>
 					</div>
-					<div class="awh-flag-meta">${escapeHtml(f.category || 'spend')}${f.usd != null ? ` · $${Number(f.usd).toFixed(2)}` : ''}${f.destination ? ` · → ${escapeHtml(shortAddr(f.destination))}` : ''} · ${escapeHtml(ago(f.created_at))}</div>
+					<div class="awh-flag-meta">${escapeHtml(f.category || 'spend')}${f.usd != null ? ` · $${Number(f.usd).toFixed(2)}` : ''}${f.destination ? ` · → ${escapeHtml(shortAddress(f.destination))}` : ''} · ${escapeHtml(ago(f.created_at))}</div>
 					${factorsHTML(f.factors)}
 					<div class="awh-flag-acts">
 						<button class="awh-btn awh-btn--primary" type="button" data-act="approve" data-id="${escapeHtml(f.id)}">✓ It was me — approve & unfreeze</button>
@@ -170,9 +170,8 @@ registerWalletTab({
 			const items = state.timeline?.items || [];
 			const frozen = !!state.frozen;
 
-			const alarm = frozen && (flags.length > 0 || true);
 			const banner = frozen ? `
-				<div class="awh-card ${alarm ? 'awh-guard-alarm' : ''}">
+				<div class="awh-card awh-guard-alarm" role="status" aria-live="polite">
 					<div class="awh-guard">
 						<div class="awh-guard-head">
 							<span class="awh-guard-shield" aria-hidden="true">🛡️</span>
@@ -273,7 +272,7 @@ registerWalletTab({
 		async function sweep(eventId) {
 			const safe = state.config?.safe_address;
 			if (!safe) { toast('Set a safe address first'); return; }
-			if (!confirm(`Sweep all SOL to your safe address (${shortAddr(safe)})? The wallet stays frozen.`)) return;
+			if (!confirm(`Sweep all SOL to your safe address (${shortAddress(safe)})? This is an irreversible on-chain transfer. The wallet stays frozen afterward.`)) return;
 			if (busy) return;
 			setBusy(true);
 			// A real, audited withdraw — allowed even while frozen (the safe direction).

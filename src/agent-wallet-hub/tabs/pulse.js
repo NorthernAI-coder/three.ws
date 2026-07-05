@@ -129,8 +129,8 @@ registerWalletTab({
 			host.innerHTML =
 				`<div class="awp-toggle">` +
 				`<div class="awp-toggle-txt">Show in the public Money Pulse` +
-				`<small>${isPublic ? 'Your wallet’s already-public events appear in the platform-wide /pulse discovery feed. Turn off to keep them off the global feed (your own profile still shows them).' : 'This agent is private, so it never appears in the public pulse regardless of this setting.'}</small></div>` +
-				`<label class="awp-switch"><input type="checkbox" id="awp-vis" ${inFeed ? 'checked' : ''} ${isPublic ? '' : 'disabled'} aria-label="Show this wallet in the public Money Pulse" /><span class="track"></span></label>`;
+				`<small id="awp-vis-desc">${isPublic ? 'Your wallet’s already-public events appear in the platform-wide /pulse discovery feed. Turn off to keep them off the global feed (your own profile still shows them).' : 'This agent is private, so it never appears in the public pulse regardless of this setting.'}</small></div>` +
+				`<label class="awp-switch"><input type="checkbox" id="awp-vis" ${inFeed ? 'checked' : ''} ${isPublic ? '' : 'disabled'} aria-label="Show this wallet in the public Money Pulse" aria-describedby="awp-vis-desc" /><span class="track"></span></label>`;
 			const input = host.querySelector('#awp-vis');
 			input?.addEventListener('change', async () => {
 				const optOut = !input.checked;

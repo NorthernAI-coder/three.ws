@@ -337,6 +337,8 @@ registerWalletTab({
 			const res = await call(`${base('policy')}?network=${ctx.getNetwork()}`);
 			if (destroyed) return;
 			state.loaded = true;
+			if (res.status === 401) { state.signedOut = true; render(); return; }
+			state.signedOut = false;
 			state.current = res.ok ? res.data : { error: res.message };
 			if (res.ok && !state.draft && typeof res.data?.source_text === 'string') state.draft = res.data.source_text;
 			render();

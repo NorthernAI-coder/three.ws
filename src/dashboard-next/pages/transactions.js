@@ -45,8 +45,9 @@ let visibleCount = PAGE_SIZE;
 				<div class="tx-toolbar">
 					<div class="tx-tabs" role="tablist" aria-label="Filter transactions">
 						${FILTERS.map((f, i) => `
-							<button class="tx-tab${i === 0 ? ' is-active' : ''}" role="tab"
-								aria-selected="${i === 0 ? 'true' : 'false'}" data-filter="${f.key}">${esc(f.label)}</button>
+							<button class="tx-tab${i === 0 ? ' is-active' : ''}" type="button" role="tab"
+								aria-selected="${i === 0 ? 'true' : 'false'}" tabindex="${i === 0 ? '0' : '-1'}"
+								data-filter="${f.key}">${esc(f.label)}</button>
 						`).join('')}
 					</div>
 					<div class="tx-toolbar-meta" data-slot="meta" role="status" aria-live="polite"></div>
@@ -157,15 +158,15 @@ function renderBody(main) {
 	const slice = rows.slice(0, visibleCount);
 	body.innerHTML = `
 		<div class="tx-scroll">
-			<table class="tx-table">
+			<table class="tx-table" aria-label="Transaction history">
 				<thead>
 					<tr>
-						<th>Date</th>
-						<th>Type</th>
-						<th>Details</th>
-						<th style="text-align:right">Amount</th>
-						<th>Status</th>
-						<th>Tx</th>
+						<th scope="col">Date</th>
+						<th scope="col">Type</th>
+						<th scope="col">Details</th>
+						<th scope="col" style="text-align:right">Amount</th>
+						<th scope="col">Status</th>
+						<th scope="col">Tx</th>
 					</tr>
 				</thead>
 				<tbody>${slice.map(rowHtml).join('')}</tbody>
@@ -237,17 +238,34 @@ function txCell(r) {
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 
 function wireTabs(main) {
-	main.querySelectorAll('[data-filter]').forEach((btn) => {
-		btn.addEventListener('click', () => {
-			if (activeFilter === btn.dataset.filter) return;
-			activeFilter = btn.dataset.filter;
-			visibleCount = PAGE_SIZE;
-			main.querySelectorAll('[data-filter]').forEach((b) => {
-				const on = b.dataset.filter === activeFilter;
-				b.classList.toggle('is-active', on);
-				b.setAttribute('aria-selected', on ? 'true' : 'false');
-			});
-			renderBody(main);
+	const tabs = [...main.querySelectorAll('[data-filter]')];
+
+	const select = (btn, { focus = false } = {}) => {
+		if (focus) btn.focus();
+		if (activeFilter === btn.dataset.filter) return;
+		activeFilter = btn.dataset.filter;
+		visibleCount = PAGE_SIZE;
+		tabs.forEach((b) => {
+			const on = b.dataset.filter === activeFilter;
+			b.classList.toggle('is-active', on);
+			b.setAttribute('aria-selected', on ? 'true' : 'false');
+			b.tabIndex = on ? 0 : -1;
+		});
+		renderBody(main);
+	};
+
+	tabs.forEach((btn, i) => {
+		btn.addEventListener('click', () => select(btn));
+		// Roving-tabindex arrow-key navigation, per WAI-ARIA tablist pattern.
+		btn.addEventListener('keydown', (e) => {
+			let next = null;
+			if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = tabs[(i + 1) % tabs.length];
+			else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = tabs[(i - 1 + tabs.length) % tabs.length];
+			else if (e.key === 'Home') next = tabs[0];
+			else if (e.key === 'End') next = tabs[tabs.length - 1];
+			if (!next) return;
+			e.preventDefault();
+			select(next, { focus: true });
 		});
 	});
 }
@@ -329,7 +347,7 @@ function summarySkeleton() {
 
 function skeletonRows() {
 	return `
-		<div class="tx-scroll">
+		<div class="tx-scroll" aria-hidden="true">
 			<table class="tx-table">
 				<tbody>
 					${Array.from({ length: 6 }).map(() => `

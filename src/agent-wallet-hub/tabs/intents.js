@@ -257,14 +257,14 @@ registerWalletTab({
 			const draft = state.draft;
 			const clar = state.clarify;
 			return `<div class="wi-card">
-				<h3>＋ New rule — describe it</h3>
+				<h3 id="wi-new-h">＋ New rule — describe it</h3>
 				<p class="sub">Plain language. I’ll compile it into an exact, bounded rule you confirm before anything runs.</p>
 				<div class="wi-compose">
-					<textarea class="wi-ta" id="wi-src" placeholder="e.g. Tip back anyone who tips me more than 0.1 SOL, half of what they sent.">${esc(state.composer)}</textarea>
-					<button class="wi-btn primary" id="wi-compile" ${state.compiling ? 'disabled' : ''}>${state.compiling ? '<span class="wi-spin"></span>Reading…' : 'Compile'}</button>
+					<textarea class="wi-ta" id="wi-src" aria-labelledby="wi-new-h" placeholder="e.g. Tip back anyone who tips me more than 0.1 SOL, half of what they sent.">${esc(state.composer)}</textarea>
+					<button class="wi-btn primary" id="wi-compile" type="button" ${state.compiling ? 'disabled aria-busy="true"' : ''}>${state.compiling ? '<span class="wi-spin" aria-hidden="true"></span>Reading…' : 'Compile'}</button>
 				</div>
-				<div class="wi-egs">${TEMPLATES.map((t, i) => `<button class="wi-eg" data-tpl="${i}">${esc(t.label)}</button>`).join('')}</div>
-				${clar ? `<div class="wi-clarify">🤔 ${esc(clar)}</div>` : ''}
+				<div class="wi-egs" role="group" aria-label="Rule templates">${TEMPLATES.map((t, i) => `<button class="wi-eg" type="button" data-tpl="${i}" title="${esc(t.text)}">${esc(t.label)}</button>`).join('')}</div>
+				${clar ? `<div class="wi-clarify" role="status">🤔 ${esc(clar)}</div>` : ''}
 				${draft ? renderIntentCard(draft) : ''}
 			</div>`;
 		}
@@ -280,27 +280,27 @@ registerWalletTab({
 			const sim = d.simulation?.lines?.length
 				? `<div class="wi-sim"><div class="h">Dry run</div>${d.simulation.lines.map((l) => `<p>${esc(l)}</p>`).join('')}</div>` : '';
 			const advertisable = trig.type === 'on_tip_received' || act.type === 'split_income' || (trig.type === 'on_launch_matching');
-			return `<div class="wi-intent-card">
+			return `<div class="wi-intent-card" role="group" aria-label="Parsed rule — review before arming">
 				<div class="wi-intent-head">
-					<span class="wi-intent-ic">${TRIGGER_ICON[trig.type] || '✨'}</span>
+					<span class="wi-intent-ic" aria-hidden="true">${TRIGGER_ICON[trig.type] || '✨'}</span>
 					<div class="wi-readback">${esc(d.readback || d.intent.title)}
-						<button class="wi-bubble-spk spk" id="wi-speak-draft" title="Hear it" style="background:none;border:none;cursor:pointer;color:inherit;opacity:.6;margin-left:6px">🔊</button>
+						<button class="wi-bubble-spk spk" id="wi-speak-draft" type="button" title="Hear it" aria-label="Hear this rule read aloud" style="background:none;border:none;cursor:pointer;color:inherit;opacity:.6;margin-left:6px">🔊</button>
 					</div>
 				</div>
 				<div class="wi-meta">${chips.join('')}</div>
 				${sim}
 				${advertisable ? `<label class="wi-pub"><input type="checkbox" id="wi-pub" ${state.publishTrait ? 'checked' : ''}/> Advertise this behavior on my public profile (never the rule or caps)</label>` : ''}
 				<div class="wi-actions">
-					<button class="wi-btn primary" id="wi-arm">Confirm & arm</button>
-					<button class="wi-btn ghost" id="wi-edit">Edit wording</button>
-					<button class="wi-btn ghost" id="wi-cancel">Cancel</button>
+					<button class="wi-btn primary" id="wi-arm" type="button">Confirm & arm</button>
+					<button class="wi-btn ghost" id="wi-edit" type="button">Edit wording</button>
+					<button class="wi-btn ghost" id="wi-cancel" type="button">Cancel</button>
 				</div>
 			</div>`;
 		}
 
 		function renderList() {
 			if (!state.intents.length) {
-				return `<div class="wi-card"><div class="wi-empty"><div class="ic">🪄</div>No intents yet.<br/>Describe a rule above, or start from a template.</div></div>`;
+				return `<div class="wi-card"><div class="wi-empty"><div class="ic" aria-hidden="true">🪄</div>No intents yet.<br/>Describe a rule above, or start from a template.</div></div>`;
 			}
 			return `<div class="wi-card">
 				<h3>Your rules</h3>
@@ -324,19 +324,19 @@ registerWalletTab({
 			if (explorer) foot.push(`<a href="${esc(explorer)}" target="_blank" rel="noopener">receipt ↗</a>`);
 			return `<li class="wi-rule" data-off="${it.enabled ? 'false' : 'true'}" data-id="${esc(it.id)}">
 				<div class="wi-rule-top">
-					<span class="wi-rule-ic">${TRIGGER_ICON[it.trigger.type] || '•'}</span>
+					<span class="wi-rule-ic" aria-hidden="true">${TRIGGER_ICON[it.trigger.type] || '•'}</span>
 					<div class="wi-rule-body">
 						<div class="wi-rule-ttl">${esc(it.title)} ${it.public_trait ? '<span class="wi-chip" title="advertised on your public profile">public</span>' : ''}</div>
 						<div class="wi-rule-desc">${esc(it.readback || '')}</div>
 						<div class="wi-rule-foot">${statusPill}${foot.map((f) => `<span>${f}</span>`).join('')}</div>
 					</div>
 					<div class="wi-rule-ctl">
-						<label class="wi-sw" title="${it.enabled ? 'Armed' : 'Paused'}"><input type="checkbox" data-toggle="${esc(it.id)}" ${it.enabled ? 'checked' : ''}/><span class="track"></span><span class="thumb"></span></label>
+						<label class="wi-sw" title="${it.enabled ? 'Armed' : 'Paused'}"><input type="checkbox" data-toggle="${esc(it.id)}" ${it.enabled ? 'checked' : ''} aria-label="${it.enabled ? 'Armed' : 'Paused'} — ${esc(it.title)}"/><span class="track" aria-hidden="true"></span><span class="thumb" aria-hidden="true"></span></label>
 					</div>
 				</div>
 				<div class="wi-row-actions">
-					<button class="wi-btn ghost sm" data-test="${esc(it.id)}">Test now</button>
-					<button class="wi-btn danger sm" data-del="${esc(it.id)}">Delete</button>
+					<button class="wi-btn ghost sm" type="button" data-test="${esc(it.id)}" aria-label="Test now: ${esc(it.title)}">Test now</button>
+					<button class="wi-btn danger sm" type="button" data-del="${esc(it.id)}" aria-label="Delete: ${esc(it.title)}">Delete</button>
 				</div>
 			</li>`;
 		}

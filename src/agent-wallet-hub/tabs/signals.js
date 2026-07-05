@@ -98,7 +98,7 @@ registerWalletTab({
 		let destroyed = false;
 		const net = () => ctx.getNetwork();
 
-		panel.innerHTML = `<div class="asg-wrap"><div class="asg-skel"></div><div class="asg-skel"></div></div>`;
+		panel.innerHTML = `<div class="asg-wrap" role="status" aria-busy="true" aria-label="Loading signals"><div class="asg-skel"></div><div class="asg-skel"></div></div>`;
 
 		async function load() {
 			let feedData = null;
@@ -112,8 +112,10 @@ registerWalletTab({
 				const sJson = sRes.ok ? await sRes.json() : { subscriptions: [] };
 				subs = (sJson.subscriptions || []).filter((s) => s.subscriber_agent_id === ctx.agentId);
 			} catch {
-				if (!destroyed) panel.innerHTML = `<div class="asg-card"><p class="asg-note err">Could not load signals. <button class="asg-btn sm" data-retry>Retry</button></p></div>`;
-				panel.querySelector('[data-retry]')?.addEventListener('click', load);
+				if (!destroyed) {
+					panel.innerHTML = `<div class="asg-card"><p class="asg-note err" role="alert">Could not load signals — check your connection and try again. <button class="asg-btn sm" type="button" data-retry>Retry</button></p></div>`;
+					panel.querySelector('[data-retry]')?.addEventListener('click', load);
+				}
 				return;
 			}
 			if (destroyed) return;
@@ -135,7 +137,7 @@ registerWalletTab({
 				const bar = (label, have, need, met) => `
 					<div class="asg-bar">
 						<div class="lbl"><span>${label}</span><b>${have} / ${need}</b></div>
-						<div class="asg-track"><span class="asg-fill ${met ? 'met' : ''}" style="width:${Math.min(100, need ? (have / need) * 100 : 0)}%"></span></div>
+						<div class="asg-track" role="progressbar" aria-label="${label}" aria-valuemin="0" aria-valuemax="${need}" aria-valuenow="${have}" aria-valuetext="${have} of ${need}${met ? ' — met' : ''}"><span class="asg-fill ${met ? 'met' : ''}" style="width:${Math.min(100, need ? (have / need) * 100 : 0)}%"></span></div>
 					</div>`;
 				const closed = num(elig.closed_trades);
 				const coins = num(elig.unique_coins);

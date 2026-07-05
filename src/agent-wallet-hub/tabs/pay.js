@@ -394,7 +394,7 @@ registerWalletTab({
 				${sel.description ? `<p class="awh-svc-desc" style="margin-top:6px;-webkit-line-clamp:4">${escapeHtml(sel.description)}</p>` : ''}`;
 
 			if (state.payResult) return head + renderReceipt();
-			if (state.paying) return head + renderFlow();
+			if (state.paying) return head + `<div data-host="payflow" role="status" aria-live="polite">${renderFlow()}</div>`;
 
 			if (state.previewing) {
 				return head + `<div class="awh-pay-skel" aria-busy="true" style="margin-top:12px"><span></span><span></span><span></span></div>`;

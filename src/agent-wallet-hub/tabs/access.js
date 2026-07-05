@@ -313,7 +313,7 @@ registerWalletTab({
 								<textarea id="awh-acc-targets" data-f="targets" placeholder="mint address, service host, or destination — one per line"></textarea>
 							</div>
 						</div>
-						<p class="awh-acc-err" data-err hidden></p>
+						<p class="awh-acc-err" data-err role="alert" aria-live="assertive" hidden></p>
 						<div class="awh-acc-actions">
 							<button class="awh-btn awh-btn--primary" type="submit">Mint key</button>
 							<span class="awh-acc-cap-desc" style="color:var(--ink-faint,#666);">A key always narrows authority — it can never spend more than your wallet allows.</span>
@@ -392,6 +392,7 @@ registerWalletTab({
 				const targetsRaw = q('[data-f="targets"]').value;
 				const targets = targetKind === 'any' ? [] : targetsRaw.split(/[\n,]+/).map((t) => t.trim()).filter(Boolean);
 				if (targetKind !== 'any' && targets.length === 0) return showErr('Add at least one target, or choose “Any target”.');
+				if ((perUse && Number(perUse) < 0) || (aggregate && Number(aggregate) < 0)) return showErr('Spend limits can’t be negative.');
 				if (!perUse && !aggregate && targetKind === 'any') return showErr('Set a spend ceiling or restrict to specific targets — a key must narrow something.');
 
 				const body = {

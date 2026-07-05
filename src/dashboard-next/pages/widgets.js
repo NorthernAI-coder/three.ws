@@ -12,6 +12,7 @@ import {
 	formatDuration,
 	weightedAvgSessionSeconds,
 } from './widgets-helpers.js';
+import { emptyStateHTML, errorStateHTML, attachRetry } from '../../shared/state-kit.js';
 
 const STATS_DAYS = 7;
 const SKELETON_COUNT = 6;
@@ -41,6 +42,12 @@ const WIDGETS = new Map();
 	`;
 
 	injectStyles();
+
+	// Delegated retry — attached once to the persistent grid so re-renders
+	// after an error don't stack listeners.
+	const gridEl = main.querySelector('[data-slot="grid"]');
+	attachRetry(gridEl, () => render(main));
+
 	await render(main);
 })();
 
@@ -48,6 +55,8 @@ async function render(main) {
 	const grid = main.querySelector('[data-slot="grid"]');
 	const strip = main.querySelector('[data-slot="stat-strip"]');
 
+	strip.hidden = true;
+	grid.setAttribute('aria-busy', 'true');
 	grid.innerHTML = skeletonGrid();
 
 	let widgets;
@@ -55,10 +64,15 @@ async function render(main) {
 		const res = await get('/api/widgets');
 		widgets = Array.isArray(res) ? res : res?.widgets || [];
 	} catch (err) {
-		grid.innerHTML = errorBanner(err);
-		grid.querySelector('[data-retry]')?.addEventListener('click', () => render(main));
+		grid.removeAttribute('aria-busy');
+		grid.innerHTML = errorStateHTML({
+			title: "Couldn't load your widgets",
+			body: esc(err?.message || 'Check your connection and try again.'),
+		});
 		return;
 	}
+
+	grid.removeAttribute('aria-busy');
 
 	if (!widgets.length) {
 		grid.innerHTML = emptyState();
