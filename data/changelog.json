@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-07-05",
+			"title": "2,000+ new motion-capture animations in the library",
+			"summary": "The animation library just grew from around 100 curated clips to over 2,000 — the full professional motion-capture set, every one retargeted to the universal three.ws skeleton so it plays on any humanoid avatar. Walks, runs, dances, combat, idles, reactions, sports, and hundreds more are all searchable in the animations gallery, previewable on a live avatar, and one click away from the pose studio or any embed. The clips are served from the CDN, so the site stays fast no matter how big the library gets.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/animations"
+		},
+		{
+			"date": "2026-07-05",
 			"title": "The agent economy now watches itself and pages the team",
 			"summary": "After weeks of the agent-to-agent economy silently stalling and being diagnosed hours late, the platform now monitors it as a system: every 5 minutes it checks that the per-minute heartbeat is alive, that no engine is failing or stuck on a fixable problem (missing config, an unfundable payment, a full database), and that real on-chain agent activity is still flowing. Any of those pages the ops channel immediately, keeps re-paging hourly until fixed, and announces recovery. The status page's JSON feed also keeps 24 hours of health history so anyone can see exactly when a stall began.",
 			"tags": [
