@@ -44,6 +44,14 @@ const REGION = process.env.GCP_REGION || 'us-central1';
 const REPO = 'workers'; // Artifact Registry repo (shared by the worker images)
 const SERVICE = 'agent-sniper';
 const RUNTIME_SA = `agent-sniper-sa@${PROJECT}.iam.gserviceaccount.com`;
+// Build identity for `gcloud builds submit`. This project has no legacy Cloud
+// Build service account (newer GCP projects don't auto-create
+// <projectNumber>@cloudbuild.gserviceaccount.com), so an unqualified submit fails
+// with "Unknown service account". Run the build as the dedicated build SA the
+// other images already use; override with BUILD_SERVICE_ACCOUNT if it's renamed.
+// The cloudbuild.yaml sets `logging: CLOUD_LOGGING_ONLY`, which a user-specified
+// build SA requires (no default logs bucket).
+const BUILD_SA = process.env.BUILD_SERVICE_ACCOUNT || `three-ws-build@${PROJECT}.iam.gserviceaccount.com`;
 const CLOUDBUILD = 'deploy/sniper/cloudbuild.yaml';
 const CLOUDRUN = 'deploy/sniper/cloudrun.yaml';
 
@@ -155,7 +163,12 @@ function checkSecrets() {
 function build() {
 	if (SKIP_BUILD) { warn('--skip-build: reusing the current :latest image'); return; }
 	log('building + pushing image via Cloud Build (this can take several minutes)…');
-	const r = gcloud(['builds', 'submit', `--config=${CLOUDBUILD}`, '.']);
+	const r = gcloud([
+		'builds', 'submit',
+		`--config=${CLOUDBUILD}`,
+		`--service-account=projects/${PROJECT}/serviceAccounts/${BUILD_SA}`,
+		'.',
+	]);
 	if (r.status !== 0) die('Cloud Build failed — see the build logs above');
 	ok('image built + pushed');
 }
