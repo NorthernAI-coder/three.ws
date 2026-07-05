@@ -4336,6 +4336,14 @@
 			"dest": "/tour.html"
 		},
 		{
+			"src": "/tour-builder",
+			"dest": "/tour-builder.html"
+		},
+		{
+			"src": "/tour-builder/",
+			"dest": "/tour-builder.html"
+		},
+		{
 			"src": "/features",
 			"dest": "/features.html"
 		},

@@ -1880,10 +1880,43 @@ function boot() {
 		}).then(() => {
 			if (requestedAnim) openRequestedAnim(requestedAnim);
 		});
+	} else if (requestedAnim) {
+		// Deep-linked to an animation with no avatar chosen (the /animations
+		// gallery "Open in Studio" path). Presets need a rigged figure to play on,
+		// so auto-load one of the built-in avatars — varied by clip so the gallery
+		// doesn't feel like it only ships one character — then play the clip live.
+		const model = pickDeepLinkAvatar(requestedAnim);
+		setStatus(`Loading ${model.name} to preview this animation…`);
+		loadAvatarFromUrl(model.url, { name: model.name })
+			.catch((err) => {
+				log.warn('[pose] deep-link avatar load failed:', err?.message);
+				switchToMannequin();
+			})
+			.then(() => openRequestedAnim(requestedAnim));
 	} else {
 		if (!recovered) setStatus('Ready. Click a body part to pose, or load an avatar.');
-		if (requestedAnim) openRequestedAnim(requestedAnim);
 	}
+}
+
+// Built-in rigged avatars that retarget the full canonical clip library cleanly
+// (verified 52/52 canonical bones). Used when a visitor deep-links straight to
+// an animation without picking an avatar — the clip needs a body to play on.
+const DEEP_LINK_AVATARS = [
+	{ url: '/avatars/cz.glb', name: 'CZ' },
+	{ url: '/avatars/michelle.glb', name: 'Michelle' },
+	{ url: '/avatars/realistic-female.glb', name: 'Ada' },
+	{ url: '/avatars/realistic-male.glb', name: 'Max' },
+	{ url: '/avatars/xbot.glb', name: 'X Bot' },
+	{ url: '/avatars/selfie-girl.glb', name: 'Nova' },
+];
+
+// Deterministic pick from the clip id, so the same animation always previews on
+// the same avatar (a shared link looks identical for everyone) while different
+// animations spread across the roster.
+function pickDeepLinkAvatar(animId) {
+	let hash = 0;
+	for (let i = 0; i < animId.length; i++) hash = (hash * 31 + animId.charCodeAt(i)) >>> 0;
+	return DEEP_LINK_AVATARS[hash % DEEP_LINK_AVATARS.length];
 }
 
 document.addEventListener('DOMContentLoaded', boot);

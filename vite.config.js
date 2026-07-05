@@ -314,6 +314,7 @@ const appConfig = {
 				home: resolve(__dirname, 'pages/home.html'),
 				'what-is': resolve(__dirname, 'pages/what-is.html'),
 				tour: resolve(__dirname, 'pages/tour.html'),
+				'tour-builder': resolve(__dirname, 'pages/tour-builder.html'),
 				pitch: resolve(__dirname, 'pages/pitch.html'),
 				features: resolve(__dirname, 'pages/features.html'),
 				'features-ar': resolve(__dirname, 'pages/features/ar.html'),
@@ -741,6 +742,8 @@ support: resolve(__dirname, 'pages/support.html'),
 			configureServer(server) {
 				const root = resolve(__dirname);
 				const fileMap = {
+					'/tour-builder': resolve(root, 'pages/tour-builder.html'),
+					'/tour-builder/': resolve(root, 'pages/tour-builder.html'),
 					'/app': resolve(root, 'pages/app.html'),
 					'/app-demo': resolve(root, 'pages/app-demo.html'),
 					'/widget': resolve(root, 'pages/widget.html'),

@@ -309,10 +309,12 @@ export class AnimationLibrary {
 
 		this.host.appendChild(gen);
 		this.host.appendChild(search);
+		// Now-playing transport sits directly under the search so it's visible the
+		// moment a clip plays (hidden until then) — not buried below the card grid.
+		this.host.appendChild(transport.root);
 		this.host.appendChild(chips);
 		this.host.appendChild(empty);
 		this.host.appendChild(grid);
-		this.host.appendChild(transport.root);
 	}
 
 	_setState(state) {
