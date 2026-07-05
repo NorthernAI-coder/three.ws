@@ -1780,12 +1780,28 @@
 					"added": "2026-06-22"
 				},
 				{
+					"path": "/tour-builder",
+					"title": "Tour Builder — design a 3D store guide, no code",
+					"description": "A live, no-code playground: point and click on a demo storefront to build a 3D guide that walks and narrates it, preview it instantly, then copy the exact snippet into your Shopify theme.",
+					"priority": 0.8,
+					"changefreq": "monthly",
+					"added": "2026-07-05"
+				},
+				{
 					"path": "/tutorials/shopify-store-guide",
-					"title": "Tutorial · 3D Store Guide for Shopify",
-					"description": "A guide avatar walks your Shopify storefront, spotlights the hero, bestsellers, and reviews, and narrates each one — two script tags in theme.liquid, free roam included.",
+					"title": "Tutorial · 3D Store Guide for Shopify (No Code)",
+					"description": "Design a walking 3D store guide in the Tour Builder playground, preview it, and paste it into Shopify — point, click, done, no code.",
 					"priority": 0.8,
 					"changefreq": "monthly",
 					"added": "2026-07-04"
+				},
+				{
+					"path": "/tutorials/shopify-store-guide-advanced",
+					"title": "Tutorial · Customize Your Shopify 3D Store Guide",
+					"description": "Hand-tune the store guide: exact section targeting, multi-page tours, real spoken voices, your own avatar, autostart, deep links, and the JavaScript API.",
+					"priority": 0.7,
+					"changefreq": "monthly",
+					"added": "2026-07-05"
 				},
 				{
 					"path": "/status",

@@ -265,6 +265,8 @@ function preview() {
 		assetBase: '',                          // same-origin: three.ws serves /avatars + /animations
 		manifestUrl: '/animations/manifest.json',
 		deepLinkParam: '__nolink_builder',      // never auto-bootstrap here
+		storagePrefix: 'tws:tourbuilder',       // isolate from the site's own tour state
+		companion: false,                       // no walk-companion de-dupe on this page
 	});
 	// scroll store to top so the first stop is on-screen
 	stage.scrollTo({ top: 0, behavior: 'instant' in stage.scrollTo ? 'instant' : 'auto' });
@@ -300,8 +302,8 @@ function highlight(code) {
 function openExport() {
 	const embed = snippetEmbed(), button = snippetButton();
 	const eEl = $('#snippet-embed'), bEl = $('#snippet-button');
-	eEl.innerHTML = `<button class="copy" data-copy="snippet-embed">Copy</button>` + highlight(embed);
-	bEl.innerHTML = `<button class="copy" data-copy="snippet-button">Copy</button>` + highlight(button);
+	eEl.innerHTML = `<button class="copybtn" data-copy="snippet-embed">Copy</button>` + highlight(embed);
+	bEl.innerHTML = `<button class="copybtn" data-copy="snippet-button">Copy</button>` + highlight(button);
 	eEl._raw = embed; bEl._raw = button;
 	$('#modal-scrim').classList.add('open');
 	save();
@@ -312,7 +314,7 @@ $('#modal-done').addEventListener('click', () => $('#modal-scrim').classList.rem
 $('#modal-scrim').addEventListener('click', (e) => { if (e.target === $('#modal-scrim')) $('#modal-scrim').classList.remove('open'); });
 
 document.addEventListener('click', async (e) => {
-	const btn = e.target.closest('.copy');
+	const btn = e.target.closest('.copybtn');
 	if (!btn) return;
 	const raw = $('#' + btn.dataset.copy)._raw || '';
 	try { await navigator.clipboard.writeText(raw); btn.textContent = 'Copied!'; btn.classList.add('done'); setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('done'); }, 1600); }

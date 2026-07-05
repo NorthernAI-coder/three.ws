@@ -1,151 +1,81 @@
-# Add a 3D Store Guide to Your Shopify Theme
+# Add a 3D Store Guide to Your Shopify Store (No Code)
 
-By the end of this tutorial your Shopify store has a **3D guide that walks across your actual storefront** — it strolls from your hero to your bestsellers, spotlights each section, points at it, and narrates a line about it. Visitors can take the guided tour, switch to **free roam** and drag the guide anywhere on the page, or let a docked narrator read the page to them out loud. All of it runs on your live theme — no app install, no iframe, no code beyond two script tags in `theme.liquid`.
+Give your store a **3D guide that walks across your pages** — it strolls from your hero to your bestsellers, spotlights each one, and narrates it out loud. Visitors can take the guided tour or grab the guide and free-roam. It runs on your live theme with **no app to install and no code to write**.
 
-**What you'll build:**
-- A guided store tour: the avatar physically walks your homepage, spotlighting the hero, the featured collection, reviews, and your shipping policies
-- Free roam: visitors click anywhere and the guide walks there
-- An optional docked page narrator that reads your headings and product copy aloud
-- A "Take the tour" button anywhere in your theme
+You'll build it by pointing and clicking in a live playground, watch it work, then paste three things into Shopify. Total time: about ten minutes.
 
-**Prerequisites:** a Shopify store where you can edit theme code (Online Store → Themes → Edit code), and 20 minutes. No bundler, no npm, no Shopify app — everything loads from a CDN.
+> **Want to hand-tune every detail** — multi-page tours, exact section targeting, custom voices, your own avatar? That's the [Advanced store guide](/tutorials/shopify-store-guide-advanced). This page is the fast, no-code path.
 
 ---
 
-## Why this can't be an iframe (and why that's fine)
+## Step 1 — Design your guide in the Tour Builder
 
-A guide that walks *on your sections* has to know where your sections are. It reads your page's real DOM — `h1`s, product grids, buttons — and measures their positions to walk to them. An iframe is sandboxed away from your page and can see none of that, so this integration is a **script tag in your theme**, not an embed frame. The avatar itself is a small transparent WebGL canvas that never blocks clicks (`pointer-events: none` during the tour), so your store keeps working exactly as before — Add to Cart included.
+Open the **[Tour Builder](/tour-builder)**. It's a live playground — a demo storefront on the right, an editor on the left. Nothing you do here touches your real store until you're ready, and it works just like a website builder: point, click, type.
 
-This runs on your **storefront** pages. Shopify's checkout is locked to custom scripts, and the guide deliberately never mounts there.
+Make it yours:
 
----
+1. **Pick your guide.** Choose who walks the store — Ava, Leo, a robot, a fox, and more.
+2. **Add stops.** Each stop is one place the guide walks to and one thing it says. Click **+ Add a stop**, then **click the section of the store** you want it to visit — the hero, a product grid, your reviews. The builder figures out how to point at it.
+3. **Write the narration.** Type what the guide should say at each stop. Keep it short and friendly — one or two sentences, like a helpful shop assistant.
+4. **Reorder** stops with the ↑ ↓ arrows, mark the best ones with ★ (those form a shorter "Quick tour"), and delete any you don't want.
 
-## Step 1 — Describe your tour (the curriculum)
+Your work saves automatically in your browser as you go.
 
-The tour is driven by a small JSON file listing what the guide visits and what it says at each stop. Write one for your store — here's a complete example for a typical homepage:
+## Step 2 — Preview it
 
-```json
-{
-	"title": "Store tour",
-	"tracks": [{ "id": "full", "title": "Full tour" }],
-	"sections": [
-		{ "id": "store", "title": "The store", "intro": "Welcome — let me show you around." }
-	],
-	"stops": [
-		{
-			"path": "/",
-			"section": "store",
-			"title": "Welcome",
-			"highlight": true,
-			"narration": "Welcome to the store. This button takes you to the full collection.",
-			"targets": ["a.button", ".hero a"]
-		},
-		{
-			"path": "/",
-			"section": "store",
-			"title": "Featured products",
-			"highlight": true,
-			"narration": "These are the pieces everyone is loving right now.",
-			"targets": ["#featured-collection", ".collection .grid"]
-		},
-		{
-			"path": "/",
-			"section": "store",
-			"title": "Reviews",
-			"narration": "Real reviews from real customers.",
-			"targets": ["#reviews", ".testimonials"]
-		}
-	]
-}
-```
+Hit **▶ Preview**. The editor slides away and the guide walks the demo store exactly the way your visitors will see it — spotlight, pointing, narration, playback controls, the works. Not happy? Press **Exit preview**, tweak, and preview again. This is the real product, so what you see is what your visitors get.
 
-Each stop:
-- **`path`** — the page the stop lives on (`"/"` for the homepage; multi-page tours work too — the tour survives navigation).
-- **`narration`** — what the guide says, as spoken captions.
-- **`targets`** — CSS selectors for the element to spotlight, in preference order; the first visible match wins. Don't know your theme's selectors? Right-click the section → Inspect, or just add `data-tour-target` to any element in the section's Liquid and leave `targets` out — tagged elements are found automatically. If nothing matches, the guide falls back to the page's main heading.
+## Step 3 — Get the code
 
-**Upload it:** in the Shopify admin go to **Content → Files**, upload `curriculum.json`, and copy the CDN URL Shopify gives you (it looks like `https://cdn.shopify.com/s/files/.../curriculum.json`).
+When it looks great, click **⬇ Get the code**. You'll get everything you need, generated from the tour you just built:
+
+1. **A `curriculum.json` file** — your tour's script. Download it.
+2. **A theme snippet** — one `<script>` tag.
+3. **A button snippet** — the "Take the tour" button.
+
+Keep that window open for the next step.
 
 ---
 
-## Step 2 — Add the tour to `theme.liquid`
+## Step 4 — Paste it into Shopify
 
-Online Store → Themes → **⋯ → Edit code** → `layout/theme.liquid`. Paste this immediately before `</body>`:
+Three copy-pastes in your Shopify admin. No theme knowledge required.
 
-```html
-<script src="https://unpkg.com/@three-ws/tour@0.2.0/dist/tour.global.js"
-        data-tour
-        data-curriculum="https://cdn.shopify.com/s/files/YOUR/PATH/curriculum.json"
-        defer></script>
-```
+**4a. Upload your tour file.**
+Go to **Content → Files** (in your Shopify admin sidebar). Click **Upload files** and choose the `curriculum.json` you downloaded. When it appears, click the **link/copy icon** next to it to copy its URL — it looks like `https://cdn.shopify.com/s/files/…/curriculum.json`. Keep that URL handy.
 
-That's the whole install. The script:
-- auto-creates the tour from the tag's `data-*` attributes,
-- loads avatar models and animations from the three.ws CDN (override with `data-asset-base` / `data-manifest-url` if you self-host),
-- exposes the controller as `window.__featureTour`,
-- honours deep links: sharing `yourstore.com/?tour=start` begins the tour on arrival.
+**4b. Add the guide to your theme.**
+Go to **Online Store → Themes**. On your current theme, click **⋯ → Edit code**. In the file list on the left, open **`layout/theme.liquid`**. Scroll to the very bottom and find the `</body>` line. Paste the theme snippet from the builder **right before** `</body>`, and replace the `YOUR/PATH` part of the URL with the file URL you copied in 4a. Click **Save**.
 
-Optional attributes:
+**4c. Add the "Take the tour" button.**
+Still in the theme editor, you can drop the button snippet anywhere you'd like visitors to start the tour. The easiest spot: back in the theme customizer (**Online Store → Themes → Customize**), add a **Custom Liquid** section to your homepage and paste the button snippet there. Save.
 
-| Attribute | Default | What it does |
-|---|---|---|
-| `data-avatar` | `realistic-female` | Which guide walks the store (any `@three-ws/walk` roster id) |
-| `data-autostart` | off | `full` or `quick` — start the tour on page load |
-| `data-tts-endpoint` | off | POST endpoint returning audio for spoken narration; without it, narration is paced captions |
+That's it. Open your store and click your new button — the guide walks out and gives the tour. 🎉
 
 ---
 
-## Step 3 — Add a "Take the tour" button
+## Checking it works
 
-Any element with `data-tour-start` becomes a start button automatically — including ones added later by theme sections. In any section's Liquid (or a Custom Liquid block in the theme editor):
+- Open your storefront in a **normal browser tab** (not the theme editor's preview pane — that runs your store inside a frame, and the guide intentionally stays out of frames).
+- Click your tour button. The guide should appear and start walking.
+- Everything on your store still clicks normally while the tour runs — the guide floats above the page and never blocks a button or an Add-to-Cart.
+- On phones it adapts automatically, and it respects a visitor's "reduce motion" setting.
 
-```html
-<button data-tour-start class="button">✨ Take the store tour</button>
-```
-
-`data-tour-start="quick"` starts the shorter Quick track (the stops you marked `"highlight": true`).
-
-Save, open your storefront, click the button. The page dims, your hero gets a spotlight ring, and the guide walks over and starts talking. The playback bar at the bottom gives visitors prev/next, speed, mute, and a chapter map. Press **R** (or the bar's roam button) for **free roam** — visitors click anywhere and the guide walks there, or drag it around directly.
-
----
-
-## Step 4 (optional) — The docked page narrator
-
-If you also want a narrator that reads the page aloud — product descriptions, headings, policies — add the page-agent tag next to the tour tag:
-
-```html
-<script src="https://unpkg.com/@three-ws/page-agent@0.1.1/dist/page-agent.global.js"
-        data-page-agent data-avatar="sol" defer></script>
-```
-
-A rigged avatar docks in the corner with a built-in picker. It auto-discovers your `h1/h2/h3` headings and the copy under them, scrolls to each, highlights it, and speaks it with the browser's Web Speech API — no backend, no API key. To control exactly what gets read (or fix the order), add `data-narrate="What to say instead"` or `data-narrate-order="1"` to elements in your Liquid.
-
-Use the tour for the guided pitch, the narrator for accessibility and browsing — they coexist fine; the tour stands the companion down while it's running.
+**If it doesn't show up:**
+- Double-check the `curriculum.json` URL in your theme snippet matches the one from **Content → Files** exactly.
+- Make sure you pasted the script before `</body>`, not inside another tag.
+- A handful of themes ship a strict security policy that blocks added scripts. If nothing loads at all, see the [Advanced guide's CSP section](/tutorials/shopify-store-guide-advanced#content-security-policy) — stock themes like Dawn need no changes.
 
 ---
 
-## Step 5 — Verify
+## What's happening under the hood
 
-1. Open your storefront in a normal browser tab (not the theme-editor preview — its own frame counts as an embed and the guide intentionally never mounts inside frames).
-2. Click your tour button. Watch the network tab: avatar GLBs and animation clips load from `three.ws` (CORS is open — `access-control-allow-origin: *`).
-3. Confirm clicks still work everywhere while the tour runs — the overlay is `pointer-events: none`.
-4. Test on mobile: the playback bar and captions are responsive, and `prefers-reduced-motion` is honoured (no walk glide, instant spotlight).
+The guide is a small, transparent 3D character that's positioned over your real page and walks to whatever section each stop names. It reads your page the way a visitor's eyes would — finding your headings and sections and measuring where they are — which is why it works on your live theme without rebuilding anything. It only ever appears on your storefront pages, never on checkout.
 
-**If the styles look stripped:** a rare few themes ship a strict `Content-Security-Policy` with a `style-src` that lacks `'unsafe-inline'`. The tour injects its styles at runtime, so that policy blocks them. Either add `'unsafe-inline'` to `style-src`, or add `https://unpkg.com` + `https://three.ws` to `script-src`/`connect-src` while you're in there. Stock Shopify themes (Dawn included) need no CSP changes.
+It's powered by the open-source [`@three-ws/tour`](https://www.npmjs.com/package/@three-ws/tour) package — the same engine behind the guided tour on [three.ws](https://three.ws).
 
----
+## Where to go next
 
-## How it works under the hood
-
-The guide's body is a ~170×240 px transparent WebGL canvas positioned in screen space and stepped frame-by-frame, so it reads as walking across your page. Targets are found with `document.querySelector` against your live DOM and measured with `getBoundingClientRect()` — which is why the tour keeps working when your theme changes, as long as the selectors (or `data-tour-target` tags) still match. Tour state lives in `sessionStorage`, so a stop on `/collections/all` after a stop on `/` survives the page navigation and resumes exactly where it left off.
-
-The engine is three published open-source packages — [`@three-ws/tour`](https://www.npmjs.com/package/@three-ws/tour), [`@three-ws/walk`](https://www.npmjs.com/package/@three-ws/walk), and [`@three-ws/page-agent`](https://www.npmjs.com/package/@three-ws/page-agent) (Apache-2.0) — the same engine behind the guided tour on [three.ws](https://three.ws).
-
----
-
-## Beyond the homepage
-
-- **Multi-page tours:** add stops with `"path": "/collections/bestsellers"` or `/pages/about` — the guide navigates there and picks up where it left off.
-- **Product-page narration:** the page narrator already reads product titles and descriptions; tag your buy button's section with `data-narrate` for a spoken pitch.
-- **A talking assistant too?** Pair the guide with a [talking agent widget](/tutorials/embed-on-website) trained on your store's FAQ and policies for questions the tour doesn't answer.
-- **Not on Shopify?** The same two tags work on any site you can edit — see [Add the Walk Companion to your site](/tutorials/walk-companion) and [Embed on your website](/tutorials/embed-on-website).
+- **[Advanced store guide](/tutorials/shopify-store-guide-advanced)** — hand-write the curriculum, target exact sections, add multi-page tours, real spoken voices, your own avatar, autostart, deep links, and the JavaScript API.
+- **[Add a talking assistant](/tutorials/embed-on-website)** — pair the guide with a chat agent trained on your store's FAQ and policies.
+- **[Add the Walk Companion](/tutorials/walk-companion)** — a free-roaming 3D mascot for any page.

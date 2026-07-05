@@ -137,8 +137,8 @@
 	.step p { color: var(--muted); font-size: 13px; margin: 0 0 9px 30px; }
 	.code { position: relative; margin-left: 30px; background: #0c0e14; border: 1px solid var(--line); border-radius: var(--r-sm); padding: 13px 14px; padding-right: 46px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; line-height: 1.6; color: #cdd3e0; white-space: pre-wrap; word-break: break-all; overflow-x: auto; }
 	.code .tok-tag { color: #7dd3fc; } .code .tok-attr { color: #6ee7b7; } .code .tok-str { color: #fcd34d; }
-	.copy { position: absolute; top: 8px; right: 8px; padding: 5px 10px; font-size: 11.5px; font-weight: 700; border-radius: 6px; border: 1px solid var(--line-2); background: var(--edge-3); color: var(--muted); }
-	.copy:hover { color: var(--ink); } .copy.done { color: var(--accent); border-color: var(--accent-2); }
+	.copybtn { position: absolute; top: 8px; right: 8px; padding: 5px 10px; font-size: 11.5px; font-weight: 700; border-radius: 6px; border: 1px solid var(--line-2); background: var(--edge-3); color: var(--muted); }
+	.copybtn:hover { color: var(--ink); } .copybtn.done { color: var(--accent); border-color: var(--accent-2); }
 	.dl-row { margin-left: 30px; }
 	.modal-foot { padding: 14px 24px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; gap: 10px; }
 
@@ -324,12 +324,12 @@
 			<div class="step">
 				<h3><span class="n">2</span> Add the guide to your theme</h3>
 				<p>Online Store → Themes → <b>⋯ → Edit code</b> → <b>layout/theme.liquid</b>. Paste this right before <code>&lt;/body&gt;</code>, and swap the URL for the one from step 1.</p>
-				<div class="code" id="snippet-embed"><button class="copy" data-copy="snippet-embed">Copy</button></div>
+				<div class="code" id="snippet-embed"><button class="copybtn" data-copy="snippet-embed">Copy</button></div>
 			</div>
 			<div class="step">
 				<h3><span class="n">3</span> Add a "Take the tour" button</h3>
 				<p>Drop this anywhere in your theme — a section, a Custom Liquid block, your header. Any element with <code>data-tour-start</code> becomes a start button.</p>
-				<div class="code" id="snippet-button"><button class="copy" data-copy="snippet-button">Copy</button></div>
+				<div class="code" id="snippet-button"><button class="copybtn" data-copy="snippet-button">Copy</button></div>
 			</div>
 		</div>
 		<div class="modal-foot">

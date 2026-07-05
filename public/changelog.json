@@ -1,11 +1,31 @@
 {
-	"generated_at": "2026-07-05T10:49:50.588Z",
+	"generated_at": "2026-07-05T11:00:42.240Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-07-05",
+			"type": "launch",
+			"title": "Tour Builder — design a 3D store guide, no code",
+			"summary": "A live, no-code playground: point and click on a demo storefront to build a 3D guide that walks and narrates it, preview it instantly, then copy the exact snippet into your Shopify theme.",
+			"link": "/tour-builder",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-07-05",
+			"type": "launch",
+			"title": "Tutorial · Customize Your Shopify 3D Store Guide",
+			"summary": "Hand-tune the store guide: exact section targeting, multi-page tours, real spoken voices, your own avatar, autostart, deep links, and the JavaScript API.",
+			"link": "/tutorials/shopify-store-guide-advanced",
+			"tags": [
+				"launch"
+			]
+		},
 		{
 			"date": "2026-07-05",
 			"type": "update",
@@ -149,6 +169,17 @@
 		{
 			"date": "2026-07-05",
 			"type": "update",
+			"title": "Tour Builder — design a walking 3D store guide with zero code",
+			"summary": "Building a guided 3D tour for your store used to mean hand-writing a JSON file. Now there's a live, Wix-style playground at /tour-builder: a demo storefront on one side, a point-and-click editor on the other. Pick who guides the tour, click the sections you want it to walk to, type what it should say, and hit Preview to watch the real tour run exactly as your visitors will see it. When it looks right, one click gives you the curriculum file plus the exact snippets to paste into Shopify. The Shopify tutorial is rebuilt around it — a ten-minute no-code path — with a new advanced guide for multi-page tours, exact section targeting, real spoken voices, custom avatars, deep links, and the JavaScript API.",
+			"link": "/tour-builder",
+			"tags": [
+				"feature",
+				"docs"
+			]
+		},
+		{
+			"date": "2026-07-05",
+			"type": "update",
 			"title": "Wallet chips on avatar and agent cards no longer overflow their card",
 			"summary": "On the Avatars and Agents dashboards, the wallet identity chip — address, ownership, live balance, rarity and the vanity shortcut — was crammed onto a single line and spilled past the edge of narrow cards, bleeding into the card beside it. It now fills the card footer as a tidy rounded block and wraps its badges onto a second line when space is tight, so every card stays clean at any width. The Community and Characters galleries get the same fix.",
 			"link": "/dashboard/avatars",
@@ -169,8 +200,8 @@
 		{
 			"date": "2026-07-04",
 			"type": "launch",
-			"title": "Tutorial · 3D Store Guide for Shopify",
-			"summary": "A guide avatar walks your Shopify storefront, spotlights the hero, bestsellers, and reviews, and narrates each one — two script tags in theme.liquid, free roam included.",
+			"title": "Tutorial · 3D Store Guide for Shopify (No Code)",
+			"summary": "Design a walking 3D store guide in the Tour Builder playground, preview it, and paste it into Shopify — point, click, done, no code.",
 			"link": "/tutorials/shopify-store-guide",
 			"tags": [
 				"launch"
