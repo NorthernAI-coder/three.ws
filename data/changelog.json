@@ -11285,6 +11285,16 @@
 				"feature"
 			],
 			"link": "/pricing"
+		},
+		{
+			"date": "2026-07-05",
+			"title": "Animation Gallery rebuilt — see every clip before you use it",
+			"summary": "The animation gallery at three.ws/animations got a ground-up upgrade. All 2,100+ clips now show a real poster image of the avatar mid-motion instead of a blank tile, and hovering any card plays the full animation live in 3D. Clips are organized into 16 browsable categories (dance, combat, weapons, sports, and more) with search, sorting, and loop filters, and every clip has its own shareable link with playback controls — scrub the timeline, change the speed, then send it straight to the Animation Studio or copy an embed snippet for your own site.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/animations"
 		}
 	]
 }
