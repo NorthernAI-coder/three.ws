@@ -846,11 +846,21 @@ registerWalletTab({
 		function wireActionEvents() {
 			panel.querySelector('[data-tr="review"]')?.addEventListener('click', () => {
 				state.confirming = true; renderActions();
+				// Move focus into the confirm step so keyboard users land on the decision.
+				panel.querySelector('[data-tr="confirm"]')?.focus();
 			});
 			panel.querySelector('[data-tr="cancel"]')?.addEventListener('click', () => {
 				state.confirming = false; renderActions();
+				panel.querySelector('[data-tr="review"]')?.focus();
 			});
 			panel.querySelector('[data-tr="confirm"]')?.addEventListener('click', submit);
+			// Escape backs out of the confirm step without submitting — never a keyboard trap.
+			panel.querySelector('.awh-tr-confirm')?.addEventListener('keydown', (e) => {
+				if (e.key !== 'Escape') return;
+				e.preventDefault();
+				state.confirming = false; renderActions();
+				panel.querySelector('[data-tr="review"]')?.focus();
+			});
 			panel.querySelectorAll('[data-tr="deposit"]').forEach((b) => b.addEventListener('click', () => {
 				ctx.openTab?.('deposit');
 			}));
