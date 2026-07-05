@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-05T13:27:42.059Z",
+	"generated_at": "2026-07-05T13:50:11.928Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -110,6 +110,17 @@
 			"tags": [
 				"improvement",
 				"fix"
+			]
+		},
+		{
+			"date": "2026-07-05",
+			"type": "update",
+			"title": "Explore mode — walk the tour yourself, GTA-style checkpoints",
+			"summary": "Every guided tour can now become an interactive experience. Turn on Explore mode and instead of watching the 3D guide walk itself, YOU drive it — arrow keys or WASD on desktop, an on-screen joystick on mobile — to glowing checkpoints anchored to each section. Walk into a checkpoint and the guide stops, spotlights the section, and explains it; the next one lights up until you've found them all. It's built into the tour engine (@three-ws/tour 0.3.0, one attribute: data-mode=\"explore\"), so it works on the platform's own tour, on any embedded site, and in the Shopify store guide — the Tour Builder now has a one-click Guided/Explore toggle and previews both. Reduced-motion visitors get the same checkpoints and narration, auto-walked.",
+			"link": "/tour-builder",
+			"tags": [
+				"feature",
+				"sdk"
 			]
 		},
 		{
