@@ -9,7 +9,7 @@
  * /tour-builder/tour.global.js), so the preview is the product, not a mockup.
  */
 
-const VERSION_TOUR = '0.3.0';
+const VERSION_TOUR = '0.4.0';
 const VERSION_PAGE_AGENT = '0.1.1';
 const STORAGE_KEY = 'tws:tour-builder:v1';
 

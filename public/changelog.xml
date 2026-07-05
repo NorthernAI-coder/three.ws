@@ -95,6 +95,14 @@
 			<description>Every guided tour can now become an interactive experience. Turn on Explore mode and instead of watching the 3D guide walk itself, YOU drive it — arrow keys or WASD on desktop, an on-screen joystick on mobile — to glowing checkpoints anchored to each section. Walk into a checkpoint and the guide stops, spotlights the section, and explains it; the next one lights up until you've found them all. It's built into the tour engine (@three-ws/tour 0.3.0, one attribute: data-mode=&quot;explore&quot;), so it works on the platform's own tour, on any embedded site, and in the Shopify store guide — the Tour Builder now has a one-click Guided/Explore toggle and previews both. Reduced-motion visitors get the same checkpoints and narration, auto-walked.</description>
 		</item>
 		<item>
+			<title>Explore mode now walks like the real thing — turn, walk, and run in 3D</title>
+			<link>https://three.ws/tour-builder</link>
+			<guid isPermaLink="false">2026-07-05:Explore mode now walks like the real thing — turn, walk, and run in 3D</guid>
+			<pubDate>Sun, 05 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Explore mode (the drive-it-yourself checkpoint tour) now uses the exact locomotion from the homepage Stroll: the character turns to face wherever you steer and walks or runs in full 3D, instead of sliding flat across the page. Arrow keys or WASD on desktop, joystick or gamepad on mobile, and the page scrolls under you so the whole store is walkable. Walk into a glowing checkpoint and it stops to explain that section. Built on @three-ws/walk 0.1.2 + @three-ws/tour 0.4.0 — the homepage tour, any embedded site, and the Shopify store guide all get it.</description>
+		</item>
+		<item>
 			<title>Faster, steadier pages under load — cache now compresses what it stores</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-07-05:Faster, steadier pages under load — cache now compresses what it stores</guid>
