@@ -31,6 +31,22 @@
 			<description>If you hit your plan's avatar limit while creating an agent, the wizard used to fail with a bare error and leave you stuck. It now explains what happened and gives you three ways forward, right in the form: connect an avatar you already own (one click jumps you to your library), free up a slot by deleting an old avatar, or upgrade your plan. Oversized model files get a clearer message too.</description>
 		</item>
 		<item>
+			<title>Go Pro with SOL or $THREE — 20% off in the platform coin</title>
+			<link>https://three.ws/pricing</link>
+			<guid isPermaLink="false">2026-07-05:Go Pro with SOL or $THREE — 20% off in the platform coin</guid>
+			<pubDate>Sun, 05 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The Pro plan is now a real self-serve upgrade you can buy on-chain. The pricing page checkout accepts USDC, SOL, or $THREE on Solana: pick your asset, scan a Solana Pay QR (or open it straight in your wallet), and your account upgrades the moment the payment finalizes. SOL and $THREE amounts are quoted at the live market price and pinned for the session, and paying in $THREE takes 20% off the sticker price — holding the coin already earns discounts, and now spending it does too.</description>
+		</item>
+		<item>
+			<title>Payments a wallet silently rewrites now explain themselves instead of bouncing</title>
+			<link>https://three.ws/club</link>
+			<guid isPermaLink="false">2026-07-05:Payments a wallet silently rewrites now explain themselves instead of bouncing</guid>
+			<pubDate>Sun, 05 Jul 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Some Solana wallets modify a payment transaction before signing it — injecting their own fee or guard instructions — and the platform's payment verifier rightly refuses anything that isn't the exact transfer it prepared. Until now that refusal looked like a dead end: the pay button bounced with a payment-required error no matter how many times you retried. The checkout now detects the rewrite the moment the wallet hands the transaction back and says plainly that the wallet altered it and nothing was charged, so you can switch wallets instead of retrying in circles. Verify rejections and settle failures are also now counted by reason on the public health endpoint, so a streak of refused payments is visible at a glance instead of hiding in admin logs.</description>
+		</item>
+		<item>
 			<title>Status page no longer reports a phantom outage — and graduation tracking runs clean</title>
 			<link>https://three.ws/status</link>
 			<guid isPermaLink="false">2026-07-05:Status page no longer reports a phantom outage — and graduation tracking runs clean</guid>

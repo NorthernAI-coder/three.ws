@@ -1435,7 +1435,21 @@ class CheckoutModal {
 			// PayAI during /settle.
 			const SolanaWeb3 = await loadSolanaWeb3();
 			const tx = SolanaWeb3.VersionedTransaction.deserialize(txBytes);
+			// The merchant's facilitator only settles the exact transaction that
+			// /prepare built — a wallet that rewrites it before signing (injected
+			// priority-fee or guard instructions) produces a payment the verifier
+			// deterministically rejects. Snapshot the message bytes before the
+			// wallet touches the object (some wallets mutate in place), then
+			// compare after signing: a mismatch becomes an immediate, named
+			// explanation instead of a silent 402-retry loop.
+			const preparedMsg = tx.message.serialize();
 			const signed = await provider.signTransaction(tx);
+			const signedMsg = signed?.message?.serialize?.();
+			if (signedMsg && !bytesEqual(preparedMsg, signedMsg)) {
+				throw new Error(
+					`${walletName} altered the payment transaction before signing (wallets sometimes inject fee or guard instructions). Nothing was sent or charged. Turn off transaction modification in the wallet settings, or pay with a different Solana wallet.`,
+				);
+			}
 			const signedB64 = uint8ArrayToBase64(signed.serialize());
 
 			const builderCodeBlock = buildBuilderCodeEcho(this.challenge);
@@ -1870,6 +1884,11 @@ function uint8ArrayToBase64(arr) {
 	let bin = '';
 	for (let i = 0; i < arr.length; i++) bin += String.fromCharCode(arr[i]);
 	return btoa(bin);
+}
+function bytesEqual(a, b) {
+	if (a.length !== b.length) return false;
+	for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+	return true;
 }
 function randomHex(bytes) {
 	const arr = new Uint8Array(bytes);

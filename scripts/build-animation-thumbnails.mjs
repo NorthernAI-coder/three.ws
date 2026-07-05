@@ -98,7 +98,10 @@ function loadJobs() {
 			jobs.push({
 				name: entry.name,
 				loop: entry.loop !== false,
-				clipPath: join(LIBRARY_CLIPS_DIR, entry.url),
+				// Staged manifest urls are library-root-relative (R2 layout,
+				// `clips/<name>.json`); the staged files themselves sit flat in the
+				// stage dir — same resolution mixamo-all.mjs's upload phase uses.
+				clipPath: join(LIBRARY_CLIPS_DIR, `${entry.name}.json`),
 				outPath: join(LIBRARY_OUT, `${entry.name}.webp`),
 			});
 		}
@@ -169,4 +172,7 @@ function loadJobs() {
 		await browser.close();
 		if (server) server.kill();
 	}
+	// The spawned dev server's stdio pipes would otherwise keep the event loop
+	// alive after the work is done.
+	process.exit(process.exitCode ?? 0);
 })();
