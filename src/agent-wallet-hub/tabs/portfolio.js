@@ -383,8 +383,8 @@ registerWalletTab({
 				<div style="overflow-x:auto;">
 				<table class="awh-port-table">
 					<thead><tr>
-						<th>Asset</th><th class="col-amt">Amount</th><th>Value</th>
-						<th class="col-basis">Cost basis</th><th>Unrealized</th><th></th>
+						<th scope="col">Asset</th><th scope="col" class="col-amt">Amount</th><th scope="col">Value</th>
+						<th scope="col" class="col-basis">Cost basis</th><th scope="col">Unrealized</th><th scope="col"><span class="awh-sr-only">Actions</span></th>
 					</tr></thead>
 					<tbody>${body}</tbody>
 				</table>

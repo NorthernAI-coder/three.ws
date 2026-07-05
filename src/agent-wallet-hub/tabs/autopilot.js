@@ -383,7 +383,7 @@ registerWalletTab({
 			const rows = (res.results || []).map((r) => {
 				const tone = STATUS_TONE[r.last_status] || 'muted';
 				const explorer = r.explorer || (r.signature ? explorerTxUrl(r.signature, ctx.getNetwork()) : null);
-				return `<li class="ap-rule"><span class="ic">${KIND_ICON[r.kind] || '•'}</span><div class="body"><div class="ttl">${esc(r.label)}</div><div class="note">${esc(r.last_note || r.last_status || '')}${explorer ? ` · <a href="${esc(explorer)}" target="_blank" rel="noopener">view tx ↗</a>` : ''}</div></div><div class="ctl"><span class="ap-chip ${tone}">${esc((r.last_status || '').replace('_', ' '))}</span></div></li>`;
+				return `<li class="ap-rule"><span class="ic" aria-hidden="true">${KIND_ICON[r.kind] || '•'}</span><div class="body"><div class="ttl">${esc(r.label)}</div><div class="note">${esc(r.last_note || r.last_status || '')}${explorer ? ` · <a href="${esc(explorer)}" target="_blank" rel="noopener">view tx ↗</a>` : ''}</div></div><div class="ctl"><span class="ap-chip ${tone}">${esc((r.last_status || '').replace('_', ' '))}</span></div></li>`;
 			}).join('');
 			return `<div style="margin-top:var(--space-md,14px)"><p class="sub" style="margin:0 0 8px">Last run</p><ul class="ap-rules">${rows}</ul></div>`;
 		}
