@@ -94,7 +94,7 @@ Representative raw challenge (`text_to_avatar`):
       "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
       "payTo": "wwwwwDxFWRn7grgr3Esrsg5C6NvDoDHSA4gaCffccrU",
       "maxTimeoutSeconds": 60,
-      "extra": { "name": "USDC", "decimals": 6, "feePayer": "2wKupLR9q6wXYppw8Gr2NvWxKBUqm4PPJKkQfoxHDBg4" }
+      "extra": { "name": "USDC", "decimals": 6, "feePayer": "PayeRNCipcerPHCsYMTrX9pAYDm1LnPGzgb66NUDG5a" }
     }]
   },
   "content": [

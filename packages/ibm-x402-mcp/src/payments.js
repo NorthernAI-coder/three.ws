@@ -44,7 +44,7 @@ export function assertPaymentEnv() {
 }
 
 function svmFeePayer() {
-	return env('X402_FEE_PAYER_SOLANA', '2wKupLR9q6wXYppw8Gr2NvWxKBUqm4PPJKkQfoxHDBg4');
+	return env('X402_FEE_PAYER_SOLANA', 'PayeRNCipcerPHCsYMTrX9pAYDm1LnPGzgb66NUDG5a');
 }
 
 function buildFacilitator() {

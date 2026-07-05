@@ -56,7 +56,7 @@ npm start
 | Thing | Where it comes from |
 | --- | --- |
 | **Payout wallet (`payTo`)** | **Set at runtime from the page** — `POST /api/config`, in memory. No env. |
-| Fee-payer sponsor | Public PayAI account `2wKupLR9q6wXYppw8Gr2NvWxKBUqm4PPJKkQfoxHDBg4` (pays SOL fees; not a secret, not the payout). Override with `X402_FEE_PAYER_SOLANA` only if you change facilitators. |
+| Fee-payer sponsor | Public PayAI account `PayeRNCipcerPHCsYMTrX9pAYDm1LnPGzgb66NUDG5a` (pays SOL fees; not a secret, not the payout). Override with `X402_FEE_PAYER_SOLANA` only if you change facilitators. |
 | Facilitator | `https://facilitator.payai.network` (no API key). Override with `X402_FACILITATOR_URL`. |
 | Solana RPC | Public mainnet RPC. Override with `SOLANA_RPC_URL` for anything beyond a quick try. |
 | Price | Fixed at `$0.01` USDC. |

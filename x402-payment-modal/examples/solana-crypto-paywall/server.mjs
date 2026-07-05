@@ -44,7 +44,7 @@ const PORT = Number(process.env.PORT) || 4021;
 // three.ws default sponsor — a PUBLIC pubkey (it pays the SOL network fee so the
 // buyer needs only USDC), NOT a secret and NOT the payout wallet. Override only
 // if you point X402_FACILITATOR_URL at a facilitator with a different sponsor.
-const FEE_PAYER = process.env.X402_FEE_PAYER_SOLANA || '2wKupLR9q6wXYppw8Gr2NvWxKBUqm4PPJKkQfoxHDBg4';
+const FEE_PAYER = process.env.X402_FEE_PAYER_SOLANA || 'PayeRNCipcerPHCsYMTrX9pAYDm1LnPGzgb66NUDG5a';
 
 // A public Solana RPC works for a quick try (rate-limited). Pass a dedicated RPC
 // for anything real. Not a payout/secret — purely network plumbing.
