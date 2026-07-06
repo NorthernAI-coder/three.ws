@@ -2,7 +2,7 @@
 
 ## Mission
 
-The credits expire in ~2 months. This prompt makes expiry a non-event: produce a single,
+The credits expire in ~1 year. This prompt makes expiry a non-event: produce a single,
 tested runbook that reverts every credit-funded reroute back to the pre-program state by
 flipping env vars (never migrating code), plus a data-driven keep/kill recommendation for each
 lane based on the spend/usage numbers gathered along the way. Run this near the end of the

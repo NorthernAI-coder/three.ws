@@ -19,7 +19,7 @@ acceptance criteria all pass.
 
 ## Ground rules baked into every prompt
 
-- **Everything behind env flags.** Credits expire in ~2 months; every reroute must revert by
+- **Everything behind env flags.** Credits expire in ~1 year; every reroute must revert by
   flipping env vars, never by migrating code back.
 - **No mocks, no placeholders, no half-wiring** (CLAUDE.md rules apply in full).
 - **Fail-safe chains.** Vertex/GCP lanes slot into existing provider chains as preferred lanes

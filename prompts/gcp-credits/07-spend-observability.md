@@ -2,7 +2,7 @@
 
 ## Mission
 
-$100k over ~2 months is ~$1,600/day. We need to see the burn in real time, attribute it to each
+$100k over ~1 year is ~$275/day. We need to see the burn in real time, attribute it to each
 lane (Vertex Claude, Imagen, GPU workers, spot CPU), and get alerted before any lane runs away —
 especially the GPU fleet (a stuck min-instances service or a runaway batch can burn hundreds/day
 silently) and Vertex Claude if production gets flipped to primary. Build the dashboard + alerts

@@ -2,7 +2,7 @@
 
 ## Mission
 
-We have ~$100k of Google Cloud credits expiring in ~2 months. This prompt sets up the GCP
+We have ~$100k of Google Cloud credits expiring in ~1 year. This prompt sets up the GCP
 foundation everything else builds on: verified billing/credits, enabled APIs, service accounts,
 Claude enabled in Vertex Model Garden with quota headroom, credentials wired into Vercel, and
 Claude Code dev sessions routable through Vertex. Later prompts (02–08) depend on the outputs of
