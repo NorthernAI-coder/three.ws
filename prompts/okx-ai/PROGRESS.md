@@ -78,8 +78,10 @@ is the only blocker to a fully-successful paid leg.
 
 ### Answers that unblock WO 02 (details + citations in the spec)
 
-- **Header divergence (the核心 delta):** buyer sends **`PAYMENT-SIGNATURE`** (not vanilla
-  x402's `X-PAYMENT`); success receipt is **`PAYMENT-RESPONSE`** (not `X-PAYMENT-RESPONSE`).
+- **Header delta:** the OKX rail uses **`PAYMENT-SIGNATURE`** (buyer→seller) + **`PAYMENT-RESPONSE`**
+  (seller→buyer) — these are the **x402 v2 standard** names (confirmed vs coinbase/x402 spec), NOT
+  an OKX invention. Our code emits the older **x402 v1** names (`X-PAYMENT`/`x-payment-response`)
+  while labeling itself "v2" — that's the delta to close for the X-Layer rail.
 - **Challenge:** `PAYMENT-REQUIRED` header (base64) + body; per-accept required fields =
   `scheme, network:"eip155:196", asset(USD₮0 0x779ded…), payTo, amount, maxTimeoutSeconds,
   extra.name:"USD₮0", extra.version:"1"`. `extra` uses `transferMethod` (NOT
