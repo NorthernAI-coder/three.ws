@@ -39,7 +39,7 @@ vi.mock('../../api/_lib/forge-scale.js', async (importOriginal) => {
 });
 
 const ORIGINAL_FETCH = globalThis.fetch;
-const ENV_KEYS = ['NVIDIA_API_KEY', 'GOOGLE_CLOUD_PROJECT', 'GCP_SERVICE_ACCOUNT_JSON', 'REPLICATE_API_TOKEN'];
+const ENV_KEYS = ['NVIDIA_API_KEY', 'GOOGLE_CLOUD_PROJECT', 'GCP_SERVICE_ACCOUNT_JSON', 'REPLICATE_API_TOKEN', 'VERTEX_IMAGEN_ENABLED'];
 const ORIGINAL_ENV = Object.fromEntries(ENV_KEYS.map((k) => [k, process.env[k]]));
 
 async function freshTextToImage() {
@@ -590,6 +590,61 @@ describe('textToImage — Vertex → Replicate fallback', () => {
 		expect(r2State.puts).toHaveLength(1);
 		expect(r2State.puts[0].contentType).toBe('image/png');
 		expect(Buffer.compare(r2State.puts[0].body, Buffer.from('fake-png-bytes'))).toBe(0);
+	});
+});
+
+describe('textToImage — VERTEX_IMAGEN_ENABLED gate', () => {
+	it('unset ⇒ current behavior: Vertex serves when the project is set', async () => {
+		process.env.GOOGLE_CLOUD_PROJECT = 'demo-project';
+		process.env.REPLICATE_API_TOKEN = 'r8_test_token';
+		vertexState.configured = true;
+		vertexState.generate = vi.fn(async () => ({
+			imageUrl: `data:image/png;base64,${Buffer.from('vx').toString('base64')}`,
+			model: 'vertex-ai/gemini-2.5-flash-image',
+		}));
+		const calls = stubFetch([['api.replicate.com', () => replicateSuccessResponse()]]);
+
+		const textToImage = await freshTextToImage();
+		const result = await textToImage('a red teapot');
+
+		expect(vertexState.generate).toHaveBeenCalledOnce();
+		expect(result.model).toBe('vertex-ai/gemini-2.5-flash-image');
+		expect(calls).toHaveLength(0); // Replicate never reached
+	});
+
+	it('=0 forces the Vertex lane off, falling through to Replicate', async () => {
+		process.env.GOOGLE_CLOUD_PROJECT = 'demo-project';
+		process.env.REPLICATE_API_TOKEN = 'r8_test_token';
+		process.env.VERTEX_IMAGEN_ENABLED = '0';
+		vertexState.configured = true;
+		vertexState.generate = vi.fn(async () => {
+			throw new Error('vertex should never be called when gated off');
+		});
+		const calls = stubFluxSuccess();
+
+		const textToImage = await freshTextToImage();
+		const result = await textToImage('a red teapot');
+
+		expect(vertexState.generate).not.toHaveBeenCalled();
+		expect(result.model).toBe('black-forest-labs/flux-schnell');
+		expect(calls.some((c) => c.url.includes('api.replicate.com'))).toBe(true);
+	});
+
+	it('=1 keeps the Vertex lane on', async () => {
+		process.env.GOOGLE_CLOUD_PROJECT = 'demo-project';
+		process.env.VERTEX_IMAGEN_ENABLED = '1';
+		vertexState.configured = true;
+		vertexState.generate = vi.fn(async () => ({
+			imageUrl: `data:image/png;base64,${Buffer.from('vx').toString('base64')}`,
+			model: 'vertex-ai/gemini-2.5-flash-image',
+		}));
+		stubFetch([]);
+
+		const textToImage = await freshTextToImage();
+		const result = await textToImage('a red teapot');
+
+		expect(vertexState.generate).toHaveBeenCalledOnce();
+		expect(result.model).toBe('vertex-ai/gemini-2.5-flash-image');
 	});
 });
 

@@ -21,6 +21,11 @@ import { limits, clientIp } from '../_lib/rate-limit.js';
 import { watsonxConfig, watsonxChatRequest } from '../_lib/watsonx.js';
 import { DEFAULT_FREE_MODEL } from '../_lib/chat-models.js';
 import { createReasoningStripper } from '../_lib/strip-reasoning.js';
+import {
+	vertexClaudeEnabled,
+	vertexClaudeConfigured,
+	vertexAnthropicMessages,
+} from '../_lib/vertex-claude.js';
 
 // Providers an anonymous (signed-out) caller may use: only the genuinely free
 // tiers — the OpenRouter-routed open-weight default and the free NVIDIA NIM
@@ -187,6 +192,41 @@ const PROVIDERS = {
 		watsonx: true,
 	},
 
+	// ── Google Vertex AI — first-party Claude billed to GCP credits ──────────────
+	// Only present when VERTEX_CLAUDE_ENABLED (merged below), so the /brain roster
+	// is byte-identical when the flag is off. The `vertex` flag names the Vertex
+	// publisher model id; buildPrimary() routes it through the shared vertex-claude
+	// transport (like the `watsonx` flag), so /brain can compare Vertex-served
+	// Claude head-to-head with first-party Claude and every other provider.
+	...(vertexClaudeEnabled()
+		? {
+				'vertex-claude-sonnet': {
+					label: 'Claude Sonnet 4.6 · Vertex',
+					network: 'Anthropic · Google Vertex',
+					tier: 'balanced',
+					maxOutput: 16384,
+					description: 'Claude Sonnet 4.6 served from Google Vertex AI (billed to GCP credits).',
+					vertex: 'claude-sonnet-4-6',
+				},
+				'vertex-claude-opus': {
+					label: 'Claude Opus 4.7 · Vertex',
+					network: 'Anthropic · Google Vertex',
+					tier: 'flagship',
+					maxOutput: 16384,
+					description: 'Claude Opus 4.7 served from Google Vertex AI (billed to GCP credits).',
+					vertex: 'claude-opus-4-7',
+				},
+				'vertex-claude-haiku': {
+					label: 'Claude Haiku 4.5 · Vertex',
+					network: 'Anthropic · Google Vertex',
+					tier: 'fast',
+					maxOutput: 8192,
+					description: 'Claude Haiku 4.5 served from Google Vertex AI (billed to GCP credits).',
+					vertex: 'claude-haiku-4-5-20251001',
+				},
+			}
+		: {}),
+
 	// ── NVIDIA NIM (build.nvidia.com) — free hosted inference ────────────────────
 	// One free `nvapi-...` key (NVIDIA_API_KEY) unlocks all of these. NVIDIA-hosted,
 	// so there is no first-party-vs-OpenRouter split: `native` is the only route and
@@ -268,6 +308,10 @@ function openrouterKeys() {
 // distinct escape hatch.
 function buildPrimary(spec) {
 	if (spec.watsonx) return watsonxConfig().configured ? { kind: 'watsonx' } : null;
+	// Vertex-served Claude — routed through the shared vertex-claude transport
+	// (not an AI SDK model object), so it reports availability here and streams
+	// via streamVertex() in streamBrain(). Requires the GCP project to be set.
+	if (spec.vertex) return vertexClaudeConfigured() ? { kind: 'vertex', model: spec.vertex } : null;
 	const native = spec.native?.();
 	if (native) return { kind: 'model', model: native, via: 'native' };
 	if (spec.openrouterModel && openrouterKeys().length) {
@@ -588,9 +632,12 @@ export async function streamBrain(res, { plan, providerKey, messages, system, ma
 	// error event while any free provider can still answer. Once partial output
 	// has streamed we are committed to that attempt.
 	try {
-		const attempts = primary.kind === 'watsonx'
-			? [{ label: 'watsonx', watsonx: true }]
-			: [{ label: 'primary', model: primary.model }];
+		const attempts =
+			primary.kind === 'watsonx'
+				? [{ label: 'watsonx', watsonx: true }]
+				: primary.kind === 'vertex'
+					? [{ label: 'vertex', vertex: true, model: primary.model }]
+					: [{ label: 'primary', model: primary.model }];
 		if (fallbackModel) attempts.push({ label: 'openrouter-mirror', model: fallbackModel });
 		for (const f of freeFallbackChain(providerKey, spec, primary)) attempts.push(f);
 

@@ -340,7 +340,7 @@ export async function textToImage(prompt, { aspectRatio = '1:1', skipNim = false
 		try {
 			const { generateImage, isConfigured } = await import('./vertex-imagen.js');
 			if (isConfigured()) {
-				return await persistDataUriImage(await generateImage(prompt, { aspectRatio }));
+				return logImageProvider(await persistDataUriImage(await generateImage(prompt, { aspectRatio })));
 			}
 		} catch (err) {
 			if (!token) throw err;
@@ -477,7 +477,7 @@ export async function textToImage(prompt, { aspectRatio = '1:1', skipNim = false
 			const finished = await pollReplicatePrediction(getUrl, token);
 			url = extractImageUrl(finished?.output);
 			if (url) {
-				return { imageUrl: url, predictionId: finished?.id || data.id, model: modelRef };
+				return logImageProvider({ imageUrl: url, predictionId: finished?.id || data.id, model: modelRef });
 			}
 			throw new Error(
 				`text-to-image did not complete (status: ${finished?.status || data.status})`,
@@ -488,5 +488,5 @@ export async function textToImage(prompt, { aspectRatio = '1:1', skipNim = false
 		}
 		throw new Error('text-to-image finished but produced no image');
 	}
-	return { imageUrl: url, predictionId: data.id, model: modelRef };
+	return logImageProvider({ imageUrl: url, predictionId: data.id, model: modelRef });
 }

@@ -20,7 +20,7 @@ they build on the foundation.
 |---|---|
 | **Project ID** | `aerial-vehicle-466722-p5` |
 | Source of truth | Active `gcloud config` default in the dev container; the project the existing worker deploy flow and `api/_mcp3d/vertex-imagen.js` target. |
-| Active gcloud account | `nich@sperax.io` |
+| Active gcloud account | The project owner's Google account (see team vault; not published here). |
 | Known GCS buckets | `three-ws-model-weights`, `three-ws-avatar-reconstructions` |
 | Default region | `us-central1` (Cloud Run + Imagen). Claude partner models use `global`. |
 
@@ -288,7 +288,7 @@ back out.
    non-interactive execution"* — the org enforces a session-control reauth
    interval. Owner runs, interactively:
    ```bash
-   gcloud auth login                      # re-consent nich@sperax.io
+   gcloud auth login                      # re-consent the project owner's Google account
    gcloud auth application-default login   # for Claude Code dev sessions
    gcloud config set project aerial-vehicle-466722-p5
    ```

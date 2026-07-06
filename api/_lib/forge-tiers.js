@@ -445,9 +445,21 @@ export function freeLaneCandidates(p, tierId, userImages) {
 	const named = FREE_DEFAULT_FOR_TIERS[tierId]?.[p];
 	if (named) ordered.push(named);
 	for (const id of FREE_FALLBACK_FOR_PATH[p] || []) ordered.push(id);
+	// FORGE_SELFHOST_PRIMARY: when our own Cloud Run GPU fleet is live, hoist the
+	// self-host lanes ahead of every hosted free lane (NVIDIA NIM / HuggingFace) so
+	// the platform spends the GCP credits it controls before any external free
+	// allocation — and so image→3D, which the hosted NIM preview rejects, serves off
+	// our own TRELLIS. Stable partition: it only reorders self-host ↑ / hosted ↓ and
+	// preserves each group's internal order, leaving the hosted lanes intact as
+	// fallthrough. A no-op on deployments without the worker URLs (those lanes are
+	// filtered by freeLaneUsable anyway) and off by default — unset the flag to
+	// restore today's tier-named ordering instantly.
+	const prioritized = selfHostPrimary()
+		? [...ordered.filter(isSelfHostBackend), ...ordered.filter((id) => !isSelfHostBackend(id))]
+		: ordered;
 	const seen = new Set();
 	const out = [];
-	for (const id of ordered) {
+	for (const id of prioritized) {
 		if (seen.has(id)) continue;
 		seen.add(id);
 		if (freeLaneUsable(id, p, userImages)) out.push(id);
@@ -539,6 +551,18 @@ export function preferFreeReconstruct() {
 	const v = readEnv('FORGE_PREFER_FREE');
 	if (v == null || v === '') return true;
 	return !/^(0|false|off|no)$/i.test(String(v).trim());
+}
+
+// Self-host-primary routing. When ON, freeLaneCandidates hoists our own Cloud Run
+// GPU workers (SELF_HOST_PROVIDERS) ahead of the hosted free lanes for every path
+// and tier, so once the fleet is deployed the platform serves generations off the
+// GCP credits it controls instead of the rate-limited hosted NVIDIA NIM allocation.
+// OFF by default (opt-in per the credit-window rollout) and reversible — unset
+// FORGE_SELFHOST_PRIMARY to fall straight back to today's ordering with no redeploy.
+export function selfHostPrimary() {
+	const v = readEnv('FORGE_SELFHOST_PRIMARY');
+	if (v == null || v === '') return false;
+	return /^(1|true|on|yes)$/i.test(String(v).trim());
 }
 
 // A platform backend is "live" only when its required env is present. BYOK
