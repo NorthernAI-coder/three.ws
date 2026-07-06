@@ -149,6 +149,135 @@ export const PROVIDERS = [
 		],
 	},
 	{
+		id: 'jupiter',
+		name: 'Jupiter',
+		category: 'crypto-market-data',
+		// Jupiter's keyless "lite" tier (no API key). The paid/keyed tier lives on
+		// api.jup.ag behind an x-api-key header; the descriptor base is static, so
+		// we intentionally stay on the lite base and expose no BYOK header — every
+		// endpoint here is Jupiter's free keyless surface.
+		base: 'https://lite-api.jup.ag',
+		requiresKey: false,
+		envVar: null,
+		byokHeader: null,
+		applyKey: () => {},
+		endpoints: [
+			{
+				id: 'price',
+				method: 'GET',
+				// Verified live 2026-07-06: /price/v3 responds; /price/v2 → "Route not found".
+				path: '/price/v3',
+				query: (q) => ({ ids: required(q.ids, 'ids') }),
+				// v3 returns { [mint]: { usdPrice, decimals, priceChange24h, liquidity,
+				// blockId, createdAt, launchpad? } }. Keep the stable, agent-useful
+				// fields under normalized names; unknown mints are simply absent.
+				transform: (data) => {
+					if (!data || typeof data !== 'object' || Array.isArray(data)) return {};
+					const out = {};
+					for (const [mint, v] of Object.entries(data)) {
+						if (!v || typeof v !== 'object') continue;
+						out[mint] = {
+							price_usd: v.usdPrice,
+							decimals: v.decimals,
+							price_change_24h: v.priceChange24h,
+							liquidity: v.liquidity,
+							block_id: v.blockId,
+						};
+					}
+					return out;
+				},
+				free: { perMin: 20, perDay: 2000 },
+				priceAtomics: '1000',
+				scope: 'agents:read',
+				summary: 'Live USD price for one or more Solana tokens by mint (Jupiter keyless tier).',
+				params: {
+					ids: 'comma-separated Solana mint addresses, e.g. "FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump,So11111111111111111111111111111111111111112" (required)',
+				},
+			},
+			{
+				id: 'quote',
+				method: 'GET',
+				// Verified live 2026-07-06: /swap/v1/quote responds; /v6/quote → "Route not found".
+				path: '/swap/v1/quote',
+				query: (q) => ({
+					inputMint: required(q.inputMint, 'inputMint'),
+					outputMint: required(q.outputMint, 'outputMint'),
+					amount: required(q.amount, 'amount'),
+					slippageBps: q.slippageBps || '50',
+				}),
+				// The true executable price. Keep the amounts + impact + a slimmed route
+				// (label, mints, percent per hop); drop the heavy AMM/quote-report noise.
+				transform: (data) => {
+					if (!data || typeof data !== 'object') return data;
+					return {
+						inputMint: data.inputMint,
+						outputMint: data.outputMint,
+						inAmount: data.inAmount,
+						outAmount: data.outAmount,
+						otherAmountThreshold: data.otherAmountThreshold,
+						swapMode: data.swapMode,
+						slippageBps: data.slippageBps,
+						priceImpactPct: data.priceImpactPct,
+						routePlan: Array.isArray(data.routePlan)
+							? data.routePlan.map((hop) => ({
+									label: hop?.swapInfo?.label,
+									inputMint: hop?.swapInfo?.inputMint,
+									outputMint: hop?.swapInfo?.outputMint,
+									percent: hop?.percent,
+								}))
+							: [],
+					};
+				},
+				free: { perMin: 20, perDay: 2000 },
+				priceAtomics: '1000',
+				scope: 'agents:read',
+				summary: 'Executable swap quote (true routed price) between two Solana mints (Jupiter keyless tier).',
+				params: {
+					inputMint: 'input token mint address, e.g. "So11111111111111111111111111111111111111112" (required)',
+					outputMint: 'output token mint address, e.g. USDC "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" (required)',
+					amount: 'input amount in atomic units (integer string), e.g. "1000000000" for 1 SOL (required)',
+					slippageBps: 'allowed slippage in basis points (default "50" = 0.5%)',
+				},
+			},
+			{
+				id: 'token-search',
+				method: 'GET',
+				// Verified live 2026-07-06: /tokens/v2/search responds; /tokens/v1/* → "Route not found".
+				path: '/tokens/v2/search',
+				query: (q) => ({ query: required(q.query, 'query') }),
+				// v2 search returns a rich array; slim each hit to the identity fields
+				// agents use and derive 24h volume from the stats24h buy/sell split.
+				// Cap 20 so one call never ships a multi-hundred-KB payload.
+				transform: (data) => {
+					if (!Array.isArray(data)) return [];
+					return data.slice(0, 20).map((t) => {
+						const s = t?.stats24h;
+						const daily_volume =
+							s && (s.buyVolume != null || s.sellVolume != null)
+								? (Number(s.buyVolume) || 0) + (Number(s.sellVolume) || 0)
+								: undefined;
+						return {
+							address: t?.id,
+							name: t?.name,
+							symbol: t?.symbol,
+							decimals: t?.decimals,
+							logoURI: t?.icon,
+							tags: Array.isArray(t?.tags) ? t.tags : undefined,
+							daily_volume,
+						};
+					});
+				},
+				free: { perMin: 20, perDay: 2000 },
+				priceAtomics: '1000',
+				scope: 'agents:read',
+				summary: 'Search Solana tokens by name/symbol/mint → address, metadata, tags, 24h volume (Jupiter keyless tier).',
+				params: {
+					query: 'search text — token name, symbol, or mint address, e.g. "three.ws" or a mint (required)',
+				},
+			},
+		],
+	},
+	{
 		id: 'openai',
 		name: 'OpenAI-compatible LLM',
 		category: 'ai-inference',
