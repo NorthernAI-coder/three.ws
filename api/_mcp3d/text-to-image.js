@@ -126,6 +126,25 @@ function readEnv(name) {
 	return null;
 }
 
+// Explicit on/off gate for the Vertex image lane, independent of
+// GOOGLE_CLOUD_PROJECT (which Vertex Claude and the workers also need — too blunt
+// to double as this lane's switch). Unset ⇒ today's behavior: the lane is active
+// whenever the project is set. Set VERTEX_IMAGEN_ENABLED to 0/false/no/off to
+// force the lane off without unsetting the shared GCP project; anything else
+// (1/true/…) keeps it on.
+function vertexImagenEnabled() {
+	const raw = readEnv('VERTEX_IMAGEN_ENABLED');
+	if (raw == null) return true; // unset ⇒ preserve current behavior
+	return !/^(0|false|no|off)$/i.test(String(raw).trim());
+}
+
+// Record which provider actually served an image so spend attribution and
+// debugging work (the forge job also persists result.model as text_to_image_model).
+function logImageProvider(result) {
+	if (result?.model) console.log(`[text-to-image] served by ${result.model}`);
+	return result;
+}
+
 // Pull the first https image URL out of Replicate's `output`, which flux models
 // emit as an array of URLs (sometimes a bare string for single-image models).
 function extractImageUrl(output) {
@@ -286,7 +305,7 @@ function enhanceFluxPrompt(raw) {
 export async function textToImage(prompt, { aspectRatio = '1:1', skipNim = false } = {}) {
 	prompt = enhanceFluxPrompt(prompt);
 	const token = readEnv('REPLICATE_API_TOKEN');
-	const hasVertex = !!readEnv('GOOGLE_CLOUD_PROJECT');
+	const hasVertex = !!readEnv('GOOGLE_CLOUD_PROJECT') && vertexImagenEnabled();
 	const hasFallback = hasVertex || !!token;
 
 	// ── NVIDIA NIM FLUX (free, first) ─────────────────────────────────────────
@@ -300,7 +319,7 @@ export async function textToImage(prompt, { aspectRatio = '1:1', skipNim = false
 		(skipNim || (await providersInCooldown([NIM_FLUX_COOLDOWN_KEY])).has(NIM_FLUX_COOLDOWN_KEY));
 	if (readEnv('NVIDIA_API_KEY') && !nimCooling) {
 		try {
-			return await nimFluxImage(prompt, aspectRatio);
+			return logImageProvider(await nimFluxImage(prompt, aspectRatio));
 		} catch (err) {
 			// A degraded lane (timeout / unreachable / throttle / 5xx) cools down so the
 			// next caller skips it; a clean 4xx (bad input) is not a lane-health fault.
