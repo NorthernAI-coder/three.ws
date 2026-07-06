@@ -26,6 +26,13 @@ import { env } from './env.js';
 import { recordEvent } from './usage.js';
 import { costMicroUsd } from './llm-pricing.js';
 import { sql } from './db.js';
+import {
+	vertexClaudeEnabled,
+	vertexClaudePrimary,
+	vertexMessagesUrl,
+	vertexRequestHeaders,
+	toVertexBody,
+} from './vertex-claude.js';
 
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
 const OPENROUTER_MODEL = 'meta-llama/llama-3.3-70b-instruct';
@@ -109,6 +116,30 @@ function anthropicProvider(key, model) {
 			system,
 			messages: [{ role: 'user', content: user }],
 		}),
+		extractText: (r) => r.content?.[0]?.text || '',
+		extractUsage: (r) => ({ input: r.usage?.input_tokens ?? 0, output: r.usage?.output_tokens ?? 0 }),
+	};
+}
+
+// Vertex-served Claude, same Anthropic Messages shape as anthropicProvider but
+// billed to GCP credits. Headers carry a GCP OAuth bearer token resolved per
+// request (getHeaders is async — the completion loop awaits it), the model id
+// lives in the URL, and the body gains `anthropic_version`. A token-exchange or
+// upstream failure falls through the chain exactly like any other provider.
+function vertexAnthropicProvider(model) {
+	const m = model || ANTHROPIC_MODEL;
+	return {
+		name: 'vertex-anthropic',
+		model: m,
+		url: vertexMessagesUrl(m, { stream: false }),
+		getHeaders: vertexRequestHeaders,
+		buildBody: (system, user, maxTokens) =>
+			toVertexBody({
+				model: m,
+				max_tokens: maxTokens,
+				system,
+				messages: [{ role: 'user', content: user }],
+			}),
 		extractText: (r) => r.content?.[0]?.text || '',
 		extractUsage: (r) => ({ input: r.usage?.input_tokens ?? 0, output: r.usage?.output_tokens ?? 0 }),
 	};
