@@ -483,6 +483,12 @@ export const limits = {
 	// image/text→3D inference against the NIM, so cap per principal to keep that
 	// GPU egress bounded. Non-critical: a Redis blip must never block the demo.
 	forgeNim: (key) => getLimiter('forge:nim', { limit: 30, window: '1 h' }).limit(key),
+	// Free text→3D lane (api/v1/ai/text-to-3d) — each generation drives one real
+	// NVIDIA NIM TRELLIS GPU inference, so the free tier is a per-IP daily quota
+	// (10/day). Above it the endpoint returns 429 + a pointer to the paid
+	// /api/x402/forge tiers rather than paywalling silently. Non-critical: a Redis
+	// blip degrades to the per-instance memory limiter, never blocks generation.
+	aiTextTo3d: (ip) => getLimiter('ai:text-to-3d', { limit: 10, window: '24 h' }).limit(ip),
 	// Diorama composer (api/diorama action:compose) — one free-first LLM
 	// completion per call that decomposes a sentence into a placed object set.
 	// Paid upstream egress, so cap per IP and add a global hourly circuit breaker.
