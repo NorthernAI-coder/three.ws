@@ -64,3 +64,8 @@ public/skills.mp4
 vite.config.artifact.js
 playwright.config.*
 scripts/gitpretty.sh
+
+# Local prompt-pack scratch (git-ignored) — must not ship in the deploy upload;
+# the build-time verify:solana scanner walks every uploaded file and reference
+# snippets in here carry non-canonical constants by design.
+_prompts/

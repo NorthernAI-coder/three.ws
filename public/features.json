@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-06T20:50:51.799Z",
+	"generated_at": "2026-07-06T21:07:37.673Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -856,6 +856,16 @@
 			"title": "Crypto",
 			"description": "On-chain features: pay-per-call, token launches, vanity wallets.",
 			"pages": [
+				{
+					"path": "/sperax",
+					"title": "Sperax on three.ws",
+					"description": "Free AI credits for three.ws users on chat.sperax.io — what the integration is and how to claim it.",
+					"added": "2026-07-05",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
 				{
 					"path": "/agi",
 					"title": "The AGI — narrow by design",
