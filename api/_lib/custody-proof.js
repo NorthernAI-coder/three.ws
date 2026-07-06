@@ -16,8 +16,8 @@ import {
 	PublicKey,
 	Transaction,
 	TransactionInstruction,
-	sendAndConfirmTransaction,
 } from '@solana/web3.js';
+import { sendAndConfirm } from './solana/confirm.js';
 
 import { sql } from './db.js';
 import { solanaConnection } from './solana/connection.js';
@@ -267,7 +267,7 @@ export async function anchorRoot({ epoch, root, walletCount }) {
 	let signature;
 	try {
 		signature = await withTimeout(
-			sendAndConfirmTransaction(conn, tx, [attester], { commitment: 'confirmed' }),
+			sendAndConfirm(conn, tx, [attester], { commitment: 'confirmed' }),
 			TX_TIMEOUT_MS,
 		);
 	} catch (e) {

@@ -31,8 +31,11 @@ function mockConnection(captured) {
 			captured.raw = raw;
 			return 'sigSENT';
 		}),
-		confirmTransaction: vi.fn(async () => ({ value: { err: null }, context: { slot: 7 } })),
+		// HTTP-polling confirm reads getSignatureStatuses (plural); getSignatureStatus
+		// (singular) backs the ambiguous-timeout re-check path.
+		getSignatureStatuses: vi.fn(async () => ({ value: [{ err: null, confirmationStatus: 'confirmed', slot: 7 }], context: { slot: 7 } })),
 		getSignatureStatus: vi.fn(async () => ({ value: { err: null, confirmationStatus: 'confirmed', slot: 7 } })),
+		getBlockHeight: vi.fn(async () => 10),
 	};
 }
 

@@ -3,7 +3,7 @@
 
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { sql } from '../_lib/db.js';
-import { confirmOrThrow } from '../_lib/solana/confirm.js';
+import { confirmOrThrow, pollConfirmation } from '../_lib/solana/confirm.js';
 import { cors, json, method, error, readJson, rateLimited, serverError } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { requireCsrf } from '../_lib/csrf.js';
@@ -368,7 +368,14 @@ async function handleWallet(req, res, id) {
 
 	const [row] = await sql`SELECT id, user_id, meta FROM agent_identities WHERE id = ${id} AND deleted_at IS NULL`;
 	if (!row) return error(res, 404, 'not_found', 'agent not found');
-	if (row.user_id !== auth.userId) return error(res, 403, 'forbidden', 'not your agent');
+	// A signed-in visitor browsing someone else's agent gets the public wallet
+	// card, not a 403 — the same read an unauthenticated visitor gets. Only the
+	// mutating methods (POST/DELETE provision/import/wipe the keypair) are
+	// owner-gated below.
+	if (row.user_id !== auth.userId) {
+		if (req.method === 'GET') return handlePublicWalletRead(req, res, id);
+		return error(res, 403, 'forbidden', 'not your agent');
+	}
 
 	// Provisioning, importing, and wiping a custodial keypair all change which
 	// keys control the agent's funds — gate the mutating methods behind CSRF so
@@ -802,7 +809,8 @@ async function handleWithdraw(req, res, id) {
 
 	let confirmed = true;
 	try {
-		const r = await conn.confirmTransaction(
+		const r = await pollConfirmation(
+			conn,
 			{ signature, blockhash: blockhashCtx.blockhash, lastValidBlockHeight: blockhashCtx.lastValidBlockHeight },
 			'confirmed',
 		);
@@ -1289,11 +1297,8 @@ async function sendV0({ conn, payer, ixs }) {
 	const vtx = new VersionedTransaction(msg);
 	vtx.sign([payer]);
 	const sig = await conn.sendRawTransaction(vtx.serialize(), { skipPreflight: false, maxRetries: 3 });
-	const r = await conn.confirmTransaction(
-		{ signature: sig, blockhash: bh.blockhash, lastValidBlockHeight: bh.lastValidBlockHeight },
-		'confirmed',
-	);
-	if (r?.value?.err) throw new Error(`transaction ${sig} failed: ${JSON.stringify(r.value.err)}`);
+	// HTTP-polling confirm (no WebSocket) — throws on a landed-but-reverted tx.
+	await confirmOrThrow(conn, { signature: sig, blockhash: bh.blockhash, lastValidBlockHeight: bh.lastValidBlockHeight }, 'confirmed');
 	return sig;
 }
 

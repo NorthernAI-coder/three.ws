@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-05T22:02:38.116Z",
+	"generated_at": "2026-07-05T22:46:58.570Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -74,6 +74,16 @@
 			"type": "update",
 			"title": "Agent profile page no longer collapses into a broken narrow column",
 			"summary": "On some window sizes an agent's profile page could strand every card into a single skinny column down the left edge, leaving a huge empty gutter and a page that ran on forever. The card layout was rebuilt on a resilient grid that always tiles cards evenly across the full width and stretches to fill — so the page reads cleanly at every screen size, from ultrawide down to phone.",
+			"link": null,
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-07-05",
+			"type": "update",
+			"title": "Agent wallet card now loads for signed-in visitors, not just the owner",
+			"summary": "When you were signed in and viewed an agent that wasn't yours, its wallet card failed to load — the balance panel returned a permission error instead of the public wallet view an unauthenticated visitor already got. Signed-in visitors now see the same read-only wallet card (address and balance) as everyone else; provisioning, importing, or clearing a wallet stays owner-only.",
 			"link": null,
 			"tags": [
 				"fix"
@@ -173,6 +183,17 @@
 			"link": "/pricing",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-07-05",
+			"type": "update",
+			"title": "Live money feed hardened — on-chain confirmations no longer stall or flood the logs",
+			"summary": "The engine that confirms the platform's real on-chain transactions (funding, transfers, trades, launches, tips, and every attestation) was waiting on a WebSocket to each Solana RPC. When a provider rate-limited that socket, it reconnected in a tight loop — burying the logs in thousands of errors a minute and hanging the autonomous activity engine until it timed out, which showed up as gaps in the live feed. Confirmations now poll the chain over plain HTTP, which rides the same multi-provider failover as every other RPC call: a throttled provider is skipped instead of hammered, and a reverted transaction is always caught instead of being recorded as success. The feed stays live and the noise is gone.",
+			"link": null,
+			"tags": [
+				"fix",
+				"infra"
 			]
 		},
 		{

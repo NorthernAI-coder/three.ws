@@ -95,6 +95,8 @@ const fakeConn = {
 	getRecentPrioritizationFees: vi.fn(async () => [{ prioritizationFee: 1_000 }, { prioritizationFee: 2_000 }]),
 	sendRawTransaction: vi.fn(async () => { connState.sent += 1; return connState.sig; }),
 	confirmTransaction: vi.fn(async () => ({ value: { err: connState.confirmErr } })),
+	getSignatureStatuses: vi.fn(async () => ({ value: [{ err: connState.confirmErr, confirmationStatus: 'confirmed', slot: 1 }], context: { slot: 1 } })),
+	getBlockHeight: vi.fn(async () => 1),
 	getSignatureStatus: vi.fn(async () => ({ value: { err: null, confirmationStatus: 'confirmed' } })),
 };
 vi.mock('../api/_lib/agent-pumpfun.js', () => ({

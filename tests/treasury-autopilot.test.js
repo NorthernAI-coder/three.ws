@@ -44,6 +44,8 @@ vi.mock('../api/_lib/agent-pumpfun.js', () => ({
 		sendRawTransaction: vi.fn(async () => 'SIG_swap'),
 		getLatestBlockhash: vi.fn(async () => ({ blockhash: 'bh', lastValidBlockHeight: 1 })),
 		confirmTransaction: vi.fn(async () => ({ value: { err: null } })),
+		getSignatureStatuses: vi.fn(async () => ({ value: [{ err: null, confirmationStatus: 'confirmed', slot: 1 }], context: { slot: 1 } })),
+		getBlockHeight: vi.fn(async () => 1),
 	})),
 }));
 

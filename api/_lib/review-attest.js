@@ -17,7 +17,8 @@
  */
 
 import crypto from 'node:crypto';
-import { PublicKey, Transaction, TransactionInstruction, sendAndConfirmTransaction } from '@solana/web3.js';
+import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
+import { sendAndConfirm } from './solana/confirm.js';
 
 import { sql } from './db.js';
 import { solanaConnection } from './solana/connection.js';
@@ -129,7 +130,7 @@ export async function attestReview({ reviewId, updatedAt, agentId, rating, body,
 	let signature;
 	try {
 		signature = await withTimeout(
-			sendAndConfirmTransaction(conn, new Transaction().add(ix), [attester], { commitment: 'confirmed' }),
+			sendAndConfirm(conn, new Transaction().add(ix), [attester], { commitment: 'confirmed' }),
 			TX_TIMEOUT_MS,
 		);
 	} catch (err) {

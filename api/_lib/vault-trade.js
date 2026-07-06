@@ -15,6 +15,7 @@
 import { PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddressSync, getMint, TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
 import { solanaConnection } from './agent-pumpfun.js';
+import { confirmOrThrow } from './solana/confirm.js';
 import { logAudit } from './audit.js';
 import { explorerTxUrl } from './avatar-wallet.js';
 import {
@@ -60,13 +61,13 @@ async function signSendConfirm(conn, tx, keypair) {
 	tx.sign([keypair]);
 	const sig = await conn.sendRawTransaction(tx.serialize(), { skipPreflight: false, maxRetries: 3 });
 	const bh = await conn.getLatestBlockhash('confirmed');
-	const res = await conn.confirmTransaction(
+	// HTTP-polling confirm (no WebSocket) — throws `tx_reverted` on a landed-but-
+	// reverted swap, so a revert is never recorded as a successful trade.
+	await confirmOrThrow(
+		conn,
 		{ signature: sig, blockhash: bh.blockhash, lastValidBlockHeight: bh.lastValidBlockHeight },
 		'confirmed',
 	);
-	if (res?.value?.err) {
-		throw Object.assign(new Error('transaction reverted on-chain'), { code: 'tx_reverted', signature: sig });
-	}
 	return sig;
 }
 

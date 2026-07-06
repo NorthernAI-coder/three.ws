@@ -23,7 +23,10 @@ vi.mock('../../api/_lib/db.js', () => ({
 }));
 
 vi.mock('../../api/_lib/rate-limit.js', () => ({
-	limits: { authIp: vi.fn(async () => ({ success: true })) },
+	limits: {
+		authIp: vi.fn(async () => ({ success: true })),
+		walletRead: vi.fn(async () => ({ success: true })),
+	},
 	clientIp: vi.fn(() => '127.0.0.1'),
 }));
 
@@ -152,6 +155,29 @@ describe('POST /api/agents/:id/solana — import vanity wallet', () => {
 		});
 		expect(status).toBe(409);
 		expect(body.error).toBe('conflict');
+	});
+});
+
+describe('GET /api/agents/:id/solana — visitor read', () => {
+	it('serves the public wallet card to a signed-in non-owner (200, not 403)', async () => {
+		authState.session = { id: 'u1' };
+		// handleWallet loads the owned row first (owned by someone else), then the
+		// public read re-queries id+meta. No solana_address → wallet:null without
+		// touching RPC.
+		sqlState.queue.push([{ id: 'agent-1', user_id: 'someone-else', meta: {} }]);
+		sqlState.queue.push([{ id: 'agent-1', meta: {} }]);
+		const { status, body } = await invoke({ method: 'GET' });
+		expect(status).toBe(200);
+		expect(body.data.wallet).toBeNull();
+		expect(body.data.chain).toBe('solana');
+	});
+
+	it('still serves the public read to an unauthenticated visitor (200)', async () => {
+		authState.session = null;
+		sqlState.queue.push([{ id: 'agent-1', meta: {} }]);
+		const { status, body } = await invoke({ method: 'GET' });
+		expect(status).toBe(200);
+		expect(body.data.wallet).toBeNull();
 	});
 });
 

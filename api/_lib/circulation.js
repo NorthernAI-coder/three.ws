@@ -18,6 +18,7 @@
 
 import { sql } from './db.js';
 import { env } from './env.js';
+import { confirmOrThrow } from './solana/confirm.js';
 import { randomUUID } from 'node:crypto';
 import { scrubSecrets } from './scrub-secrets.js';
 import {
@@ -224,8 +225,10 @@ async function transferSol(conn, fromKp, toAddress, lamports) {
 		tx.sign([fromKp]);
 		try {
 			const signature = await conn.sendTransaction(tx, { maxRetries: 5 });
-			const conf = await conn.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
-			if (conf.value?.err) throw new Error('transfer failed on-chain: ' + JSON.stringify(conf.value.err));
+			// HTTP-polling confirm — routes through the RPC failover fetch and opens
+			// no WebSocket, so a throttled provider can't trigger web3.js's WS 429
+			// reconnect storm. Throws on a landed-but-reverted transfer.
+			await confirmOrThrow(conn, { signature, blockhash, lastValidBlockHeight }, 'confirmed');
 			return signature;
 		} catch (err) {
 			const msg = err?.message || '';

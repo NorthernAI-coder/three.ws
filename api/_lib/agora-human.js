@@ -16,6 +16,7 @@
 
 import { createHash } from 'node:crypto';
 import { sql } from './db.js';
+import { confirmOrThrow, sendAndConfirm } from './solana/confirm.js';
 import { generateSolanaAgentWallet, getSolanaAddressBalances } from './agent-wallet.js';
 import { decryptSecret } from './secret-box.js';
 import { TOKEN_MINT, TOKEN_DECIMALS } from './token/config.js';
@@ -169,7 +170,9 @@ export async function ensureDevnetBalance(connection, keypair, neededLamports) {
 	for (let i = 0; i < chunks.length; i++) {
 		try {
 			const sig = await connection.requestAirdrop(keypair.publicKey, Math.max(chunks[i], LAMPORTS_PER_SOL / 50));
-			await connection.confirmTransaction(sig, 'confirmed');
+			// HTTP-polling confirm (no WebSocket); bounded so a dropped devnet airdrop
+			// falls through to the next chunk instead of hanging the confirm window.
+			await confirmOrThrow(connection, sig, 'confirmed', { timeoutMs: 30_000 });
 			const next = await connection.getBalance(keypair.publicKey);
 			if (next >= neededLamports) return next;
 		} catch {
@@ -361,7 +364,7 @@ const MEMO_PROGRAM_ID = 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr';
  * agora_vouches edge and the 'vouched' activity row cite. Returns the tx sig.
  */
 export async function sendOnchainAttestation({ cluster, signer, memo }) {
-	const { Connection, Transaction, TransactionInstruction, PublicKey, sendAndConfirmTransaction } =
+	const { Connection, Transaction, TransactionInstruction, PublicKey } =
 		await import('@solana/web3.js');
 	const rpc = pickRpc(cluster) || (cluster === 'devnet' ? 'https://api.devnet.solana.com' : 'https://api.mainnet-beta.solana.com');
 	const conn = new Connection(rpc, 'confirmed');
@@ -372,5 +375,6 @@ export async function sendOnchainAttestation({ cluster, signer, memo }) {
 		data: Buffer.from(String(memo).slice(0, 500), 'utf8'),
 	});
 	const tx = new Transaction().add(ix);
-	return sendAndConfirmTransaction(conn, tx, [signer], { commitment: 'confirmed' });
+	// HTTP-polling send+confirm (no WebSocket subscription).
+	return sendAndConfirm(conn, tx, [signer], { commitment: 'confirmed' });
 }

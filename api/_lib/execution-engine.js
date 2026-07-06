@@ -45,6 +45,7 @@ import {
 	TransactionMessage,
 	VersionedTransaction,
 } from '@solana/web3.js';
+import { pollConfirmation } from './solana/confirm.js';
 
 // Jito's published mainnet tip accounts. A bundle's tip must transfer SOL to one
 // of these — Jito only accepts a bundle that pays a tip to a known tip account.
@@ -302,9 +303,14 @@ function sleep(ms) {
 async function sendProtected(signedTx, signature, connection, blockhashCtx, confirmTimeoutMs) {
 	await connection.sendRawTransaction(signedTx.serialize(), { skipPreflight: false, maxRetries: 3 });
 
-	const confirmPromise = connection.confirmTransaction(
+	// HTTP-polling confirm (no WebSocket) — bounded by confirmTimeoutMs and re-checked
+	// on the ambiguous-timeout path below, so a throttled RPC can't spin web3.js's WS
+	// 429 reconnect loop. Returns the confirmTransaction result shape this code reads.
+	const confirmPromise = pollConfirmation(
+		connection,
 		{ signature, blockhash: blockhashCtx.blockhash, lastValidBlockHeight: blockhashCtx.lastValidBlockHeight },
 		'confirmed',
+		{ timeoutMs: confirmTimeoutMs },
 	);
 	const timeout = new Promise((_, rej) =>
 		setTimeout(() => rej(Object.assign(new Error('confirm timeout'), { code: 'CONFIRM_TIMEOUT' })), confirmTimeoutMs),

@@ -14,6 +14,7 @@
 // degrade gracefully — nothing is ever inert-but-pretending.
 
 import { solanaConnection } from './agent-pumpfun.js';
+import { confirmOrThrow } from './solana/confirm.js';
 
 const SOL = 1_000_000_000;
 // tx fee + compute headroom kept on the treasury beyond the amount it sends.
@@ -133,13 +134,9 @@ export async function transferSol(conn, fromKp, toAddress, lamports) {
 		let signature = null;
 		try {
 			signature = await conn.sendTransaction(tx, { maxRetries: 5 });
-			const conf = await conn.confirmTransaction(
-				{ signature, blockhash, lastValidBlockHeight },
-				'confirmed',
-			);
-			if (conf.value?.err) {
-				throw new Error('transfer failed on-chain: ' + JSON.stringify(conf.value.err));
-			}
+			// HTTP-polling confirm (no WebSocket) — throws on a landed-but-reverted
+			// transfer; the surrounding catch retries only the never-landed case.
+			await confirmOrThrow(conn, { signature, blockhash, lastValidBlockHeight }, 'confirmed');
 			return signature;
 		} catch (err) {
 			const msg = err?.message || '';
