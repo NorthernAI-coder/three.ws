@@ -389,3 +389,166 @@ reconstruction quality holds. If it regresses, keep the image lane on FLUX
    closes out this prompt's acceptance criteria.
 
 Update the _pending_ cells in this file as each step completes.
+
+
+---
+---
+
+# Expiry revert & keep/kill runbook (prompt 08)
+
+The credits expire (~$100k, target ~Sept 2026 — confirm the exact date on the
+console Credits page). This section makes that a non-event: a proven, env-only
+path back to the pre-program providers, plus a data-driven keep/kill call per lane.
+
+**Core fact:** every credit-funded reroute is gated by an env var, and each lane
+already falls through to the provider it displaced. So the revert is a config
+change, never a code migration. Proven at the code level by
+`tests/api/gcp-revert.test.js` (7 assertions, green).
+
+## The lanes and how each reverts
+
+| Lane | Gate (present ⇒ GCP lane live) | Reverts to | Code |
+|---|---|---|---|
+| **Vertex Claude** (chat/LLM) | `VERTEX_CLAUDE_ENABLED` (+`_PRIMARY`), needs `GOOGLE_CLOUD_PROJECT` | Groq → OpenRouter → NVIDIA → paid backstop | `api/_lib/vertex-claude.js`, `api/chat.js` `providerOrder()` |
+| **Vertex Imagen** (text→image) | `GOOGLE_CLOUD_PROJECT` (+`GCP_SERVICE_ACCOUNT_JSON`) | free NIM FLUX → Replicate | `api/_mcp3d/vertex-imagen.js`, `text-to-image.js` |
+| **Forge TRELLIS self-host** | `MODEL_TRELLIS_URL` + `GCP_RECONSTRUCTION_KEY` | free NIM/HF → Replicate | `api/_lib/forge-tiers.js` |
+| **Forge Hunyuan3D self-host** | `GCP_HUNYUAN3D_URL` + `GCP_RECONSTRUCTION_KEY` | free HF Spaces → Replicate | `forge-tiers.js` |
+| **Forge TripoSG sketch** | `GCP_TRIPOSG_URL` + `GCP_RECONSTRUCTION_KEY` | none — option hides | `forge-tiers.js` |
+| **Game-Ready remesh** | `GCP_REMESH_URL` + `GCP_RECONSTRUCTION_KEY` | none — export hides | `forge-tiers.js` (`OUTPUTS`) |
+| **Avatar reconstruct/rerig** | `GCP_RECONSTRUCTION_URL` + `_KEY` | Replicate → HF Spaces | `api/_lib/regen-provider.js` |
+| **Editing** (rembg/texture/segment) | `GCP_REMBG_URL` / `GCP_TEXTURE_URL` / `GCP_SEGMENT_URL` | in-lane fallback / off | `workers/deploy/deploy-editing.sh` |
+| **Vanity inventory** | — (one-shot; already ground) | n/a — sells down | `api/_lib/vanity-inventory-store.js` |
+
+## Revert runbook (a tired human at 2am can follow this)
+
+Tooling: `scripts/gcp/revert-to-free.sh` (this is the planned revert; the panic
+sibling for a runaway bill is `scripts/gcp/emergency-stop.sh`).
+
+**Step 0 — confirm the fallbacks exist before pulling any gate.** The only way
+this breaks a feature is removing a GCP gate while its fallback is also unset.
+Confirm in Vercel prod: `NVIDIA_API_KEY` (free NIM), `HF_TOKEN` (free HF),
+`REPLICATE_API_TOKEN` (paid backstop). The script's pre-flight checks this and
+warns per lane:
+```bash
+scripts/gcp/revert-to-free.sh          # dry-run: full plan + per-lane pre-flight, changes nothing
+```
+
+**Step 1 — remove the env gates from Vercel** (the script prints the exact
+`vercel env rm … production/preview` for every var). Removing the gate *is* the
+revert. Groups: the `VERTEX_CLAUDE_*` flags; the Imagen vars; the forge
+`GCP_*_URL`/`MODEL_TRELLIS_URL`/`GCP_RECONSTRUCTION_*`; the editing URLs. Then:
+```bash
+vercel --prod
+```
+
+**Step 2 — drop Cloud Run workers to min-instances=0.** The deploy scripts never
+set `--min-instances`, so workers are already scale-to-zero; this is an idempotent
+confirm:
+```bash
+scripts/gcp/revert-to-free.sh --apply      # min-instances=0 on every worker
+```
+
+**Step 3 — verify (2 min):**
+- `curl "$SITE/api/forge?catalog=1"` → GCP backends show `"configured": false`; free NIM/HF show `true`.
+- text→3D routes to free NIM, photo→3D to free HF, avatar reconstruct to Replicate/HF — all succeed.
+- a text→image returns from `nvidia` (not `vertex-ai/*`); a chat completion's `route.via` is a free provider (not `vertex-anthropic`).
+
+## Proving the revert
+
+- **Automated (CI):** `npx vitest run tests/api/gcp-revert.test.js` — flips each
+  gate and asserts the fallthrough (forge self-host→HF→Replicate; avatar
+  gcp→replicate→hf→none; Imagen `isConfigured` off; Vertex Claude
+  `vertexClaudeEnabled`/`vertexClaudePrimary` off). This locks the mechanism.
+- **Live preview (owner, needs Vercel+GCP creds):** in a preview, set the gates →
+  confirm lanes serve from GCP; run the Step-1 removals → confirm every feature
+  still works on the free/original providers. The `?catalog=1` check makes this a
+  2-minute confirmation, not an investigation.
+
+## Keep / kill — post-expiry economics
+
+Pull **real per-lane spend and volume** from the burn report (prompt 07):
+```bash
+node scripts/gcp/burn-report.mjs            # human-readable: spend by lane (vertex-claude|imagen|forge-gpu|vanity)
+node scripts/gcp/burn-report.mjs --json     # machine-readable, for the decision below
+```
+The decision *math* below is fixed; plug the lane's actual spend/volume into it.
+
+**Cloud Run L4 unit cost** (verify the current L4 rate; worked example at
+≈ $0.71/GPU-hr = $0.000197/GPU-sec):
+
+| Lane | Active/asset | Warm | Cold |
+|---|---|---|---|
+| TRELLIS self-host (standard) | ~60 s | ~$0.012 | ~$0.024 |
+| Hunyuan3D self-host (high) | ~120 s | ~$0.024 | ~$0.039 |
+| TripoSG sketch | ~45 s | ~$0.009 | ~$0.018 |
+| Remesh (Game-Ready) | ~35 s | ~$0.007 | ~$0.010 |
+
+Retail prices (`api/_lib/forge-tiers.js`, source of truth): **draft $0.05,
+standard $0.15, high $0.50; Game-Ready $0.10.** (The prompt's "$0.25/$0.45" are stale.)
+
+| Lane | Recommendation | Why (math) |
+|---|---|---|
+| **Vertex Claude** | **Keep only if Vertex ≤ first-party Anthropic per token AND quality holds; else revert to free lanes** | Chat's free tier (Groq/OpenRouter/NVIDIA) costs $0 and already carries prod. Vertex Claude earns its keep only where quality needs a frontier model AND the Vertex partner-model token price beats calling Anthropic first-party. Compare `burn-report.mjs` vertex-claude spend ÷ tokens vs Anthropic list price. If Vertex ≈ Anthropic, revert to first-party (one less dependency); if free lanes suffice for the traffic, revert to free. |
+| **Forge self-host — FREE-tier gens** | **Kill (revert to NIM/HF)** | Self-host serves free-first, so most gens earn **$0**. On credits: ~100% margin. Post-expiry: **$0.012–0.039 GPU for $0 revenue = pure loss.** Free NIM/HF cost $0 and cover these. |
+| **Forge self-host — PAID x402 gens** | **Keep iff paid volume clears the floor** | Paid standard: **$0.15 − ~$0.012–0.024 ≈ 6–12× margin.** High: **$0.50 − ~$0.024–0.039 ≈ 13–20×.** Great per-call, but scale-to-zero means cold starts and near-idle GPU at low volume. Keep only if `burn-report.mjs` forge-gpu paid-gen volume beats Replicate (~$0.03–0.05/run, zero idle); else revert paid tiers to Replicate too. |
+| **Vertex Imagen** | **Kill (revert)** | Free **NIM FLUX already leads** the chain; Imagen only serves when NIM is absent/down. On credits it was a free quality bump (~$0.02–0.04/img); post-expiry it's real money for a rarely-leading lane. NIM (free) + Replicate ($0.003) cover it. |
+| **Avatar reconstruct/rerig** | **Revert to Replicate** | `resolveProviderName()` already prefers Replicate; its pinned reliability at per-run cost beats idle GPU unless reconstruct volume is high (check the report). |
+| **Editing workers** | **Revert / delete at teardown** | Auxiliary, low value; degrade to in-lane fallback or hide. No standing cost once min-instances=0. |
+| **Vanity inventory** | **Done — keep the assets** | One-shot batch already ground; inventory persists in the app store and sells down at **zero ongoing GCP cost.** |
+
+**Bottom line:** revert everything to free/original providers at expiry. The only
+lanes worth keeping on paid GCP are (a) forge **paid-tier** generation if the burn
+report shows enough paid volume to beat Replicate, and (b) Vertex Claude only where
+its token price beats first-party Anthropic — both numbers to pull on the day.
+
+## Durable-asset audit — nothing user-facing dies with the credits
+
+No committed data or served page references a `gs://` or `*.run.app` URL (grepped
+`data/`, `public/`). Every durable output is on R2, independent of GCP:
+
+| Asset | Lives on | Dies with credits? |
+|---|---|---|
+| Generated GLBs (forge/avatar) | R2 | No — GCS `OUTPUT_BUCKET` is only the pipeline's internal handoff |
+| Seeded avatar catalog / animation library | R2 + repo data | No |
+| Vanity inventory | app store / R2 | No |
+| Model weights | GCS `WEIGHTS_BUCKET` | Yes, **but re-downloadable** (HuggingFace) — safe to delete, re-stage via `workers/deploy/stage-weights.sh` |
+
+**One dependency to watch:** avatar reconstruct routes to `gcp` when *only*
+`GCP_RECONSTRUCTION_URL` is set. If a deployment has no `REPLICATE_API_TOKEN` and
+no `HF_TOKEN`, reverting turns reconstruction off. Step-0 pre-flight catches this —
+ensure a non-GCP reconstruct provider key is in Vercel prod before the revert. No
+blocking fixes filed; the fallback chains already exist in code.
+
+## Teardown plan — stop all post-credit billing
+
+Run **after** the revert is verified and traffic has drained.
+`scripts/gcp/teardown.sh` is **dry-run by default** — do NOT run it now.
+```bash
+scripts/gcp/teardown.sh                       # dry-run: list what it would delete
+scripts/gcp/teardown.sh --apply               # Cloud Run + Artifact Registry + weights bucket + secret + SA
+scripts/gcp/teardown.sh --apply --include-output   # ALSO the OUTPUT bucket (confirm R2 copy first)
+```
+Deletes the GPU/controller Cloud Run services, the docker Artifact Registry repo,
+the (re-downloadable) `WEIGHTS_BUCKET`, the worker secret, and the runtime SA.
+Keeps the `OUTPUT_BUCKET` unless `--include-output`. Never auto-deletes: the
+Firestore `(default)` DB or the GCP project (prints the commands for both).
+
+## Owner one-pager
+
+- **Permanent (survives the credits):** the forge quality/lane system (free-first,
+  GCP + paid vendors behind env gates), Vertex Imagen path, avatar reconstruct with
+  a 3-provider chain, the Vertex Claude chat lane (flag-gated), the vanity inventory
+  (one-shot, sold down), and all generated assets on R2. **None depend on the credits
+  to keep working** — the GCP lanes were preferred routes, not load-bearing.
+- **Total credits used:** `node scripts/gcp/burn-report.mjs` (needs the BigQuery
+  billing export configured; see its header). Program budget targets: Claude-on-Vertex
+  $40–60k, GPU fleet $15–25k, Imagen $3–5k, misc ~$5k.
+- **Day-of revert:** `scripts/gcp/revert-to-free.sh` (dry-run → read pre-flight →
+  paste the `vercel env rm` block → `vercel --prod` → `--apply` for min-instances=0 →
+  verify with `?catalog=1`). ~10 min, zero user-visible breakage.
+- **Keep/kill in one line:** revert everything to free/original providers; keep paid
+  GCP only for (a) forge paid-tier gens if the burn report shows the volume, and
+  (b) Vertex Claude where its token price beats first-party Anthropic.
+- **Then:** `scripts/gcp/teardown.sh --apply` to delete the idle resources and zero the bill.
+
+_Revert section last verified against source: 2026-07-06._
