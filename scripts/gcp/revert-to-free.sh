@@ -16,21 +16,30 @@
 #   Avatar reconstruct/rerig GCP_RECONSTRUCTION_URL + _KEY          Replicate, then HF Spaces
 #   Editing (rembg/tex/seg)  GCP_REMBG/TEXTURE/SEGMENT_URL          in-lane fallbacks / feature off
 #   Imagen text→image        GOOGLE_CLOUD_PROJECT (+SA JSON)        free NIM FLUX, then Replicate
+#   Vertex Claude (chat/LLM) VERTEX_CLAUDE_ENABLED / _PRIMARY       Groq→OpenRouter→NVIDIA→paid
 #
 # Because every lane is env-gated (see api/_lib/forge-tiers.js backendIsConfigured,
 # api/_lib/regen-provider.js resolveProviderName, api/_mcp3d/vertex-imagen.js
-# isConfigured), removing the gate var is a complete, code-free revert: the
-# resolver stops selecting the GCP lane and the next configured provider serves
-# the request. Proven at the code level by tests/api/gcp-revert.test.js.
+# isConfigured, api/_lib/vertex-claude.js vertexClaudeEnabled), removing the gate
+# var is a complete, code-free revert: the resolver stops selecting the GCP lane
+# and the next configured provider serves the request. Proven at the code level by
+# tests/api/gcp-revert.test.js.
+#
+# Sibling: scripts/gcp/emergency-stop.sh is the PANIC button (runaway cost, right
+# now) — it also drops Cloud Run to min-instances=0 and prints the env removals.
+# THIS script is the planned end-of-program revert: same env-flip mechanism, plus
+# the pre-flight fallback checks and the full keep/kill context in docs/gcp-credits.md.
 #
 # This script does NOT touch Vercel for you (it can't safely read your token from
 # here). It prints the exact `vercel env rm` commands to paste, and — with
 # --apply and gcloud authed — drops every Cloud Run worker to min-instances=0 so
 # no warm GPU bills after the credits die.
 #
-# The LLM lane (Vertex Claude, prompt 02) was never shipped — the chat/agent
-# chain in api/_lib/llm.js runs Groq → OpenRouter → NVIDIA → Anthropic/OpenAI and
-# has no Vertex provider. There is nothing to revert there; it is a no-op below.
+# The Vertex Claude chat lane (api/_lib/vertex-claude.js, wired into api/chat.js)
+# reverts by unsetting VERTEX_CLAUDE_ENABLED / VERTEX_CLAUDE_PRIMARY: the chat
+# provider ladder then drops Vertex and leads with the free lanes again. Leaving
+# GOOGLE_CLOUD_PROJECT set is harmless once the flags are off — the flag, not the
+# project var, is what injects Vertex into the chat chain.
 #
 # Usage:
 #   scripts/gcp/revert-to-free.sh                 # dry-run: print the plan, change nothing
@@ -82,6 +91,9 @@ echo
 FORGE_VARS=(MODEL_TRELLIS_URL GCP_HUNYUAN3D_URL GCP_TRIPOSG_URL GCP_REMESH_URL GCP_RECONSTRUCTION_URL GCP_RECONSTRUCTION_KEY)
 EDIT_VARS=(GCP_REMBG_URL GCP_TEXTURE_URL GCP_SEGMENT_URL)
 IMAGEN_VARS=(GOOGLE_CLOUD_PROJECT GOOGLE_CLOUD_LOCATION VERTEX_IMAGEN_MODEL VERTEX_IMAGEN_EDIT_MODEL GCP_SERVICE_ACCOUNT_JSON)
+# The chat/LLM lane reverts by flag alone — turning these off drops Vertex from the
+# chat provider ladder (api/chat.js providerOrder) without touching GOOGLE_CLOUD_PROJECT.
+LLM_VARS=(VERTEX_CLAUDE_PRIMARY VERTEX_CLAUDE_ENABLED)
 
 # ── Step 1: pre-flight — will anything be stranded with no fallback? ───────────
 bold "1) Pre-flight: confirm each lane has a live fallback before you pull the gate"
@@ -132,8 +144,10 @@ print_rm() {
 }
 print_rm "Forge GPU self-host lanes (image→3D, sketch, remesh, avatar reconstruct)" "${FORGE_VARS[@]}"
 print_rm "Editing workers (rembg / texture / segment)" "${EDIT_VARS[@]}"
+print_rm "Vertex Claude chat/LLM lane (reverts to free Groq→OpenRouter→NVIDIA, paid backstop)" "${LLM_VARS[@]}"
 print_rm "Vertex Imagen text→image (reverts to free NIM FLUX, then Replicate)" "${IMAGEN_VARS[@]}"
-dim "   Vertex Claude LLM lane: NOT SHIPPED — nothing to remove (chain is Groq→OpenRouter→NVIDIA→paid)."
+dim "   Note: GOOGLE_CLOUD_PROJECT gates BOTH Imagen and Vertex-Claude config; removing it above"
+dim "   fully de-configures Vertex. The two VERTEX_CLAUDE_* flags alone are enough to revert chat."
 echo
 dim "   After removing, redeploy so the functions pick up the new env:"
 dim "     vercel --prod"

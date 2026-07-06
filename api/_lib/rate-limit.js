@@ -20,6 +20,23 @@ const REDIS_CONFIGURED = Boolean(redis);
 // HuggingFace lanes stay open, so paid capacity degrades instead of dead-ending.
 const FORGE_PAID_GLOBAL_HOURLY = Math.max(1, Number(process.env.FORGE_PAID_GLOBAL_HOURLY) || 600);
 
+// FORGE_SELFHOST_PRIMARY: the per-principal free-lane ceiling (mcp3dGenerateFree,
+// below) is sized at 60/h to protect the RATE-LIMITED hosted NVIDIA NIM allocation
+// the free lane leans on today. Once our own Cloud Run GPU fleet is primary that
+// hosted allocation is out of the path, so the ceiling can rise to what the deployed
+// fleet sustains. Default 240/h (4× — see the math in docs/gcp-credits.md: credit-
+// window fleet of trellis_selfhost[max 2] + hunyuan3d[max 3] = 5 concurrent L4 slots
+// at ~60s/asset blended ≈ 300 assets/h global, so a single heavy iterator at 240/h
+// stays well under the fleet ceiling). Tunable via FORGE_FREE_HOURLY_SELFHOST once
+// real per-asset latency is measured post-deploy. Reverts to 60/h the moment the
+// flag is unset — abuse and per-IP paid gates are unaffected by this lever.
+const FORGE_SELFHOST_PRIMARY = /^(1|true|on|yes)$/i.test(
+	String(process.env.FORGE_SELFHOST_PRIMARY || '').trim(),
+);
+const FREE_HOURLY_BASE = FORGE_SELFHOST_PRIMARY
+	? Math.max(60, Number(process.env.FORGE_FREE_HOURLY_SELFHOST) || 240)
+	: 60;
+
 // Loud, one-time startup warning when Redis is unconfigured in production. Without
 // Redis every limiter falls back to a PER-INSTANCE in-memory map, which is
 // effectively unbounded across serverless fan-out — fine for dev, dangerous for
@@ -428,14 +445,14 @@ export const limits = {
 	// open), unlike the paid lane which fails closed to protect spend. A real
 	// human iterating on a prompt routinely exceeds 12/h; this lane lets them.
 	mcp3dGenerateFree: (key) =>
-		getLimiter('mcp3d:generate:free', { limit: 60, window: '1 h' }).limit(key),
+		getLimiter('mcp3d:generate:free', { limit: FREE_HOURLY_BASE, window: '1 h' }).limit(key),
 	// Holder perk (Lever 2): $THREE tiers raise the free-generation ceiling by their
 	// rate multiplier. Same per-key counter + prefix as the base free lane — the tier
 	// only lifts the threshold, so a holder iterating heavily isn't throttled at 60/h.
 	// `multiplier` comes from a verified tier pass (pure HMAC, no RPC on the hot path).
 	mcp3dGenerateFreeTiered: (key, multiplier = 1) =>
 		getLimiter('mcp3d:generate:free', {
-			limit: Math.max(60, Math.round(60 * (Number(multiplier) || 1))),
+			limit: Math.max(FREE_HOURLY_BASE, Math.round(FREE_HOURLY_BASE * (Number(multiplier) || 1))),
 			window: '1 h',
 		}).limit(key),
 	// Status polling is the highest-frequency call in the generation flow (every

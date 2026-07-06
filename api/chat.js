@@ -51,6 +51,13 @@ import {
 	PER_CALL_TIMEOUT_MS,
 } from './_lib/chat-models.js';
 import { computeContext, searchMemories } from './_lib/memory-store.js';
+import {
+	vertexClaudeEnabled,
+	vertexClaudePrimary,
+	vertexMessagesUrl,
+	vertexRequestHeaders,
+	toVertexBody,
+} from './_lib/vertex-claude.js';
 import { z } from 'zod';
 
 // Providers anonymous (unauthenticated) callers may use. Groq and OpenRouter
@@ -75,6 +82,15 @@ const PROVIDERS = {
 		defaultModel: DEFAULT_ANTHROPIC_MODEL,
 		url: ANTHROPIC_URL,
 		style: 'anthropic',
+	},
+	// Vertex-served Claude (GCP credits). No envKey — availability is gated by
+	// vertexClaudeEnabled(); the OAuth bearer token is minted per request in
+	// makeRoute (resolveHeaders). Serves the same Claude model ids as the
+	// first-party Anthropic lane, so the Anthropic SSE reader handles it verbatim.
+	// Injected into the try-order per flags by providerOrder(); absent when off.
+	vertex: {
+		defaultModel: DEFAULT_ANTHROPIC_MODEL,
+		style: 'vertex-anthropic',
 	},
 	openrouter: {
 		envKey: 'OPENROUTER_API_KEY',
@@ -888,7 +904,10 @@ export default wrap(async (req, res) => {
 		tool: route.model,
 		latencyMs,
 		meta: {
-			provider: route.name,
+			// `route.via` records the Vertex transport ('vertex-anthropic') distinctly
+			// from the first-party 'anthropic' provider so spend/usage reporting can
+			// attribute GCP-credit traffic; falls back to the provider name otherwise.
+			provider: route.via || route.name,
 			input_tokens: result.inputTokens,
 			output_tokens: result.outputTokens,
 			actions: governedActions.map((a) => a.type),
@@ -961,13 +980,31 @@ async function governActions(actions, userMessage) {
 
 // ── Provider selection ───────────────────────────────────────────────────────
 
+// Effective provider try-order. Vertex-served Claude is injected per flags:
+//   VERTEX_CLAUDE_PRIMARY  → Vertex leads the whole ladder (before the free
+//     lanes) — the platform's default brain becomes real Claude on GCP credits.
+//   VERTEX_CLAUDE_ENABLED (not primary) → Vertex sits in the paid tier, just
+//     ahead of first-party Anthropic (GCP credits before a paid Anthropic key).
+//   Both off → DEFAULT_PROVIDER_ORDER is returned verbatim, so routing is
+//     byte-identical to today.
+function providerOrder() {
+	if (vertexClaudePrimary()) return ['vertex', ...DEFAULT_PROVIDER_ORDER];
+	if (vertexClaudeEnabled()) {
+		const i = DEFAULT_PROVIDER_ORDER.indexOf('anthropic');
+		if (i === -1) return [...DEFAULT_PROVIDER_ORDER, 'vertex'];
+		return [...DEFAULT_PROVIDER_ORDER.slice(0, i), 'vertex', ...DEFAULT_PROVIDER_ORDER.slice(i)];
+	}
+	return DEFAULT_PROVIDER_ORDER;
+}
+
 function pickProvider(requested, model, userKeys = {}, cooldown = new Map()) {
-	// Fall back in DEFAULT_PROVIDER_ORDER (free providers first), not the
-	// PROVIDERS object order — and never silently fall into watsonx/orchestrate,
-	// which are explicit-selection-only providers.
+	// Fall back in providerOrder() (free providers first, Vertex injected per
+	// flags), not the PROVIDERS object order — and never silently fall into
+	// watsonx/orchestrate, which are explicit-selection-only providers.
+	const baseOrder = providerOrder();
 	const order = requested
-		? [requested, ...DEFAULT_PROVIDER_ORDER.filter((p) => p !== requested)]
-		: DEFAULT_PROVIDER_ORDER;
+		? [requested, ...baseOrder.filter((p) => p !== requested)]
+		: baseOrder;
 
 	// Two passes: first skip providers in a cooldown, then — only if that leaves
 	// nothing configured — ignore cooldowns so a request never 503s purely because
@@ -980,8 +1017,11 @@ function pickProvider(requested, model, userKeys = {}, cooldown = new Map()) {
 	const resolve = (skipCooldown) => {
 		for (const name of order) {
 			const cfg = PROVIDERS[name];
-			const apiKey = userKeys[name] || process.env[cfg.envKey];
-			if (!apiKey) continue;
+			// Vertex has no API key — availability is gated by vertexClaudeEnabled()
+			// and its bearer token is minted per request (makeRoute.resolveHeaders).
+			// A sentinel keeps the shared `usingHostKey`/route plumbing below intact.
+			const apiKey = name === 'vertex' ? 'vertex' : userKeys[name] || process.env[cfg.envKey];
+			if (name === 'vertex' ? !vertexClaudeEnabled() : !apiKey) continue;
 			if (skipCooldown && cooldown.has(name) && (name !== requested || cooldown.get(name) === 'auth'))
 				continue;
 			// watsonx needs both a key and a project/space scope to serve a model;
@@ -994,7 +1034,7 @@ function pickProvider(requested, model, userKeys = {}, cooldown = new Map()) {
 			// or NVIDIA request would 400 every chat.
 			const chosenModel =
 				(requested === name && model) ||
-				(name === 'watsonx' || name === 'orchestrate'
+				(name === 'watsonx' || name === 'orchestrate' || name === 'vertex'
 					? cfg.defaultModel
 					: envPinnedModelFor(name) || cfg.defaultModel);
 			const route = makeRoute(name, cfg, apiKey, chosenModel);
@@ -1067,8 +1107,9 @@ function buildFallbackChain(primary, userKeys = {}, cooldown = new Map()) {
 		if (seen.has(key)) return;
 		if (!eligibleAsFallback(model)) return;
 		const cfg = PROVIDERS[name];
-		const apiKey = userKeys[name] || process.env[cfg.envKey];
-		if (!apiKey) return;
+		// Vertex is keyless — gated by vertexClaudeEnabled(); token minted per call.
+		const apiKey = name === 'vertex' ? 'vertex' : userKeys[name] || process.env[cfg.envKey];
+		if (name === 'vertex' ? !vertexClaudeEnabled() : !apiKey) return;
 		if (name === 'watsonx' && !watsonxConfig().configured) return;
 		if (name === 'orchestrate' && !orchestrateConfig().configured) return;
 		seen.add(key);
@@ -1079,11 +1120,12 @@ function buildFallbackChain(primary, userKeys = {}, cooldown = new Map()) {
 	// rate-limit without leaving the (already-selected, reliable) provider.
 	for (const m of FALLBACK_SIBLINGS[primary.name] || []) tryAdd(primary.name, m);
 
-	// (b) Other providers, in reliability order, at their configured default.
-	// Skip providers in a health cooldown so a globally-throttling provider isn't
-	// re-hit on every request — that's the mechanism that turns one throttle
-	// window into dozens of failures. The primary is always kept (position 0).
-	for (const name of DEFAULT_PROVIDER_ORDER) {
+	// (b) Other providers, in reliability order (Vertex injected per flags), at
+	// their configured default. Skip providers in a health cooldown so a
+	// globally-throttling provider isn't re-hit on every request — that's the
+	// mechanism that turns one throttle window into dozens of failures. The
+	// primary is always kept (position 0).
+	for (const name of providerOrder()) {
 		if (name === primary.name) continue;
 		if (cooldown.has(name)) continue;
 		tryAdd(name, PROVIDERS[name].defaultModel);
@@ -1095,6 +1137,29 @@ function buildFallbackChain(primary, userKeys = {}, cooldown = new Map()) {
 }
 
 function makeRoute(name, cfg, apiKey, model) {
+	if (cfg.style === 'vertex-anthropic') {
+		// Vertex-served Claude: same Anthropic Messages wire format (so style is
+		// 'anthropic' below — streamAnthropic + tool parsing reused verbatim), but
+		// the model id lives in the URL, the body carries anthropic_version, and the
+		// bearer token is minted per request. `via` is the distinct telemetry label.
+		return {
+			name,
+			via: 'vertex-anthropic',
+			model,
+			url: vertexMessagesUrl(model, { stream: true }),
+			style: 'anthropic',
+			resolveHeaders: () => vertexRequestHeaders(),
+			buildPayload: ({ systemPrompt, history, maxTokens, includeTools = true }) =>
+				toVertexBody({
+					model,
+					max_tokens: maxTokens,
+					system: systemPrompt,
+					messages: history,
+					...(includeTools ? { tools: ACTION_TOOLS } : {}),
+					stream: true,
+				}),
+		};
+	}
 	if (cfg.style === 'anthropic') {
 		return {
 			name,

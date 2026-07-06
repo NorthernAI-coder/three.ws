@@ -545,7 +545,7 @@ export default wrap(async (req, res) => {
 			// provider. Terminal only when the whole chain is exhausted.
 			const status = upstream.status;
 			const errText = await upstream.text().catch(() => '');
-			const provider = route.provider || 'anthropic';
+			const provider = usedVia || route.provider || 'anthropic';
 			log.warn('upstream_error', {
 				agentId,
 				model: usedModel,
@@ -594,6 +594,16 @@ export default wrap(async (req, res) => {
 	}
 
 	const route = usedRoute;
+	// Provider attribution for the spend ledger. `usedVia` distinguishes the
+	// Vertex transport ('vertex-anthropic') from first-party Anthropic so prompt
+	// 07's spend reporting can attribute GCP-credit traffic separately.
+	const via = usedVia || route.provider || 'anthropic';
+	const toolLabel =
+		via === 'vertex-anthropic'
+			? 'vertex.messages'
+			: route.kind === 'anthropic'
+				? 'anthropic.messages'
+				: `${route.provider}.chat`;
 
 	// Charge the monthly call quota only now that an upstream provider actually
 	// accepted the request — failed/rate-limited upstream attempts stay free.
@@ -658,17 +668,17 @@ export default wrap(async (req, res) => {
 		}
 		recordEvent({
 			kind: 'llm',
-			tool: route.kind === 'anthropic' ? 'anthropic.messages' : `${route.provider}.chat`,
+			tool: toolLabel,
 			agentId,
 			bytes: 0,
 			latencyMs,
 			status: 'ok',
-			provider: route.provider || 'anthropic',
+			provider: via,
 			model: usedModel,
 			inputTokens,
 			outputTokens,
 			costMicroUsd: costMicroUsd({
-				provider: route.provider || 'anthropic',
+				provider: via,
 				model: usedModel,
 				input: inputTokens,
 				output: outputTokens,
@@ -721,17 +731,17 @@ export default wrap(async (req, res) => {
 
 	recordEvent({
 		kind: 'llm',
-		tool: route.kind === 'anthropic' ? 'anthropic.messages' : `${route.provider}.chat`,
+		tool: toolLabel,
 		agentId,
 		bytes: upstreamText.length,
 		latencyMs,
 		status: 'ok',
-		provider: route.provider || 'anthropic',
+		provider: via,
 		model: usedModel,
 		inputTokens,
 		outputTokens,
 		costMicroUsd: costMicroUsd({
-			provider: route.provider || 'anthropic',
+			provider: via,
 			model: usedModel,
 			input: inputTokens,
 			output: outputTokens,
