@@ -64,6 +64,7 @@ export const NAV = [
 
 	// ── Account ─────────────────────────────────────────────────────────
 	{ path: '/dashboard/systems',     label: 'Systems',         icon: 'pulse',     group: 'Account',    tags: ['health', 'status', 'monitoring', 'workers', 'crons', 'x402', 'pump', 'agents', 'seeding', 'all systems'] },
+	{ path: '/dashboard/spend',       label: 'GCP Spend',       icon: 'chart',     group: 'Account',    tags: ['gcp', 'credits', 'burn', 'cost', 'vertex', 'claude', 'imagen', 'forge', 'gpu', 'budget', 'runway', 'billing', 'cloud', 'spend', 'observability'] },
 	{ path: '/dashboard/account',     label: 'Account',         icon: 'user',      group: 'Account',    tags: ['wallets', 'sns', 'delegation', 'profile', 'action log', 'provider keys'] },
 	{ path: '/dashboard/referrals',   label: 'Referrals',       icon: 'gift',      group: 'Account',    tags: ['referral', 'invite', 'membership', 'card', 'refer a friend', 'share', 'rewards', 'position', 'score'] },
 	{ path: '/dashboard/wallet-grinder', label: 'Wallet Grinder', icon: 'sparkle',  group: 'Account',    tags: ['vanity', 'grind', 'keypair', 'wallet', 'solana', 'evm', 'ethereum', 'base', 'polygon', 'address', 'prefix', 'suffix'] },

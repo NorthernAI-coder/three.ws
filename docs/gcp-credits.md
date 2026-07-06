@@ -281,6 +281,82 @@ back out.
 
 ---
 
+## Vertex Claude LLM lane (chat & completions) — prompt 02
+
+Routes the platform's Claude/Anthropic LLM traffic through Vertex AI so it bills
+the GCP credit pool instead of a paid Anthropic key. Wired across **every** text
+inference surface, behind two flags, with automatic fallthrough to the existing
+free-first chain on any Vertex failure. Flags off ⇒ behavior is byte-identical to
+before (proven by `tests/vertex-claude.test.js`).
+
+### Flags
+
+| Env var | Effect |
+|---|---|
+| `VERTEX_CLAUDE_ENABLED=1` | Vertex becomes an available Anthropic transport. In `llm.js`/`api/chat.js` it sits in the paid tier **ahead of** first-party Anthropic (GCP credits before a paid key); in `api/llm/anthropic.js` any `provider: anthropic` model streams from Vertex with first-party as the fallback; `/api/brain/chat` gains selectable "· Vertex" Claude rows. |
+| `VERTEX_CLAUDE_PRIMARY=1` | Chain inversion: Vertex Claude is tried **first**, before the free lanes — the platform's default brain becomes real Claude on Vertex. Requires `VERTEX_CLAUDE_ENABLED`. A caller BYOK key still leads (their own billing choice). |
+
+Both require `GOOGLE_CLOUD_PROJECT` (config check). Location: `GOOGLE_CLOUD_LOCATION_CLAUDE`
+(default `global`). Both unset ⇒ zero code-path change.
+
+### Wire format & model mapping
+
+Vertex speaks the Anthropic Messages API with four differences, all handled in
+`api/_lib/vertex-claude.js` (the one shared module — never scatter this):
+
+- Model id in the **URL path**, not the body: `…/publishers/anthropic/models/<id>:streamRawPredict` (stream) / `:rawPredict` (non-stream). Regional endpoints prefix the host (`us-east5-aiplatform.googleapis.com`); `global` uses the bare host.
+- Body gains `"anthropic_version": "vertex-2023-10-16"` and drops `model` (+ `stream`).
+- Auth: `Authorization: Bearer <oauth>` (via `api/_lib/gcp-auth.js` — shared with Imagen) — no `x-api-key`, no `anthropic-version` header.
+- Model id: bare aliases pass through (`claude-sonnet-4-6`); a dated first-party id converts to the `@` form (`claude-haiku-4-5-20251001` → `claude-haiku-4-5@20251001`) via `toVertexModelId()`.
+
+SSE event shapes are identical to first-party, so every existing stream parser works unchanged.
+
+### Surfaces wired
+
+| Surface | Entry point | How Vertex is chosen |
+|---|---|---|
+| Server one-shot completions (agent talk/delegation, personas, x402, crons, vision) | `api/_lib/llm.js` `providerChain()` | `vertexAnthropicProvider()` inserted per flags |
+| Embedded avatar/agent chat widgets (streaming) | `api/llm/anthropic.js` | `provider: anthropic` models routed to Vertex `streamRawPredict`; `x-llm-transport` response header records the transport |
+| Main viewer/agent chat (streaming) | `api/chat.js` `providerOrder()` | synthetic `vertex` provider injected into the ladder |
+| `/brain` comparison page | `api/brain/chat.js` | "Claude … · Vertex" specs via `streamVertex()` |
+
+### Telemetry marker
+
+Vertex traffic is recorded as provider **`vertex-anthropic`** distinctly from
+first-party `anthropic` (in `recordEvent` for `llm.js`/`api/llm/anthropic.js`, and
+`meta.provider` for `api/chat.js` via `route.via`), so prompt 07's spend reporting
+attributes it. The embed proxy also returns an `x-llm-transport: vertex-anthropic`
+response header.
+
+### Smoke test (needs a running dev server + creds)
+
+`scripts/gcp/vertex-llm-smoke.mjs` hits three live surfaces and asserts Vertex served
+each. (Distinct from prompt 01's `vertex-smoke.mjs`, which is a single raw Claude call.)
+
+```bash
+GOOGLE_CLOUD_PROJECT=aerial-vehicle-466722-p5 \
+GCP_SERVICE_ACCOUNT_JSON="$(cat /path/to/vercel-inference-key.json)" \
+VERTEX_CLAUDE_ENABLED=1 VERTEX_CLAUDE_PRIMARY=1 npm run dev   # terminal 1
+
+node scripts/gcp/vertex-llm-smoke.mjs                          # terminal 2
+#   (a) POST /api/forge-enhance → asserts provider=vertex-anthropic
+#   (b) POST /api/llm/anthropic  → asserts x-llm-transport=vertex-anthropic  (set SMOKE_AGENT_ID)
+#   (c) POST /api/chat           → asserts done.provider=vertex              (set SMOKE_BEARER)
+```
+
+Browser verification (definition of done): with the flags on, open an embedded agent
+widget page and the main chat, send messages, confirm streamed replies + no console
+errors + `vertex-anthropic` in server logs; then unset the flags and confirm today's
+behavior is intact.
+
+### Deploy & rollback
+
+- **Preview first:** set `VERTEX_CLAUDE_ENABLED=1` (and optionally `VERTEX_CLAUDE_PRIMARY=1`) in Vercel **preview** only. Production flags stay unset — flipping production changes the billing lane and is the owner's call.
+- **Production flip (owner):** `printf '1' | vercel env add VERTEX_CLAUDE_ENABLED production` (+ `VERTEX_CLAUDE_PRIMARY` for chain inversion), then redeploy.
+- **Rollback (instant, no code deploy):** unset `VERTEX_CLAUDE_ENABLED` / `VERTEX_CLAUDE_PRIMARY`. Every lane falls through to Groq → OpenRouter → NVIDIA → paid backstop exactly as before.
+
+---
+
 ## Vertex image lane (text→3D reference images) — prompt 03
 
 The forge text→3D chain synthesizes a reference image, then reconstructs a GLB
@@ -552,3 +628,387 @@ Firestore `(default)` DB or the GCP project (prints the commands for both).
 - **Then:** `scripts/gcp/teardown.sh --apply` to delete the idle resources and zero the bill.
 
 _Revert section last verified against source: 2026-07-06._
+
+---
+
+## GPU worker fleet — self-hosted 3D stack (prompt 04)
+
+Deploys the six Cloud Run L4 GPU workers that back the forge lanes so the paid
+lane stops paying Replicate and the free lane stops being throttled by hosted
+NVIDIA NIM: **TRELLIS** (text/image→3D), **Hunyuan3D**, **TripoSG** (sketch→3D),
+**TripoSR** (fast mesh), **UniRig** (auto-rig), **text2motion**. Everything
+reverts by unsetting env URLs and the `FORGE_SELFHOST_PRIMARY` flag.
+
+> **Status: code wired & tested; deploy blocked on the same gcloud reauth as the
+> foundation above.** The router flag, raised free-lane ceilings, and their tests
+> are landed and green. The six `gcloud builds submit` deploys, weight staging,
+> Vercel env wiring, and E2E verification all need live GCP auth (**Pending human
+> actions**, step 1). Latency/cost cells below are **pre-deploy estimates** — the
+> exact command to replace them with measured values is in *Cost per asset*.
+
+### Router wiring (landed, flag-gated, OFF by default)
+
+Self-host was already the health-aware default when its worker URLs are set
+(`api/_lib/forge-tiers.js` — `freeLaneCandidates` → `resolveBackendIdWithHealth`).
+Prompt 04 adds one flag that makes the fleet *primary* across every tier/path:
+
+- **`FORGE_SELFHOST_PRIMARY=1`** — `freeLaneCandidates` hoists the self-host lanes
+  (`trellis_selfhost`, `hunyuan3d`, `triposg`) ahead of the hosted free lanes
+  (NVIDIA NIM, HuggingFace) for **text** prompts too (photos already led with
+  self-host, since NIM's preview rejects user images). Stable partition — hosted
+  lanes stay intact as fallthrough. A no-op until the worker URLs are configured
+  (unconfigured lanes are filtered out anyway). `api/_lib/forge-tiers.js`
+  `selfHostPrimary()`.
+- The **fallback ladder is unchanged**: self-host error → hosted NIM / HuggingFace
+  / Replicate exactly as today. The flag only reorders *preference*, never removes
+  a safety net.
+- **Revert:** unset `FORGE_SELFHOST_PRIMARY` (and/or the worker URLs) → today's
+  ordering, no redeploy.
+
+Env vars the router reads for the fleet (all bearer-authed with
+`GCP_RECONSTRUCTION_KEY`):
+
+| Env var | Backend | Forge lane |
+|---|---|---|
+| `MODEL_TRELLIS_URL` | `trellis_selfhost` | free/paid image + text→3D (primary) |
+| `GCP_HUNYUAN3D_URL` | `hunyuan3d` | image→3D failover |
+| `GCP_TRIPOSG_URL` | `triposg` | sketch→3D |
+| `GCP_RECONSTRUCTION_URL` | controller `/reconstruct`, `/rig` | avatar scan + UniRig rigging |
+| `GCP_TEXT2MOTION_URL` | text2motion | text→animation clip |
+| `GCP_RECONSTRUCTION_KEY` | shared bearer | all of the above |
+
+### Per-service Cloud Run config
+
+From each worker's `cloudbuild.yaml`. All are `--gpu=1 --gpu-type=nvidia-l4
+--no-gpu-zonal-redundancy --no-cpu-throttling`, region `us-central1` (co-located
+with `three-ws-model-weights`). Weights mount read-only at `/weights` from the
+bucket; every worker uses the async **`POST` → 202 + poll `GET /tasks/{id}`**
+pattern, so the Cloud Run request timeout does **not** gate generation (the long
+work runs post-response under `--no-cpu-throttling`) — no timeout bump is needed.
+
+| Service | CPU / Mem | min→max inst | `MAX_CONCURRENT` | req timeout |
+|---|---|---|---|---|
+| `model-trellis` | 8 / 32Gi | **1**→2 | 1 | 300s |
+| `model-hunyuan3d` | 8 / 32Gi | 0→3 | 1 | 300s |
+| `model-triposg` | 8 / 32Gi | 0→2 | 1 | 300s |
+| `model-triposr` | 4 / 16Gi | 0→2 | 2 | 120s |
+| `unirig` | 4 / 16Gi | **1**→2 | 1 | 180s |
+| `model-text2motion` | 4 / 16Gi | 0→2 | 2 | 120s |
+
+**Credit-window override — min-instances 1 for `model-trellis` and `unirig`.**
+Cold-start on L4 + model load is brutal and instances are ~free on credits, so
+pin the two hottest lanes warm. This is a *temporary* deploy-time override, not
+baked into `cloudbuild.yaml` (min=1 costs money after the credits expire — prompt
+08 reverts it). `deploy-all.sh` does not pass `_MIN_INSTANCES`, so set it after
+deploy:
+
+```bash
+for S in model-trellis unirig; do
+  gcloud run services update "$S" --region us-central1 --min-instances=1
+done
+# Revert at expiry: same loop with --min-instances=0
+```
+
+### Cost per asset
+
+Full-instance Cloud Run L4 rate (GPU + always-allocated CPU + memory,
+`us-central1`, on-demand): **8 vCPU / 32 GiB + L4 ≈ \$1.69/hr**, **4 vCPU / 16 GiB
++ L4 ≈ \$1.20/hr** (L4 GPU ≈ \$0.71/hr; CPU ≈ \$0.0000240/vCPU·s; mem ≈
+\$0.0000025/GiB·s). Per asset:
+
+```
+$/asset = instance_$per_hr × (warm_seconds_per_asset / 3600)
+```
+
+| Service | instance \$/hr | warm s/asset *(estimate)* | \$/asset *(estimate)* |
+|---|---|---|---|
+| `model-trellis` (image→3D) | 1.69 | ~30–60 | \$0.014–0.028 |
+| `model-hunyuan3d` | 1.69 | ~60–120 | \$0.028–0.056 |
+| `model-triposg` (sketch) | 1.69 | ~20–40 | \$0.009–0.019 |
+| `model-triposr` (fast) | 1.20 | ~5–15 | \$0.002–0.005 |
+| `unirig` (rig) | 1.20 | ~20–60 | \$0.007–0.020 |
+| `model-text2motion` | 1.20 | ~10–30 | \$0.003–0.010 |
+
+> These s/asset values are **pre-deploy estimates** from each model's profile, not
+> measured. Every worker already logs the real figure as `elapsed_ms` on its
+> `GET /tasks/{id}` result and in Cloud Logging. Replace the table with measured
+> warm + cold latency post-deploy:
+> ```bash
+> gcloud run services logs read model-trellis --region us-central1 \
+>   --format='value(textPayload)' | grep -oE 'done in [0-9.]+s'
+> ```
+> Prompt 08 uses the measured \$/asset × expected volume for the keep/kill
+> decision at credit expiry.
+
+### Raised free-lane ceilings (landed, flag-gated)
+
+The per-principal free ceiling is 60/h to protect the **rate-limited hosted NIM**
+allocation. With the fleet primary that allocation is out of the path, so
+`FORGE_SELFHOST_PRIMARY=1` raises it (`api/_lib/rate-limit.js` — `FREE_HOURLY_BASE`
+feeds `mcp3dGenerateFree` + `mcp3dGenerateFreeTiered`):
+
+- **Default raised ceiling: 240/h** per principal (4×), tunable via
+  `FORGE_FREE_HOURLY_SELFHOST`.
+- **Math:** credit-window free-image fleet = `trellis_selfhost` (max 2) +
+  `hunyuan3d` (max 3) = **5 concurrent L4 slots** at `MAX_CONCURRENT=1`. At a
+  blended ~60 s/asset that is `5 × 3600/60 ≈ 300 assets/h` global throughput, so a
+  single heavy iterator at 240/h stays under the fleet ceiling while the
+  hosted-NIM-era throttle is removed. **Re-tune `FORGE_FREE_HOURLY_SELFHOST` from
+  the measured s/asset once the fleet is live.**
+- **Untouched — abuse/per-IP gates stay intact regardless of the flag:**
+  `mcp3dGenerate` (30/h per-IP paid, fail-closed), `paidDailyPerClient` (60/day),
+  and the global paid envelope `FORGE_PAID_GLOBAL_HOURLY`.
+- **Revert:** unset `FORGE_SELFHOST_PRIMARY` → back to 60/h.
+
+### Deploy runbook (run once gcloud reauth lands — step 1 above)
+
+```bash
+# 0. Generate + set the shared worker bearer key (Cloud Run reads it from the
+#    avatar-reconstruction-key secret; deploy-all.sh creates that secret).
+#    Set the SAME value in Vercel as GCP_RECONSTRUCTION_KEY (step 4).
+
+# 1. Stage weights into gs://three-ws-model-weights (once; ~80 GB, gcsfuse mode).
+cd workers/deploy
+HF_TOKEN=hf_xxx SERVICES="hunyuan3d trellis triposr triposg unirig" ./stage-weights.sh
+
+# 2. Check L4 quota FIRST (approval can take days). Need >= 4 concurrent for the
+#    warm fleet; deploy what fits now and file an increase for the rest.
+gcloud run regions describe us-central1 2>/dev/null   # or Console -> Quotas -> nvidia_l4_gpu_allocation
+
+# 3. Build + deploy the mesh/rig fleet, then text2motion (CPU-path helper script).
+PROJECT_ID=aerial-vehicle-466722-p5 \
+  SERVICES="hunyuan3d trellis triposr triposg unirig" ./deploy-all.sh
+PROJECT_ID=aerial-vehicle-466722-p5 SERVICES="text2motion" ./deploy-editing.sh
+
+# 4. Pin the two hot lanes warm for the credit window (see override above).
+for S in model-trellis unirig; do
+  gcloud run services update "$S" --region us-central1 --min-instances=1; done
+
+# 5. Health-check each service directly with the bearer key.
+KEY=$(gcloud secrets versions access latest --secret=avatar-reconstruction-key)
+for S in model-trellis model-hunyuan3d model-triposg model-triposr unirig model-text2motion; do
+  U=$(gcloud run services describe "$S" --region us-central1 --format='value(status.url)')
+  printf '%s: ' "$S"; curl -fsS -H "authorization: Bearer $KEY" "$U/health" || echo "cold - retry"; echo
+done
+
+# 6. Wire Vercel env (PREVIEW first, then production after E2E passes). Use the
+#    URLs printed by deploy-all.sh + the key from step 5.
+for E in preview production; do
+  printf '%s' "$MODEL_TRELLIS_URL"   | vercel env add MODEL_TRELLIS_URL   $E
+  printf '%s' "$GCP_HUNYUAN3D_URL"   | vercel env add GCP_HUNYUAN3D_URL   $E
+  printf '%s' "$GCP_TRIPOSG_URL"     | vercel env add GCP_TRIPOSG_URL     $E
+  printf '%s' "$GCP_RECONSTRUCTION_URL" | vercel env add GCP_RECONSTRUCTION_URL $E
+  printf '%s' "$GCP_TEXT2MOTION_URL" | vercel env add GCP_TEXT2MOTION_URL $E
+  printf '%s' "$KEY"                 | vercel env add GCP_RECONSTRUCTION_KEY $E
+done
+# Flip self-host primary + raised ceilings ONLY after E2E on preview is green:
+printf '1' | vercel env add FORGE_SELFHOST_PRIMARY preview
+```
+
+### E2E verification (definition of done — real outputs, not 200s)
+
+Run against the preview deploy with the URLs set; inspect the actual GLB/clip.
+
+1. **Text→3D free lane** → `trellis_selfhost` → GLB in R2, opens in the viewer.
+2. **Image→3D** with a real photo (what hosted NIM rejects) → GLB.
+3. **Paid `mesh_forge` chain** (reference image → reconstruction) → GLB, with
+   Cloud Logging showing **no Replicate call** (`FORGE_SELFHOST_PRIMARY=1`).
+4. **Rig** a generated GLB through UniRig `/rig` → animation-ready GLB; load it and
+   confirm the skeleton drives the canonical clips (`src/glb-canonicalize.js`).
+5. **text2motion** → one text→motion generation → clip JSON.
+
+Record measured cold + warm latency per path back into *Cost per asset* above, and
+raise `FORGE_FREE_HOURLY_SELFHOST` from the measured throughput before flipping the
+flag in production.
+
+| Path | cold s | warm s | output verified |
+|---|---|---|---|
+| text→3D (trellis) | _pending_ | _pending_ | _pending_ |
+| image→3D (trellis) | _pending_ | _pending_ | _pending_ |
+| mesh_forge (no Replicate) | _pending_ | _pending_ | _pending_ |
+| rig (unirig) | _pending_ | _pending_ | _pending_ |
+| text2motion | _pending_ | _pending_ | _pending_ |
+
+---
+
+## Spend observability & burn-rate control (prompt 07)
+
+$100k over ~2 months is ~$1,600/day. This section is how we **see** the burn in
+real time, **attribute** it to each lane, **alert** before any lane runs away
+(especially the GPU fleet and Vertex Claude if flipped to primary), and guard the
+opposite failure — credits sitting **unused** at expiry. Everything here is code
+that is live and runnable now; the only blocked step is enabling the BigQuery
+billing export (one console action) and the same gcloud reauth as the foundation.
+
+### The burn report — `scripts/gcp/burn-report.mjs`
+
+Reads the BigQuery billing export and prints an attributed report: credit
+consumed to date, spend by service and by lane label, 7d/30d daily burn, runway,
+projected exhaustion vs expiry, and the under-utilization guard.
+
+```bash
+node scripts/gcp/burn-report.mjs          # human-readable
+node scripts/gcp/burn-report.mjs --json   # machine-readable (dashboard/cron)
+```
+
+Exit codes: `0` on-track/idle, `2` runaway (for CI/cron alerting), `3` billing
+export not wired, `1` unexpected error. Auth: `GCP_SERVICE_ACCOUNT_JSON` if set,
+else the local `gcloud auth print-access-token` (works after `gcloud auth login`).
+
+Config (env or `.env`):
+
+| Env var | Meaning |
+|---|---|
+| `GOOGLE_CLOUD_PROJECT` | project holding the billing dataset |
+| `GCP_BILLING_DATASET` | BigQuery dataset the export writes to (e.g. `billing_export`) |
+| `GCP_BILLING_TABLE` | full export table — **or** derive it from ↓ |
+| `GCP_BILLING_ACCOUNT_ID` | billing account id; derives `gcp_billing_export_v1_<acct>` |
+| `GCP_BILLING_EXPORT_KIND` | `standard` (default) or `resource` (detailed export) |
+| `GCP_CREDIT_TOTAL_USD` | grant size, e.g. `100000` — enables runway + projection |
+| `GCP_CREDIT_EXPIRY` | ISO date the credits expire — enables the exhaustion-vs-expiry check |
+| `GCP_CREDIT_TYPES` | optional override of the credit-type filter (default: `PROMOTION,FREE_TRIAL,COMMITTED_USAGE_DISCOUNT,SUBSCRIPTION_BENEFIT`) |
+
+Shared implementation: `api/_lib/gcp-billing.js` (BigQuery REST + pure projection
+math, covered by `tests/gcp-billing.test.js`). The cron and the dashboard import
+the same module — one source of truth.
+
+### Enable the BigQuery billing export (owner console action — one time)
+
+The CLI **cannot** enable this; it's console-only.
+
+1. **Billing → Billing export → BigQuery export → Edit settings.**
+2. Enable **Standard usage cost** (and optionally **Detailed usage cost** for
+   resource-level rows). Pick/create a dataset in `aerial-vehicle-466722-p5`
+   (e.g. `billing_export`, location `US`).
+3. Data starts flowing within a few hours (no backfill — it's forward-only).
+4. Set `GCP_BILLING_DATASET` + `GCP_BILLING_ACCOUNT_ID` (or `GCP_BILLING_TABLE`),
+   `GCP_CREDIT_TOTAL_USD=100000`, and `GCP_CREDIT_EXPIRY=<date>` in Vercel (for
+   the cron/dashboard) and locally (for the CLI). Verify: `node scripts/gcp/burn-report.mjs`.
+
+### Resource labeling — `scripts/gcp/label-resources.sh`
+
+Attribution only works if every credit-consuming resource carries
+`program=gcp-credits` + `lane=<name>`. This discovers the Cloud Run fleet, jobs,
+and GCS buckets and (retro-)labels them. Dry-run by default.
+
+```bash
+scripts/gcp/label-resources.sh            # dry run — prints the plan
+scripts/gcp/label-resources.sh --apply    # write the labels (additive, idempotent)
+```
+
+Lanes: `vertex-claude`, `imagen`, `forge-gpu` (the Cloud Run GPU fleet — default
+for every discovered service), `vanity`. Vertex Claude + Imagen are API-billed
+(no Cloud Run service), so they're attributed by `service.description` in the
+report instead of a label. Edit `LANE_OVERRIDES` in the script for exceptions.
+
+### Budgets & alerts — `scripts/gcp/create-budgets.mjs` + the webhook
+
+```bash
+node scripts/gcp/create-budgets.mjs           # dry run — prints the plan
+node scripts/gcp/create-budgets.mjs --apply   # create/update budgets (idempotent)
+```
+
+Creates an **overall program budget** (= `GCP_CREDIT_TOTAL_USD`, default $100k)
+with threshold alerts at **25 / 50 / 75 / 90 / 100 %** measured on GROSS spend
+(credits excluded, so it tracks grant consumption), plus **per-service** budgets
+for Vertex AI / Cloud Run / Compute Engine (sized from `GCP_SERVICE_BUDGETS` or
+defaults, service ids resolved live from the billing catalog). All publish to one
+Pub/Sub topic (`GCP_BUDGET_PUBSUB_TOPIC`, default `gcp-budget-alerts`).
+
+**Routing to the team:** the topic pushes to `POST /api/webhooks/gcp-budget-alert`,
+which turns each threshold crossing into a Telegram ping via `sendOpsAlert` — the
+PRIVATE ops chat (`TELEGRAM_ALERTS_CHAT_ID`), **never** the holders' channel.
+Deduped per budget+threshold so each crossing pings once/hour.
+
+Wire the push subscription (owner, after `--apply`):
+
+```bash
+# 1. shared secret the handler checks (constant-time)
+printf '<random-secret>' | vercel env add GCP_BUDGET_WEBHOOK_SECRET production
+# 2. let the budgets SA publish to the topic
+gcloud pubsub topics add-iam-policy-binding gcp-budget-alerts \
+  --project=aerial-vehicle-466722-p5 \
+  --member=serviceAccount:billing-budgets.iam.gserviceaccount.com --role=roles/pubsub.publisher
+# 3. push subscription → the webhook (secret in the query string)
+gcloud pubsub subscriptions create gcp-budget-alerts-push \
+  --project=aerial-vehicle-466722-p5 --topic=gcp-budget-alerts \
+  --push-endpoint="https://three.ws/api/webhooks/gcp-budget-alert?token=<random-secret>"
+```
+
+**Test the alert path** (no live budget needed): publish a synthetic notification —
+
+```bash
+gcloud pubsub topics publish gcp-budget-alerts --project=aerial-vehicle-466722-p5 \
+  --message='{"budgetDisplayName":"gcp-credits — program","alertThresholdExceeded":0.9,"costAmount":90000,"budgetAmount":100000,"currencyCode":"USD"}'
+# → a 🔴 ping lands in the ops chat within seconds.
+```
+
+Handler contract (auth 503/401, threshold gate, dedup) is locked by
+`tests/api/gcp-budget-alert.test.js`.
+
+### Internal spend dashboard — `/dashboard/spend`
+
+Admin-gated page (dashboard-next → nav "GCP Spend", `src/dashboard-next/pages/spend.js`),
+backed by `GET /api/admin/gcp-burn` (session-admin **or** `Bearer $CRON_SECRET`).
+Two cross-referenced views:
+
+- **App-side telemetry** (always live, from `usage_events` + `forge_creations`):
+  per-lane LLM cost/tokens (14d), Vertex Claude spend estimate (30d + 24h, by
+  model), forge generations per backend (self-host flagged), and a daily LLM-cost
+  bar chart. This renders even before the billing export is wired.
+- **Billing ground truth** (best-effort, from `buildBurnReport`): credit consumed,
+  runway, projection vs expiry, credit spend by lane label. Degrades to a designed
+  "not wired" panel when the export is absent — the app-side view still shows.
+
+All states designed (loading skeleton, empty, 401/403 lock, error, populated);
+auto-refreshes every 60s.
+
+### Kill-switches (verified no-deploy env flips)
+
+The GPU fleet and Vertex Claude are the two runaway risks. Each reverts by env
+flag alone — no code deploy:
+
+| Lane | Kill switch | Effect |
+|---|---|---|
+| Vertex Claude | `vercel env rm VERTEX_CLAUDE_PRIMARY production` | chat falls back to free/BYOK lanes instantly (see prompt 02 section) |
+| Forge GPU fleet | `vercel env rm FORGE_SELFHOST_PRIMARY production` | routing stops preferring the self-host GPU workers |
+| Imagen | `vercel env add VERTEX_IMAGEN_ENABLED production` = `0` | text→image drops to the free NIM FLUX lane |
+
+**Fast "stop the bleed now" — `scripts/gcp/emergency-stop.sh`** (dry-run by
+default): drops **every** Cloud Run service + job to `--min-instances=0`, cancels
+in-flight job executions, and prints the flag flips above + the spot/batch stop
+commands. Use this for a runaway during the program; use `revert-to-free.sh`
+(prompt 08) for the planned end-of-program teardown.
+
+```bash
+scripts/gcp/emergency-stop.sh            # dry run — shows what it would do
+scripts/gcp/emergency-stop.sh --apply    # drop min-instances to 0 across the fleet
+```
+
+### Under-utilization guard + daily cron
+
+The projection flags **`underutilized`** when >30% of the grant is projected to
+expire unused (and **`idle`** when there's no burn at all), with per-lane scale-up
+prompts (flip `VERTEX_CLAUDE_PRIMARY` for production chat, raise seed-batch
+volume, bigger vanity runs). Wasting the credits is a tracked failure mode, not
+just overspend.
+
+**`api/cron/gcp-burn-report.js`** runs daily (`0 14 * * *`, registered in
+`vercel.json`) and pings the ops channel with the day's status — runaway and
+under-utilization get distinct, un-deduped signatures so they always land; an
+on-track day posts a quiet one-line status. If the export isn't wired it says so
+once/day rather than erroring.
+
+### Current status (2026-07-06)
+
+Burn rate, exhaustion projection, and full/unused-credit tracking are **wired and
+tested but not yet reporting real numbers** — they require the BigQuery billing
+export (owner console action above) + the same gcloud reauth that blocks the rest
+of the foundation. The moment the export lands and `GCP_CREDIT_TOTAL_USD` /
+`GCP_CREDIT_EXPIRY` are set, `node scripts/gcp/burn-report.mjs` prints the live
+burn rate and days-of-runway, the dashboard fills in, and the daily cron begins
+posting. Until then the app-side lane telemetry on `/dashboard/spend` is the live
+view. Program budget targets for the alerts: Claude-on-Vertex $40–60k, GPU fleet
+$15–25k, Imagen $3–5k, vanity/observability/misc ~$5k.
+
+_Spend-observability section last verified against source: 2026-07-06._
