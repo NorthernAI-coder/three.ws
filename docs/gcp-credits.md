@@ -281,6 +281,89 @@ back out.
 
 ---
 
+## Vertex image lane (text→3D reference images) — prompt 03
+
+The forge text→3D chain synthesizes a reference image, then reconstructs a GLB
+from it (TRELLIS / Hunyuan3D). That image step can bill to GCP credits instead of
+NVIDIA NIM FLUX / Replicate. Client: `api/_mcp3d/vertex-imagen.js`; selector:
+`api/_mcp3d/text-to-image.js`.
+
+### Model landscape — Imagen `:predict` is being retired (verified 2026-07)
+
+The dormant client defaulted to `imagen-3.0-generate-001`. That endpoint is **dead**:
+Google is shutting down the entire Imagen `:predict` family.
+
+| Model | API shape | Status (2026-07) |
+|---|---|---|
+| `imagen-3.0-generate-001` / `-002` | `:predict` | Shut down ~**2026-06-30** (404s now) |
+| `imagen-3.0-capability-001` (edit) | `:predict` | Retired ~**2026-06-30**, no mask-edit successor |
+| `imagen-4.0-generate-001` / `-fast` / `-ultra` | `:predict` | Deprecated; discontinued **2026-06-30…2026-08-17** |
+| **`gemini-2.5-flash-image`** ("Nano Banana") | `:generateContent` | **GA, recommended** — bills to the same GCP credits |
+
+So the client now **defaults to `gemini-2.5-flash-image`** and routes on the model id:
+`gemini*` → `:generateContent`; `imagen*` → legacy `:predict` (for an explicit
+override while any Imagen endpoint is still callable). It also handles the `global`
+location (un-prefixed host).
+
+### Flag & models
+
+| Env var | Default | Meaning |
+|---|---|---|
+| `VERTEX_IMAGEN_ENABLED` | unset ⇒ **on when `GOOGLE_CLOUD_PROJECT` set** | Explicit lane switch, decoupled from the shared project var (which Vertex Claude + workers also need). Set `0`/`false`/`no`/`off` to force the image lane off without unsetting the project. |
+| `VERTEX_IMAGEN_MODEL` | `gemini-2.5-flash-image` | Generation model. An `imagen-*` value uses the legacy `:predict` path. |
+| `VERTEX_IMAGEN_EDIT_MODEL` | `gemini-2.5-flash-image` | Edit model (`editImage()`); `imagen-*` routes to `:predict` inpainting. |
+
+Ladder is unchanged and fully preserved: **NIM FLUX → Vertex → Replicate**, with
+any Vertex error degrading cleanly to FLUX. Which provider served each image is
+logged (`[text-to-image] served by <model>`) and persisted on the forge job as
+`text_to_image_model`.
+
+### Verification status (blocked on the same creds as the rest of this runbook)
+
+Static verification is **done**: model IDs checked against live Vertex docs; both
+request/response shapes and the gate + fallback are covered by unit tests
+(`tests/api/vertex-imagen.test.js`, `tests/api/text-to-image.test.js` — green).
+
+Live E2E ("prove the pixels") is **blocked**: no GCP creds are present (Vercel has
+no `GOOGLE_CLOUD_PROJECT`; local `gcloud` needs interactive reauth; `aiplatform`
+is not yet enabled on the project — see **Pending human actions**). Run this once
+creds land, to satisfy the quality gate before any production enablement:
+
+```bash
+export GOOGLE_CLOUD_PROJECT=aerial-vehicle-466722-p5
+export GOOGLE_CLOUD_LOCATION=us-central1          # or "global" if the model requires it
+export GCP_SERVICE_ACCOUNT_JSON="$(cat /path/to/vercel-inference-key.json)"
+export VERTEX_IMAGEN_ENABLED=1
+node -e '
+  import("./api/_mcp3d/vertex-imagen.js").then(async ({ generateImage }) => {
+    const { imageUrl, model } = await generateImage("a stylized red robot, isolated subject, plain white background", { aspectRatio: "1:1" });
+    const b64 = imageUrl.split(",")[1];
+    require("fs").writeFileSync("/tmp/vertex-sample.png", Buffer.from(b64, "base64"));
+    console.log("served by", model, "→ /tmp/vertex-sample.png");
+  });
+'
+```
+
+Inspect `/tmp/vertex-sample.png` (must be a real, on-prompt image), then compare
+3–4 prompts against the FLUX lane before promoting: Gemini image output is
+photoreal-leaning, so for **stylized 3D reference** images sanity-check that
+reconstruction quality holds. If it regresses, keep the image lane on FLUX
+(`VERTEX_IMAGEN_ENABLED=0`) and use Vertex only for the seed/draft lanes.
+
+### Deploy & rollback
+
+- **Preview first:** `printf '1' | vercel env add VERTEX_IMAGEN_ENABLED preview`.
+  Exercise `/api/forge` (text mode) and confirm the log shows
+  `served by vertex-ai/gemini-2.5-flash-image`.
+- **Production** only after the quality gate passes cleanly:
+  `printf '1' | vercel env add VERTEX_IMAGEN_ENABLED production`.
+- **Rollback (instant, no deploy):** set `VERTEX_IMAGEN_ENABLED=0` in the affected
+  environment — the lane drops to NIM FLUX → Replicate immediately. Removing
+  `GOOGLE_CLOUD_PROJECT` also disables it but would break Vertex Claude/workers, so
+  prefer the flag. To pin a specific model instead, set `VERTEX_IMAGEN_MODEL`.
+
+---
+
 ## Pending human actions (do these, in order)
 
 1. **Restore gcloud auth** (unblocks everything below). This environment's
