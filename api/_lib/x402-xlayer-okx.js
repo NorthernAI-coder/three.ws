@@ -201,6 +201,10 @@ export function okxXLayerAccept(resourceUrl, amount) {
 			name: USDT0_DOMAIN_NAME,
 			version: USDT0_DOMAIN_VERSION,
 			transferMethod: 'eip3009',
+			// Optional-but-recommended (spec Appx H.2): USD₮0 is outside the OKX
+			// task system's supported-token list, so omitting decimals triggers a
+			// non-fatal tokenResolveError in `onchainos agent x402-check`.
+			decimals: 6,
 		},
 	};
 }
