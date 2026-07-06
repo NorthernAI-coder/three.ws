@@ -42,6 +42,7 @@ Fire them in any order. The suggested sequence below front-loads the funnel.
 | 18 | [storefront-cleanup](18-storefront-cleanup.md) | Delist demos, remove dead weight, rewrite every description | Storefront |
 | 19 | [vanity-instant-inventory](19-vanity-instant-inventory.md) | Pre-ground inventory → instant delivery + premium tiers | Standalone |
 | 20 | [fact-check-v2](20-fact-check-v2.md) | Free sample lane + published accuracy benchmark | Standalone |
+| 21 | [token-security-v1](21-token-security-v1.md) | Free rug-check: authorities, concentration, liquidity facts | Crypto API |
 
 ## Suggested firing order
 
@@ -54,3 +55,24 @@ Fire them in any order. The suggested sequence below front-loads the funnel.
 Note: 02–05 all append to `api/v1/_providers.js`. They're order-independent, but fire them
 **sequentially, not simultaneously** — concurrent edits to one file in a shared worktree will
 collide.
+
+## ⚠️ De-confliction with `prompts/x402-overhaul/`
+
+A parallel campaign (`prompts/x402-overhaul/`, authored concurrently) covers overlapping
+ground with a DIFFERENT architecture: it builds brand-new standalone `/api/crypto/*` and
+`/api/3d/*` surfaces, while this campaign routes everything through the existing `/api/v1`
+unified API (aggregator registry + catalog). **Firing both crypto tracks builds two parallel
+free crypto APIs at different URLs — the exact fragmentation this rebuild is meant to fix.**
+Pick one architecture per area:
+
+| Area | Fire | Skip (superseded by) |
+|---|---|---|
+| Free crypto API | this campaign 01–10, 21 | overhaul 01–11 (same data, second URL surface) |
+| Free text→3D | this campaign 13 | overhaul 12 (same lane, second URL surface) |
+| 3D index/docs | this campaign 09 + 14's docs | overhaul 14 |
+| Listing rewrites + delistings | this campaign 18 (also removes/delists) | overhaul 17–19 (rewrites only) |
+| Reputation/identity generalization | overhaul 15 + 16 (unique — not covered here) | — |
+| Free GLB inspect | overhaul 13 (unique — optional) | — |
+
+Safe from the overhaul set: **13, 15, 16** (no collision with this campaign). Fire 15/16 in a
+separate session from 18, not simultaneously — they touch the same `api/x402/` files.
