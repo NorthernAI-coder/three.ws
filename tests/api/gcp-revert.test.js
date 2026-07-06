@@ -16,6 +16,10 @@ import {
 } from '../../api/_lib/forge-tiers.js';
 import { isConfigured as imagenIsConfigured } from '../../api/_mcp3d/vertex-imagen.js';
 import { resolveProviderName } from '../../api/_lib/regen-provider.js';
+import {
+	vertexClaudeEnabled,
+	vertexClaudePrimary,
+} from '../../api/_lib/vertex-claude.js';
 
 // Every env var the revert touches, cleared between tests so each case sets only
 // what it means to assert on.
@@ -24,6 +28,7 @@ const ALL = [
 	'GCP_RECONSTRUCTION_URL', 'GCP_RECONSTRUCTION_KEY',
 	'GCP_REMBG_URL', 'GCP_TEXTURE_URL', 'GCP_SEGMENT_URL',
 	'GOOGLE_CLOUD_PROJECT', 'GCP_SERVICE_ACCOUNT_JSON',
+	'VERTEX_CLAUDE_ENABLED', 'VERTEX_CLAUDE_PRIMARY',
 	'NVIDIA_API_KEY', 'HF_TOKEN', 'REPLICATE_API_TOKEN', 'AVATAR_REGEN_PROVIDER',
 ];
 
@@ -106,6 +111,26 @@ describe('avatar reconstruct/rerig: reverts GCP → Replicate → HF', () => {
 		// The pre-flight warning case: no fallback configured → 'none' (feature off).
 		delete process.env.HF_TOKEN;
 		expect(resolveProviderName()).toBe('none');
+	});
+});
+
+describe('vertex claude chat lane: reverts by unsetting the VERTEX_CLAUDE_* flags', () => {
+	it('enabled/primary require both the flag and GOOGLE_CLOUD_PROJECT; clear the flags to revert', () => {
+		process.env.GOOGLE_CLOUD_PROJECT = 'three-ws-prod';
+		process.env.VERTEX_CLAUDE_ENABLED = '1';
+		process.env.VERTEX_CLAUDE_PRIMARY = '1';
+		expect(vertexClaudeEnabled()).toBe(true);
+		expect(vertexClaudePrimary()).toBe(true);
+		// Revert step 1: demote from primary (leaves it available but not leading).
+		delete process.env.VERTEX_CLAUDE_PRIMARY;
+		expect(vertexClaudeEnabled()).toBe(true);
+		expect(vertexClaudePrimary()).toBe(false);
+		// Revert step 2: fully off — Vertex drops out of the chat provider ladder.
+		delete process.env.VERTEX_CLAUDE_ENABLED;
+		expect(vertexClaudeEnabled()).toBe(false);
+		expect(vertexClaudePrimary()).toBe(false);
+		// Config alone (project set, flags off) never enables the lane — the flag gates it.
+		expect(vertexClaudeEnabled()).toBe(false);
 	});
 });
 

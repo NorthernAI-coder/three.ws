@@ -206,6 +206,8 @@ dim "     configured:false; free NIM/HF lanes show configured:true. UI stops off
 dim "   • Generate a text→3D (free NIM) and a photo→3D (free HF) — both succeed."
 dim "   • Generate an avatar — reconstruct routes to Replicate/HF (check the response provider)."
 dim "   • A text→image request returns from nvidia (NIM FLUX), not vertex-ai/*."
+dim "   • A chat completion's route.via is a free provider (groq/openrouter/nvidia), not"
+dim "     'vertex-anthropic' — confirms VERTEX_CLAUDE_* removal dropped Vertex from the ladder."
 dim "   • GCP billing: after min-instances=0 and no traffic, Cloud Run GPU spend trends to \$0."
 echo
 ok "Revert plan complete. Nothing on three.ws should break — every GCP lane hands off to the"

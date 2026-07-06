@@ -82,6 +82,26 @@ export const MODEL_CATALOG = {
 	'gpt-4o-mini':                { provider: 'openai', tools: true },
 };
 
+/**
+ * Anthropic model ids that the Vertex Claude transport (api/_lib/vertex-claude.js)
+ * can serve when VERTEX_CLAUDE_ENABLED is set. The SAME ids serve both first-party
+ * Anthropic and Vertex — the transport is chosen by flag at request time, not by
+ * the catalog — so these keep their `provider: 'anthropic'` entries above (tools,
+ * gating, capability are identical). This list only tells the routing brain WHICH
+ * Claude ids have a Vertex transport available; `vertexServesModel()` is the gate.
+ * The dated Haiku id maps to Vertex's `@` form via toVertexModelId() at call time.
+ */
+export const VERTEX_ANTHROPIC_MODELS = [
+	'claude-opus-4-7',
+	'claude-sonnet-4-6',
+	'claude-haiku-4-5-20251001',
+];
+
+/** Whether the Vertex Claude transport can serve a given Anthropic model id. */
+export function vertexServesModel(modelId) {
+	return VERTEX_ANTHROPIC_MODELS.includes(modelId);
+}
+
 /** Whether a model exposes a tool/function-calling endpoint. Unknown → false. */
 export function modelSupportsTools(modelId) {
 	return MODEL_CATALOG[modelId]?.tools === true;
