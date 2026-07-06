@@ -158,8 +158,8 @@ On success attach `PAYMENT-RESPONSE` (base64 of the `SettleResponse`). Shape (SD
 | # | Question | Answer | Citation |
 |---|---|---|---|
 | 1 | Exact 402 challenge shape the validator accepts | Header **`PAYMENT-REQUIRED`** = base64 JSON `{x402Version:2, resource:{url,mimeType?}, accepts:[…]}`. Per-`accepts` **required**: `scheme, network:"eip155:196", asset(USD₮0), payTo, amount, maxTimeoutSeconds, extra.name, extra.version`. `extra.symbol`/`extra.transferMethod`/`resource.mimeType` optional. No Bazaar/extensions needed. Full matrix §1.1. | WIRE-OKLINK/COINANK/OKB (Appx A-C); SDK `http/index.ts:40`, `x402HTTPResourceServer.ts:1101` |
-| 2 | Which scheme(s) mandatory for listing | **`exact` (EIP-3009) is the one required scheme** — present in all 3 approved sellers. `aggr_deferred` is offered by 2/3 (optional, recommended as a second accept). **`upto` is offered by none** and is NOT needed for approval. `upto` (if ever added) requires `extra.facilitatorAddress`, which the seller must fetch from the facilitator's `/supported.signers` — it cannot be hardcoded. | WIRE-* diff; SDK `upto/facilitator/scheme.ts:29-39`, `upto/client/permit2.ts:32-38`; SKILL `accepts-schemes.md` |
-| 3 | Fee token `0x779Ded…713736` on X Layer | **Symbol `USDT`, name `USD₮0`, decimals `6`, EIP-3009 capable** (supports `transferWithAuthorization`). Community-recognized. Not permit2-only — the whole rail uses EIP-3009. | `onchainos token info` (Appx E); SDK `defaultAssets.ts` `DEFAULT_STABLECOINS["eip155:196"]` comment "(EIP-3009)"; live EIP-3009 sign accepted structurally by facilitator (PAY-LEG1/2) |
+| 2 | Which scheme(s) mandatory for listing | **`exact` (EIP-3009) is the one required scheme** — present in all 3 approved sellers, and the verification pass adds a fourth: **Predexon #2143 is approved and payment-enforcing with ONLY `exact`** (Appx H.4), so `exact` alone demonstrably passes review. `aggr_deferred` is offered by 2/4 (optional, recommended as a second accept). **`upto` is offered by none** and is NOT needed for approval. `upto` (if ever added) requires `extra.facilitatorAddress`, which the seller must fetch from the facilitator's `/supported.signers` — it cannot be hardcoded. | WIRE-* diff; Appx H.4 (Predexon, exact-only); SDK `upto/facilitator/scheme.ts:29-39`, `upto/client/permit2.ts:32-38`; SKILL `accepts-schemes.md` |
+| 3 | Fee token `0x779Ded…713736` on X Layer | **Symbol `USDT`, name `USD₮0`, decimals `6`, EIP-3009 capable** (supports `transferWithAuthorization`). Community-recognized. Not permit2-only — the whole rail uses EIP-3009. **Cryptographically pinned (verification pass):** on-chain `name()` = `symbol()` = `"USD₮0"` (₮ = U+20AE), `decimals()` = 6; `authorizationState(address,bytes32)` answers (EIP-3009 present); and `DOMAIN_SEPARATOR()` == `keccak(EIP712Domain{name:"USD₮0",version:"1",chainId:196,verifyingContract:0x779d…})` — byte-exact, so `extra.name`/`extra.version` are proven, not inferred (Appx H.3). | `onchainos token info` (Appx E); X Layer RPC `eth_call` + domain-separator recomputation (Appx H.3); SDK `defaultAssets.ts` `DEFAULT_STABLECOINS["eip155:196"]` comment "(EIP-3009)"; live EIP-3009 sign accepted structurally by facilitator (PAY-LEG1/2) |
 | 4 | OKX facilitator verify/settle URLs, shapes, auth | Base `https://web3.okx.com`. **`POST /api/v6/pay/x402/verify`**, **`POST /api/v6/pay/x402/settle`**, `GET /api/v6/pay/x402/supported`, `GET /api/v6/pay/x402/settle/status?txHash=`. Body `{x402Version:2, paymentPayload, paymentRequirements[, syncSettle]}`. Responses wrapped `{code,msg,data}`. **Auth = OKX REST HMAC-SHA256**: headers `OK-ACCESS-KEY`, `OK-ACCESS-SIGN`(=base64(HMAC-SHA256(secret, timestamp+method+path+body))), `OK-ACCESS-TIMESTAMP`(ISO-8601), `OK-ACCESS-PASSPHRASE`. **⇒ We need an OKX API key/secret/passphrase.** `upto`'s `extra.facilitatorAddress` = `supported.signers[family][0]` via `getExtra()`. | SDK `facilitator/OKXFacilitatorClient.ts` (all endpoints + `createHeaders` L60-76); `upto/facilitator/scheme.ts:39` |
 | 5 | The official OKX Payment SDK | **`github.com/okx/payments` = "OKX Payments SDK", Apache-2.0** (monorepo `@okxweb3/payments-sdk-monorepo`; Go/Python/Rust/TS/Java). **Use the `@okxweb3/app-x402-*` family @ v0.2.0** (`-core`, `-evm`, `-express`/`-next`/`-hono`/`-fastify`, `-mpp`) — that's what the runnable demo imports (published 2026-07-03). **⚠️ Avoid the stale `@okxweb3/x402-*` @ v0.1.0** (`x402-core`/`x402-evm`/`mpp`) that the repo's `SELLER.md` still names — last touched 2026-06-08. Pure TypeScript (deps `viem`/`zod`/`axios`/`mppx` — pure JS, `@noble` crypto, `node:crypto` HMAC, no native bindings) ⇒ **runs in Vercel functions**. Seller-side it builds the 402 challenge, reads `PAYMENT-SIGNATURE`, calls facilitator verify/settle, emits `PAYMENT-RESPONSE`, plus lifecycle hooks + metered `setSettlementOverrides`. Weekly downloads low (new pkg): app-x402-core ≈267, -evm ≈204, -express ≈188. | SDK-REPO README + `package.json`; `npm view @okxweb3/app-x402-*`; `api.npmjs.org/downloads/point/last-week`; `app-x402-next/README.md` |
 | 6 | HTTP-level 402 vs MCP-level PaymentRequired | OKX expects **HTTP-level 402** on the endpoint URL: real `HTTP/2 402` status + `PAYMENT-REQUIRED` header, paid replay via `PAYMENT-SIGNATURE` header. All approved sellers do HTTP-level; the validator/buyer never inspects JSON-RPC `_meta`. **CORRECTED (verification pass): our endpoint ALREADY has this HTTP-level gate** — a bare (non-MCP) `POST tools/call` gets `HTTP/2 402` + `PAYMENT-REQUIRED`, live-verified for `text_to_3d` and `auto_rig_model`, and `x402-check` parses it `valid: true` (Appx H.1). Only MCP-protocol clients (`mcp-protocol-version` header) are routed to 401/OAuth, which OKX tooling never sends. 02's work on this axis is ONLY: the paid-replay leg must also accept `PAYMENT-SIGNATURE` (G7) and emit `PAYMENT-RESPONSE` (G8); the MCP-level `_meta` flow stays for MCP-native clients. | WIRE-OKLINK (POST→402, GET→405); Appx H.1 (live status matrix + x402-check `valid:true`); [api/mcp-3d.js](../api/mcp-3d.js), [api/_mcp/auth.js](../api/_mcp/auth.js); SDK is HTTP-transport only |
@@ -198,7 +198,7 @@ Reference: [api/_lib/x402-spec.js](../api/_lib/x402-spec.js) `paymentRequirement
 |---|---|---|---|
 | G1 | Accepts for `NETWORK_SOLANA_MAINNET`, `NETWORK_BASE_MAINNET`, `NETWORK_BSC_MAINNET`, `NETWORK_ARBITRUM_MAINNET`. **No `eip155:196`.** | An `accepts` entry with `network:"eip155:196"`. | Add `NETWORK_XLAYER_MAINNET = "eip155:196"` and an X-Layer branch (behind an env like `X402_PAY_TO_XLAYER`). |
 | G2 | `asset` = USDC on Solana/Base; `X402_ASSET_ADDRESS_BASE`. | `asset` = `0x779ded0c9e1022225f8e0630b35a9b54be713736` (USD₮0). | Hardcode/env the USD₮0 mint for the X-Layer accept. |
-| G3 | `extra: { name, decimals }` (Base) / `{ name, decimals, feePayer }` (Solana). | `extra: { name:"USD₮0", version:"1" }` (+ optional `symbol`,`transferMethod`). **No `decimals` in extra; `version` is required.** | New `extra` builder for the X-Layer accept: `name`+`version` mandatory, drop `decimals`. |
+| G3 | `extra: { name, decimals }` (Base) / `{ name, decimals, feePayer }` (Solana). | `extra: { name:"USD₮0", version:"1" }` (+ optional `symbol`,`transferMethod`,`decimals`). **`version` is required.** | New `extra` builder for the X-Layer accept: `name`+`version` mandatory. `decimals: 6` is optional (v2 sellers omit it) but RECOMMENDED: without it `x402-check` emits a `tokenResolveError` ("cannot determine token decimals … does not provide a `decimals` field", Appx H.2) because USD₮0 is outside the task system's supported-token list — harmless for oklink but free to avoid. |
 | G4 | Field name `extra.assetTransferMethod` (permit2 path). | OKX exact uses `extra.transferMethod:"eip3009"` (or omit → EIP-3009 default). | Emit `transferMethod` (optional) — do NOT emit `assetTransferMethod` on the X-Layer accept. |
 | G5 | Schemes `exact` (EIP-3009/permit2) + `direct` (BSC). **No `aggr_deferred`.** | `exact` mandatory; `aggr_deferred` recommended 2nd accept. | Emit `exact` for X-Layer; optionally add `aggr_deferred` accept (SDK `ExactEvmScheme`/aggr scheme). |
 | G6 | Facilitator routing = CDP / PayAI / self / BSC-direct (`facilitatorFor()`). **No OKX facilitator.** | verify/settle at `https://web3.okx.com/api/v6/pay/x402/{verify,settle}` with HMAC auth. | Add an `OKXFacilitatorClient` route for `eip155:196` (adopt SDK, §3). |
@@ -302,3 +302,85 @@ const routes = { "POST /api/mcp-3d": {
   mimeType: "application/json" } };
 // USD price → USD₮0 atomic auto-converted via DEFAULT_STABLECOINS["eip155:196"] (6 dp).
 ```
+
+### H. Verification-pass captures (second WO-01 session, 2026-07-06 — independent evidence)
+
+#### H.1 Our endpoint's live HTTP-level gate (disproves original G9)
+
+Status matrix, live against production `https://three.ws/api/mcp-3d`:
+
+```
+POST tools/call text_to_3d      (bare curl, no MCP headers)  → HTTP/2 402
+POST tools/call auto_rig_model  (bare curl, no MCP headers)  → HTTP/2 402
+POST tools/call text_to_3d  + header mcp-protocol-version: 2025-06-18 → HTTP/2 401 (OAuth branch)
+```
+
+The 402 carries `payment-required: <base64>` (decoded: v2 challenge, `resource` object with
+url/description/mimeType/serviceName/tags/iconUrl, Solana USDC `amount "1000"` + Solana
+THREE `amount "10000000"` accepts, `bazaar` extension) and
+`access-control-allow-headers` ALREADY includes `payment-signature`;
+`access-control-expose-headers: PAYMENT-REQUIRED, x-payment-response, …` (needs
+`PAYMENT-RESPONSE` added — G8).
+
+#### H.2 `x402-check` against our endpoint and oklink
+
+Ours: `{"valid": true, "x402Version": 2, "scheme": "exact", "network":
+"solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp", "asset": "EPjFWdd5…TDt1v", "amountMinimal":
+"1000", "amountHuman": 0.001, "decimals": 6, "tokenSymbol": "UNKNOWN", …}` — parses clean;
+**no `eip155:196` entry to select** (the rejection, isolated).
+
+oklink (`--body '{"chainIndex":"196"}'`): `"valid": true` plus
+`"tokenResolveError": "cannot determine token decimals: token-info lookup failed (asset
+0x779ded0c…3736 is not in the task system's supported token list (checked: USDT, USDG)) and
+the accepts entry does not provide a 'decimals' field"` — non-fatal; basis for the G3
+`extra.decimals` recommendation.
+
+#### H.3 Fee-token on-chain reads (X Layer RPC `https://rpc.xlayer.tech`)
+
+```
+name()     → "USD₮0"  (returned bytes 555344e282ae30 = "USD" + U+20AE + "0")
+symbol()   → "USD₮0"
+decimals() → 6
+DOMAIN_SEPARATOR()                        → 0xd591d9baf744328d9400b923cb02c9474d367d591ca1ab24d8c4068be527599d
+authorizationState(0x75d0…cf69, 0x00…00)  → 0x00…00  (function exists → EIP-3009 implemented)
+eip712Domain()                            → empty (no ERC-5267; domain params come from the recomputation below)
+```
+
+Recomputation (ethers v6): `keccak256(abiEncode(keccak256("EIP712Domain(string name,string
+version,uint256 chainId,address verifyingContract)"), keccak256("USD₮0"), keccak256("1"),
+196, 0x779ded0c9e1022225f8e0630b35a9b54be713736))` =
+`0xd591d9ba…599d` — **byte-exact match** with the on-chain `DOMAIN_SEPARATOR()`.
+`extra.name = "USD₮0"` / `extra.version = "1"` are therefore cryptographically proven.
+A mis-transcribed ₮ (U+20AE) produces invalid signatures — copy the string from this spec.
+
+#### H.4 WIRE-PREDEXON — Predexon #2143 (approved, enforcing, `exact`-only)
+
+`curl -si "https://a2mcp.predexon.com/v1/markets/search?query=btc"` → `HTTP/2 402`, body
+`{"error":"payment_required","service":"Predexon Market Search","price":"0.01 USDT0",…}`,
+decoded `payment-required`:
+
+```json
+{"x402Version":2,"error":"Payment required","resource":{"url":"https://a2mcp.predexon.com/v1/markets/search?query=btc","description":"Search prediction markets across supported venues.","mimeType":"application/json"},"accepts":[{"scheme":"exact","network":"eip155:196","amount":"10000","asset":"0x779ded0c9e1022225f8e0630b35a9b54be713736","payTo":"0xb5c8bbeb50b913ab99e3ff74987405c1de4ea736","maxTimeoutSeconds":300,"extra":{"name":"USD₮0","version":"1"}}]}
+```
+
+$0.01 → `"10000"` re-confirms 6-decimal scaling on a third price point. Note
+`resource.url` includes the query string of the probed request.
+
+#### H.5 Facilitator auth requirement (live) + second signed leg
+
+`curl -si https://web3.okx.com/api/v6/pay/x402/supported` (no auth) → `HTTP/2 401`
+`{"msg":"Request header OK-ACCESS-KEY can not be empty.","code":"50103"}` — HMAC credentials
+are required in practice, not just per SDK source.
+
+A second independent `payment pay` + unfunded replay against oklink reproduced PAY-LEG1/2
+exactly (`header_name: "PAYMENT-SIGNATURE"`, fresh nonce, `validBefore` = now + 86400;
+replay → 402 `"error":"insufficient_balance"` with full fresh challenge). The flow is
+deterministic, not a one-off.
+
+#### H.6 XBubbleAI #2087 — cautionary non-example
+
+Both `https://x402.dappos.com/healthz` AND the priced
+`/okx/a2mcp/bubble-image` answer `HTTP/2 200` to unpaid requests (the latter generated and
+returned a real image URL, unpaid). Approved but non-enforcing, 0 sales — approval evidently
+predates or ignores runtime enforcement; do NOT copy its behavior, and it explains why
+`x402-check` against its healthz returns `valid:false` (Appx E).

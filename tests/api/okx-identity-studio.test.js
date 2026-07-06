@@ -73,7 +73,7 @@ beforeEach(() => {
 	fetchRoutes.forgeSubmit = () => jsonResponse(200, { job_id: 'forge-gen-1', status: 'queued', eta: 30 });
 	fetchRoutes.forgePoll = () => jsonResponse(200, { status: 'running' });
 	fetchRoutes.rig = () => jsonResponse(200, { job_id: 'forge-rig-1', status: 'queued' });
-	fetchRoutes.render = () => new Response(new Uint8Array(PNG_1x1), { status: 200 });
+	fetchRoutes.render = () => new Response(new Uint8Array(MODEL_PNG), { status: 200 });
 	fetchRoutes.ref = () => new Response(new Uint8Array([0xff]), { status: 206, headers: { 'content-type': 'image/png' } });
 	globalThis.fetch = vi.fn(async (url, init = {}) => {
 		const u = String(url);
@@ -89,11 +89,18 @@ beforeEach(() => {
 	};
 });
 
-// Minimal valid 1×1 transparent PNG (for sharp to composite in render tests).
-const PNG_1x1 = Buffer.from(
-	'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
-	'base64',
-);
+// Synthetic "transparent render": a standing-rectangle model on a transparent
+// 128×128 canvas, so the trim → head-crop → composite path runs for real.
+const { default: _sharp } = await import('sharp');
+const MODEL_PNG = await _sharp(
+	Buffer.from(
+		'<svg width="128" height="128" xmlns="http://www.w3.org/2000/svg">' +
+			'<rect x="48" y="12" width="32" height="104" fill="#c04040"/></svg>',
+		'utf8',
+	),
+)
+	.png()
+	.toBuffer();
 
 const { OKX_CATALOG, validateCatalog, catalogIndex, displayWidth, DESCRIPTION_MAX_WIDTH } =
 	await import('../../api/_lib/okx-catalog.js');
@@ -365,14 +372,10 @@ describe('pipeline state machine', () => {
 	it('render plan is deterministic per job, PFP pose pinned, full-body poses distinct', () => {
 		const a = identity.buildRenderPlan('job-a');
 		const b = identity.buildRenderPlan('job-a');
-		const c = identity.buildRenderPlan('job-c');
 		expect(a).toEqual(b);
 		expect(a[0]).toMatchObject({ kind: 'pfp', pose: 'contrapposto' });
 		expect(a.filter((s) => s.kind === 'fullbody').length).toBe(3);
 		expect(new Set(a.map((s) => s.pose)).size).toBe(a.length);
-		expect(JSON.stringify(a) === JSON.stringify(c) && JSON.stringify(a.slice(1)) === JSON.stringify(c.slice(1))).toBe(
-			JSON.stringify(a.slice(1)) === JSON.stringify(c.slice(1)),
-		);
 	});
 
 	it('job tokens from other providers are rejected', async () => {

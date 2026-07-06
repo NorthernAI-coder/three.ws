@@ -16,6 +16,11 @@ import { grindToCompletion } from './wasm-grind.mjs';
 
 let stop = false;
 const PROGRESS_EVERY = 2_000_000; // report roughly every ~80s of single-thread work
+// Give up on a target after this many attempts — a rare Base58 leading char can be
+// effectively unreachable, and an unbounded grind would pin a worker forever.
+// Default 200M (~2.2 hours single-thread) comfortably clears a 5-char pattern
+// (~656M expected is set higher via env for dedicated 5-char runs).
+const MAX_ATTEMPTS_PER_TARGET = parseInt(process.env.MAX_ATTEMPTS_PER_TARGET || '200000000', 10);
 
 parentPort.on('message', (msg) => {
 	if (!msg || typeof msg !== 'object') return;
@@ -27,6 +32,7 @@ parentPort.on('message', (msg) => {
 		let lastReported = 0;
 		const result = grindToCompletion(msg.target, {
 			stopRequested: () => stop,
+			maxAttempts: MAX_ATTEMPTS_PER_TARGET,
 			onProgress: (attempts) => {
 				if (attempts - lastReported >= PROGRESS_EVERY) {
 					lastReported = attempts;
@@ -34,22 +40,24 @@ parentPort.on('message', (msg) => {
 				}
 			},
 		});
-		if (stop || !result) {
-			parentPort.postMessage({ type: 'aborted', target: msg.target });
+		if (result.status === 'found') {
+			parentPort.postMessage(
+				{
+					type: 'found',
+					target: msg.target,
+					publicKey: result.publicKey,
+					secretKey: result.secretKey,
+					attempts: result.attempts,
+					durationMs: result.durationMs,
+				},
+				// Transfer the secret-key buffer instead of copying it — one owner at a time.
+				[result.secretKey.buffer],
+			);
 			return;
 		}
-		parentPort.postMessage(
-			{
-				type: 'found',
-				target: msg.target,
-				publicKey: result.publicKey,
-				secretKey: result.secretKey,
-				attempts: result.attempts,
-				durationMs: result.durationMs,
-			},
-			// Transfer the secret-key buffer instead of copying it — one owner at a time.
-			[result.secretKey.buffer],
-		);
+		// 'preempted' → retry next run (don't mark done). 'exhausted' → give up
+		// permanently (mark done so resume skips this near-impossible target).
+		parentPort.postMessage({ type: result.status === 'exhausted' ? 'exhausted' : 'aborted', target: msg.target, attempts: result.attempts });
 	}
 });
 

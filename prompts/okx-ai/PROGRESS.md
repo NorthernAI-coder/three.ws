@@ -119,3 +119,55 @@ is the only blocker to a fully-successful paid leg.
 - **Work Order 02: GO** — spec is the implementation contract; §4 is the field-by-field
   work-list. Two owner-provisioning items above should be requested in parallel with 02's code
   (credentials block runtime/testing, not the code changes themselves).
+
+---
+
+## 2026-07-06 — Work Order 01 verification pass (second, independent session): CONFIRMED with 2 corrections
+
+A parallel session ran WO-01 end-to-end before discovering the first session's spec had
+just landed (concurrent-worktree case). Its independently-gathered evidence was merged into
+[`specs/okx-agent-payments.md`](../../specs/okx-agent-payments.md) as **Appendix H** plus
+inline corrections, rather than duplicated. Net effect: the spec is now double-sourced.
+
+### Confirms (independent captures agree)
+
+- 402 challenge shape, `PAYMENT-REQUIRED`/`PAYMENT-SIGNATURE`/`PAYMENT-RESPONSE` naming,
+  facilitator endpoints + HMAC auth (live 401 `code 50103` probe of
+  `web3.okx.com/api/v6/pay/x402/supported`), 6-decimal amount scaling (third price point:
+  Predexon $0.01 → `"10000"`), verify-before-work (second unfunded signed replay →
+  `insufficient_balance` fresh challenge), SDK identity `@okxweb3/app-x402-core@0.2.0`.
+- **Q2 strengthened:** Predexon #2143 captured as a FOURTH approved seller — enforcing,
+  `exact`-only ⇒ `exact` alone demonstrably passes review (spec Appx H.4).
+- **Q3 strengthened to cryptographic:** on-chain `name()`/`symbol()` = `USD₮0`,
+  `decimals()` = 6, `authorizationState()` present, and `DOMAIN_SEPARATOR()` recomputed
+  byte-exact from `{name:"USD₮0", version:"1", chainId:196}` (spec Appx H.3).
+
+### Corrections applied to the spec
+
+1. **Original Q6/G9 was wrong: our HTTP-level 402 gate ALREADY exists.** Bare (non-MCP)
+   `POST tools/call` to `https://three.ws/api/mcp-3d` returns `HTTP/2 402` +
+   `PAYMENT-REQUIRED`, and `onchainos agent x402-check --endpoint https://three.ws/api/mcp-3d`
+   parses it **`valid: true`** (Solana-only accepts — the isolated gap is the missing
+   `eip155:196` entry). Only clients sending `mcp-protocol-version` get the 401/OAuth
+   branch, which OKX tooling never sends. G9 is now "no new gate needed"; WO-02 must NOT
+   build a transport gate — only add the X Layer accept (G1-G3), the OKX facilitator route
+   (G6, G11), and the v2 header names on the paid leg (G7, G8).
+2. **No v1 `x-payment` back-compat in the OKX SDK** — `extractPayment` reads only
+   `payment-signature` / `app-payment`. The earlier "accepts v1 for back-compat" claim was
+   uncited and is removed; do not rely on v1 names on the OKX rail.
+3. **G3 softened:** `extra.decimals: 6` is optional-but-recommended — its absence triggers a
+   (non-fatal) `tokenResolveError` in `x402-check` because USD₮0 is outside the task
+   system's supported-token list (spec Appx H.2).
+
+### Unchanged blockers (owner)
+
+Same two as the entry above: OKX API credentials (`OKX_API_KEY`/`OKX_SECRET_KEY`/
+`OKX_PASSPHRASE`) and X Layer USD₮0 funding of `0x75d0…cf69` (≥0.02 USD₮0 covers the WO-04
+gauntlet incl. one Predexon-priced call; ~1.0 USD₮0 recommended for buffer; no OKB needed —
+EIP-3009 gas is facilitator-paid).
+
+### GO/NO-GO
+
+- **Work Order 02: GO (re-affirmed, now double-sourced).** Note for 02: commit
+  `4cfc26ea3` already added `api/_lib/x402-xlayer-okx.js` + env vars — audit that file
+  against spec §1/§4 (esp. G7-G9 as corrected) instead of starting fresh.
