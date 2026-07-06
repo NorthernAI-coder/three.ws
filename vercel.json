@@ -1895,6 +1895,14 @@
 			"dest": "/partners.html"
 		},
 		{
+			"src": "/sperax",
+			"dest": "/sperax.html"
+		},
+		{
+			"src": "/sperax/",
+			"dest": "/sperax.html"
+		},
+		{
 			"src": "/agents-live",
 			"dest": "/agents-live.html"
 		},
