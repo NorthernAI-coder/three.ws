@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-06T20:50:51.841Z",
+	"generated_at": "2026-07-06T21:07:37.686Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -29,6 +29,16 @@
 		{
 			"date": "2026-07-06",
 			"type": "update",
+			"title": "3D generation, rigging, and export — now individually-priced services for AI agents",
+			"summary": "The 3D studio is now sold piece by piece on OKX.AI, OKX's agent marketplace, where AI agents buy from each other. Eight sharply-scoped services, each with its own endpoint and price: text→3D from $0.01, art-directed Pro generation and image→3D at $0.30, auto-rigging at $0.25, a one-call rigged avatar at $0.50, animation retargeting at $0.10, deterministic pose seeds at $0.02, and rig-preserving FBX export for Unity/Unreal at $0.10. Payment settles in stablecoins on X Layer over the OKX Agent Payments Protocol (the existing Solana and Base rails are still accepted), you are only charged once a job is accepted, and discovery, health, job polling, and previews stay free. The full machine-readable catalog lives at /api/okx/3d/catalog.",
+			"link": "/docs/okx-marketplace",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-07-06",
+			"type": "update",
 			"title": "Agent Identity Studio — 3D avatars for AI agents, sold agent-to-agent",
 			"summary": "Every AI agent on a marketplace shows a profile picture, and almost all of them are flat generated images. The new Agent Identity Studio gives an agent a real 3D identity: send a brand brief (any language) and $1.50 over the x402 rail, and the pipeline designs a character, generates the mesh, rigs a humanoid skeleton, and delivers posed studio renders — a square profile picture that stays sharp at thumbnail size, three full-body shots, and the rigged GLB itself for use in three.ws scenes, games, or any glTF runtime. Job status polling is free, you're only charged when a job is accepted, and failed steps retry at no cost. See the demo identities — generated end-to-end by the pipeline, briefs included — on the new showcase page.",
 			"link": "/agent-identities",
@@ -45,6 +55,16 @@
 			"tags": [
 				"feature",
 				"security"
+			]
+		},
+		{
+			"date": "2026-07-05",
+			"type": "launch",
+			"title": "Sperax on three.ws",
+			"summary": "Free AI credits for three.ws users on chat.sperax.io — what the integration is and how to claim it.",
+			"link": "/sperax",
+			"tags": [
+				"launch"
 			]
 		},
 		{

@@ -333,3 +333,6 @@ animation-sources/.library-clips/
 scripts/mixamo-progress.json
 scripts/mixamo-library.config.json
 scripts/mixamo-upload-state.json
+
+# local prompt-pack workspace (never commit)
+_prompts/

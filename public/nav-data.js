@@ -82,6 +82,13 @@ export const NAV_GROUPS = [
 						href: '/pose',
 						desc: 'Pose with IK, keyframe a timeline → animated GLB you can sell',
 					},
+					{
+						title: 'Agent Identity Studio',
+						href: '/agent-identities',
+						badge: 'Live',
+						badgeTone: 'live',
+						desc: 'Brand brief → rigged avatar + studio renders for your AI agent',
+					},
 				],
 			},
 			{

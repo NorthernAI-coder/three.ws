@@ -705,6 +705,14 @@
 			"description": "On-chain features: pay-per-call, token launches, vanity wallets.",
 			"pages": [
 				{
+					"path": "/sperax",
+					"title": "Sperax on three.ws",
+					"description": "Free AI credits for three.ws users on chat.sperax.io — what the integration is and how to claim it.",
+					"priority": 0.5,
+					"changefreq": "monthly",
+					"added": "2026-07-05"
+				},
+				{
 					"path": "/agi",
 					"title": "The AGI — narrow by design",
 					"description": "The first AGI, narrow by design: a single autonomous agent that is genuinely superhuman at one thing — trading memecoins on pump.fun (Solana) — and deliberately nothing else. Watch its embodied 3D body react to the market in real time, read every decision it makes with its stated confidence, and hold it to a chain-proven track record. Outside that one domain, it claims nothing.",

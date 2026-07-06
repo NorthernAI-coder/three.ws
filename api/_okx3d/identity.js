@@ -65,10 +65,6 @@ export const IDENTITY_DIRECTOR_INSTRUCTION =
 	'characters, no text or logos. The brief may be in any language; ALWAYS write the prompt in ' +
 	'English. Output ONLY the rewritten prompt as a single line — no preamble, no quotes.';
 
-function sleep(ms) {
-	return new Promise((r) => setTimeout(r, ms));
-}
-
 function pipelineError(code, message, extra = {}) {
 	return Object.assign(new Error(message), { code, ...extra });
 }
@@ -163,16 +159,34 @@ async function directIdentityPrompt({ base, agentName, brief, styleHints }) {
 	return refined.length >= 3 && refined.length <= 1000 ? refined : null;
 }
 
+// The generation lane's text→image encoder truncates/chokes on long prompts —
+// verified against production /api/forge: ~250-char prompts generate cleanly,
+// ~430-char prompts fail. Keep every prompt we send under this budget, cut at
+// a word boundary.
+export const MAX_GENERATION_PROMPT_CHARS = 300;
+function clampPrompt(text, max = MAX_GENERATION_PROMPT_CHARS) {
+	const t = String(text ?? '').trim();
+	if (t.length <= max) return t;
+	const cut = t.slice(0, max);
+	const lastSpace = cut.lastIndexOf(' ');
+	return (lastSpace > max * 0.6 ? cut.slice(0, lastSpace) : cut).replace(/[,;:\s]+$/, '');
+}
+
 // Deterministic fallback when the director is unreachable. Forces the humanoid
 // framing rigging requires — an identity brief ("a finance data agent") rarely
 // names a humanoid subject, so unlike forge_avatar there is no humanoid gate
 // here: the subject is BY CONSTRUCTION a humanoid character embodying the
-// brief, in both the director instruction and this template.
-export function fallbackIdentityPrompt({ agentName, brief, styleHints }) {
-	const hints = styleHints ? `, ${styleHints}` : '';
+// brief, in both the director instruction and this template. Leads with the
+// visual description and stays inside the generation prompt budget: the frame
+// text is ~130 chars, so the brief+hints get the remaining ~170.
+export function fallbackIdentityPrompt({ brief, styleHints }) {
+	// The style hints ARE the visual direction — they get their own budget so a
+	// long brief can never crowd them out of the prompt.
+	const hints = styleHints ? clampPrompt(styleHints, 70) : '';
+	const subject = clampPrompt(brief, MAX_GENERATION_PROMPT_CHARS - 130 - (hints ? hints.length + 2 : 0));
 	return (
-		`full-body humanoid character avatar embodying the AI agent "${agentName}": ${brief}${hints}, ` +
-		'standing in a neutral pose with arms slightly away from the body, plain background'
+		`full-body humanoid character: ${subject}${hints ? `, ${hints}` : ''}, standing neutral pose, ` +
+		'arms slightly away from body, plain background'
 	);
 }
 
@@ -180,7 +194,7 @@ export async function shapeIdentityPrompt({ base = BASE, agentName, brief, style
 	const directed = await directIdentityPrompt({ base, agentName, brief, styleHints });
 	return {
 		directed,
-		effective: directed || fallbackIdentityPrompt({ agentName, brief, styleHints }),
+		effective: clampPrompt(directed || fallbackIdentityPrompt({ brief, styleHints })),
 	};
 }
 
@@ -495,6 +509,17 @@ async function beginRig(base, state) {
 // terminal while attempts remain. Exhausted retries mark the job failed with
 // the last actionable error.
 async function failStage(state, stage, err) {
+	// Backpressure is not failure: a rate-limited upstream never consumes a
+	// retry attempt. Clear the stage handle, honor retry_after (default 30s),
+	// and let a later poll resubmit.
+	if (err?.code === 'rate_limited') {
+		state.error = { stage, code: 'rate_limited', message: String(err?.message || err), retrying: true };
+		if (stage === 'generate') state.gen.jobId = null;
+		else if (stage === 'rig') state.rig.jobId = null;
+		const waitMs = Number(err?.retryAfter) > 0 ? Number(err.retryAfter) * 1000 : 30_000;
+		state.nextAttemptAt = Date.now() + Math.min(waitMs, 5 * 60_000);
+		return saveState(state);
+	}
 	const attempts = state.attempts[stage] ?? 0;
 	if (attempts < MAX_STAGE_ATTEMPTS && err?.code !== 'not_configured') {
 		state.error = { stage, code: err?.code || 'provider_error', message: String(err?.message || err), retrying: true };
@@ -513,6 +538,12 @@ async function failStage(state, stage, err) {
 export async function advanceIdentityJob(id, { base = BASE } = {}) {
 	const state = await loadState(id);
 	if (!state) return null;
+
+	// Rate-limit backoff window — this poll is a no-op until it elapses.
+	if (state.nextAttemptAt && Date.now() < state.nextAttemptAt) return state;
+	if (state.nextAttemptAt) {
+		delete state.nextAttemptAt;
+	}
 
 	if (state.stage === 'generate') {
 		if (!state.gen.glbUrl && !state.gen.jobId) {
@@ -589,14 +620,9 @@ export async function advanceIdentityJob(id, { base = BASE } = {}) {
 				if (state.renderCursor >= state.plan.length) state.stage = 'done';
 				await saveState(state);
 			} catch (err) {
-				if (err?.code === 'rate_limited') {
-					// Renderer window exhausted — leave the cursor; the next poll retries.
-					state.error = { stage: 'render', code: 'rate_limited', message: String(err.message), retrying: true };
-					await saveState(state);
-					await sleep(250);
-				} else {
-					await failStage(state, 'render', err);
-				}
+				// failStage handles rate_limited as pure backoff (cursor untouched,
+				// no attempt consumed) and real failures with bounded retries.
+				await failStage(state, 'render', err);
 			}
 		}
 	}

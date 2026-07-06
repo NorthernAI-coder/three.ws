@@ -522,6 +522,12 @@ Global leaderboard for the walking avatar — distance walked, sites visited, an
 
 On-chain features: pay-per-call, token launches, vanity wallets.
 
+### Sperax on three.ws
+
+URL: https://three.ws/sperax
+
+Free AI credits for three.ws users on chat.sperax.io — what the integration is and how to claim it.
+
 ### The AGI — narrow by design
 
 URL: https://three.ws/agi

@@ -171,3 +171,151 @@ EIP-3009 gas is facilitator-paid).
 - **Work Order 02: GO (re-affirmed, now double-sourced).** Note for 02: commit
   `4cfc26ea3` already added `api/_lib/x402-xlayer-okx.js` + env vars — audit that file
   against spec §1/§4 (esp. G7-G9 as corrected) instead of starting fresh.
+
+---
+
+## 2026-07-06 — Work Order 03 session: COMPLETE — 3D studio decomposed into micro-priced A2MCP services
+
+**Outcome: the full target catalog is implemented, tested, and documented. Eight paid REST
+services + the two free discovery services are live in code under `/api/okx/3d/<service>`,
+all priced from one catalog module, all running the same engines `/api/mcp-3d` uses.**
+This session also independently implemented the WO-02 X Layer rail before discovering the
+concurrent sessions' commits — the converged implementation in HEAD
+(`api/_lib/x402-xlayer-okx.js` + `x402-spec.js` routing + `@okxweb3/app-x402-core`) was
+audited against spec §1/§4 including the Appendix H corrections (`extra.decimals: 6` added).
+
+### What shipped (WO-03 scope)
+
+- **Catalog rows** in [`api/_lib/okx-catalog.js`](../../api/_lib/okx-catalog.js) — 8 paid
+  REST services added next to WO-06's identity-studio + free rows. Display-width
+  validation (CJK=2/ASCII=1, ≤200 per description part) enforced by `validateCatalog()`
+  and CI.
+- **Engine adapters** in [`api/_okx3d/rest-services.js`](../../api/_okx3d/rest-services.js)
+  — thin dispatch onto the existing engines (forge-client submit/poll, UniRig rig submit,
+  `apply_animation` / `pose_model` / `remesh_model` MCP tool handlers). Zero pipeline
+  duplication.
+- **Routing** in [`api/okx/3d/[service].js`](../../api/okx/3d/%5Bservice%5D.js) — per-service
+  OKX-dialect 402 (PAYMENT-REQUIRED header + body, X Layer accept FIRST with that service's
+  own atomic amount, existing Solana/Base rails after), verify → engine → settle-on-success
+  → PAYMENT-RESPONSE, forge.js-grade idempotency (retried payment replays the same
+  response; proof single-use in flight). GET on any paid service = free descriptor.
+- **Health** extended with two real probes: `retarget` (live animation-manifest fetch) and
+  `payment-rail` (X Layer RPC height + on-chain USD₮0 symbol read + settlement-route
+  config).
+- **Docs**: [`docs/okx-marketplace.md`](../../docs/okx-marketplace.md) per-service section
+  (runnable curl per service); changelog entry in `data/changelog.json` (built + validated
+  via `npm run build:pages`); STRUCTURE.md row + start-here link were landed by the
+  parallel WO-06 session and cover this surface.
+- **Tests**: [`tests/api/okx-3d-services.test.js`](../../tests/api/okx-3d-services.test.js)
+  — 26 tests, no sampling: catalog contract + price points, per-service 402 (all 8),
+  free GET descriptor, paid dispatch per service, and the never-charge failure paths
+  (invalid input, humanoid gate, engine 5xx, rejected payment, settle failure).
+
+### Final catalog table (Work Order 05 submits these rows verbatim)
+
+Descriptions are 2-part per OKX format (① capability ② caller input, both ≤200 display
+width — validated). The exact submittable strings live in `api/_lib/okx-catalog.js`
+(`describes.capability` + `describes.input`, joined by `listingDescription()`); this table
+summarizes them:
+
+| # | Service name | Fee (USDT) | Endpoint | Type |
+|---|---|---|---|---|
+| 1 | 3D Studio Health (free) | 0 | `https://three.ws/api/okx/3d/health` | A2MCP |
+| 2 | 3D Studio Catalog (free) | 0 | `https://three.ws/api/okx/3d/catalog` | A2MCP |
+| 3 | Text to 3D Model (GLB) | 0.01 | `https://three.ws/api/okx/3d/text-to-3d` | A2MCP |
+| 4 | Text to 3D Model (Pro) | 0.30 | `https://three.ws/api/okx/3d/text-to-3d-pro` | A2MCP |
+| 5 | Image to 3D Model | 0.30 | `https://three.ws/api/okx/3d/image-to-3d` | A2MCP |
+| 6 | Auto-Rig a GLB | 0.25 | `https://three.ws/api/okx/3d/rig` | A2MCP |
+| 7 | Text to Rigged Avatar | 0.50 | `https://three.ws/api/okx/3d/avatar` | A2MCP |
+| 8 | Animation Retarget | 0.10 | `https://three.ws/api/okx/3d/retarget` | A2MCP |
+| 9 | Pose Seed | 0.02 | `https://three.ws/api/okx/3d/pose-seed` | A2MCP |
+| 10 | FBX Export (rig-preserving) | 0.10 | `https://three.ws/api/okx/3d/fbx-export` | A2MCP |
+| 11 | Agent Identity Studio | 1.50 | `https://three.ws/api/okx/3d/identity-studio` | A2MCP (WO-06) |
+
+All target rows from the work order shipped; none cut. The free "3D Health & Catalog" row
+was split into two endpoints (matching how the reference sellers list discovery), and
+WO-06's identity-studio row rides in the same catalog.
+
+### Price vs unit cost (no service sells below cost)
+
+| Service | Fee | Worst-case lane cost per call | Basis |
+|---|---|---|---|
+| text-to-3d | $0.01 | ~$0 | NVIDIA NIM TRELLIS lane — zero vendor cost (forge-tiers.js: "no vendor cost") |
+| text-to-3d-pro | $0.30 | ~$0 normal; a few cents worst-case | NIM/HuggingFace free lanes first; Replicate TRELLIS backstop only when both are down |
+| image-to-3d | $0.30 | same as pro | same reconstruct chain |
+| rig | $0.25 | ~$0 marginal | self-hosted UniRig GPU worker (fixed infra) |
+| avatar | $0.50 | gen + rig above | chain of the two |
+| retarget | $0.10 | ~$0 | in-process CPU retarget |
+| pose-seed | $0.02 | ~$0 | in-process deterministic lookup |
+| fbx-export | $0.10 | ~$0 marginal | remesh worker convert |
+
+Platform-retail prices on the general x402 rails are lower for some capabilities (e.g.
+retarget $0.01 on /api/mcp-3d); the OKX-marketplace prices follow the work order's targets
+— a deliberate marketplace premium, all above cost.
+
+### Integration evidence (local, real module behind node:http)
+
+Unpaid POST → per-service 402 with the service's own amount (pose-seed, $0.02):
+
+```
+HTTP/1.1 402 Payment Required
+payment-required: <base64>
+{"x402Version":2,"resource":{"url":"https://three.ws/api/okx/3d/pose-seed","mimeType":"application/json"},
+ "accepts":[{"scheme":"exact","network":"eip155:196","amount":"20000",
+ "payTo":"0x75d00a2713565171f33216e5aa2a375e076ecf69","maxTimeoutSeconds":86400,
+ "asset":"0x779ded0c9e1022225f8e0630b35a9b54be713736",
+ "extra":{"symbol":"USDT","name":"USD₮0","version":"1","transferMethod":"eip3009","decimals":6}}]}
+```
+
+Buyer's-eye check — `onchainos payment pay --payload '<our 402 body>'` ACCEPTED the
+challenge and signed it (TEE wallet `0x75d0…cf69`):
+
+```
+ok: true  header_name: PAYMENT-SIGNATURE  scheme: exact
+accepted.network: eip155:196  accepted.amount: 20000
+auth.to: 0x75d00a2713565171f33216e5aa2a375e076ecf69  auth.value: 20000
+```
+
+Replaying that signed header against our endpoint (wallet unfunded) → our verify leg ran
+the real on-chain checks and answered exactly like the approved sellers do:
+
+```
+HTTP/1.1 402 Payment Required
+{"x402Version":2,"error":"insufficient_balance", ... same accepts ...}
+```
+
+### Test output
+
+`npx vitest run tests/api/okx-3d-services.test.js tests/api/okx-identity-studio.test.js`:
+
+```
+ Test Files  2 passed (2)
+      Tests  44 passed (44)
+```
+
+Full unit suite: 788/793 files green, 10905+ tests passing. The residual failures are NOT
+this work order's: `x402-discovery-parity` red because the parallel session's new
+`/api/x402/vanity-premium` endpoint isn't in the wk.js discovery catalog yet (their
+follow-up); `token-market-single-flight` (market-cache lock test, unrelated subsystem) and
+`x402-modal-dom` (passes in isolation — flake) predate/parallel this change. Playwright
+E2E not run in this environment (browsers not installed per install command).
+
+### Paid-leg status (per the anti-laziness gate)
+
+Every lane that can run free ran for real (buyer signing, on-chain verify path, unfunded
+settle behavior, engine dispatch under test). The fully-funded paid replay for each
+service is Work Order 04's gauntlet and stays blocked on the same two owner items already
+logged: **OKX API credentials** (`OKX_API_KEY`/`OKX_SECRET_KEY`/`OKX_PASSPHRASE` → vercel
+env; enables the official facilitator verify/settle) and **USD₮0 funding** of
+`0x75d0…cf69` on X Layer (≥ $2.98 covers one paid call of every WO-03 service +
+identity-studio; ~$5 recommended). Fallback settle without OKX creds:
+`X402_XLAYER_RELAYER_KEY` (fresh keypair) + OKB dust for gas — implemented and env-gated,
+documented in the spec. Also required in vercel env for the rail to be advertised at all:
+`X402_PAY_TO_XLAYER=0x75d00a2713565171f33216e5aa2a375e076ecf69`.
+
+### Next
+
+- **Work Order 04: GO** once the owner sets the env vars + funds above. All preconditions
+  it audits now exist.
+- **Work Order 05**: submit the catalog table above (strings from `okx-catalog.js`
+  verbatim via `listingDescription()`).
