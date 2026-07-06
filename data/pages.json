@@ -1382,6 +1382,15 @@
 					"added": "2026-04-29"
 				},
 				{
+					"path": "/agent-identities",
+					"title": "Agent Identity Studio — 3D avatars for AI agents",
+					"description": "Every AI agent deserves a face. A brand brief becomes a rigged 3D avatar plus posed studio renders — see the demo identities generated end-to-end by the pipeline.",
+					"priority": 0.8,
+					"changefreq": "weekly",
+					"added": "2026-07-06",
+					"showcase": true
+				},
+				{
 					"path": "/agent",
 					"title": "Agent Home",
 					"description": "Default landing for an agent instance — chat, embed, and remix actions.",

@@ -476,14 +476,14 @@ export async function createIdentityJob({
 }
 
 async function beginRig(base, state) {
+	state.stage = 'rig';
 	try {
 		const rig = await startRig(base, state.gen.glbUrl);
-		state.stage = 'rig';
 		state.attempts.rig += 1;
 		state.rig.jobId = rig.job_id;
 		state.error = null;
 	} catch (err) {
-		return failStage(base, state, 'rig', err);
+		return failStage(state, 'rig', err);
 	}
 	return saveState(state);
 }
@@ -515,10 +515,28 @@ export async function advanceIdentityJob(id, { base = BASE } = {}) {
 	if (!state) return null;
 
 	if (state.stage === 'generate') {
-		if (!state.gen.glbUrl) {
+		if (!state.gen.glbUrl && !state.gen.jobId) {
+			// A previous attempt failed — this poll performs the free retry.
+			try {
+				const gen = await submitForge(
+					base,
+					state.input.referenceImageUrl
+						? { image_urls: [state.input.referenceImageUrl], prompt: state.prompt.effective, aspect_ratio: '3:4' }
+						: { prompt: state.prompt.effective, aspect_ratio: '3:4' },
+				);
+				state.gen.jobId = gen.job_id ?? null;
+				if (gen.status === 'done' && gen.glb_url) {
+					state.gen.glbUrl = gen.glb_url;
+					state.gen.backend = gen.backend ?? state.gen.backend;
+				}
+				await saveState(state);
+			} catch (err) {
+				await failStage(state, 'generate', err);
+			}
+		} else if (!state.gen.glbUrl) {
 			const status = await pollForgeOnce(base, state.gen.jobId);
 			if (status.status === 'failed') {
-				await failStage(base, state, 'generate', pipelineError('generation_failed', status.error || 'generation failed'));
+				await failStage(state, 'generate', pipelineError('generation_failed', status.error || 'generation failed'));
 			} else if (status.status === 'done' && status.glb_url) {
 				state.gen.glbUrl = status.glb_url;
 				state.gen.backend = status.backend ?? state.gen.backend;
@@ -527,13 +545,18 @@ export async function advanceIdentityJob(id, { base = BASE } = {}) {
 		}
 		if (state.stage === 'generate' && state.gen.glbUrl) await beginRig(base, state);
 	} else if (state.stage === 'rig') {
-		const status = await pollForgeOnce(base, state.rig.jobId);
-		if (status.status === 'failed') {
-			await failStage(base, state, 'rig', pipelineError('rig_failed', status.error || 'rigging failed'));
-		} else if (status.status === 'done' && status.glb_url) {
-			state.rig.glbUrl = status.glb_url;
-			state.stage = 'render';
-			await saveState(state);
+		if (!state.rig.jobId) {
+			// Rig submission failed earlier — retry it on this poll.
+			await beginRig(base, state);
+		} else {
+			const status = await pollForgeOnce(base, state.rig.jobId);
+			if (status.status === 'failed') {
+				await failStage(state, 'rig', pipelineError('rig_failed', status.error || 'rigging failed'));
+			} else if (status.status === 'done' && status.glb_url) {
+				state.rig.glbUrl = status.glb_url;
+				state.stage = 'render';
+				await saveState(state);
+			}
 		}
 	} else if (state.stage === 'render') {
 		const step = state.plan[state.renderCursor];
@@ -572,7 +595,7 @@ export async function advanceIdentityJob(id, { base = BASE } = {}) {
 					await saveState(state);
 					await sleep(250);
 				} else {
-					await failStage(base, state, 'render', err);
+					await failStage(state, 'render', err);
 				}
 			}
 		}

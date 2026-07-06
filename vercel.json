@@ -4360,6 +4360,14 @@
 			"dest": "/tour-builder.html"
 		},
 		{
+			"src": "/agent-identities",
+			"dest": "/agent-identities.html"
+		},
+		{
+			"src": "/agent-identities/",
+			"dest": "/agent-identities.html"
+		},
+		{
 			"src": "/features",
 			"dest": "/features.html"
 		},
