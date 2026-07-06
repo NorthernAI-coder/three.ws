@@ -377,9 +377,16 @@ export default wrap(async (req, res) => {
 	const isStreaming = body.stream === true;
 	const t0 = Date.now();
 
+	// Vertex Claude transport: when VERTEX_CLAUDE_ENABLED, `provider: anthropic`
+	// models stream from Google Vertex (GCP credits) with first-party Anthropic as
+	// the fallback. Vertex SSE is byte-identical to first-party, so the streaming
+	// passthrough below is unchanged.
+	const vertexOn = vertexClaudeEnabled();
+
 	let upstream;
 	let usedModel = requestedModel;
 	let usedRoute = null;
+	let usedVia = null;
 
 	for (let attempt = 0; attempt < modelFallbacks.length; attempt++) {
 		usedModel = modelFallbacks[attempt];
@@ -391,8 +398,58 @@ export default wrap(async (req, res) => {
 			continue;
 		}
 
-		const apiKey = process.env[route.envKey];
-		if (!apiKey) {
+		// Ordered transports for this model. Anthropic models can be served by
+		// Vertex (GCP credits) and/or first-party; try Vertex first when enabled,
+		// then first-party Anthropic as the fallback. OpenAI-compatible providers
+		// (Groq/OpenRouter/NVIDIA) have a single transport.
+		const transports = [];
+		if (route.kind === 'anthropic') {
+			if (vertexOn) {
+				transports.push({
+					via: 'vertex-anthropic',
+					build: async () => ({
+						url: vertexMessagesUrl(usedModel, { stream: isStreaming }),
+						headers: await vertexRequestHeaders(),
+						body: JSON.stringify(toVertexBody({ ...body, model: usedModel })),
+					}),
+				});
+			}
+			const apiKey = process.env[route.envKey];
+			if (apiKey) {
+				transports.push({
+					via: 'anthropic',
+					build: async () => ({
+						url: UPSTREAM_URL.anthropic,
+						headers: {
+							'content-type': 'application/json',
+							'anthropic-version': '2023-06-01',
+							'x-api-key': apiKey,
+						},
+						body: JSON.stringify({ ...body, model: usedModel }),
+					}),
+				});
+			}
+		} else {
+			const apiKey = process.env[route.envKey];
+			if (apiKey) {
+				transports.push({
+					via: route.provider,
+					build: async () => ({
+						url: UPSTREAM_URL[route.provider],
+						headers: {
+							'content-type': 'application/json',
+							authorization: `Bearer ${apiKey}`,
+							...(route.provider === 'openrouter'
+								? { 'HTTP-Referer': 'https://three.ws', 'X-Title': 'three.ws agent' }
+								: {}),
+						},
+						body: JSON.stringify(anthropicBodyToOpenAI({ ...body, model: usedModel })),
+					}),
+				});
+			}
+		}
+
+		if (!transports.length) {
 			// An unconfigured provider is never terminal — even for the requested
 			// model. Degrade through the chain (free lanes follow); the post-loop
 			// guard 503s only when no lane was usable at all.
@@ -400,55 +457,83 @@ export default wrap(async (req, res) => {
 		}
 
 		usedRoute = route;
-		const upstreamUrl =
-			route.kind === 'anthropic' ? UPSTREAM_URL.anthropic : UPSTREAM_URL[route.provider];
-		const upstreamHeaders =
-			route.kind === 'anthropic'
-				? {
-						'content-type': 'application/json',
-						'anthropic-version': '2023-06-01',
-						'x-api-key': apiKey,
-					}
-				: {
-						'content-type': 'application/json',
-						authorization: `Bearer ${apiKey}`,
-						...(route.provider === 'openrouter'
-							? { 'HTTP-Referer': 'https://three.ws', 'X-Title': 'three.ws agent' }
-							: {}),
-					};
-		const upstreamBody =
-			route.kind === 'anthropic'
-				? JSON.stringify({ ...body, model: usedModel })
-				: JSON.stringify(anthropicBodyToOpenAI({ ...body, model: usedModel }));
+		upstream = null;
+		for (let ti = 0; ti < transports.length; ti++) {
+			const transport = transports[ti];
+			let reqParts;
+			try {
+				reqParts = await transport.build();
+			} catch (err) {
+				// Header/token resolution failed (e.g. Vertex GCP token exchange) —
+				// try the next transport (first-party Anthropic), then the next model.
+				log.warn('upstream_prepare_failed', {
+					agentId,
+					model: usedModel,
+					provider: transport.via,
+					error: err?.message || String(err),
+				});
+				continue;
+			}
 
-		const ttfbCtrl = new AbortController();
-		// Bound connect / time-to-first-byte so a lane that accepts the socket but
-		// never responds can't burn the whole invocation and starve the rest of the
-		// fallback chain. Cleared the moment headers arrive (finally), so the SSE
-		// body below still streams for as long as the model needs — never truncated.
-		const ttfbTimer = setTimeout(() => ttfbCtrl.abort(), 20000);
-		try {
-			upstream = await fetch(upstreamUrl, {
-				method: 'POST',
-				headers: upstreamHeaders,
-				body: upstreamBody,
-				signal: ttfbCtrl.signal,
-			});
-		} catch (err) {
-			// A thrown fetch (DNS/connection blip, or the TTFB abort above) is never
-			// terminal — degrade to the next lane exactly as an HTTP error does below.
-			// Without this catch a connection-level throw escaped the loop and 500'd
-			// instead of failing over, and the post-loop guard 503s if every lane fails.
-			log.warn('upstream_fetch_failed', {
-				agentId,
-				model: usedModel,
-				provider: route.provider || 'anthropic',
-				error: err?.message || String(err),
-			});
-			upstream = null;
-			continue;
-		} finally {
+			const ttfbCtrl = new AbortController();
+			// Bound connect / time-to-first-byte so a lane that accepts the socket but
+			// never responds can't burn the whole invocation and starve the rest of the
+			// fallback chain. Cleared the moment headers arrive (finally), so the SSE
+			// body below still streams for as long as the model needs — never truncated.
+			const ttfbTimer = setTimeout(() => ttfbCtrl.abort(), 20000);
+			let res2;
+			try {
+				res2 = await fetch(reqParts.url, {
+					method: 'POST',
+					headers: reqParts.headers,
+					body: reqParts.body,
+					signal: ttfbCtrl.signal,
+				});
+			} catch (err) {
+				// A thrown fetch (DNS/connection blip, or the TTFB abort above) is never
+				// terminal — degrade to the next transport / lane exactly as an HTTP
+				// error does below.
+				log.warn('upstream_fetch_failed', {
+					agentId,
+					model: usedModel,
+					provider: transport.via,
+					error: err?.message || String(err),
+				});
+				clearTimeout(ttfbTimer);
+				continue;
+			}
 			clearTimeout(ttfbTimer);
+
+			usedVia = transport.via;
+			if (res2.ok) {
+				upstream = res2;
+				break;
+			}
+			// Non-ok response. When another transport remains (Vertex 5xx/429 →
+			// first-party Anthropic), try it before advancing to the next model.
+			if (ti + 1 < transports.length) {
+				const errText = await res2.text().catch(() => '');
+				log.warn('upstream_error', {
+					agentId,
+					model: usedModel,
+					provider: transport.via,
+					status: res2.status,
+					body: errText.slice(0, 400),
+				});
+				console.warn(
+					`[llm/anthropic] ${transport.via}/${usedModel} returned ${res2.status} — ` +
+						'trying next transport',
+				);
+				continue;
+			}
+			// Last transport failed — hand the response to the model-level failover.
+			upstream = res2;
+		}
+
+		if (!upstream) {
+			// Every transport for this model threw (network/token). Degrade to the
+			// next model; the post-loop guard 503s if the whole chain is exhausted.
+			continue;
 		}
 
 		if (!upstream.ok) {
