@@ -447,6 +447,68 @@ async function streamWatsonx(res, { messages, system, maxTokens, t0 }) {
 	res.end();
 }
 
+// Stream Vertex-served Claude to the /brain page using the same SSE protocol as
+// the AI SDK path. Vertex returns first-party Anthropic Messages SSE, so we parse
+// content_block_delta text_delta events and re-emit them as brain first/chunk/done
+// events. Like streamWatsonx it only throws before writing tokens (a non-ok
+// upstream or connection failure), so streamBrain can fall back to the free chain.
+async function streamVertex(res, { messages, system, maxTokens, t0, model }) {
+	const upstream = await vertexAnthropicMessages(
+		{ model, max_tokens: maxTokens, ...(system ? { system } : {}), messages },
+		{ stream: true },
+	);
+	if (!upstream.ok || !upstream.body) {
+		const detail = await upstream.text().catch(() => '');
+		throw new Error(`vertex ${upstream.status}: ${detail.slice(0, 200)}`);
+	}
+
+	const reader = upstream.body.getReader();
+	const decoder = new TextDecoder();
+	let buf = '';
+	let firstTokenMs = null;
+	let inputTokens = 0;
+	let outputTokens = 0;
+
+	while (true) {
+		const { value, done } = await reader.read();
+		if (done) break;
+		buf += decoder.decode(value, { stream: true });
+		const lines = buf.split('\n');
+		buf = lines.pop();
+		for (const line of lines) {
+			if (!line.startsWith('data:')) continue;
+			const raw = line.slice(5).trim();
+			if (!raw || raw === '[DONE]') continue;
+			let evt;
+			try {
+				evt = JSON.parse(raw);
+			} catch {
+				continue;
+			}
+			if (evt.type === 'message_start') {
+				inputTokens = evt.message?.usage?.input_tokens ?? inputTokens;
+			} else if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') {
+				const text = evt.delta.text || '';
+				if (text) {
+					if (firstTokenMs === null) {
+						firstTokenMs = Date.now() - t0;
+						res.write(`event: first\ndata: ${JSON.stringify({ firstTokenMs })}\n\n`);
+					}
+					res.write(`data: ${JSON.stringify(text)}\n\n`);
+				}
+			} else if (evt.type === 'message_delta') {
+				outputTokens = evt.usage?.output_tokens ?? outputTokens;
+			}
+		}
+	}
+
+	const elapsedMs = Date.now() - t0;
+	const usage = { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens };
+	res.write(`event: done\ndata: ${JSON.stringify({ elapsedMs, firstTokenMs, usage })}\n\n`);
+	res.write('data: [DONE]\n\n');
+	res.end();
+}
+
 export function validateMessages(input) {
 	if (!Array.isArray(input)) {
 		throw Object.assign(new Error('messages must be an array'), { status: 400 });
@@ -656,6 +718,8 @@ export async function streamBrain(res, { plan, providerKey, messages, system, ma
 				// client, emitting the same first/chunk/done event protocol. It only
 				// throws before writing tokens, so falling through is safe.
 				if (attempt.watsonx) await streamWatsonx(res, { messages, system, maxTokens, t0 });
+				else if (attempt.vertex)
+					await streamVertex(res, { messages, system, maxTokens, t0, model: attempt.model });
 				else await streamOnce(maxTokens, attempt.model);
 				return;
 			} catch (err) {

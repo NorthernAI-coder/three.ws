@@ -173,7 +173,7 @@ function openaiCompatProvider({ name, key, url, model, extraHeaders = {} }) {
 // free provider: the prod paid keys are routinely invalid or out of quota, so
 // platform spend never leads and nothing depends on it — but when a key does
 // work, a request that exhausted the free tier still succeeds.
-function providerChain({ anthropicKey, anthropicModel, preferNvidia = false, nvidiaModel = null } = {}) {
+export function providerChain({ anthropicKey, anthropicModel, preferNvidia = false, nvidiaModel = null } = {}) {
 	const chain = [];
 	// Opt-in: lead with the NVIDIA NIM lane on a chosen Nemotron model. Used by
 	// features that want the NVIDIA-native model to actually produce the result
