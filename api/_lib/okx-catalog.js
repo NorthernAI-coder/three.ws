@@ -113,6 +113,227 @@ export const OKX_CATALOG = Object.freeze([
 			},
 		},
 	},
+	// ── Work order 03: the decomposed 3D studio ────────────────────────────
+	// Micro-priced REST services, one capability per endpoint, all backed by
+	// the same engines /api/mcp-3d runs on (api/_okx3d/rest-services.js maps
+	// each id to its engine — no logic duplicated). Prices clear worst-case
+	// lane cost; the math is recorded in prompts/okx-ai/PROGRESS.md.
+	{
+		id: 'text-to-3d',
+		name: 'Text to 3D Model (GLB)',
+		kind: 'rest',
+		describes: {
+			capability:
+				'Generates a textured, downloadable 3D model (GLB) from a text prompt on the fast draft ' +
+				'lane. Returns the finished GLB URL inline or a job to poll for free. Paid only when the ' +
+				'job is accepted.',
+			input:
+				'POST JSON with prompt (3-1000 chars) describing one object or character; optional ' +
+				'aspect_ratio. Poll poll_url free until status is done.',
+		},
+		priceUsd: '0.01',
+		amountAtomics: usdToAtomics(0.01),
+		endpoint: `${BASE}/api/okx/3d/text-to-3d`,
+		tool: null,
+		inputSchema: {
+			type: 'object',
+			required: ['prompt'],
+			additionalProperties: false,
+			properties: {
+				prompt: { type: 'string', minLength: 3, maxLength: 1000 },
+				aspect_ratio: { type: 'string', enum: ['1:1', '4:3', '3:4', '16:9', '9:16'] },
+			},
+		},
+	},
+	{
+		id: 'text-to-3d-pro',
+		name: 'Text to 3D Model (Pro)',
+		kind: 'rest',
+		describes: {
+			capability:
+				'Art-directed text to 3D: an LLM art director refines the prompt, then a higher-quality ' +
+				'lane generates the textured GLB — standard tier by default, high for maximum detail ' +
+				'plus PBR textures.',
+			input:
+				'POST JSON with prompt (3-1000 chars); optional tier standard|high and aspect_ratio. ' +
+				'Returns the GLB URL inline or job_id + poll_url; polling is free.',
+		},
+		priceUsd: '0.30',
+		amountAtomics: usdToAtomics(0.3),
+		endpoint: `${BASE}/api/okx/3d/text-to-3d-pro`,
+		tool: null,
+		inputSchema: {
+			type: 'object',
+			required: ['prompt'],
+			additionalProperties: false,
+			properties: {
+				prompt: { type: 'string', minLength: 3, maxLength: 1000 },
+				tier: { type: 'string', enum: ['standard', 'high'] },
+				aspect_ratio: { type: 'string', enum: ['1:1', '4:3', '3:4', '16:9', '9:16'] },
+			},
+		},
+	},
+	{
+		id: 'image-to-3d',
+		name: 'Image to 3D Model',
+		kind: 'rest',
+		describes: {
+			capability:
+				'Reconstructs a textured 3D model (GLB) from one to four reference photos of a single ' +
+				'object. Paid per call; the job is polled for free until done.',
+			input:
+				'POST JSON with image_urls: 1-4 public https photos of the same object; optional prompt ' +
+				'hint. Returns the GLB URL or job_id + poll_url.',
+		},
+		priceUsd: '0.30',
+		amountAtomics: usdToAtomics(0.3),
+		endpoint: `${BASE}/api/okx/3d/image-to-3d`,
+		tool: null,
+		inputSchema: {
+			type: 'object',
+			required: ['image_urls'],
+			additionalProperties: false,
+			properties: {
+				image_urls: {
+					type: 'array',
+					items: { type: 'string', format: 'uri' },
+					minItems: 1,
+					maxItems: 4,
+				},
+				prompt: { type: 'string', maxLength: 1000 },
+			},
+		},
+	},
+	{
+		id: 'rig',
+		name: 'Auto-Rig a GLB',
+		kind: 'rest',
+		describes: {
+			capability:
+				'Auto-rigs a static humanoid GLB into an animation-ready model: adds a skeleton and skin ' +
+				'weights so it can be posed and animated in any engine. Paid per call; job polling is ' +
+				'free.',
+			input:
+				'POST JSON with glb_url: public https URL of the static GLB to rig. Humanoid models rig ' +
+				'best. Returns job_id + poll_url; poll free until done.',
+		},
+		priceUsd: '0.25',
+		amountAtomics: usdToAtomics(0.25),
+		endpoint: `${BASE}/api/okx/3d/rig`,
+		tool: null,
+		inputSchema: {
+			type: 'object',
+			required: ['glb_url'],
+			additionalProperties: false,
+			properties: { glb_url: { type: 'string', format: 'uri' } },
+		},
+	},
+	{
+		id: 'avatar',
+		name: 'Text to Rigged Avatar',
+		kind: 'rest',
+		describes: {
+			capability:
+				'One call from text to an animation-ready character: generates the mesh, then auto-rigs a ' +
+				'humanoid skeleton. Non-humanoid prompts are steered to plain mesh generation instead of ' +
+				'a wasted rig pass.',
+			input:
+				'POST JSON with prompt describing a full-body character, or image_url reference; optional ' +
+				'allow_non_humanoid. Returns the mesh GLB plus a rig job to poll free.',
+		},
+		priceUsd: '0.50',
+		amountAtomics: usdToAtomics(0.5),
+		endpoint: `${BASE}/api/okx/3d/avatar`,
+		tool: null,
+		inputSchema: {
+			type: 'object',
+			additionalProperties: false,
+			properties: {
+				prompt: { type: 'string', maxLength: 1000 },
+				image_url: { type: 'string', format: 'uri' },
+				allow_non_humanoid: { type: 'boolean' },
+			},
+		},
+	},
+	{
+		id: 'retarget',
+		name: 'Animation Retarget',
+		kind: 'rest',
+		describes: {
+			capability:
+				'Retargets a curated animation clip (idle, walk, dance and more) onto any rigged humanoid ' +
+				'GLB. Returns the clip keyed to the rig plus a bone-coverage report. Completes in-request.',
+			input:
+				'POST JSON with model_url (rigged GLB https URL) and animation (preset name); optional ' +
+				'format glb|clip and speed 0.25-2.5.',
+		},
+		priceUsd: '0.10',
+		amountAtomics: usdToAtomics(0.1),
+		endpoint: `${BASE}/api/okx/3d/retarget`,
+		tool: null,
+		inputSchema: {
+			type: 'object',
+			required: ['model_url', 'animation'],
+			additionalProperties: false,
+			properties: {
+				model_url: { type: 'string', format: 'uri' },
+				animation: { type: 'string' },
+				format: { type: 'string', enum: ['glb', 'clip'] },
+				speed: { type: 'number', minimum: 0.25, maximum: 2.5 },
+			},
+		},
+	},
+	{
+		id: 'pose-seed',
+		name: 'Pose Seed',
+		kind: 'rest',
+		describes: {
+			capability:
+				'Resolves a natural-language pose description to a deterministic pose seed and a full ' +
+				'joint-rotation map for humanoid rigs. The same prompt always returns the same pose. ' +
+				'Completes in-request.',
+			input:
+				'POST JSON with prompt (pose description, 1-500 chars). Returns the seed, per-joint ' +
+				'rotations, and a preview link.',
+		},
+		priceUsd: '0.02',
+		amountAtomics: usdToAtomics(0.02),
+		endpoint: `${BASE}/api/okx/3d/pose-seed`,
+		tool: null,
+		inputSchema: {
+			type: 'object',
+			required: ['prompt'],
+			additionalProperties: false,
+			properties: { prompt: { type: 'string', minLength: 1, maxLength: 500 } },
+		},
+	},
+	{
+		id: 'fbx-export',
+		name: 'FBX Export (rig-preserving)',
+		kind: 'rest',
+		describes: {
+			capability:
+				'Converts a GLB to FBX for Unity/Unreal — a rigged GLB keeps its skeleton, skin weights, ' +
+				'and blendshapes. Also exports obj, stl, ply, usdz, and 3mf. Paid per call; job polling ' +
+				'is free.',
+			input:
+				'POST JSON with model_url (GLB https URL); optional format (default fbx). Returns ' +
+				'job_id + poll_url; poll free until done.',
+		},
+		priceUsd: '0.10',
+		amountAtomics: usdToAtomics(0.1),
+		endpoint: `${BASE}/api/okx/3d/fbx-export`,
+		tool: null,
+		inputSchema: {
+			type: 'object',
+			required: ['model_url'],
+			additionalProperties: false,
+			properties: {
+				model_url: { type: 'string', format: 'uri' },
+				format: { type: 'string', enum: ['fbx', 'obj', 'stl', 'ply', 'usdz', '3mf'] },
+			},
+		},
+	},
 	{
 		id: 'catalog',
 		name: '3D Studio Catalog (free)',
@@ -150,6 +371,12 @@ export const OKX_CATALOG = Object.freeze([
 
 export function catalogEntry(id) {
 	return OKX_CATALOG.find((e) => e.id === id) || null;
+}
+
+// The OKX listing description string: part ① and part ② joined on a newline —
+// the layout the approved sellers use. Work order 05 submits this verbatim.
+export function listingDescription(entry) {
+	return `${entry.describes.capability}\n${entry.describes.input}`;
 }
 
 // The machine-readable index the free catalog service returns — the exact
@@ -207,6 +434,11 @@ export function validateCatalog(catalog = OKX_CATALOG) {
 		if (!e.endpoint.endsWith(`/${e.id}`)) throw new Error(`${ctx}: endpoint/id mismatch`);
 		if (e.kind === 'a2mcp' && (!e.tool || !e.inputSchema)) {
 			throw new Error(`${ctx}: a2mcp row needs tool + inputSchema`);
+		}
+		// Paid REST rows must document their POST body — the catalog service and
+		// the listing both surface the schema, and buyers have nothing else.
+		if (e.kind === 'rest' && !free && !e.inputSchema) {
+			throw new Error(`${ctx}: paid rest row needs inputSchema`);
 		}
 	}
 	return true;

@@ -1075,6 +1075,14 @@
 					"added": "2026-06-20"
 				},
 				{
+					"path": "/vanity/premium",
+					"title": "Premium Vanity Inventory",
+					"description": "Buy a long, brandable Solana vanity address delivered instantly from stock — 4–5+ character prefixes the live grinder can't reach, ground ahead of time on batch CPU and sold via x402. Keys are encrypted at rest, priced by rarity, and delivered exactly once.",
+					"priority": 0.6,
+					"changefreq": "weekly",
+					"added": "2026-07-06"
+				},
+				{
 					"path": "/vanity/bounties",
 					"title": "Grind-Bounty Market",
 					"description": "A decentralized x402 bounty market for hard Solana vanity addresses — escrow a USDC bounty and a fleet of independent workers grinds it in parallel. The first verified match wins, but the found key is sealed to you so the worker never sees your wallet. Earn USDC by grinding open bounties.",

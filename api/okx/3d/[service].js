@@ -8,12 +8,42 @@
 //                                x402-priced; identity_status + getting_started
 //                                are free. Transport mirrors api/mcp-3d.js —
 //                                verify → dispatch → settle-on-success.
-import { cors, json, readJson, wrap } from '../../_lib/http.js';
+//   /api/okx/3d/<paid service>   REST (work order 03): plain JSON POST, one
+//                                capability + one price per endpoint. Unpaid
+//                                POST → OKX-dialect 402 (PAYMENT-REQUIRED
+//                                header + body); paid replay → verify →
+//                                engine → settle → PAYMENT-RESPONSE. GET is
+//                                the free per-service descriptor. Engines in
+//                                api/_okx3d/rest-services.js.
+import { cors, error, json, readJson, wrap } from '../../_lib/http.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
-import { settlePayment, encodePaymentResponseHeader } from '../../_lib/x402-spec.js';
+import {
+	buildExactRequirements,
+	encodePaymentResponseHeader,
+	resolveResourceUrl,
+	settlePayment,
+	verifyPayment,
+	X402Error,
+} from '../../_lib/x402-spec.js';
+import {
+	okxXLayerAccept,
+	sendOkx402,
+	xlayerRailHealth,
+	xlayerSettleable,
+} from '../../_lib/x402-xlayer-okx.js';
 import { priceBatch, isDiscoveryOnlyBatch } from '../../_lib/mcp-batch-price.js';
-import { OKX_CATALOG, catalogIndex, catalogEntry } from '../../_lib/okx-catalog.js';
+import { OKX_CATALOG, catalogIndex, catalogEntry, listingDescription } from '../../_lib/okx-catalog.js';
 import { headObject, putObject } from '../../_lib/r2.js';
+import {
+	PAYMENT_IDENTIFIER,
+	checkCache,
+	extractIdFromHeader,
+	hashPaymentProof,
+	hashRequestPayload,
+	storeResponse,
+	writeCachedResponse,
+	writeConflict,
+} from '../../_lib/x402/payment-identifier-server.js';
 import {
 	send401,
 	sendJsonRpcError,
@@ -30,6 +60,7 @@ import {
 	isPublicIdentityTool,
 	IDENTITY_CHALLENGE,
 } from '../../_okx3d/tools.js';
+import { invokeRestService, isRestPaidService } from '../../_okx3d/rest-services.js';
 
 const BASE = 'https://three.ws';
 const HEALTH_PROBE_KEY = 'okx-identity/health-probe.txt';
@@ -85,8 +116,199 @@ async function healthReport() {
 				await headObject(HEALTH_PROBE_KEY);
 			}
 		}),
+		probe('retarget', async () => {
+			// The animation library the retarget service reads clips from — a
+			// reachable, non-empty manifest proves the clip lane is servable.
+			const res = await fetch(`${BASE}/animations/manifest.json`, {
+				headers: { accept: 'application/json' },
+				signal: AbortSignal.timeout(10_000),
+			});
+			if (!res.ok) throw new Error(`animation manifest returned ${res.status}`);
+			const manifest = await res.json();
+			const clips = Array.isArray(manifest) ? manifest.length : Array.isArray(manifest?.animations) ? manifest.animations.length : 0;
+			if (!clips) throw new Error('animation manifest empty');
+			return { clips };
+		}),
+		probe('payment-rail', async () => {
+			// Real X Layer probe: RPC block height, fee-token symbol read, and
+			// settlement-route configuration (OKX facilitator creds / relayer).
+			const rail = await xlayerRailHealth();
+			if (rail.rpc && !rail.rpc.ok) throw new Error(rail.rpc.error || 'X Layer RPC unreachable');
+			return {
+				settleable: rail.settleable,
+				block: rail.rpc?.block,
+				token: rail.token?.symbol,
+				facilitator_configured: rail.facilitator?.configured ?? false,
+			};
+		}),
 	]);
 	return { ok: subsystems.every((s) => s.ok), subsystems, checkedAt: new Date().toISOString() };
+}
+
+// Per-service accepts: the OKX X Layer entry leads (that is the rail this
+// surface exists for — the buyer CLI auto-selects the first `exact` entry),
+// followed by the platform's existing rails so non-OKX agents can pay too.
+// One service, one price: every entry carries the same catalog amount.
+function restRequirements(resourceUrl, entry) {
+	const out = [];
+	if (xlayerSettleable()) out.push(okxXLayerAccept(resourceUrl, entry.amountAtomics));
+	out.push(...buildExactRequirements(resourceUrl, entry.amountAtomics));
+	return out;
+}
+
+// Free GET descriptor — per-service discovery, mirroring GET /api/x402/forge:
+// what it does, what it costs, how to call it. No payment, no account.
+function restDescriptor(res, entry) {
+	return json(
+		res,
+		200,
+		{
+			service: entry.id,
+			name: entry.name,
+			endpoint: entry.endpoint,
+			method: 'POST',
+			price_usd: entry.priceUsd,
+			description: listingDescription(entry),
+			input_schema: entry.inputSchema,
+			poll: 'GET /api/forge?job=<job_id> — free',
+			catalog: `${BASE}/api/okx/3d/catalog`,
+		},
+		{ 'cache-control': 'public, max-age=300' },
+	);
+}
+
+// Plain-JSON paid service (work order 03). Wire flow per
+// specs/okx-agent-payments.md and the api/x402/forge.js seller pattern:
+// unpaid POST → OKX-dialect 402; paid replay → idempotency check → verify →
+// engine (submit/complete) → settle → 200 + PAYMENT-RESPONSE. Engine errors
+// are answered BEFORE settlement, so a failed job never charges the buyer.
+async function handleRestService(req, res, entry) {
+	if (req.method === 'GET' || req.method === 'HEAD') return restDescriptor(res, entry);
+	if (req.method !== 'POST') {
+		res.setHeader('allow', 'GET, POST');
+		return error(res, 405, 'method_not_allowed', 'POST to run the service, GET for its descriptor');
+	}
+
+	// Pre-payment surface (402 challenges, validation) is rate-limited; the
+	// work itself is paywalled.
+	const rl = await limits.publicIp(clientIp(req));
+	if (!rl.success)
+		return json(res, 429, { error: 'rate_limited', retry_after: Math.ceil((rl.reset - Date.now()) / 1000) });
+
+	const chunks = [];
+	for await (const c of req) chunks.push(c);
+	const rawBody = Buffer.concat(chunks).toString('utf8');
+	let body;
+	try {
+		body = rawBody ? JSON.parse(rawBody) : {};
+	} catch {
+		return error(res, 400, 'invalid_json', 'Request body must be valid JSON.');
+	}
+
+	const resourcePath = `/api/okx/3d/${entry.id}`;
+	const resourceUrl = resolveResourceUrl(req, resourcePath);
+	const requirements = restRequirements(resourceUrl, entry);
+	if (!requirements.length) {
+		return error(
+			res,
+			503,
+			'rail_unconfigured',
+			'No payment rail is configured on this deployment — set the X Layer envs per specs/okx-agent-payments.md.',
+		);
+	}
+
+	const paymentHeader = req.headers['payment-signature'] || req.headers['x-payment'];
+	if (!paymentHeader) {
+		return sendOkx402(res, { resourceUrl, accepts: requirements });
+	}
+
+	// Idempotency + replay: a retried payment (same proof, same body) replays
+	// the SAME response instead of submitting a second job; a concurrent replay
+	// of an in-flight proof is refused. Identical plumbing to api/x402/forge.js.
+	const clientPaymentId = extractIdFromHeader(paymentHeader);
+	const payloadHash = hashRequestPayload({ method: 'POST', url: resourcePath, body: rawBody });
+	const paymentHash = hashPaymentProof(paymentHeader);
+	const paymentId = clientPaymentId || (paymentHash ? `proof:${paymentHash}` : null);
+	if (paymentId) {
+		const lookup = await checkCache({ route: resourcePath, paymentId, payloadHash, paymentHash });
+		if (lookup.kind === 'hit') return writeCachedResponse(res, lookup.entry);
+		if (lookup.kind === 'conflict') {
+			return writeConflict(res, {
+				route: resourcePath,
+				attemptedHash: lookup.attemptedHash,
+				existingHash: lookup.existingHash,
+				reason: lookup.reason,
+			});
+		}
+	}
+	let releaseProof = async () => {};
+	const guard = await reservePaymentProof(resourcePath, paymentHeader);
+	if (!guard.ok) {
+		return json(res, 409, { error: 'payment_in_flight', retry_after: 1 });
+	}
+	releaseProof = guard.release;
+
+	try {
+		let verified;
+		try {
+			verified = await verifyPayment({ paymentHeader, requirements });
+		} catch (err) {
+			if (err instanceof X402Error && err.status === 402) {
+				return sendOkx402(res, { resourceUrl, accepts: requirements, error: err.message });
+			}
+			return error(res, err.status || 502, err.code || 'verify_failed', err.message);
+		}
+
+		// Engine runs AFTER verify, BEFORE settle — a thrown engine error means
+		// the buyer was not charged, and we say so.
+		let result;
+		try {
+			result = await invokeRestService(entry.id, body, { req, payer: verified.payer });
+		} catch (err) {
+			const status = err.status || 502;
+			const message =
+				status >= 500
+					? 'The service could not complete and your payment was not taken — please retry shortly.'
+					: err.message;
+			if (status >= 500) console.warn(`[okx/3d/${entry.id}] engine failed (${status}): ${err?.message || err}`);
+			return error(res, status, err.code || 'service_failed', message);
+		}
+
+		let settled;
+		try {
+			settled = await settlePayment({ verified });
+		} catch (err) {
+			return sendX402Error(res, { resourceUrl, accepts: requirements }, err);
+		}
+
+		const paymentResponse = encodePaymentResponseHeader(settled);
+		const contentType = 'application/json; charset=utf-8';
+		const responseBody = JSON.stringify({ service: entry.id, price_usd: entry.priceUsd, ...result });
+		res.statusCode = 200;
+		// v2 header name (OKX buyers decode PAYMENT-RESPONSE) + the legacy name
+		// for x402 SDK clients paying over the platform rails.
+		res.setHeader('PAYMENT-RESPONSE', paymentResponse);
+		res.setHeader('x-payment-response', paymentResponse);
+		res.setHeader('access-control-expose-headers', 'PAYMENT-REQUIRED, PAYMENT-RESPONSE');
+		res.setHeader('cache-control', 'no-store');
+		res.setHeader('content-type', contentType);
+		res.end(responseBody);
+
+		if (paymentId) {
+			await storeResponse({
+				route: resourcePath,
+				paymentId,
+				payloadHash,
+				paymentHash,
+				status: 200,
+				body: responseBody,
+				contentType,
+				paymentResponseHeader: paymentResponse,
+			});
+		}
+	} finally {
+		await releaseProof();
+	}
 }
 
 async function handleIdentityStudio(req, res) {
@@ -132,7 +354,10 @@ async function handleIdentityStudio(req, res) {
 	// first settle lands.
 	let releaseProof = async () => {};
 	if (x402Ctx) {
-		const guard = await reservePaymentProof(resourcePath, req.headers['x-payment']);
+		const guard = await reservePaymentProof(
+			resourcePath,
+			req.headers['x-payment'] || req.headers['payment-signature'],
+		);
 		if (!guard.ok) {
 			return sendJsonRpcError(res, null, -32000, 'payment_in_flight', { retry_after: 1 });
 		}
@@ -194,6 +419,8 @@ export default wrap(async (req, res) => {
 	}
 
 	if (service === 'identity-studio') return handleIdentityStudio(req, res);
+
+	if (isRestPaidService(service)) return handleRestService(req, res, catalogEntry(service));
 
 	const known = catalogEntry(service);
 	return json(res, 404, {

@@ -193,11 +193,15 @@ export async function shapeIdentityPrompt({ base = BASE, agentName, brief, style
 async function submitForge(base, payload) {
 	let res;
 	try {
+		// The default free lane (NVIDIA NIM TRELLIS) completes SYNCHRONOUSLY —
+		// the submit response can take minutes and already carry the finished
+		// GLB, so the submit timeout must cover a full generation, not just an
+		// enqueue ack. Async backends still return a job_id quickly.
 		res = await fetch(`${base}/api/forge`, {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify(payload),
-			signal: AbortSignal.timeout(30_000),
+			signal: AbortSignal.timeout(150_000),
 		});
 	} catch (err) {
 		throw pipelineError('provider_error', `forge unreachable: ${err?.message || err}`);
@@ -484,42 +488,21 @@ async function beginRig(base, state) {
 	return saveState(state);
 }
 
-// A generate/rig failure retries free while attempts remain — the buyer paid
-// for deliverables, not for our transient upstream weather. Exhausted retries
-// mark the job failed with the last actionable error.
-async function failStage(base, state, stage, err) {
+// A generate/rig/render failure retries free while attempts remain — the
+// buyer paid for deliverables, not for our transient upstream weather. The
+// retry itself happens on the NEXT status poll (the failed stage's job handle
+// is cleared, and advance re-submits), so one bad resubmission can never go
+// terminal while attempts remain. Exhausted retries mark the job failed with
+// the last actionable error.
+async function failStage(state, stage, err) {
 	const attempts = state.attempts[stage] ?? 0;
 	if (attempts < MAX_STAGE_ATTEMPTS && err?.code !== 'not_configured') {
 		state.error = { stage, code: err?.code || 'provider_error', message: String(err?.message || err), retrying: true };
-		if (stage === 'generate') {
-			try {
-				const gen = await submitForge(
-					base,
-					state.input.referenceImageUrl
-						? { image_urls: [state.input.referenceImageUrl], prompt: state.prompt.effective, aspect_ratio: '3:4' }
-						: { prompt: state.prompt.effective, aspect_ratio: '3:4' },
-				);
-				state.attempts.generate += 1;
-				state.gen.jobId = gen.job_id ?? null;
-				if (gen.status === 'done' && gen.glb_url) state.gen.glbUrl = gen.glb_url;
-				return saveState(state);
-			} catch (resubmitErr) {
-				err = resubmitErr;
-			}
-		} else if (stage === 'rig') {
-			try {
-				const rig = await startRig(base, state.gen.glbUrl);
-				state.attempts.rig += 1;
-				state.rig.jobId = rig.job_id;
-				return saveState(state);
-			} catch (resubmitErr) {
-				err = resubmitErr;
-			}
-		} else if (stage === 'render') {
-			// Leave the cursor in place — the next status poll re-runs this render.
-			state.attempts.render = attempts + 1;
-			return saveState(state);
-		}
+		if (stage === 'generate') state.gen.jobId = null;
+		else if (stage === 'rig') state.rig.jobId = null;
+		// render: cursor stays put — the next poll re-runs the same render.
+		state.attempts[stage] = attempts + 1;
+		return saveState(state);
 	}
 	state.stage = 'failed';
 	state.error = { stage, code: err?.code || 'provider_error', message: String(err?.message || err), retrying: false };

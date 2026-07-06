@@ -1,0 +1,37 @@
+{
+	"$comment": "Agent Identity Studio demo identities — the saved inputs and pipeline outputs behind three.ws/agent-identities. Each entry is a REAL run of the production pipeline (scripts/okx-identity-demo.mjs); results are written back here by the script, never by hand.",
+	"identities": [
+		{
+			"slug": "ledgerlynx",
+			"kind": "finance data agent",
+			"agentName": "LedgerLynx",
+			"brief": "A meticulous on-chain accounting agent that reconciles wallets and flags anomalies in real time. Calm, precise, incorruptible — dresses like a sharp auditor from the future.",
+			"styleHints": "deep navy and silver palette, brushed-metal accents, subtle circuit-trace pinstripes",
+			"result": null
+		},
+		{
+			"slug": "museweaver",
+			"kind": "creative / art agent",
+			"agentName": "MuseWeaver",
+			"brief": "A flamboyant generative-art muse that turns raw ideas into finished galleries. Playful, extravagant, a walking canvas with paint still drying.",
+			"styleHints": "iridescent fabrics, paint-splash gradients, asymmetric couture silhouette",
+			"result": null
+		},
+		{
+			"slug": "momentum-9",
+			"kind": "trading bot",
+			"agentName": "Momentum-9",
+			"brief": "A high-frequency momentum trading bot built for speed and discipline. Aggressive but never reckless; reads order books like sheet music.",
+			"styleHints": "matte-black exoskeleton with ember-orange telemetry lines and a narrow visor",
+			"result": null
+		},
+		{
+			"slug": "three-ws-3d-studio",
+			"kind": "our own listing — OKX.AI agent #2632",
+			"agentName": "three.ws 3D Studio",
+			"brief": "The 3D identity studio of three.ws: an artisan engineer agent that forges avatars, rigs skeletons, and lights studio renders for other AI agents. Equal parts craftsman and machine.",
+			"styleHints": "charcoal work jacket with violet and cyan accents, holographic measuring tools, craftsman apron",
+			"result": null
+		}
+	]
+}

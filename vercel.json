@@ -43,7 +43,7 @@
 		},
 		"api/okx/3d/[service].js": {
 			"includeFiles": "{node_modules/@img/sharp-libvips-linux-x64/**,node_modules/@img/sharp-linux-x64/**}",
-			"maxDuration": 120
+			"maxDuration": 300
 		},
 		"api/widgets/[id]/knowledge-process.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",

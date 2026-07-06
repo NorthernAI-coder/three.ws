@@ -31,6 +31,7 @@ import { buildPoseSeedTool } from './tools/pose-seed.js';
 import { buildPumpSnapshotTool } from './tools/pump-snapshot.js';
 import { buildAgentReputationTool } from './tools/agent-reputation.js';
 import { buildVanityGrinderTool } from './tools/vanity-grinder.js';
+import { buildVanityPremiumTool } from './tools/vanity-premium.js';
 import { buildTextToAvatarTool } from './tools/text-to-avatar.js';
 import { buildMeshForgeTool } from './tools/mesh-forge.js';
 import { buildForgeFreeTool } from './tools/forge-free.js';
@@ -68,7 +69,8 @@ const SERVER_INSTRUCTIONS =
 	'(ens_sns_resolve), agent-to-agent delegation (agent_delegate_action), token sentiment pulse ' +
 	'(sentiment_pulse), pose generation (get_pose_seed), Solana token snapshots (pump_snapshot), ' +
 	'ERC-8004 agent reputation (agent_reputation), Solana vanity address mining ' +
-	'(vanity_grinder), and AgenC coordination protocol reads — ' +
+	'(vanity_grinder) plus a free browse of the premium pre-ground vanity inventory ' +
+	'(vanity_premium), and AgenC coordination protocol reads — ' +
 	'task discovery, task status + lifecycle, and agent registry lookup ' +
 	'(agenc_list_tasks, agenc_get_task, agenc_get_agent), aixbt market ' +
 	'intelligence — narrative intel feed and momentum-ranked project scans ' +
@@ -101,6 +103,7 @@ const TOOL_BUILDERS = [
 	buildPumpSnapshotTool,
 	buildAgentReputationTool,
 	buildVanityGrinderTool,
+	buildVanityPremiumTool,
 	buildAgenCListTasksTool,
 	buildAgenCGetTaskTool,
 	buildAgenCGetAgentTool,
