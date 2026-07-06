@@ -740,6 +740,27 @@ export const env = {
 	get X402_ASSET_ADDRESS_BASE() {
 		return addr(opt('X402_ASSET_ADDRESS_BASE', '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'));
 	},
+	// ── OKX Agent Payments Protocol rail (X Layer, eip155:196) ──────────────
+	// payTo follows the same fail-closed rule: unset → the X Layer accept is
+	// not advertised. Production sets the agent #2632 owner wallet.
+	get X402_PAY_TO_XLAYER() {
+		return addr(opt('X402_PAY_TO_XLAYER'));
+	},
+	// USD₮0 on X Layer — the OKX.AI marketplace fee token (6 decimals,
+	// EIP-3009). Public constant, verified on-chain (symbol()/decimals() via
+	// eth_call) and against live approved-seller 402 challenges.
+	get X402_ASSET_ADDRESS_XLAYER() {
+		return addr(opt('X402_ASSET_ADDRESS_XLAYER', '0x779ded0c9e1022225f8e0630b35a9b54be713736'));
+	},
+	// Relayer private key that redeems buyers' EIP-3009 authorizations on
+	// X Layer (broadcasts transferWithAuthorization; pays OKB gas). In the OKX
+	// dialect the SELLER submits settlement — there is no external facilitator.
+	// Secret. Unset → X Layer accepts are not advertised (same
+	// never-advertise-what-we-can't-settle rule as baseSettleable /
+	// solanaSettleable).
+	get X402_XLAYER_RELAYER_KEY() {
+		return opt('X402_XLAYER_RELAYER_KEY');
+	},
 	// Price per /api/mcp call, in the asset's base units (USDC = 6 decimals; "1000" = 0.001 USDC).
 	get X402_MAX_AMOUNT_REQUIRED() {
 		return opt('X402_MAX_AMOUNT_REQUIRED', '1000');

@@ -10,10 +10,12 @@
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
-import { initSync, grind } from './wasm/vanity_grinder.js';
+import { initSync, grind } from '../../src/solana/vanity/wasm/vanity_grinder.js';
 
-const HERE = dirname(fileURLToPath(import.meta.url));
+// The .wasm sits next to its glue in the canonical source tree; the container
+// preserves that repo-relative layout (see Dockerfile), so one path works both
+// locally and in the image.
+const WASM_PATH = fileURLToPath(new URL('../../src/solana/vanity/wasm/vanity_grinder_bg.wasm', import.meta.url));
 
 // Keypairs per WASM call. Big enough that per-call overhead is negligible, small
 // enough that a SIGTERM (spot preemption) is observed within a fraction of a
@@ -23,8 +25,7 @@ const BATCH_SIZE = 25_000;
 let ready = false;
 function ensureWasm() {
 	if (ready) return;
-	const bytes = readFileSync(join(HERE, 'wasm', 'vanity_grinder_bg.wasm'));
-	initSync({ module: bytes });
+	initSync({ module: readFileSync(WASM_PATH) });
 	ready = true;
 }
 

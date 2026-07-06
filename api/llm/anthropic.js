@@ -617,6 +617,9 @@ export default wrap(async (req, res) => {
 		res.setHeader('content-type', 'text/event-stream');
 		res.setHeader('cache-control', 'no-cache');
 		res.setHeader('x-accel-buffering', 'no');
+		// Provider/transport attribution — lets smoke tests and observability tell
+		// Vertex-served Claude ('vertex-anthropic') apart from first-party.
+		res.setHeader('x-llm-transport', via);
 
 		let inputTokens = 0;
 		let outputTokens = 0;
@@ -757,6 +760,7 @@ export default wrap(async (req, res) => {
 
 	res.statusCode = 200;
 	res.setHeader('content-type', outContentType);
+	res.setHeader('x-llm-transport', via);
 	return res.end(outBody);
 });
 

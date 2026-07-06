@@ -4738,6 +4738,10 @@
 			"schedule": "0 5 * * *"
 		},
 		{
+			"path": "/api/cron/gcp-burn-report",
+			"schedule": "0 14 * * *"
+		},
+		{
 			"path": "/api/cron/auto-rig-sweep",
 			"schedule": "*/5 * * * *"
 		},
