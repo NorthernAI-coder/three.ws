@@ -58,6 +58,13 @@ import {
 import { buildOffersExtension } from './x402/offer-receipt-server.js';
 import { offerReceiptDeclaration } from './x402-offer-receipt.js';
 import {
+	NETWORK_XLAYER_MAINNET,
+	okxXLayerAccept,
+	settleOkxXLayerPayment,
+	verifyOkxXLayerPayment,
+	xlayerSettleable,
+} from './x402-xlayer-okx.js';
+import {
 	resolveSolanaFacilitator,
 	selfFacilitatorEnabled,
 	selfFacilitatorUrl,
@@ -93,6 +100,7 @@ export const NETWORK_BASE_MAINNET = 'eip155:8453';
 export const NETWORK_BASE_SEPOLIA = 'eip155:84532';
 export const NETWORK_ARBITRUM_MAINNET = 'eip155:42161';
 export const NETWORK_BSC_MAINNET = 'eip155:56';
+export { NETWORK_XLAYER_MAINNET };
 export const NETWORK_SOLANA_MAINNET = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
 export const NETWORK_SOLANA_DEVNET = 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1';
 
@@ -228,6 +236,14 @@ export function paymentRequirements(resourceUrl, { amount } = {}) {
 			},
 		});
 	}
+	// OKX Agent Payments Protocol rail — USD₮0 on X Layer (eip155:196), per
+	// specs/okx-agent-payments.md. Advertised only when settlement is actually
+	// possible (OKX facilitator creds or the direct-redemption relayer key).
+	// USD₮0 shares USDC's 6-decimal atomic scale, so per-tool amounts carry
+	// over unchanged.
+	if (xlayerSettleable()) {
+		out.push(okxXLayerAccept(resourceUrl, common.amount));
+	}
 	return out;
 }
 
@@ -267,6 +283,12 @@ export function facilitatorFor(network) {
 	// the local verifier in x402-bsc-direct.js.
 	if (DIRECT_NETWORKS.has(network) || network === 'bsc') {
 		return { direct: true };
+	}
+	// X Layer settles via the OKX Agent Payments Protocol rail — the official
+	// OKX facilitator when credentialed, direct EIP-3009 redemption otherwise.
+	// The {okxXLayer:true} marker routes to x402-xlayer-okx.js.
+	if (network === NETWORK_XLAYER_MAINNET || network === 'xlayer') {
+		return { okxXLayer: true };
 	}
 	// EVM mainnets supported by Coinbase CDP. When CDP keys are set, route all
 	// of them through CDP (required for CDP Bazaar / agentic.market — only
@@ -762,7 +784,12 @@ function isAuthHintAccept(requirement) {
 // against. Falls back to first-match-by-network for non-EVM payloads (Solana
 // SPL, BSC direct).
 function selectRequirement(paymentPayload, allRequirements) {
-	const network = paymentPayload?.network || paymentPayload?.paymentRequirements?.network;
+	// OKX-dialect payloads (PAYMENT-SIGNATURE header) carry the chosen entry as
+	// `accepted` instead of top-level scheme/network — see x402-xlayer-okx.js.
+	const network =
+		paymentPayload?.network ||
+		paymentPayload?.accepted?.network ||
+		paymentPayload?.paymentRequirements?.network;
 	const method = detectAssetTransferMethod(paymentPayload);
 	const matchesMethod = (r) => {
 		if (!method) return true;
@@ -984,6 +1011,15 @@ export async function verifyPayment({ paymentHeader, requirements, builderCode }
 			directVerified,
 		};
 	}
+	if (config.okxXLayer) {
+		const okxVerified = await verifyOkxXLayerPayment({ paymentPayload, requirement });
+		return {
+			paymentPayload,
+			requirement,
+			payer: okxVerified.payer,
+			okxVerified,
+		};
+	}
 	const result = await callFacilitator(requirement.network, '/verify', {
 		x402Version: X402_VERSION,
 		paymentPayload,
@@ -1070,6 +1106,17 @@ export async function settlePayment(args) {
 			);
 		}
 		return settleDirectPayment({ verified: directVerified, requirement });
+	}
+	if (config.okxXLayer) {
+		const okxVerified = verified?.okxVerified || args?.okxVerified;
+		if (!okxVerified) {
+			throw new X402Error(
+				'settle_failed',
+				'X Layer settle requires the verify step to run first',
+				500,
+			);
+		}
+		return settleOkxXLayerPayment({ verified: okxVerified, requirement, paymentPayload });
 	}
 	const idempotencyKey = buildIdempotencyKey({ paymentPayload, requirement });
 	const result = await callFacilitator(

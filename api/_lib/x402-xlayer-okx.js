@@ -25,11 +25,15 @@
 //      check. Insufficient balance re-issues the 402 with top-level
 //      error:"insufficient_balance" — the exact behavior captured from the
 //      approved seller.
-//   5. Settlement: the SELLER redeems the authorization — broadcasts
-//      transferWithAuthorization on the token from a relayer key (OKB gas).
-//      There is no external facilitator in this scheme; per the protocol docs
-//      "settlement happens on-chain when the recipient redeems the
-//      authorization."
+//   5. Settlement routes through OKX's official facilitator when OKX SA API
+//      credentials are configured — POST https://web3.okx.com/api/v6/pay/x402/
+//      settle with syncSettle:true (HMAC-SHA256 auth; the exact client the
+//      official @okxweb3/app-x402-core SDK ships). Verification likewise gets
+//      a facilitator /verify pass on top of the local checks. Without OKX
+//      creds, the seller redeems the authorization DIRECTLY — broadcasts
+//      transferWithAuthorization from a relayer key (OKB gas); per the
+//      protocol docs "settlement happens on-chain when the recipient redeems
+//      the authorization."
 //
 // This module is the X Layer sibling of x402-bsc-direct.js: verify/settle live
 // here, x402-spec.js routes to them by network, and callers keep the exact
@@ -44,6 +48,7 @@ import {
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { xLayer } from 'viem/chains';
+import { OKXFacilitatorClient } from '@okxweb3/app-x402-core';
 
 import { env } from './env.js';
 import { X402Error } from './x402-errors.js';
@@ -145,12 +150,37 @@ export function xlayerClient() {
 	return cachedClient;
 }
 
+// Are the OKX SA API credentials for the official facilitator configured?
+export function okxFacilitatorConfigured() {
+	return Boolean(env.OKX_API_KEY && env.OKX_SECRET_KEY && env.OKX_PASSPHRASE);
+}
+
+// Singleton facilitator client (official SDK). syncSettle:true — the seller
+// waits for on-chain confirmation before responding, per the SDK's
+// recommended seller configuration, so PAYMENT-RESPONSE always carries a
+// confirmed transaction.
+let cachedFacilitator = null;
+function okxFacilitator() {
+	if (!cachedFacilitator) {
+		cachedFacilitator = new OKXFacilitatorClient({
+			apiKey: env.OKX_API_KEY,
+			secretKey: env.OKX_SECRET_KEY,
+			passphrase: env.OKX_PASSPHRASE,
+			syncSettle: true,
+		});
+	}
+	return cachedFacilitator;
+}
+
 // Can we actually settle on X Layer right now? Advertise the rail only when
-// the receiver, the asset, and the redeeming relayer key are all configured —
-// the same never-402-then-502 rule baseSettleable()/solanaSettleable() enforce.
+// the receiver, the asset, and a working settlement route (OKX facilitator
+// creds, or the direct-redemption relayer key) are all configured — the same
+// never-402-then-502 rule baseSettleable()/solanaSettleable() enforce.
 export function xlayerSettleable() {
 	return Boolean(
-		env.X402_PAY_TO_XLAYER && env.X402_ASSET_ADDRESS_XLAYER && env.X402_XLAYER_RELAYER_KEY,
+		env.X402_PAY_TO_XLAYER &&
+			env.X402_ASSET_ADDRESS_XLAYER &&
+			(okxFacilitatorConfigured() || env.X402_XLAYER_RELAYER_KEY),
 	);
 }
 
@@ -347,6 +377,30 @@ export async function verifyOkxXLayerPayment({ paymentPayload, requirement }) {
 		throw new X402Error('invalid_payment', 'insufficient_balance', 402);
 	}
 
+	// Facilitator pass — when the OKX SA API creds are configured, the official
+	// facilitator gets the final word on validity (it is also the settlement
+	// submitter). The local checks above stay as defense-in-depth, mirroring
+	// how the CDP/PayAI paths cross-check facilitator answers.
+	if (okxFacilitatorConfigured()) {
+		let result;
+		try {
+			result = await okxFacilitator().verify(paymentPayload, requirement);
+		} catch (err) {
+			throw new X402Error(
+				'facilitator_error',
+				`OKX facilitator /verify failed: ${err.message}`,
+				502,
+			);
+		}
+		if (!result?.isValid) {
+			throw new X402Error(
+				'invalid_payment',
+				`payment rejected by OKX facilitator: ${result?.invalidReason || result?.invalidMessage || 'unknown reason'}`,
+				402,
+			);
+		}
+	}
+
 	return {
 		isValid: true,
 		payer: from,
@@ -374,13 +428,14 @@ function relayerAccount() {
 	}
 }
 
-// Redeem the verified authorization: broadcast transferWithAuthorization from
-// the relayer (OKB gas) and wait for inclusion. Tries the bytes-signature
-// EIP-3009 variant first, then the (v,r,s) split — token implementations ship
-// one or the other. Returns the same {success, transaction, network, payer}
-// shape the facilitator /settle path yields, so X-PAYMENT-RESPONSE /
-// PAYMENT-RESPONSE emission is identical.
-export async function settleOkxXLayerPayment({ verified, requirement }) {
+// Settle the verified payment. Primary route: the official OKX facilitator
+// (POST /api/v6/pay/x402/settle, syncSettle:true) — it broadcasts the
+// EIP-3009 redemption and waits for confirmation. Fallback (no OKX creds):
+// redeem directly — broadcast transferWithAuthorization from the relayer
+// (OKB gas) and wait for inclusion. Both return the same {success,
+// transaction, network, payer} shape the other facilitator paths yield, so
+// X-PAYMENT-RESPONSE / PAYMENT-RESPONSE emission is identical.
+export async function settleOkxXLayerPayment({ verified, requirement, paymentPayload }) {
 	if (!verified?.authorization || !verified?.signature) {
 		throw new X402Error('settle_failed', 'X Layer settle requires the verify step to run first', 500);
 	}
@@ -390,6 +445,38 @@ export async function settleOkxXLayerPayment({ verified, requirement }) {
 			`X Layer settle expected network ${NETWORK_XLAYER_MAINNET}, got ${requirement.network}`,
 			500,
 		);
+	}
+	if (okxFacilitatorConfigured()) {
+		if (!paymentPayload) {
+			throw new X402Error('settle_failed', 'facilitator settle requires the original paymentPayload', 500);
+		}
+		let result;
+		try {
+			result = await okxFacilitator().settle(paymentPayload, requirement);
+		} catch (err) {
+			throw new X402Error(
+				'settle_failed',
+				`OKX facilitator /settle failed: ${err.message}`,
+				502,
+			);
+		}
+		// syncSettle:true → status "success" with a confirmed tx. A "pending"
+		// (async facilitator mode) still means the facilitator accepted the
+		// settlement — surface it with the tx for /settle/status polling.
+		if (!result?.success && result?.status !== 'pending') {
+			throw new X402Error(
+				'settle_failed',
+				`OKX facilitator settle rejected: ${result?.errorReason || 'unknown reason'}`,
+				502,
+			);
+		}
+		return {
+			success: true,
+			transaction: result.transaction,
+			network: result.network || NETWORK_XLAYER_MAINNET,
+			payer: result.payer || verified.payer,
+			...(result.status ? { status: result.status } : {}),
+		};
 	}
 	const account = relayerAccount();
 	const client = xlayerClient();
@@ -472,6 +559,7 @@ export async function xlayerRailHealth() {
 		]);
 		out.rpc = { ok: true, block: block.toString() };
 		out.token = { ok: true, symbol };
+		out.facilitator = { configured: okxFacilitatorConfigured() };
 		if (env.X402_XLAYER_RELAYER_KEY) {
 			try {
 				const relayer = relayerAccount();

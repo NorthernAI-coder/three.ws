@@ -91,7 +91,10 @@ export async function authenticateRequest(
 	{ x402Amount, resourcePath = '/api/mcp', challenge, allowFree = false } = {},
 ) {
 	const bearer = extractBearer(req);
-	const paymentHeader = req.headers['x-payment'];
+	// OKX Agent Payments Protocol buyers replay with PAYMENT-SIGNATURE (x402 v2
+	// HTTP transport); everything else uses the legacy X-PAYMENT name. Same
+	// base64-JSON payload either way — verifyPayment handles both dialects.
+	const paymentHeader = req.headers['x-payment'] || req.headers['payment-signature'];
 
 	if (bearer) {
 		const auth = await authenticateBearer(bearer, { audience: env.MCP_RESOURCE });
@@ -173,7 +176,7 @@ export async function handleSse(req, res, { resourcePath = '/api/mcp', challenge
 	// WWW-Authenticate so OAuth clients (claude.ai) can discover the auth
 	// server, with the x402 envelope still attached for x402 clients. Invalid
 	// bearers also get 401 with WWW-Authenticate so they can re-auth correctly.
-	if (!bearer && !req.headers['x-payment']) {
+	if (!bearer && !req.headers['x-payment'] && !req.headers['payment-signature']) {
 		const sseResourceUrl = resolveResourceUrl(req, resourcePath);
 		return await sendAuthChallenge(res, {
 			req,

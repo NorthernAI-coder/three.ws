@@ -41,6 +41,10 @@
 		"api/x402-facilitator/[action].js": {
 			"maxDuration": 60
 		},
+		"api/okx/3d/[service].js": {
+			"includeFiles": "{node_modules/@img/sharp-libvips-linux-x64/**,node_modules/@img/sharp-linux-x64/**}",
+			"maxDuration": 120
+		},
 		"api/widgets/[id]/knowledge-process.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 300
@@ -2115,6 +2119,10 @@
 		{
 			"src": "/api/x402-facilitator/([^/]+)",
 			"dest": "/api/x402-facilitator/[action]?action=$1"
+		},
+		{
+			"src": "/api/okx/3d/([a-z0-9-]+)",
+			"dest": "/api/okx/3d/[service]?service=$1"
 		},
 		{
 			"src": "/api/cron/(audit-log-cleanup|cleanup-csrf-tokens|club-payouts|cosmetic-splits-sweep|erc8004-crawl|expire-pending-purchases|fetch-x-metrics|index-delegations|irl-drops-refund|monetization-payouts|process-subscriptions|process-withdrawals|pump-agent-stats|pumpfun-graduations-sync|pumpfun-monitor|pumpfun-signals|run-buyback|run-coin-cycle|run-coin-payouts|run-dca|run-distribute-payments|run-subscriptions|run-three-buyback|run-x-scheduled-posts|run-x-triggers|settle-royalties|siwx-gc|solana-agents-crawl|solana-attest-event-cleanup|solana-attestations-crawl|treasury-autopilot|unstoppable-tick)",
