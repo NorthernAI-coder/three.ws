@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-05T22:46:58.558Z",
+	"generated_at": "2026-07-06T20:50:51.799Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -1317,6 +1317,16 @@
 					"showcase": false
 				},
 				{
+					"path": "/vanity/premium",
+					"title": "Premium Vanity Inventory",
+					"description": "Buy a long, brandable Solana vanity address delivered instantly from stock — 4–5+ character prefixes the live grinder can't reach, ground ahead of time on batch CPU and sold via x402. Keys are encrypted at rest, priced by rarity, and delivered exactly once.",
+					"added": "2026-07-06",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
 					"path": "/vanity/bounties",
 					"title": "Grind-Bounty Market",
 					"description": "A decentralized x402 bounty market for hard Solana vanity addresses — escrow a USDC bounty and a fleet of independent workers grinds it in parallel. The first verified match wins, but the found key is sealed to you so the worker never sees your wallet. Earn USDC by grinding open bounties.",
@@ -1672,6 +1682,16 @@
 					"indexable": true,
 					"tags": [],
 					"showcase": false
+				},
+				{
+					"path": "/agent-identities",
+					"title": "Agent Identity Studio — 3D avatars for AI agents",
+					"description": "Every AI agent deserves a face. A brand brief becomes a rigged 3D avatar plus posed studio renders — see the demo identities generated end-to-end by the pipeline.",
+					"added": "2026-07-06",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": true
 				},
 				{
 					"path": "/agent",

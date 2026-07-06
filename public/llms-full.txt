@@ -801,6 +801,12 @@ URL: https://three.ws/vanity/gallery
 
 A public gallery and leaderboard of the rarest Solana vanity addresses ground on three.ws — each provably-fair, verified, and shareable. Appraise any address to see its honest rarity tier and grind cost.
 
+### Premium Vanity Inventory
+
+URL: https://three.ws/vanity/premium
+
+Buy a long, brandable Solana vanity address delivered instantly from stock — 4–5+ character prefixes the live grinder can't reach, ground ahead of time on batch CPU and sold via x402. Keys are encrypted at rest, priced by rarity, and delivered exactly once.
+
 ### Grind-Bounty Market
 
 URL: https://three.ws/vanity/bounties
@@ -1015,6 +1021,12 @@ Manage, talk to, and deploy individual agents.
 URL: https://three.ws/chat
 
 Talk to your agent. Voice, text, and tool-use in one interface.
+
+### Agent Identity Studio — 3D avatars for AI agents
+
+URL: https://three.ws/agent-identities
+
+Every AI agent deserves a face. A brand brief becomes a rigged 3D avatar plus posed studio renders — see the demo identities generated end-to-end by the pipeline.
 
 ### Agent Home
 
