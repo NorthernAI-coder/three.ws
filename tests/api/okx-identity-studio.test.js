@@ -185,12 +185,43 @@ describe('free lanes over HTTP', () => {
 	it('GET /health runs real probes and reports per-subsystem status', async () => {
 		fetchRoutes.forgeSubmit = () => jsonResponse(200, { tiers: [] });
 		fetchRoutes.render = () => jsonResponse(200, { poses: [{ id: 'tpose' }] });
+		// WO-03 probes: the retarget clip manifest, and the X Layer JSON-RPC
+		// calls behind the payment-rail probe (block height + USD₮0 symbol read).
+		fetchRoutes.ref = (u, init) => {
+			if (String(u).includes('/animations/manifest.json')) {
+				return jsonResponse(200, [{ name: 'idle', url: '/animations/idle.json' }]);
+			}
+			let rpc = {};
+			try {
+				rpc = JSON.parse(init?.body || '{}');
+			} catch {
+				/* not JSON-RPC */
+			}
+			const reply = (result) => jsonResponse(200, { jsonrpc: '2.0', id: rpc.id ?? 1, result });
+			if (rpc.method === 'eth_blockNumber') return reply('0x10');
+			if (rpc.method === 'eth_chainId') return reply('0xc4');
+			if (rpc.method === 'eth_call') {
+				// ABI-encoded string "USD₮0" — the on-chain symbol() return value.
+				return reply(
+					'0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000007555344e282ae3000000000000000000000000000000000000000000000000000',
+				);
+			}
+			return jsonResponse(404, {});
+		};
 		const res = makeRes();
 		await handler(makeReq({ method: 'GET', service: 'health' }), res);
 		expect(res.statusCode).toBe(200);
 		const body = JSON.parse(res.body);
 		expect(body.ok).toBe(true);
-		expect(body.subsystems.map((s) => s.name).sort()).toEqual(['generation', 'render', 'storage']);
+		expect(body.subsystems.map((s) => s.name).sort()).toEqual([
+			'generation',
+			'payment-rail',
+			'render',
+			'retarget',
+			'storage',
+		]);
+		const rail = body.subsystems.find((s) => s.name === 'payment-rail');
+		expect(rail.token).toBe('USD₮0');
 	});
 
 	it('GET /health goes 503 when a subsystem is down — never a hardcoded ok', async () => {
@@ -304,13 +335,22 @@ describe('pipeline state machine', () => {
 	it('generation failure retries free, then fails honestly when attempts exhaust', async () => {
 		const created = await call('create_identity', { agent_name: 'X', brief: 'test agent brief' });
 		const jobId = created.result.structuredContent.job_id;
+		let submits = 1; // the create call already submitted once
+		const origSubmit = fetchRoutes.forgeSubmit;
+		fetchRoutes.forgeSubmit = (...a) => {
+			submits += 1;
+			return origSubmit(...a);
+		};
 		fetchRoutes.forgePoll = () => jsonResponse(200, { status: 'failed', error: 'lane exploded' });
-		// attempt 1 failed → resubmit (attempts 2), poll fails again → resubmit (3), fail → terminal
+		// fail → free resubmit → fail → free resubmit → fail → terminal (3 submissions total)
 		let s;
-		for (let i = 0; i < 4; i++) s = await call('identity_status', { job_id: jobId });
+		for (let i = 0; i < 10 && s?.result?.structuredContent?.status !== 'failed'; i++) {
+			s = await call('identity_status', { job_id: jobId });
+		}
 		expect(s.result.structuredContent.status).toBe('failed');
 		expect(s.result.isError).toBe(true);
 		expect(s.result.structuredContent.last_error.message).toContain('lane exploded');
+		expect(submits).toBe(3);
 	});
 
 	it('a Chinese brief is accepted and reaches the prompt director verbatim', async () => {

@@ -470,6 +470,113 @@ Update the _pending_ cells in this file as each step completes.
 ---
 ---
 
+# Premium vanity inventory (prompt 06)
+
+Grind long, brandable Solana vanity addresses **ahead of time** on cheap spot CPU
+and sell them from stock via a new x402 tier — the durable, near-zero-marginal-cost
+"asset factory" use of the credits. The live grinder (`/api/x402/vanity`, the
+`vanity_grinder` MCP tool) still handles fresh ≤3-char grinds; this is the 4–5+
+char **sell-from-stock** lane.
+
+## Shape
+
+```
+targets → workers/vanity-grinder (spot CPU) → seal in-process → vanity_inventory (ciphertext)
+                                                                        │
+        browse: /vanity/premium ── /api/x402/vanity-premium (list) ─────┤
+        buy:    /api/x402/vanity-premium?address=… (x402) → reserve → settle → reveal ONCE → destroy
+```
+
+- **Grinder:** `workers/vanity-grinder/` (Node + the same Rust/WASM ed25519 engine
+  as the serverless tier, one worker/vCPU). Seals every key with
+  `api/_lib/vanity-vault.js` **before any write**; writes only ciphertext.
+  Resumable (checkpoint) and SIGTERM-clean for spot preemption.
+- **Store:** `vanity_inventory` (migration `20260706120000_vanity_premium_inventory.sql`),
+  atomic single-use reveal in `api/_lib/vanity-inventory-store.js`.
+- **Sell:** `api/x402/vanity-premium.js` (list + buy + one-time delivery),
+  browsable at `/vanity/premium`, plus the free `vanity_premium` MCP browse tool.
+- **Encryption:** secret-box AES-256-GCM (`WALLET_ENCRYPTION_KEY`) by default —
+  the platform's custodial-key pattern — with an **optional GCP-KMS envelope**
+  (`VANITY_KMS_KEY`) that gates decrypt to the delivery identity via IAM.
+
+## Run it (owner, once gcloud auth is restored)
+
+```bash
+export PROJECT_ID=aerial-vehicle-466722-p5
+
+# 1) (recommended) KMS envelope — decrypt granted ONLY to the delivery SA:
+./scripts/gcp/vanity-kms-setup.sh                 # prints VANITY_KMS_KEY
+
+# 2) Put the vault secrets in Secret Manager (grinder + delivery both need them):
+#    WALLET_ENCRYPTION_KEY, JWT_SECRET, DATABASE_URL   (and VANITY_KMS_KEY as env)
+
+# 3) Build + run the grinder on spot CPU, writing straight to the DB:
+VANITY_KMS_KEY=<from step 1> WRITE_DB=1 TASKS=8 CPU=8 \
+  ./scripts/gcp/vanity-grind-deploy.sh --run        # Cloud Run Job (spot)
+#   …or a GCE spot MIG for very large runs:
+#   ./scripts/gcp/vanity-grind-deploy.sh --mig --instances 20
+
+# 4) (file path) load an encrypted JSONL a run produced into the DB:
+node scripts/vanity-inventory-load.mjs --file workers/vanity-grinder/out/inventory.jsonl
+node scripts/vanity-inventory-load.mjs --stats
+```
+
+Migration first: `npm run db:migrate` (applies `20260706120000_vanity_premium_inventory.sql`).
+
+## Measured throughput & $/address
+
+Measured on a 16-vCPU dev box (the container's per-vCPU rate is identical — it's the
+same WASM engine, one worker per core):
+
+| metric | value |
+|---|---|
+| Throughput / vCPU | **~25,070 keys/sec** |
+| Throughput, 16 vCPU | **~400k keys/sec** |
+| Real run | 50+ addresses ground, all round-trip-verified (address = derived pubkey), all sealed at rest |
+
+Cost at c2d **spot** ≈ $0.015 / vCPU-hour (25k keys/sec/vCPU). Price is value-based
+($1–$50 by rarity), so the margin is enormous — the entire point of grinding on
+free credits:
+
+| pattern | expected attempts | vCPU-seconds | **$/address (spot)** | list price |
+|---|---:|---:|---:|---:|
+| 3-char, case-insensitive | ~36k | 1.4 | $0.000006 | $1 |
+| 4-char, case-insensitive | ~1.2M | 47 | $0.0002 | $2–$5 |
+| 4-char, case-sensitive | ~11.3M | 452 | $0.0019 | $6–$13 |
+| 5-char, case-sensitive | ~656M | 26,244 | $0.11 | $30–$50 |
+
+**Finding — Base58 leading-char bias:** a 32-byte value's *leading* Base58 char is
+**not** uniformly distributed, so a case-**sensitive** prefix can be far harder than
+the naive 58ⁿ estimate (some leading chars are near-impossible). The grinder caps
+per-target attempts (`MAX_ATTEMPTS_PER_TARGET`, default 200M) and gives up on such
+targets instead of hanging a worker. **Case-insensitive prefixes and suffixes
+(uniform tail) are dramatically cheaper per useful address** — weight target lists
+toward them. Revenue math: even 200 addresses cost cents of credits to grind and
+list at $1–$50 each — a four-figure sellable asset for a near-zero credit outlay.
+
+## Security review (threat model)
+
+The store holds **real private keys**; the design defends each realistic threat:
+
+| threat | mitigation |
+|---|---|
+| **DB dump** | Keys are AES-256-GCM (or KMS-envelope) ciphertext with a random per-record salt. A dump yields no spendable key without `WALLET_ENCRYPTION_KEY` (and, under KMS, a live IAM-gated decrypt call). |
+| **Log leakage** | No secret is ever logged. The grinder's only "found" line is the public address + attempt count; the endpoint strips secret fields from the idempotency cache; the store's public reads select an explicit column list that omits `secret_ciphertext`. Verified by grep (`git grep -nE 'console.*(secretKey|privateKey|ciphertext)'` over the new files → none). |
+| **Delivery replay / double-spend** | Single-use is a server-side atomic CTE (`reserveAndReveal`): the reveal flips status and nulls the ciphertext in one statement guarded by `status IN ('reserved','sold') AND secret_ciphertext IS NOT NULL`. A second call captures zero rows → `already_revealed`. The x402 idempotency cache stores a secret-free copy. |
+| **Charge-without-delivery** | The endpoint decrypts (non-destructive peek) **before** settling; a KMS/decrypt outage fails the purchase *before* charging. Settle → reveal(destroy) only after decrypt is proven. |
+| **Insider access** | With `VANITY_KMS_KEY` set, decrypt is granted (IAM) **only** to the delivery service identity and every decrypt is Cloud-Audit-Logged; the grinder SA gets encrypt-only. An env-var leak alone no longer decrypts the inventory. |
+| **Custody dishonesty** | Every listing + delivery carries the required disclosure: platform-generated keys → use as a token mint or sweep to self-generated custody, not a treasury. Delete-after-reveal (retention 0) is the default. |
+
+## Revert / wind-down
+
+One-shot asset — nothing to revert. The inventory persists in the app DB and sells
+down at **zero ongoing GCP cost** after the grind. Tear down the grinder MIG/Job
+when a batch finishes (the deploy script prints the command). See the keep/kill
+table below.
+
+---
+---
+
 # Expiry revert & keep/kill runbook (prompt 08)
 
 The credits expire (~$100k, target ~Sept 2026 — confirm the exact date on the

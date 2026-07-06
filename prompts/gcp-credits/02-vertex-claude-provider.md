@@ -109,6 +109,25 @@ fallback.
   `/brain` only if it earns its keep.
 - Never log token contents or SA material.
 
+## Acceptance criteria
+
+- [ ] `api/_lib/gcp-auth.js` extracted; `vertex-imagen.js` refactored onto it with no Imagen
+      behavior change.
+- [ ] `api/_lib/vertex-claude.js` exists: model-ID mapper + streaming/non-streaming message call.
+- [ ] All four surfaces wired: `llm.js`, `api/llm/anthropic.js`, `api/chat.js`, `api/brain/chat.js`
+      (+ `chat-models.js` catalog entries).
+- [ ] Both flags off ⇒ byte-identical current behavior (proven in a local run, not assumed).
+- [ ] Any Vertex error (429/5xx/quota) falls through to the existing chain — proven by forcing a
+      failure locally and confirming the feature still responds.
+- [ ] `vertex-anthropic` recorded distinctly in provider telemetry/health.
+- [ ] Unit tests for the model-ID mapper and chain ordering under all four flag combinations.
+- [ ] `scripts/gcp/vertex-llm-smoke.mjs` passes against `npm run dev` for `llmComplete`,
+      `/api/llm/anthropic` streaming, and `/api/chat` streaming.
+- [ ] Real-browser check done: embedded agent widget + main chat stream from Vertex with flags on,
+      no console errors; flags off restores today's behavior.
+- [ ] Flags set in Vercel **preview only**; production left unset.
+- [ ] `npm test` green; `git diff` reviewed (no esbuild-mangled `api/*.js`).
+
 ## Wrap-up
 
 Update `docs/gcp-credits.md` (flags, model mapping, rollback = unset flags). Changelog entry
