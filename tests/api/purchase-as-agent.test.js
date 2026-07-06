@@ -62,6 +62,8 @@ const fakeConn = {
 	getLatestBlockhash: vi.fn(async () => ({ blockhash: 'bh', lastValidBlockHeight: 99 })),
 	sendRawTransaction: vi.fn(async () => 'txSig'),
 	confirmTransaction: vi.fn(async () => {}),
+	getSignatureStatuses: vi.fn(async () => ({ value: [{ err: null, confirmationStatus: 'confirmed', slot: 1 }], context: { slot: 1 } })),
+	getBlockHeight: vi.fn(async () => 1),
 };
 
 vi.mock('@solana/web3.js', async (orig) => {

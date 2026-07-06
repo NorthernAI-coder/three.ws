@@ -17,6 +17,7 @@ import {
 	ASSOCIATED_TOKEN_PROGRAM_ID,
 } from '@solana/spl-token';
 import { solanaConnection } from '../solana/connection.js';
+import { pollConfirmation } from '../solana/confirm.js';
 import { getRedis } from '../redis.js';
 import { TOKEN_MINT, ATOMICS_PER_TOKEN } from './config.js';
 import {
@@ -385,7 +386,10 @@ export async function pullFromAllowance({ userWallet, legs, network = 'mainnet' 
 	tx.sign(delegate);
 
 	const signature = await connection.sendRawTransaction(tx.serialize(), { skipPreflight: false, maxRetries: 3 });
-	const confirmation = await connection.confirmTransaction(
+	// HTTP-polling confirm (no WebSocket) — keeps the RPC failover in play and maps a
+	// landed-but-reverted pull to the caller's `pull_failed` contract below.
+	const confirmation = await pollConfirmation(
+		connection,
 		{ signature, blockhash, lastValidBlockHeight },
 		'confirmed',
 	);

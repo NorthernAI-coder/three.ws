@@ -78,6 +78,8 @@ const fakeConn = {
 	simulateTransaction: vi.fn(async () => connState.simulate),
 	sendRawTransaction: vi.fn(async () => { connState.sent += 1; return connState.sendSig; }),
 	confirmTransaction: vi.fn(async () => ({ value: { err: connState.confirmErr } })),
+	getSignatureStatuses: vi.fn(async () => ({ value: [{ err: connState.confirmErr, confirmationStatus: 'confirmed', slot: 1 }], context: { slot: 1 } })),
+	getBlockHeight: vi.fn(async () => 1),
 	getSignatureStatus: vi.fn(async () => ({ value: { err: null, confirmationStatus: 'confirmed' } })),
 	getAccountInfo: vi.fn(async () => null),
 	getTokenAccountBalance: vi.fn(async () => ({ value: { amount: '0', uiAmount: 0, decimals: 6 } })),

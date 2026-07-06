@@ -26,8 +26,8 @@ import {
 	SYSVAR_RENT_PUBKEY,
 	Transaction,
 	TransactionInstruction,
-	sendAndConfirmTransaction,
 } from '@solana/web3.js';
+import { sendAndConfirm } from './solana/confirm.js';
 import bs58 from 'bs58';
 
 import { env } from './env.js';
@@ -350,7 +350,7 @@ export async function mintSkillLicenseOnchain({
 	}
 
 	const tx = new Transaction().add(instruction);
-	const signature = await sendAndConfirmTransaction(conn, tx, [minter], {
+	const signature = await sendAndConfirm(conn, tx, [minter], {
 		commitment: 'confirmed',
 	});
 	return { signature, ...accounts, alreadyMinted: false };

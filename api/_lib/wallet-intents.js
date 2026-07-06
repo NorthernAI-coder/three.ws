@@ -23,6 +23,7 @@
 
 import { PublicKey } from '@solana/web3.js';
 import { sql } from './db.js';
+import { confirmOrThrow } from './solana/confirm.js';
 import { solUsdPrice, sendSol, explorerTxUrl } from './avatar-wallet.js';
 import { solanaConnection } from './agent-pumpfun.js';
 import { getSolanaAddressBalances, recoverSolanaAgentKeypair } from './agent-wallet.js';
@@ -751,7 +752,9 @@ async function swapSolToToken({ keypair, lamports, outputMint, slippageBps, conn
 	tx.sign([keypair]);
 	const sig = await conn.sendRawTransaction(tx.serialize(), { skipPreflight: false, maxRetries: 3 });
 	const bh = await conn.getLatestBlockhash();
-	await conn.confirmTransaction({ signature: sig, ...bh }, 'confirmed');
+	// HTTP-polling confirm (no WebSocket) — throws on a landed-but-reverted swap so
+	// a revert is never reported back as a successful intent execution.
+	await confirmOrThrow(conn, { signature: sig, ...bh }, 'confirmed');
 	return { signature: sig, outAmount: quote.outAmount };
 }
 

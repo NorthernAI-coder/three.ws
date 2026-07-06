@@ -17,8 +17,8 @@ import {
 	PublicKey,
 	Transaction,
 	TransactionInstruction,
-	sendAndConfirmTransaction,
 } from '@solana/web3.js';
+import { sendAndConfirm } from './solana/confirm.js';
 import bs58 from 'bs58';
 
 import { sql } from './db.js';
@@ -224,7 +224,7 @@ export async function mintAttestation(input) {
 	let signature;
 	try {
 		signature = await withTimeout(
-			sendAndConfirmTransaction(conn, tx, [attester], { commitment: 'confirmed' }),
+			sendAndConfirm(conn, tx, [attester], { commitment: 'confirmed' }),
 			TX_TIMEOUT_MS,
 		);
 	} catch (e) {

@@ -120,6 +120,8 @@ function fakeCtx() {
 			getLatestBlockhash: vi.fn(async () => ({ blockhash: PublicKey.default.toBase58(), lastValidBlockHeight: 100 })),
 			sendRawTransaction: vi.fn(async () => connState.sendSig),
 			confirmTransaction: vi.fn(async () => ({ value: { err: connState.confirmErr } })),
+			getSignatureStatuses: vi.fn(async () => ({ value: [{ err: connState.confirmErr, confirmationStatus: 'confirmed', slot: 1 }], context: { slot: 1 } })),
+			getBlockHeight: vi.fn(async () => 1),
 			simulateTransaction: vi.fn(async () => ({ value: { err: null, unitsConsumed: 1234 } })),
 			getSignatureStatus: vi.fn(async () => ({ value: { err: null, confirmationStatus: 'confirmed' } })),
 		},

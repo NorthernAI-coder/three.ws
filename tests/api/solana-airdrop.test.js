@@ -30,6 +30,8 @@ vi.mock('../../api/_lib/usage.js', () => ({
 const conn = {
 	requestAirdrop: vi.fn(async () => 'AIRDROPSIG'.padEnd(88, 'A')),
 	confirmTransaction: vi.fn(async () => ({ value: { err: null } })),
+	getSignatureStatuses: vi.fn(async () => ({ value: [{ err: null, confirmationStatus: 'confirmed', slot: 1 }], context: { slot: 1 } })),
+	getBlockHeight: vi.fn(async () => 1),
 };
 vi.mock('../../api/_lib/agent-pumpfun.js', () => ({
 	solanaConnection: vi.fn(() => conn),

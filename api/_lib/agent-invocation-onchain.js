@@ -24,8 +24,8 @@ import {
 	SystemProgram,
 	Transaction,
 	TransactionInstruction,
-	sendAndConfirmTransaction,
 } from '@solana/web3.js';
+import { sendAndConfirm } from './solana/confirm.js';
 
 import { solanaConnection } from './solana/connection.js';
 
@@ -157,7 +157,7 @@ export async function recordInvocationReceipt({
 
 	const conn = connection || solanaConnection({ network, commitment: 'confirmed' });
 	const tx = new Transaction().add(instruction);
-	const signature = await sendAndConfirmTransaction(conn, tx, [invokerKeypair], {
+	const signature = await sendAndConfirm(conn, tx, [invokerKeypair], {
 		commitment: 'confirmed',
 	});
 

@@ -327,6 +327,8 @@ describe('POST /api/pump/launch-agent — brand-mark enforcement', () => {
 			getRecentPrioritizationFees: async () => [{ prioritizationFee: 1000 }],
 			sendRawTransaction: async () => 'a'.repeat(88),
 			confirmTransaction: async () => ({ value: { err: null }, context: { slot: 1 } }),
+			getSignatureStatuses: vi.fn(async () => ({ value: [{ err: null, confirmationStatus: 'confirmed', slot: 1 }], context: { slot: 1 } })),
+			getBlockHeight: vi.fn(async () => 1),
 		};
 
 		// Agent custodial keypair returned by the loadAgentForSigning mock
