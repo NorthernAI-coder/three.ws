@@ -4,7 +4,9 @@
 > **Chain:** X Layer mainnet, `eip155:196` (chainId 196).
 > **Our payTo:** `0x75d00a2713565171f33216e5aa2a375e076ecf69` (agent #2632 owner wallet).
 > **Fee token:** USD₮0 `0x779Ded0c9e1022225f8E0630b35a9b54bE713736` (6 decimals, EIP-3009).
-> **Why this exists:** Our A2MCP endpoint ([api/mcp-3d.js](../api/mcp-3d.js)) emits x402 accepts for Solana/Base/BSC/Arbitrum only — never `eip155:196`, never the OKX fee token, never the `PAYMENT-SIGNATURE`/`aggr_deferred` OKX dialect. That is the exact reason agent #2632 was rejected on 2026-07-04. This spec pins the seller-side contract from **primary sources** so 02 can implement it without opening a browser.
+> **Why this exists:** Our A2MCP endpoint ([api/mcp-3d.js](../api/mcp-3d.js)) emits x402 accepts for Solana/Base/BSC/Arbitrum only — never `eip155:196`, never the OKX fee token, and it gates at MCP `_meta` level using **x402 v1 header names** (`X-PAYMENT`/`X-PAYMENT-RESPONSE`) rather than the **x402 v2** names OKX uses (`PAYMENT-SIGNATURE`/`PAYMENT-RESPONSE`). That is the exact reason agent #2632 was rejected on 2026-07-04. This spec pins the seller-side contract from **primary sources** so 02 can implement it without opening a browser.
+>
+> **Header-naming premise correction (important):** `PAYMENT-SIGNATURE` (buyer→seller) and `PAYMENT-RESPONSE` (seller→buyer) are the **vanilla x402 _v2_ standard** header names (Coinbase `x402` `specs/transports-v2/http.md`; `specs/x402-specification-v2.md:77` literally errors `"PAYMENT-SIGNATURE header is required"`). `X-PAYMENT`/`X-PAYMENT-RESPONSE` are **x402 _v1_**. OKX matches x402 v2 exactly on header naming (and accepts the v1 `x-payment` for back-compat). So these are **not** OKX-specific; the genuine OKX extensions are only: the `aggr_deferred`/`upto` schemes, the HMAC-signed OKX-hosted facilitator, `syncSettle`, `settle/status`, subscriptions, and the parallel `WWW-Authenticate: Payment` MPP rail. **Our own code labels itself "v2" but emits the v1 header names — that is the delta to close for the X-Layer rail.**
 
 This is a load-bearing contract in the sense of `specs/README.md`: 02's implementation is validated against §1 (the challenge shape) and §4 (the gap list). Every claim carries a citation. Anything not verifiable from a primary source is marked **UNRESOLVED**.
 
@@ -88,7 +90,7 @@ Notes vs. our current Bazaar-heavy body: OKX sellers emit **no** `extensions.baz
 On a request that carries the payment header, the seller calls the **OKX facilitator** (HMAC-authed, see §Q4) and only does the work after `/verify` passes:
 
 ```
-1. header = req.header("PAYMENT-SIGNATURE")          // NOT X-PAYMENT (OKX divergence)
+1. header = req.header("PAYMENT-SIGNATURE")          // x402 v2 std; also accept v1 `x-payment` for back-compat
 2. paymentPayload = JSON.parse(base64url_decode(header))
 3. requirement  = the accepts[] entry matching paymentPayload.accepted (network+scheme+asset)
 4. POST https://web3.okx.com/api/v6/pay/x402/verify
