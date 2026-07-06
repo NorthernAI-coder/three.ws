@@ -190,6 +190,12 @@ function providerChain({ anthropicKey, anthropicModel, preferNvidia = false, nvi
 		}));
 	}
 	if (anthropicKey) chain.push(anthropicProvider(anthropicKey, anthropicModel));
+	// VERTEX_CLAUDE_PRIMARY: real Claude on GCP credits leads the chain, before
+	// the free lanes — the platform's default brain becomes Vertex Claude. It
+	// still sits behind a caller BYOK key (the caller's explicit billing choice)
+	// and degrades to the free chain below on any Vertex failure. Model follows
+	// the call site's Anthropic intent (anthropicModel), else the utility default.
+	if (vertexClaudePrimary()) chain.push(vertexAnthropicProvider(anthropicModel));
 	if (env.GROQ_API_KEY) {
 		chain.push(openaiCompatProvider({
 			name: 'groq',
@@ -219,6 +225,13 @@ function providerChain({ anthropicKey, anthropicModel, preferNvidia = false, nvi
 			url: 'https://integrate.api.nvidia.com/v1/chat/completions',
 			model: NVIDIA_MODEL,
 		}));
+	}
+	// VERTEX_CLAUDE_ENABLED (without PRIMARY): Vertex Claude is a paid-tier
+	// backstop, tried ahead of first-party Anthropic — GCP credits before a paid
+	// Anthropic key. Skipped when it already leads (primary) so it's not added
+	// twice, and when a BYOK key leads (the caller chose their own billing).
+	if (!anthropicKey && vertexClaudeEnabled() && !vertexClaudePrimary()) {
+		chain.push(vertexAnthropicProvider(anthropicModel));
 	}
 	// Paid backstops — always appended, never leading. Server Anthropic is
 	// skipped when a BYOK key already leads the chain (the caller chose their
@@ -285,9 +298,13 @@ export async function llmComplete({ system, user, maxTokens = 1024, anthropicKey
 		const startedAt = Date.now();
 		let upstream;
 		try {
+			// Vertex resolves a fresh (cached) GCP OAuth token per request via an
+			// async getHeaders; every other provider carries static headers. A
+			// token-exchange failure throws here and is caught below → next provider.
+			const headers = p.getHeaders ? await p.getHeaders() : p.headers;
 			upstream = await fetch(p.url, {
 				method: 'POST',
-				headers: p.headers,
+				headers,
 				body: JSON.stringify(p.buildBody(system, user, maxTokens)),
 				signal: AbortSignal.timeout(timeoutMs),
 			});

@@ -24,6 +24,12 @@ import {
 	defaultEmbedPolicy,
 } from '../_lib/embed-policy.js';
 import { getAvatar } from '../_lib/avatars.js';
+import {
+	vertexClaudeEnabled,
+	vertexMessagesUrl,
+	vertexRequestHeaders,
+	toVertexBody,
+} from '../_lib/vertex-claude.js';
 
 const log = logger('llm.anthropic');
 
