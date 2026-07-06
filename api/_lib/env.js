@@ -752,12 +752,25 @@ export const env = {
 	get X402_ASSET_ADDRESS_XLAYER() {
 		return addr(opt('X402_ASSET_ADDRESS_XLAYER', '0x779ded0c9e1022225f8e0630b35a9b54be713736'));
 	},
-	// Relayer private key that redeems buyers' EIP-3009 authorizations on
-	// X Layer (broadcasts transferWithAuthorization; pays OKB gas). In the OKX
-	// dialect the SELLER submits settlement — there is no external facilitator.
-	// Secret. Unset → X Layer accepts are not advertised (same
-	// never-advertise-what-we-can't-settle rule as baseSettleable /
-	// solanaSettleable).
+	// OKX SA API credentials (dev-portal API key) — auth for the official OKX
+	// facilitator at https://web3.okx.com/api/v6/pay/x402/{verify,settle}
+	// (HMAC-SHA256 per OKX REST auth). The primary settlement route for the
+	// X Layer rail; env names match the official @okxweb3 SDK examples.
+	get OKX_API_KEY() {
+		return opt('OKX_API_KEY');
+	},
+	get OKX_SECRET_KEY() {
+		return opt('OKX_SECRET_KEY');
+	},
+	get OKX_PASSPHRASE() {
+		return opt('OKX_PASSPHRASE');
+	},
+	// Fallback relayer private key that redeems buyers' EIP-3009
+	// authorizations on X Layer directly (broadcasts transferWithAuthorization;
+	// pays OKB gas) when OKX facilitator credentials are absent. Secret. With
+	// neither this nor the OKX API creds set, X Layer accepts are not
+	// advertised (same never-advertise-what-we-can't-settle rule as
+	// baseSettleable / solanaSettleable).
 	get X402_XLAYER_RELAYER_KEY() {
 		return opt('X402_XLAYER_RELAYER_KEY');
 	},

@@ -182,6 +182,16 @@ async function persistFound({ target, publicKey, secretKey, attempts, durationMs
 
 // ── Orchestration ────────────────────────────────────────────────────────────
 let stopping = false;
+let onStop = null;
+const workers = [];
+
+// Abort every worker's in-flight grind. Workers check the stop flag between
+// batches (~sub-second) and post 'aborted', letting the run wind down cleanly.
+function stopAllWorkers() {
+	for (const w of workers) {
+		try { w.postMessage({ type: 'stop' }); } catch { /* worker already gone */ }
+	}
+}
 
 async function main() {
 	mkdirSync(dirname(OUTPUT_FILE), { recursive: true });
@@ -205,14 +215,22 @@ async function main() {
 
 	let cursor = 0;
 	let active = 0;
-	const workers = [];
 
 	await new Promise((resolveAll) => {
+		let settled = false;
 		const maybeFinish = () => {
-			if ((cursor >= pending.length && active === 0) || stopping) {
-				for (const w of workers) w.postMessage({ type: 'stop' });
+			if (settled) return;
+			if ((cursor >= pending.length && active === 0) || (stopping && active === 0)) {
+				settled = true;
+				stopAllWorkers();
 				resolveAll();
 			}
+		};
+		// A SIGTERM (spot preemption) sets `stopping` and asks workers to abort; once
+		// each in-flight target reports 'aborted' (active hits 0) the run winds down.
+		onStop = () => {
+			stopAllWorkers();
+			maybeFinish();
 		};
 
 		const assign = (worker) => {
@@ -299,6 +317,7 @@ for (const sig of ['SIGTERM', 'SIGINT']) {
 		console.log(`[grind] ${sig} received — checkpointing and shutting down`);
 		stopping = true;
 		saveCheckpoint();
+		if (onStop) onStop();
 	});
 }
 

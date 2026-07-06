@@ -78,7 +78,10 @@ export default wrap(async (req, res) => {
 	// blocks any replay thereafter. Fails open — see reservePaymentProof.
 	let releaseProof = async () => {};
 	if (x402Ctx) {
-		const guard = await reservePaymentProof('/api/mcp-3d', req.headers['x-payment']);
+		const guard = await reservePaymentProof(
+			'/api/mcp-3d',
+			req.headers['x-payment'] || req.headers['payment-signature'],
+		);
 		if (!guard.ok) {
 			return sendJsonRpcError(res, null, -32000, 'payment_in_flight', { retry_after: 1 });
 		}
