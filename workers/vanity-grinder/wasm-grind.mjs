@@ -39,22 +39,27 @@ function ensureWasm() {
  * @param {object} [opts]
  * @param {() => boolean} [opts.stopRequested] - return true to abort (preemption).
  * @param {(attempts:number)=>void} [opts.onProgress] - called each batch.
- * @returns {{ publicKey:string, secretKey:Uint8Array, attempts:number, durationMs:number } | null}
- *          null only if aborted before a match.
+ * @param {number} [opts.maxAttempts=Infinity] - give up after this many tries.
+ * @returns {{ publicKey?:string, secretKey?:Uint8Array, attempts:number, durationMs:number, status:'found'|'preempted'|'exhausted' }}
+ *          status 'exhausted' when maxAttempts is hit with no match (a leading char
+ *          can be near-impossible in Base58, so an unbounded grind could hang a
+ *          worker forever); 'preempted' when stopRequested() aborts.
  */
 export function grindToCompletion(target, opts = {}) {
 	ensureWasm();
 	const prefix = target.prefix || '';
 	const suffix = target.suffix || '';
 	const ignoreCase = !!target.ignoreCase;
-	const { stopRequested, onProgress } = opts;
+	const { stopRequested, onProgress, maxAttempts = Infinity } = opts;
 
 	const seed = new Uint8Array(32);
 	const startedAt = performance.now();
 	let attempts = 0;
 
 	for (;;) {
-		if (stopRequested && stopRequested()) return null;
+		if (stopRequested && stopRequested()) {
+			return { attempts, durationMs: performance.now() - startedAt, status: 'preempted' };
+		}
 		crypto.getRandomValues(seed);
 		const hit = grind(prefix, suffix, ignoreCase, BATCH_SIZE, seed);
 		attempts += BATCH_SIZE;
@@ -65,7 +70,11 @@ export function grindToCompletion(target, opts = {}) {
 				secretKey: Uint8Array.from(hit.secretKey),
 				attempts,
 				durationMs: performance.now() - startedAt,
+				status: 'found',
 			};
+		}
+		if (attempts >= maxAttempts) {
+			return { attempts, durationMs: performance.now() - startedAt, status: 'exhausted' };
 		}
 	}
 }

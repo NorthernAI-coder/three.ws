@@ -271,7 +271,22 @@ async function main() {
 					assign(worker);
 					return;
 				}
+				if (msg.type === 'exhausted') {
+					// Near-impossible pattern (rare Base58 leading char). Give up
+					// permanently so a resume doesn't retry it, and free the worker.
+					stats.totalAttempts += msg.attempts || 0;
+					completed.add(targetId(msg.target));
+					checkpoint.exhausted = (checkpoint.exhausted || []);
+					if (!checkpoint.exhausted.includes(targetId(msg.target))) checkpoint.exhausted.push(targetId(msg.target));
+					saveCheckpoint();
+					console.log(`[grind] gave up on ${msg.target.label || targetId(msg.target)} after ${(msg.attempts || 0).toLocaleString()} attempts (pattern too rare) — skipping`);
+					active -= 1;
+					if (stopping) { maybeFinish(); return; }
+					assign(worker);
+					return;
+				}
 				if (msg.type === 'aborted') {
+					// Preemption: leave the target un-completed so the next run retries it.
 					active -= 1;
 					maybeFinish();
 				}
