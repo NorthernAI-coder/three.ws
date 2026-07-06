@@ -250,7 +250,7 @@ function buildRequirements(resourceUrl, priceAtomics) {
 // FLUX→TRELLIS reconstruct lane so a paid call never dead-ends. Image→3D always
 // reconstructs (NVIDIA's hosted preview is text-only). Throws on any submit
 // failure so the caller can avoid settling payment.
-async function submitGeneration({ prompt, imageUrls, isImageMode, aspect, tier }) {
+export async function submitGeneration({ prompt, imageUrls, isImageMode, aspect, tier }) {
 	// Text prompts → the free NVIDIA NIM TRELLIS lane first (zero vendor cost).
 	if (!isImageMode) {
 		const viaNvidia = await submitTextViaNvidia({ prompt, tier });

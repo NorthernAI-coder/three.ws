@@ -50,6 +50,17 @@ export const API_META = {
 
 export const CATALOG = [
 	{
+		id: 'v1.ai.text_to_3d',
+		method: 'POST',
+		path: '/api/v1/ai/text-to-3d',
+		auth: 'public',
+		summary:
+			'Free text→3D — the only text-to-mesh lane in the agent-payments ecosystem; textured GLB ' +
+			'from a prompt, no key, no wallet. Draft tier runs on the NVIDIA NIM TRELLIS lane; free ' +
+			'per-IP quota of 10/day, then 429 pointing at the paid /api/x402/forge tiers.',
+		params: { prompt: 'string — describe a single object or character (3–1000 chars, required)' },
+	},
+	{
 		id: 'v1.sentiment',
 		method: 'POST',
 		path: '/api/v1/sentiment',
