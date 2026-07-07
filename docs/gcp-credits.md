@@ -971,7 +971,7 @@ $/asset = instance_$per_hr × (warm_seconds_per_asset / 3600)
 
 | Service | instance \$/hr | warm s/asset *(estimate)* | \$/asset *(estimate)* |
 |---|---|---|---|
-| `model-trellis` (image→3D) | 1.69 | ~30–60 | \$0.014–0.028 |
+| `model-trellis` (image→3D) | 1.69 | **~50 (measured)** | **\$0.023 (measured)** |
 | `model-hunyuan3d` | 1.69 | ~60–120 | \$0.028–0.056 |
 | `model-triposg` (sketch) | 1.69 | ~20–40 | \$0.009–0.019 |
 | `model-triposr` (fast) | 1.20 | ~5–15 | \$0.002–0.005 |
@@ -1072,11 +1072,49 @@ flag in production.
 
 | Path | cold s | warm s | output verified |
 |---|---|---|---|
-| text→3D (trellis) | _pending_ | _pending_ | _pending_ |
-| image→3D (trellis) | _pending_ | _pending_ | _pending_ |
-| mesh_forge (no Replicate) | _pending_ | _pending_ | _pending_ |
-| rig (unirig) | _pending_ | _pending_ | _pending_ |
-| text2motion | _pending_ | _pending_ | _pending_ |
+| image→3D (trellis) | ~1020¹ | **~50** | ✅ **1.97 MB glTF v2, 10,306 verts, UVs + indices, 1 material w/ baked baseColorTexture** (robot-crab input) |
+| text→3D (trellis) | ~1020¹ | **~50**² | ✅ reconstruct half proven (same `/infer`); full path = FLUX view → this worker |
+| mesh_forge (no Replicate) | — | — | ⏳ routing **code-verified** (`trellis_selfhost` hoisted by `FORGE_SELFHOST_PRIMARY`); needs a preview *deploy* to exercise end-to-end |
+| rig (unirig) | — | — | ⛔ **BLOCKED** — worker stubbed against a non-existent `UniRigModel` API (see status below); needs a real implementation |
+| text2motion | — | — | ⛔ **BLOCKED** — `mdm` weights not staged in `three-ws-model-weights` |
+
+¹ Not per-asset — this is the **one-time per-instance** model load (3 GB weights streamed from the gcsfuse-mounted bucket + spconv/CUDA init). `min-instances=1` keeps `model-trellis` warm so real traffic never pays it. The worker now loads the pipeline in a **background task** so uvicorn binds the port immediately and Cloud Run's startup TCP probe passes at once (a blocking load in the FastAPI lifespan exceeded the startup window and failed the revision — fixed 2026-07-07).
+² Warm text→3D adds the upstream FLUX text→image synthesis (~2–6 s) ahead of the ~50 s reconstruct; the ~50 s figure is the reconstruct step measured directly.
+
+### Prompt-04 deploy status (2026-07-07)
+
+**Live:** `model-trellis` (`https://model-trellis-lp642k3kpa-uc.a.run.app`, revision 00003,
+`min-instances=1`, 1×L4, 8 vCPU / 32 GiB). Image→3D proven end-to-end with a real
+input image → textured GLB (above). Preview env wired: `MODEL_TRELLIS_URL`,
+`GCP_RECONSTRUCTION_KEY`, `FORGE_SELFHOST_PRIMARY=1` (preview only; production flip
+pending a full platform preview E2E).
+
+**Build/config fixes required to ship it** (the workers were written a while ago):
+- **All 6 cloudbuilds** lacked a `timeout:` → Cloud Build's 10-min default killed the
+  CUDA image builds. Added `timeout: 3600s`. Also raised Cloud Run request `--timeout`
+  to 900 s (was 120–300) per the long-running inference requirement.
+- **`model-trellis` Dockerfile:** the compiled TRELLIS extensions
+  (nvdiffrast / diffoctreerast / diff-gaussian-rasterization) need
+  `pip install --no-build-isolation` (their `setup.py` imports the already-installed
+  torch); and the TRELLIS clone needs `--recurse-submodules` (FlexiCubes, its mesh
+  extractor, is a git submodule — a plain clone left it a bare gitlink and the worker
+  crashed on load). The GLB export call was also wrong (`_pipeline.to_glb` →
+  `trellis.utils.postprocessing_utils.to_glb`).
+- **`model-triposr`:** `from tsr import TSR` → `from tsr.system import TSR` (empty
+  top-level package).
+
+**Blocked (documented for the owner / next session):**
+- **GPU quota = 3** L4 (`nvidia_l4_gpu_allocation_no_zonal_redundancy`, us-central1) —
+  can't run all six warm at once. File an increase to ≥ 6 for the full warm fleet.
+- **`unirig`** — `requirements.txt` pins `unirig @ git+…/UniRig.git@main` (no
+  `setup.py`/`pyproject.toml`, not pip-installable) and `main.py` calls
+  `UniRigModel.from_pretrained().rig(vertices=, faces=)`, an API the real UniRig repo
+  (Blender + hydra CLI pipeline) does not expose. `rig_glb.py` (GLB assembly) is real;
+  the model driver is a stub. Needs a genuine UniRig adapter (adds `bpy`/Blender to the
+  image) — a multi-hour worker rewrite, not a config fix. **Rig E2E is gated on this.**
+- **`model-hunyuan3d`** — weights not staged; needs `HF_TOKEN` (Hunyuan3D-2.1 license-gated).
+- **`model-triposg` / `model-text2motion`** — weights not staged
+  (`triposg`/`triposg-scribble`/`rmbg-1.4`, and `mdm` respectively).
 
 ---
 
