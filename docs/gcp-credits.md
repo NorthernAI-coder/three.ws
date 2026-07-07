@@ -406,9 +406,12 @@ request/response shapes and the gate + fallback are covered by unit tests
 (`vercel-inference` SA key, `us-central1`) returned a 901 KB on-prompt PNG —
 `served by vertex-ai/gemini-2.5-flash-image`, isolated subject on a plain white
 background, visually verified. The 3–4-prompt quality gate is now **also done**
-(results below). Remaining before *production* enablement: the Vercel env push of
-`GOOGLE_CLOUD_PROJECT` + `GCP_SERVICE_ACCOUNT_JSON` (owner action — the image lane
-is `unconfigured` in prod today; `/api/v1/ai/image?health=1` shows `nim` only).
+(results below). The Vercel env push is **also done** —
+`GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, and `GCP_SERVICE_ACCOUNT_JSON`
+are set in production (commit 28220d673). `VERTEX_IMAGEN_ENABLED` is unset, so the
+lane auto-activates as the fallback the moment a deployment carrying those vars
+goes live — no separate flag flip needed. Until the next prod deploy propagates
+them, `/api/v1/ai/image?health=1` still shows the running deployment as `nim`-only.
 The E2E command used:
 
 ```bash
@@ -457,9 +460,10 @@ depend on ranking the two lanes, because Gemini stays the **fallback** (NIM FLUX
 still leads the ladder) and its quality clears the bar for that role.
 
 **Recommendation:** quality is not a blocker. Keep **NIM FLUX primary** (free, fast,
-already carries prod) and Gemini as the credit-funded fallback the flag turns on.
-Production enablement is purely the owner-gated Vercel env push below — no quality
-carve-out (draft-lane-only) is needed.
+already carries prod) and Gemini as the credit-funded fallback that activates
+whenever NIM is absent/down. No quality carve-out (draft-lane-only) is needed. The
+GCP envs are already in Vercel prod, so the lane goes live on the next deployment;
+instant rollback stays available via `VERTEX_IMAGEN_ENABLED=0`.
 
 ### Deploy & rollback
 

@@ -68,7 +68,10 @@ _tasks: dict[str, dict] = {}
 
 def _load_model():
     global _model
-    from tsr import TSR
+    # TripoSR's top-level `tsr/__init__.py` is empty — the class lives in
+    # `tsr.system` (as upstream run.py imports it). `from tsr import TSR` raises
+    # ImportError: cannot import name 'TSR' from 'tsr'.
+    from tsr.system import TSR
 
     log.info("Loading TripoSR model from %s", WEIGHTS_DIR)
     _model = TSR.from_pretrained(
