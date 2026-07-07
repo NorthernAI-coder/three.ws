@@ -9,9 +9,13 @@
 // GET: single-ticker collision check ($0.001 USDC) — original endpoint.
 // POST: batch scan of up to 10 symbols ($0.005 USDC) — returns
 //   { scanned_count, available_count, taken_count, available_list,
-//     taken_list, signal, headline, results[] }.
-//   Used by the autonomous oracle loop (USE-053) to track high-demand
-//   meme symbol availability as a launch-opportunity market signal.
+//     taken_list, availability_ratio, headline, results[] }.
+//   It is a collision checker, not a market oracle: `availability_ratio` is
+//   simply available_count / scanned_count (a convenience roll-up), NOT a
+//   trading signal. The `signal`/`headline` fields are retained as an internal
+//   alias consumed by the autonomous scan loop's registry entry
+//   (`symbol-scan-common`); external callers should treat availability_ratio
+//   and the counts as the answer.
 //
 // Why this is defensible: three.ws indexes every mint deployed through its
 // own launch pipeline (pump_agent_mints). Pre-launch collision checks are
@@ -200,17 +204,22 @@ const singleEndpoint = paidEndpoint({
 
 // ── Batch scan (POST) ────────────────────────────────────────────────────────
 // Accepts { symbols: string[], network?: string } and checks all symbols in
-// parallel. Returns counts + available/taken lists plus an oracle-compatible
-// { signal, headline } so the autonomous loop can upsert into
-// oracle_intel_signals (topic: 'symbol_availability').
+// parallel. Returns counts + available/taken lists + availability_ratio. The
+// { signal, headline } pair is retained as an internal alias for the autonomous
+// scan loop's registry entry (`symbol-scan-common`), which upserts into
+// oracle_intel_signals (topic: 'symbol_availability') — it is not a market
+// signal and is not advertised to external buyers.
 
 const BATCH_MAX = 10;
 
 const BATCH_DESCRIPTION =
 	'three.ws Symbol Availability Batch Scan — POST { symbols: string[], network? } ' +
-	'to check up to 10 candidate ticker symbols for exact and fuzzy collisions in a ' +
-	'single call. Returns available_count, taken_count, available_list, taken_list, ' +
-	'and an oracle signal (bullish/bearish/neutral) reflecting remaining launch opportunity.';
+	'to check up to 10 candidate ticker symbols for exact and fuzzy collisions against ' +
+	'the mints three.ws has launched, in a single call. Returns available_count, ' +
+	'taken_count, available_list, taken_list, and availability_ratio (share of scanned ' +
+	'symbols with no exact collision). A collision checker — not a trading signal. The ' +
+	'free /api/crypto/symbol route covers the whole market keyless; prefer it unless you ' +
+	'need this authenticated batch path.';
 
 const BATCH_INPUT_SCHEMA = {
 	$schema: 'https://json-schema.org/draft/2020-12/schema',
@@ -225,15 +234,14 @@ const BATCH_INPUT_SCHEMA = {
 const BATCH_OUTPUT_SCHEMA = {
 	$schema: 'https://json-schema.org/draft/2020-12/schema',
 	type: 'object',
-	required: ['scanned_count', 'available_count', 'taken_count', 'available_list', 'taken_list', 'signal', 'headline', 'results'],
+	required: ['scanned_count', 'available_count', 'taken_count', 'available_list', 'taken_list', 'availability_ratio', 'results'],
 	properties: {
 		scanned_count: { type: 'number' },
 		available_count: { type: 'number' },
 		taken_count: { type: 'number' },
 		available_list: { type: 'array', items: { type: 'string' } },
 		taken_list: { type: 'array', items: { type: 'string' } },
-		signal: { type: 'string', enum: ['bullish', 'neutral', 'bearish'] },
-		headline: { type: 'string' },
+		availability_ratio: { type: 'number', description: 'available_count / scanned_count (0–1). A convenience roll-up, not a market signal.' },
 		results: { type: 'array', items: { type: 'object' } },
 	},
 };
@@ -262,6 +270,9 @@ async function readJsonBody(req) {
 	return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
 }
 
+// Internal-only: coarse availability bucket for the autonomous scan loop's
+// oracle_intel_signals row. This is a name-collision ratio, not a market signal;
+// it is never advertised to external buyers (see BATCH_DESCRIPTION).
 function classifyScanSignal({ availableCount, scannedCount }) {
 	const ratio = scannedCount > 0 ? availableCount / scannedCount : 0;
 	if (ratio >= 0.6) return 'bullish';
@@ -278,7 +289,7 @@ const batchEndpoint = paidEndpoint({
 	bazaar: BATCH_BAZAAR,
 	service: withService({
 		serviceName: 'three.ws Symbol Batch Scan',
-		tags: ['ticker', 'pump.fun', 'collision', 'launch', 'solana', 'batch', 'oracle'],
+		tags: ['ticker', 'pump.fun', 'collision', 'launch', 'solana', 'batch'],
 	}),
 	requiredScope: 'x402:bypass',
 	accessControl: installAccessControl({ requiredScope: 'x402:bypass' }),
@@ -323,14 +334,18 @@ const batchEndpoint = paidEndpoint({
 		const takenList = results.filter((r) => r.exact_collision).map((r) => r.ticker);
 		const availableCount = availableList.length;
 		const takenCount = takenList.length;
+		const availabilityRatio = symbols.length > 0
+			? Number((availableCount / symbols.length).toFixed(3))
+			: 0;
+		// Internal alias kept for the autonomous scan loop consumer only.
 		const signal = classifyScanSignal({ availableCount, scannedCount: symbols.length });
 
 		const headline =
 			availableCount === symbols.length
-				? `All ${symbols.length} high-demand symbols are available to launch`
+				? `All ${symbols.length} scanned symbols are collision-free`
 				: availableCount === 0
-					? `All ${symbols.length} scanned symbols are already taken`
-					: `${availableCount}/${symbols.length} symbols available — taken: ${takenList.join(', ')}`;
+					? `All ${symbols.length} scanned symbols already have an exact collision`
+					: `${availableCount}/${symbols.length} symbols collision-free — taken: ${takenList.join(', ')}`;
 
 		return {
 			scanned_count: symbols.length,
@@ -338,6 +353,7 @@ const batchEndpoint = paidEndpoint({
 			taken_count: takenCount,
 			available_list: availableList,
 			taken_list: takenList,
+			availability_ratio: availabilityRatio,
 			signal,
 			headline,
 			network,
