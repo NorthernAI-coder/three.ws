@@ -6,6 +6,32 @@ Work Order 04 session — no earlier entries existed because no earlier work ord
 
 ---
 
+## 2026-07-07 — Relayer-key reconciliation: ONE authoritative X Layer relayer, funding target corrected
+
+**Read this before funding anything.** Two concurrent sessions (this WO-03 re-dispatch and the
+WO-04 session #2 entry below) each generated a *different* throwaway `X402_XLAYER_RELAYER_KEY`
+and both ran `vercel env add`. `env add` does not overwrite, so only the first writer's key was
+ever live and the two entries disagreed on the relayer address (`0x9e48…B7a3` vs `0x1B60…AB2a`).
+The deployed key is not readable (Vercel masks it; health does not expose the address), so the
+disagreement could not be settled by observation. Resolved it deterministically instead:
+
+- **`vercel env rm` then `vercel env add` the relayer key in BOTH production and preview**, then
+  redeployed prod. The live key now derives **`0x9e48594212487777497bAeB4716dd13250F4B7a3`** —
+  verified: I hold this private key, it is the only relayer entry in Vercel env, and
+  post-redeploy health reports `payment-rail settleable:true` (valid secp256k1 key loaded
+  server-side; the key lives durably in Vercel env, so settlement runs server-side and WO-04
+  needs no local copy — only this address funded with OKB gas).
+- **THE relayer to fund is `0x9e48…B7a3`. The `0x1B60…AB2a` address in the WO-04 entry below is
+  SUPERSEDED** — that key was removed from Vercel and is no longer deployed; do not fund it.
+- Safe to do now: both wallets were unfunded (0 balance), so no value moved and nothing was
+  stranded. Post-redeploy re-check: 8/8 services still `x402-check valid:true` at target prices;
+  relayer `0x9e48…B7a3` OKB balance = 0 (the WO-04 gas ask stands, just against this address).
+
+**Net funding targets for WO-04 (authoritative):** OKB gas → relayer `0x9e48…B7a3`; USD₮0 →
+buyer/seller `0x75d0…cf69`. Everything else in the WO-04 entry below holds.
+
+---
+
 ## 2026-07-07 — Work Order 04 session #2: rail deployed to prod, gauntlet armed, PAUSED on funding
 
 **Outcome: the X Layer / OKX rail is now LIVE on production and every funding-independent
