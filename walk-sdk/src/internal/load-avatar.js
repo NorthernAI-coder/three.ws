@@ -234,6 +234,12 @@ function makeEmbeddedController(root, clips, overrides, { waveMs }) {
 				}
 			}, len + 250);
 		},
+		// Scale playback rate of every action (global mixer multiplier) so a walk
+		// cycle can be sped up/slowed to match actual travel speed and keep feet
+		// planted instead of skating. 1 = authored cadence. Survives crossfades.
+		setSpeed(scale) {
+			mixer.timeScale = scale > 0 ? scale : 1;
+		},
 		update(dt) {
 			mixer.update(dt);
 		},
@@ -311,6 +317,12 @@ async function buildSharedController(model, clips, { manifestUrl, waveMs }) {
 				waveTimer = null;
 				fade(clipFor(base), 0.3);
 			}, waveMs);
+		},
+		// Scale playback rate of the active clip (global mixer multiplier) so a walk
+		// cycle can be sped up/slowed to match actual travel speed and keep feet
+		// planted instead of skating. 1 = authored cadence. Survives crossfades.
+		setSpeed(scale) {
+			if (manager.mixer) manager.mixer.timeScale = scale > 0 ? scale : 1;
 		},
 		update(dt) {
 			manager.update(dt);

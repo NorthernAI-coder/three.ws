@@ -391,12 +391,12 @@
 			<description>The free 3D Studio generates entirely on no-cost engines, so there's no spend to protect by shutting it off. We fixed a case where a hiccup in the rate-limiting backend could make the studio refuse every generation with a &quot;try again shortly&quot; — an outage of a free feature for no reason. Its usage caps now stay enforced when everything is healthy but step aside during a backend blip, so a prompt still returns your model. Nothing about paid features changed: those still stop safely if the same backend is unavailable.</description>
 		</item>
 		<item>
-			<title>The tour guide now turns to face wherever it walks</title>
+			<title>The tour guide now turns and walks like a real character</title>
 			<link>https://three.ws/tour</link>
-			<guid isPermaLink="false">2026-07-07:The tour guide now turns to face wherever it walks</guid>
+			<guid isPermaLink="false">2026-07-07:The tour guide now turns and walks like a real character</guid>
 			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
-			<description>The guide avatar in the product tour used to only tilt slightly left or right. Now it turns in every direction — facing left, right, toward you, or away — as it walks across the page to point at each feature, the same all-directions turning the robot already had in Walk, Stroll, and Platformer modes. It reads as a character genuinely walking to its next spot instead of sliding there.</description>
+			<description>Two fixes to the guide avatar in the product tour. It now turns in every direction — facing left, right, toward you, or away — as it walks to each feature, the same all-directions turning the robot already had in Walk, Stroll, and Platformer modes, instead of the old slight left/right tilt. And its stride now keeps pace with its steps: the walk animation speeds up or slows to match how fast it's actually moving, so its feet plant on the ground instead of gliding. It reads as a character genuinely walking to its next spot rather than sliding there.</description>
 		</item>
 		<item>
 			<title>three.ws 3D API: free text→3D + inspection for AI agents, with pro tiers</title>
