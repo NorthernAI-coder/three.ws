@@ -64,6 +64,61 @@ function substitute(template, match) {
 	return template.replace(/\$(\d+)/g, (_, n) => match[Number(n)] ?? '');
 }
 
+const isExternalDest = (dest) => /^https?:\/\//.test(dest || '');
+
+// ---------------------------------------------------------------------------
+// External-URL dests (reverse proxy), e.g. /ingest/* → PostHog.
+// ---------------------------------------------------------------------------
+// Vercel proxies any route whose dest is an absolute URL. This middleware
+// replicates that, and MUST run before the body parsers so POST bodies stream
+// through unconsumed. It walks the same phase-1 rules with the same first-match
+// semantics: only when the first non-continue dest for a path is external does
+// it proxy; otherwise it falls through untouched.
+
+// Hop-by-hop headers (RFC 9110 §7.6.1) plus fields the proxied hop recomputes.
+const PROXY_SKIP_REQ = new Set([
+	'host', 'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization',
+	'te', 'trailer', 'transfer-encoding', 'upgrade', 'content-length', 'accept-encoding',
+]);
+const PROXY_SKIP_RES = new Set([
+	'connection', 'keep-alive', 'transfer-encoding', 'content-encoding', 'content-length',
+]);
+
+async function proxyExternal(req, res, dest) {
+	const headers = {};
+	for (const [k, v] of Object.entries(req.headers)) {
+		if (!PROXY_SKIP_REQ.has(k)) headers[k] = v;
+	}
+	const hasBody = req.method !== 'GET' && req.method !== 'HEAD';
+	try {
+		const upstream = await fetch(dest, {
+			method: req.method,
+			headers,
+			body: hasBody ? req : undefined,
+			duplex: hasBody ? 'half' : undefined,
+			redirect: 'manual',
+			signal: AbortSignal.timeout(30_000),
+		});
+		res.status(upstream.status);
+		for (const [k, v] of upstream.headers) {
+			if (!PROXY_SKIP_RES.has(k)) res.setHeader(k, v);
+		}
+		if (upstream.body) {
+			const { Readable } = await import('node:stream');
+			Readable.fromWeb(upstream.body).pipe(res);
+		} else {
+			res.end();
+		}
+	} catch (err) {
+		console.error(`[proxy] ${req.method} ${req.url} → ${new URL(dest).host} failed:`, err.message);
+		if (!res.headersSent) {
+			res.status(502).json({ error: 'bad_gateway', message: 'Upstream request failed.' });
+		} else if (!res.writableEnded) {
+			res.end();
+		}
+	}
+}
+
 // ---------------------------------------------------------------------------
 // API route resolution (Vercel filesystem semantics) with caches.
 // ---------------------------------------------------------------------------
@@ -251,6 +306,21 @@ app.disable('x-powered-by');
 // Default filter already skips non-compressible types (text/event-stream,
 // images, GLB), so SSE and binary assets pass through untouched.
 app.use(compression());
+
+// External-dest proxy — before the body parsers (see proxyExternal above).
+app.use((req, res, next) => {
+	const pathname = new URL(req.url, 'http://internal').pathname;
+	for (const route of phase1Routes) {
+		const m = route.re.exec(pathname);
+		if (!m) continue;
+		if (route.continue) continue;
+		if (!route.dest || !isExternalDest(route.dest)) break; // a local rule wins — fall through
+		const search = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+		proxyExternal(req, res, substitute(route.dest, m) + search);
+		return;
+	}
+	next();
+});
 
 // Vercel-parity body parsing. Types not listed (multipart, image/*, …) are
 // left unparsed so handlers can consume the raw request stream.

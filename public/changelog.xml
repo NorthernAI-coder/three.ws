@@ -135,6 +135,14 @@
 			<description>The two EVM vanity tools now point at each other. The CREATE2 grinder — which searches a salt for a vanity smart-contract address, with no private key involved — now carries a note explaining that difference and linking to the EVM Vanity Wallet generator for anyone who actually wants a wallet they hold the key to. The wallet generator already linked back; this closes the loop so you can no longer land on one and miss the other.</description>
 		</item>
 		<item>
+			<title>Fixed the &lt;agent-3d&gt; embed bundle 404ing in production</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-07:Fixed the &lt;agent-3d&gt; embed bundle 404ing in production</guid>
+			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The CDN script that powers the &lt;agent-3d&gt; web component (the drop-in embed used on pages like the crypto demo, and by any third-party site embedding a live avatar) was returning 404 after the move to Cloud Run — the deploy pipeline wasn't building and publishing the bundle into the image. Deploys now build and verify it every time, so the embed loads everywhere it's used.</description>
+		</item>
+		<item>
 			<title>Forge listing sharpened: clear 3D generation tiers for agents</title>
 			<link>https://three.ws/docs/3d-api</link>
 			<guid isPermaLink="false">2026-07-07:Forge listing sharpened: clear 3D generation tiers for agents</guid>

@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-07T18:56:28.010Z",
+	"generated_at": "2026-07-07T22:24:56.382Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -169,6 +169,17 @@
 			"link": "/eth-vanity",
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "Fixed the <agent-3d> embed bundle 404ing in production",
+			"summary": "The CDN script that powers the <agent-3d> web component (the drop-in embed used on pages like the crypto demo, and by any third-party site embedding a live avatar) was returning 404 after the move to Cloud Run — the deploy pipeline wasn't building and publishing the bundle into the image. Deploys now build and verify it every time, so the embed loads everywhere it's used.",
+			"link": null,
+			"tags": [
+				"fix",
+				"infra"
 			]
 		},
 		{

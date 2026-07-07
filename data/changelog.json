@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-07-07",
+			"title": "Fixed the <agent-3d> embed bundle 404ing in production",
+			"summary": "The CDN script that powers the <agent-3d> web component (the drop-in embed used on pages like the crypto demo, and by any third-party site embedding a live avatar) was returning 404 after the move to Cloud Run — the deploy pipeline wasn't building and publishing the bundle into the image. Deploys now build and verify it every time, so the embed loads everywhere it's used.",
+			"tags": [
+				"fix",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-07-07",
 			"title": "Markets grows a full toolkit — Heatmap, Fear & Greed, Gas Tracker, and Compare",
 			"summary": "The Markets surface is now four tools bigger. Heatmap shows the whole market in one view — every coin a tile sized by market cap and colored by its price move. Fear & Greed puts market sentiment on a live gauge with full history. The Gas Tracker reads Ethereum fees straight from the chain, in gwei and in dollars, for transfers, swaps, and NFT mints. Compare lines up to four coins head to head — overlaying performance and every key stat, with a shareable URL. All live data, all free, all cross-linked from the markets table.",
 			"tags": [

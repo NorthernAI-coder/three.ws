@@ -90,9 +90,14 @@ deploys from a human-authed CLI (command below).
 
 ```bash
 # Frontend changed? Build first — dist/ ships from the local build.
-npm run build
+# build:gcp = site build + agent-3d CDN lib (build:lib:full + publish:lib) +
+# check:dist. Plain `npm run build` is NOT enough: it skips the lib publish,
+# so /agent-3d/latest/agent-3d.js 404s in prod and the hero avatar dies
+# ("agent-3d element never registered").
+npm run build:gcp
 
-# Build image on Cloud Build (32-vCPU + BuildKit layer cache) + push + deploy:
+# Build image on Cloud Build (32-vCPU + BuildKit layer cache) + push + deploy.
+# Gated on check:dist so an incomplete dist/ can no longer ship.
 npm run deploy:gcp
 ```
 
@@ -132,6 +137,17 @@ few endpoints reading it degrade until it moves to object storage.
 had). Requires connecting the `nirholas/three.ws` repo in Cloud Build and
 adding the vite build into the Docker build. This is Cloud Build's own GitHub
 integration — not GitHub Actions, which this repo does not use.
+
+**`/ingest/*` (PostHog proxy):** on Vercel, `vercel.json` routes whose `dest`
+is an absolute URL (`/ingest/static/*` → `us-assets.i.posthog.com`, `/ingest/*`
+→ `us.i.posthog.com`) were proxied by the platform itself. `server/index.mjs`
+now replicates this with its own external-dest middleware (mounted before the
+body parsers, so POST event bodies stream through unconsumed) — added
+2026-07-07 after prod was serving 404s + a MIME-sniffing block on
+`/ingest/static/array.js`. If a future `vercel.json` route gets an
+`http(s)://` dest and analytics start 404ing again, check that this
+middleware's `phase1Routes` walk still matches it before the API/static
+phases.
 
 ---
 
@@ -200,6 +216,7 @@ by CLI at all. Consequences and current state:
 |---|---|---|---|
 | x402 ring signers | `X402_TREASURY_SECRET_BASE58`, `X402_FEE_PAYER_SECRET_BASE58`, `X402_SEED_SOLANA_SECRET_BASE58` | Ring is enabled but cannot sign — no autonomous USDC movement | Owner's gitignored `.x402-ring-secrets.json`, written by `scripts/x402-ring-setup.mjs` on whatever machine ran it. Public halves: fee payer `2wKupLR9q6wXYppw8Gr2NvWxKBUqm4PPJKkQfoxHDBg4`, treasury/pay-to `wwwwwDxFWRn7grgr3Esrsg5C6NvDoDHSA4gaCffccrU`. These wallets custody funds — do NOT regenerate. |
 | Rate-limiter Redis | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Money-moving limiters **fail closed** (already true on Vercel pre-shutdown) | Owner's Upstash console, or provision fresh Upstash/Memorystore and set both vars. `X402_ALLOW_MEMORY_FALLBACK=1` exists as an explicit single-instance escape hatch. |
+| R2/S3 storage creds | `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET`, `S3_PUBLIC_DOMAIN` | `/api/marketplace`, `/api/explore`, `/api/avatars/:id` — every route that resolves an asset URL — 503 `not_configured` | Real values already sit in the repo's `.env.local` (never committed). Apply with `scripts/gcp/apply-s3-env.sh` (needs a human-authed `gcloud auth login` first — the 89-var apply is still blocked on reauth per above). |
 
 ---
 
