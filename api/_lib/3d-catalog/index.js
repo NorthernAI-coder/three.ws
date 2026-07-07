@@ -5,20 +5,17 @@
 // to edit (and collide on), each endpoint drops ITS OWN descriptor file in this
 // directory — `api/_lib/3d-catalog/<slug>.js` — and this assembler merges them.
 //
-// Serverless-safe enumeration
-// ---------------------------
-// Vercel's function bundler (node-file-trace) only bundles files it can see via
-// STATIC imports. A computed `import('./' + file)` off a `readdirSync` result is
-// invisible to the tracer, so the sibling descriptors would be missing from the
-// deployed lambda. Two things make the runtime read work regardless:
-//   1. `vercel.json` → `functions["api/3d/*.js"].includeFiles` ships the whole
-//      `api/_lib/3d-catalog/**` tree into every `/api/3d/*` lambda, so the files
-//      exist on disk at runtime.
-//   2. we enumerate with `fs.readdirSync(__dirname)` and `import(pathToFileURL())`
-//      each `*.js` (except this index), which resolves against those bundled
-//      files.
-// This is the documented Vercel escape hatch for data-dir reads; it's the same
-// `includeFiles` mechanism other functions in this repo use (see vercel.json).
+// Serverless-safe enumeration: static barrel first, glob as a dev-time extra
+// ---------------------------------------------------------------------------
+// Vercel's function bundler only reliably ships what STATIC imports reach. A
+// computed `import('./' + file)` off a `readdirSync` result is invisible to the
+// tracer — the first deployed version relied on the runtime glob (plus
+// vercel.json's `includeFiles` pin and a cwd fallback) and served
+// `endpoints: []` in production while finding every entry locally. So the
+// STATIC_ENTRIES barrel below is the production source of truth, and the
+// runtime glob survives only as an additive convenience: a descriptor dropped
+// in this directory appears in `npm run dev` / vitest before its import line
+// lands, and fixture dirs passed by tests still assemble pure-glob.
 //
 // Robustness: a malformed or throwing descriptor is skipped and logged — the
 // assembler NEVER throws and NEVER lets one bad entry take down the whole index.
@@ -29,6 +26,23 @@ import { readdirSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import generateEntry from './generate.js';
+import inspectEntry from './inspect.js';
+
+// Static barrel — the PRODUCTION source of truth for the catalog. Vercel's
+// bundler only reliably ships what static imports reach: the first deployed
+// version enumerated this directory at runtime and served `endpoints: []` live
+// while finding every entry locally. The directory glob below still runs, but
+// only as an ADDITIVE dev-time pickup so a freshly dropped descriptor shows up
+// before its import line lands.
+//
+// >>> Adding an endpoint: drop `api/_lib/3d-catalog/<slug>.js` AND add its
+// >>> import + line here. The import is what makes it exist in production.
+const STATIC_ENTRIES = [
+	{ mod: generateEntry, source: 'generate.js' },
+	{ mod: inspectEntry, source: 'inspect.js' },
+];
 
 // In dev/tests `import.meta.url` is this source file, so its own directory is
 // the descriptor dir. In production Vercel esbuild-bundles this module INTO the
@@ -121,26 +135,49 @@ const cache = new Map();
 export async function loadCatalog({ dir = __dirname, fresh = false } = {}) {
 	if (!fresh && cache.has(dir)) return cache.get(dir);
 
+	const entries = [];
+	const seen = new Set();
+	const staticSources = new Set();
+
+	// The static barrel seeds the real catalog (never fixture dirs passed by
+	// tests). It goes through the same normalize + dedup gauntlet as globbed
+	// files — a malformed barrel entry is skipped, not fatal.
+	if (dir === __dirname) {
+		for (const { mod, source } of STATIC_ENTRIES) {
+			staticSources.add(source);
+			const normalized = normalizeEntry(mod, source);
+			if (!normalized) {
+				console.warn(`[3d-catalog] skipping malformed static entry: ${source}`);
+				continue;
+			}
+			const key = `${normalized.methods.join(',')} ${normalized.path}`;
+			if (seen.has(key)) continue;
+			seen.add(key);
+			entries.push(normalized);
+		}
+	}
+
 	let files = [];
 	try {
 		files = readdirSync(dir).filter(
 			(f) =>
 				f.endsWith('.js') &&
 				!NON_ENTRY.has(f) &&
+				!staticSources.has(f) &&
 				!f.startsWith('_') &&
 				!f.startsWith('.') &&
 				!f.endsWith('.test.js'),
 		);
 	} catch (err) {
-		// Directory unreadable (should never happen once bundled) — degrade to an
-		// empty, valid catalog rather than throwing.
-		console.warn(`[3d-catalog] could not read catalog dir ${dir}:`, err?.message || err);
-		cache.set(dir, []);
+		// Directory unreadable (expected inside the serverless bundle, where the
+		// static barrel above has already populated the catalog) — never throw.
+		if (entries.length === 0) {
+			console.warn(`[3d-catalog] could not read catalog dir ${dir}:`, err?.message || err);
+		}
+		cache.set(dir, entries);
 		return cache.get(dir);
 	}
 
-	const entries = [];
-	const seen = new Set();
 	for (const file of files) {
 		try {
 			const mod = await import(pathToFileURL(join(dir, file)).href);
