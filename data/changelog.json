@@ -3,6 +3,14 @@
 	"entries": [
 		{
 			"date": "2026-07-07",
+			"title": "Give your assistant a living 3D body that lip-syncs and emotes in the chat",
+			"summary": "Turn any generated avatar into a persistent, named agent body that renders right inside ChatGPT or Claude. It lip-syncs each reply, shows the matching expression and gesture, idles between turns, and comes back as the same body when you return to it — no account needed. Three new free 3D Studio tools drive it: save an avatar as a persona, make it speak a reply, and reload it by id in a later session. A rig with no facial morphs still animates its mouth from the jaw, and a non-humanoid model falls back to a gentle idle instead of a broken pose.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-07-07",
 			"title": "Conversational 3D refinement + a remixable-asset economy with creator royalties",
 			"summary": "You can now iterate on a generated model by talking to it — say \"make it metallic\" or \"add wings\" and the studio re-generates a new version anchored to the last one, with a version strip you can revert or branch. It is free in the 3D Studio and on the paid MCP server. Creators can also publish a model as remixable: when another agent builds on it, a creator-set royalty (up to 20%) of the remix fee routes back to them on-chain in USDC, with provenance recorded on every derived model.",
 			"tags": [

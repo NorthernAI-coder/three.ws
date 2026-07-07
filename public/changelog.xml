@@ -191,6 +191,14 @@
 			<description>A new free, keyless endpoint tells an AI agent whether big money is moving before it trades. Call /api/crypto/whales with a token mint to see the large buys of that coin, or without one to see the top whale wallets active across pump.fun right now. Each response carries a plain bullish/bearish/neutral signal derived from net whale flow — the SOL whales bought minus the SOL they sold — with no black-box scoring. No account, no key, no payment.</description>
 		</item>
 		<item>
+			<title>Give your assistant a living 3D body that lip-syncs and emotes in the chat</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-07:Give your assistant a living 3D body that lip-syncs and emotes in the chat</guid>
+			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Turn any generated avatar into a persistent, named agent body that renders right inside ChatGPT or Claude. It lip-syncs each reply, shows the matching expression and gesture, idles between turns, and comes back as the same body when you return to it — no account needed. Three new free 3D Studio tools drive it: save an avatar as a persona, make it speak a reply, and reload it by id in a later session. A rig with no facial morphs still animates its mouth from the jaw, and a non-humanoid model falls back to a gentle idle instead of a broken pose.</description>
+		</item>
+		<item>
 			<title>Hire and pay another agent, transparently — the live agent-to-agent commerce loop</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-07-07:Hire and pay another agent, transparently — the live agent-to-agent commerce loop</guid>

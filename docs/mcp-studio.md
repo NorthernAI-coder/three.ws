@@ -103,6 +103,62 @@ The same `refine_model` capability is available on the paid stdio MCP server
 (`3d-agent-local`, $0.25 USDC per call) via the shared lineage core, so iteration
 behaves identically on both tracks.
 
+## Embodiment — a living agent body
+
+Three additional free tools turn a generated avatar into a **persistent, living
+agent body** that renders inline in the chat: it lip-syncs each reply, shows the
+matching expression and gesture, idles between turns, and returns as the same body
+across sessions. A persona is a name and a 3D body — nothing about tokens, wallets,
+or payments.
+
+| Tool | Title | Input | Returns |
+|---|---|---|---|
+| `create_agent_persona` | Save a rigged model as a living, persistent agent body | `glb_url`, `name`, `voice?`, `source_prompt?` | `persona_id` + inline living body (idle) |
+| `get_agent_persona` | Reload a persona by id (continuity across sessions) | `persona_id` | the same body + turn count |
+| `persona_say` | Speak a reply — lip-sync + emotion + gesture | `persona_id`, `text`, `emotion?` | the body performing the reply |
+
+Annotations: `create_agent_persona` and `persona_say` are writes
+(`readOnlyHint:false`); `get_agent_persona` is a pure read (`readOnlyHint:true`).
+
+**How it renders.** Each persona tool returns an inline `text/html` resource that
+frames the hosted embodiment page — `https://three.ws/embodiment/embed` — with the
+persona id and the turn's speak/emotion payload as query params. That page mounts
+`EmbodimentStage` (Three.js), which rides the platform's universal
+canonicalize/retarget pipeline so the baked idle + gesture clip library drives any
+humanoid rig. Emotion is detected from the reply text (or set explicitly via
+`emotion`) and blended onto the face **and** an upper-body gesture; lip-sync is
+best-first — an Audio2Face viseme track synced to TTS audio when present, else a
+deterministic text-timed mouth envelope.
+
+**Graceful states, never a frozen pose.** A rig with no facial morphs still
+animates its mouth from the jaw (or head) bone. A model that can't be
+skeleton-driven — no skin, or a non-humanoid prop — is detected up front
+(`decideRigMode` / `AnimationManager.supportsCanonicalClips()`) and falls back to a
+gentle alive-idle with a designed note, never a bind-pose T-pose.
+
+**Continuity.** The persona is persisted (durable GLB copy + a small identity
+record) and addressed by an unguessable `persona_id` — that id is the whole
+capability, so a fresh session reloads the exact same body with no sign-in. When
+the embed is opened with only an id (no inline `glb`), it resolves the durable body
+via `GET /api/mcp3d/persona?id=persona_…`, which returns the public projection
+(name, GLB, turn count) — never storage keys or owner ids.
+
+```json
+{
+  "persona_id": "persona_9f3aK2…",
+  "name": "Nova",
+  "glb_url": "https://three.ws/…/nova.glb",
+  "emotion": "joy",
+  "intensity": 0.7,
+  "gesture": "av-celebrating",
+  "turn_count": 3,
+  "status": "spoken"
+}
+```
+
+The same three tools ship on the paid stdio MCP server (`3d-agent-local`) so
+embodiment behaves identically on both tracks; both drive the one hosted embed.
+
 ## Funding & limits
 
 Generation is **operator-funded**: the platform's server-side keys cover provider
