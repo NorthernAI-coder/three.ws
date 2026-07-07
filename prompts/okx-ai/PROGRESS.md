@@ -6,6 +6,75 @@ Work Order 04 session — no earlier entries existed because no earlier work ord
 
 ---
 
+## 2026-07-07 — Work Order 01 re-dispatch: ALREADY COMPLETE, re-verified live, spec↔code conformance confirmed
+
+**Outcome: WO-01 was dispatched again but its deliverable already exists, is complete and
+double-sourced, and has since been consumed by WO-02/03. No research was re-run from scratch
+(that would be waste). Instead this session (a) re-verified the spec's most drift-prone
+primary-source claims against live sources today, (b) validated that the shipped WO-02/03
+code conforms to the spec §1 contract — the one check nobody had run — and (c) surfaced one
+runtime finding for the handoff. Spec updated with a dated reconciliation note; no code
+changes.**
+
+### Why not re-run the research
+
+`specs/okx-agent-payments.md` (386 lines, 39 KB) already answers all 8 questions with
+primary-source citations, captures five approved sellers verbatim, cryptographically pins the
+USD₮0 domain separator, and is double-sourced across two independent 2026-07-06 sessions. It
+is a real deliverable, not a hollow shell (contrast the misleading commit `839c9a654`). The
+stale memory note "WOs 01–03 never ran" predates all of this.
+
+### Re-verified LIVE today (2026-07-07) — primary sources still hold
+
+- **Approved-seller 402 (oklink `get_chain_info`)** → `HTTP 402`, `PAYMENT-REQUIRED` decodes
+  **byte-identical to spec Appendix A** (`exact`+`aggr_deferred`, `eip155:196`, amount `15`,
+  asset `0x779ded…713736`, `extra{name:"USD₮0",version:"1"}`).
+- **OKX facilitator** `GET /api/v6/pay/x402/supported` (no auth) → `HTTP 401 code 50103`
+  "OK-ACCESS-KEY can not be empty" — HMAC auth requirement (§Q4) unchanged.
+- **Preflight** passes: wallet logged in as `claude@three.ws`. Note `apiKey: null` ⇒ the OKX
+  API-credential blocker is still unmet.
+
+### Spec ↔ shipped-code conformance (new validation, WO-01→02 handoff)
+
+- [`api/_lib/x402-xlayer-okx.js`](../../api/_lib/x402-xlayer-okx.js) `okxXLayerAccept()`
+  **byte-matches spec §1.1**: `exact` / `eip155:196` / USD₮0 asset / payTo /
+  `maxTimeoutSeconds:86400` / `extra{symbol,name:"USD₮0",version:"1",transferMethod:"eip3009",decimals:6}`.
+  Reads `PAYMENT-SIGNATURE`, routes verify/settle via `OKXFacilitatorClient`, emits
+  `PAYMENT-RESPONSE` (§1.2/§3). The §4 gap list is now historical — closed in code.
+
+### Runtime finding for the handoff (owner-actionable)
+
+- **Production `POST /api/okx/3d/*` still returns a Solana-only challenge — no `eip155:196`
+  entry.** The X Layer accept is only advertised when `xlayerSettleable()` is true
+  (`X402_PAY_TO_XLAYER` + `X402_ASSET_ADDRESS_XLAYER` + OKX HMAC creds **or**
+  `X402_XLAYER_RELAYER_KEY`). Those env vars are **not set in Vercel production**, so the
+  2026-07-04 rejection cause persists *at runtime* even though the code is merged and
+  conformant. This is the same env blocker WO-03 logged; re-confirmed live.
+
+### Blockers (unchanged, all owner-provisioning)
+
+1. Set Vercel prod env: `X402_PAY_TO_XLAYER=0x75d00a2713565171f33216e5aa2a375e076ecf69`,
+   `X402_ASSET_ADDRESS_XLAYER=0x779ded0c9e1022225f8e0630b35a9b54be713736`.
+2. OKX API credentials `OKX_API_KEY`/`OKX_SECRET_KEY`/`OKX_PASSPHRASE` (facilitator HMAC),
+   or fall back to `X402_XLAYER_RELAYER_KEY` + OKB gas dust.
+3. Fund `0x75d0…cf69` on X Layer (196) with USD₮0 (`0x779ded…713736`); current balance 0.
+
+### GO/NO-GO
+
+- **WO-01: COMPLETE (re-affirmed, triple-sourced now).** No further research owed.
+- **WO-02: code COMPLETE and spec-conformant; runtime GATED on blocker #1.**
+- **WO-04/05: still NO-GO** until the three owner blockers above are cleared — then production
+  advertises the `eip155:196` rail and #2632 can be resubmitted.
+
+### One UNRESOLVED (unchanged, spec Q7)
+
+The exact method/body of any OKX-side *automated* listing probe is undocumented. Mitigation
+stands: after the env vars land, run `onchainos agent x402-check --endpoint
+https://three.ws/api/okx/3d/text-to-3d`, confirm the `eip155:196` accept is selectable, then
+resubmit for (human) review.
+
+---
+
 ## 2026-07-06 — Work Order 04 session: NO-GO, preconditions not met
 
 **Outcome: Work Order 04 (e2e real payment test) cannot run. Work Orders 01, 02, and 03
