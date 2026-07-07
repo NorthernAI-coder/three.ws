@@ -672,3 +672,123 @@ no money moved, agent #2632 untouched.
 
 - Owner provisions the two items above → run **Work Order 04** (`04-e2e-real-payment-test.md`)
   → on its explicit GO, re-dispatch this Work Order 05.
+
+---
+
+## 2026-07-07 — Work Order 06 session: flagship made OKX-payable + director fixed; demos/paid-E2E blocked on a prod infra incident
+
+**Outcome: the Agent Identity Studio's code is now correct and genuinely sellable on OKX
+(two real defects fixed and tested). The empirical deliverables the WO also asks for — 3+
+generated demo identities, #2632's own avatar, and the paid E2E — are BLOCKED by a live
+production infra incident (all rigging fails closed) plus an unfunded wallet. No fabricated
+output was committed; the showcase's designed "pending" state covers the gap.**
+
+A parallel session had already scaffolded the surface (catalog row, `api/_okx3d/identity.js`
+pipeline, `api/okx/3d/[service].js` routing, `pages/agent-identities.html` + `src/agent-identities.js`
+showcase, `data/pages.json` row, nav "Live" badge, `docs/okx-marketplace.md` section, changelog
+entry, `tests/api/okx-identity-studio.test.js`). This session audited that wiring end-to-end and
+fixed what was actually broken.
+
+### Two real defects fixed (tested)
+
+1. **The prompt director was a dead path in production.** `directIdentityPrompt` (and the avatar
+   lane it copied) called `POST https://three.ws/api/chat` with `provider: "watsonx"`. That call
+   is anonymous server-to-server, and watsonx is NOT an anon-allowed provider → HTTP 401 "sign in
+   to use this model" every time → the pipeline silently fell back to the deterministic template.
+   Prod also has **no** `WATSONX_*` keys, so Granite was never reachable regardless. **Fix:** route
+   prompt-shaping through the in-process `llmComplete` free-provider chain (Groq → OpenRouter →
+   NVIDIA NIM, `api/_lib/llm.js`) — no HTTP hop, uses the server keys the Vercel function actually
+   holds, fail-soft to the template. (in `api/_okx3d/identity.js`; commit `1fea93873`.)
+2. **The flagship's 402 did NOT advertise the OKX X Layer rail** — the exact reason #2632 was
+   rejected. The WO-03 REST services prepend `okxXLayerAccept` via `restRequirements`, but
+   identity-studio uses the shared MCP `authenticateRequest` path, which builds accepts from
+   `paymentRequirements()` — Solana/Base/BSC only, no `eip155:196`. An OKX buyer literally could
+   not pay the flagship. **Fix:** threaded an optional `extraAccepts` through `authenticateRequest`
+   + `handleSse` (`api/_mcp/auth.js`), and the identity handler now prepends
+   `okxXLayerAccept(resourceUrl, 1500000)` (gated on `xlayerSettleable()`) so the X Layer entry
+   LEADS the 402, participates in `verifyPayment`, and settles via `settleOkxXLayerPayment`
+   (`facilitatorFor('eip155:196')` → OKX facilitator) — identical to the REST services.
+   (`api/_mcp/auth.js` commit `d4c27246b` [misleadingly titled "Add PulseMCP…" — concurrent
+   `git add -A`], `api/okx/3d/[service].js` same.)
+
+Plus: the deterministic fallback prompt was rewritten (it dumped narrative + truncated mid-clause
+into "…subtle," fragments; now leads with the visual style hints at full budget + the brief's first
+sentence, clauses cleaned — a production-grade failsafe). Demo script timeout/poll made
+env-configurable (`IDENTITY_DEMO_TIMEOUT_MS`/`_POLL_MS`) for batch runs. (commit `ad247715f`.)
+
+### Tests (all green on current HEAD)
+
+`okx-identity-studio` 20/20 (added: X Layer accept LEADS the 402; directed-prompt-used-verbatim;
+director mock via `vi.mock('_lib/llm.js')`), `okx-3d-services` 26/26, and the shared-auth blast
+radius verified: `mcp-3d-challenge`, `mcp-3d`, `mcp`, `ibm-mcp`, `mcp-error-sanitize`,
+`mcp-agent-bazaar-discovery`, x402 replay/discovery — **121 + 46 + 30 passing, zero regressions.**
+The `extraAccepts` default `[]` means `/api/mcp` and `/api/mcp-3d` behavior is unchanged.
+
+### ⛔ HARD BLOCKER (new this session): production rigging is DOWN — rate-limiter/Redis incident
+
+Every rig request returns **`HTTP 429 {"error":"rate_limited","reason":"rate_limiter_unavailable","retry_after":3600}`**.
+Root cause traced: `mcp3dGenerate` is a `critical: true` cost limiter; when its Upstash/Vercel-KV
+backend throws at runtime (`resilientLimiter` → `failClosed`), it returns `rate_limiter_unavailable`.
+Redis IS configured (`KV_REST_API_URL/TOKEN` + `UPSTASH_CACHE_*` present in prod env), so this is a
+**runtime failure — a stale/invalid KV token (WRONGPASS → auth breaker opens) or an Upstash outage**,
+not a missing env. The anonymous `chatIp` limiter fails the same way. Fail-closed is the CORRECT
+posture for a money/GPU-spend bucket (do not weaken it to `degradeToMemory`), so the fix is ops:
+**rotate/refresh the Vercel KV (`KV_REST_API_TOKEN`) or reconnect the KV integration**; the auth
+breaker self-heals within ~60s once the token is valid — no redeploy. This blocks ALL rigging
+platform-wide → every identity demo, #2632's avatar, and the paid-E2E rig stage. Repro:
+`curl -X POST 'https://three.ws/api/forge?action=rig' -H 'content-type: application/json' -d '{"glb_url":"https://three.ws/models/duck.glb"}'` → 429.
+
+### Also blocked: paid E2E — wallet unfunded
+
+`onchainos wallet balance` on X Layer = **$0.00** (no USD₮0). The paid create_identity leg ($1.50)
+can't run. Note the X Layer rail fix above must also be DEPLOYED before the live 402 advertises
+`eip155:196` (the current prod deploy predates both my fix and the `X402_PAY_TO_XLAYER` env that a
+concurrent WO-04 session set — a redeploy picks up both).
+
+### Unit-cost math + price decision (recorded per the WO)
+
+Price **$1.50** (1,500,000 atomic USD₮0), within the WO's $1.00–$2.00 band. Marginal cost per
+identity: generation (NVIDIA NIM TRELLIS free lane) ~$0; humanoid rig (self-hosted GCP UniRig, fixed
+infra) ~$0 marginal (Replicate backstop only if self-host is down: a few cents); 4 server-side
+renders (headless chromium + sharp compositing) compute-only ~$0; director (`llmComplete` free chain)
+$0. Worst-case a few cents when both a Replicate TRELLIS backstop AND a Replicate rig backstop fire.
+**Clears cost with >95% margin.** No change to the catalog row.
+
+### #2632 own avatar — deferred per requirement-3 coordination rule
+
+Cannot be produced while rigging is down. Per the WO's coordination rule, since WO-05 has NOT
+submitted (relisting is still pending the deploy of the payment-rail fixes), the intended handoff is
+"hand the asset to 05 via PROGRESS." The asset does not exist yet, so: **once rigging recovers, run
+`node --env-file=<prod-LLM+local-R2 env> scripts/okx-identity-demo.mjs three-ws-3d-studio --force`
+(brief already in `data/agent-identities.json`), then hand the resulting PFP to WO-05 for the #2632
+`set-avatar` write (human confirms the on-chain tx).** Do NOT race a second listing update.
+
+### Catalog delta for WO-05 / WO-07 to fold into the listing
+
+The `identity-studio` row is unchanged in `api/_lib/okx-catalog.js` (name "Agent Identity Studio",
+$1.50, `https://three.ws/api/okx/3d/identity-studio`, A2MCP). The material change is that this
+endpoint's 402 **now leads with the `eip155:196` accept** once deployed — i.e. it finally satisfies
+the OKX payment-integration requirement the whole relisting depends on. WO-05 can submit the row as
+listed in the WO-03 entry's table (#11).
+
+### What the next session must do (in order)
+
+1. **Escalate the Redis/rate-limiter incident to the owner** (ops: rotate KV token). Until then,
+   nothing that rigs can run — this also degrades paid generation platform-wide, not just this WO.
+2. **Deploy** (any commit triggers it) so the flagship 402 advertises the X Layer rail live; re-probe
+   `curl -sS -X POST https://three.ws/api/okx/3d/identity-studio …` and confirm `accepts[0].network
+   == "eip155:196"`.
+3. Once rigging is back: run the 3 demo briefs (`ledgerlynx`, `museweaver`, `momentum-9`) +
+   `three-ws-3d-studio` through `scripts/okx-identity-demo.mjs` with **real LLM keys** (the demo runs
+   the director in-process; prod `vercel env pull` returns the keys EMPTY because they're marked
+   sensitive — get them from the owner or run the paid job through the deployed endpoint instead).
+   Inspect every deliverable (PFP legible at 128×128, full-body coherent, `verifyRiggedGlb` ≥10
+   joints + JOINTS_0/WEIGHTS_0), iterate if mediocre, commit `data/agent-identities.json`.
+4. **Fund** `0x75d0…cf69` with USD₮0 on X Layer, then run the paid identity-studio E2E (unpaid 402 →
+   pay → poll → 3 real deliverables) per the 04 runbook.
+5. Hand the #2632 PFP to WO-05.
+
+**Traceability note:** concurrent agents' `git add -A` scattered this session's code across commits
+`1fea93873` (director), `d4c27246b` (X Layer rail, mis-titled), `ad247715f` (fallback + tests). All
+are on `main`; HEAD is coherent (tests green). This entry is the authoritative record of what those
+commits actually contain.
