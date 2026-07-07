@@ -28,6 +28,13 @@ import { TOOL_CATALOG as STUDIO_TOOL_CATALOG } from './_mcp3d/catalog.js';
 import { priceFor as studioPriceFor } from './_mcp3d/pricing.js';
 import { priceFor } from './_lib/pump-pricing.js';
 import { priceAtomicsForTier } from './_lib/forge-tiers.js';
+import {
+	FORGE_SERVICE_NAME,
+	FORGE_TAGS,
+	FORGE_ROUTE_DESCRIPTION,
+	FORGE_OUTPUT_EXAMPLE,
+	FORGE_BAZAAR,
+} from './_lib/forge-listing.js';
 import { listBazaarServices, serviceResourceUrl } from './_lib/agent-paid-services.js';
 
 // ── agent-attestation-schemas ─────────────────────────────────────────────────
@@ -975,15 +982,9 @@ const REST_OUTPUT_EXAMPLES = Object.freeze({
 		vanity_prefix: 'HEL',
 		vanity_iterations: 4821,
 	},
-	'/api/x402/forge': {
-		job_id: 'f1.eyJwIjoiZXhhbXBsZSJ9.sig',
-		status: 'queued',
-		poll_url: '/api/forge?job=f1.eyJwIjoiZXhhbXBsZSJ9.sig',
-		mode: 'text_to_3d',
-		tier: 'standard',
-		eta_seconds: 22,
-		price_usdc: '0.15',
-	},
+	// Sourced from the shared forge listing so the discovery output example
+	// matches the live 402's exactly (backend field included).
+	'/api/x402/forge': FORGE_OUTPUT_EXAMPLE,
 	'/api/x402/skill-marketplace': {
 		skill_filter: 'inspect_model',
 		count: 1,
@@ -1537,8 +1538,8 @@ async function handleX402Discovery(req, res) {
 			tags: ['3d', 'avatar', 'club', 'access', 'cover'],
 		}),
 		forge: withService({
-			serviceName: 'three.ws Forge: text/image to 3D',
-			tags: ['3d', 'generation', 'text-to-3d', 'image-to-3d', 'glb', 'mesh'],
+			serviceName: FORGE_SERVICE_NAME,
+			tags: [...FORGE_TAGS],
 		}),
 		analytics: withService({
 			serviceName: 'three.ws Social Analytics',
@@ -2020,47 +2021,19 @@ async function handleX402Discovery(req, res) {
 						path: '/api/x402/forge',
 						url,
 						method: 'POST',
-						description:
-							'Forge — pay-per-call text→3D and image→3D. Submit a prompt (or up to four reference views of one object) and receive a job token; poll it for free at GET /api/forge?job=<id> for the finished GLB. Runs the FLUX→TRELLIS pipeline (text→image→mesh, or image→mesh). Priced per quality tier in USDC ($0.05 draft / $0.15 standard / $0.50 high). Pay autonomously on Base or Solana mainnet — no API key, no account.',
+						// Description + schemas come from the shared ../_lib/forge-listing.js
+						// so this mirror can never drift from the live 402 challenge.
+						description: FORGE_ROUTE_DESCRIPTION,
 						mimeType: 'application/json',
 						serviceName: routeMeta.forge.serviceName,
 						tags: routeMeta.forge.tags,
 						iconUrl: routeMeta.forge.iconUrl,
 						accepts,
-						extensions: extensionsForAccepts(accepts, {
-							method: 'POST',
-							discoverable: true,
-							input: {
-								prompt: 'a brass steampunk owl, full body',
-								tier: 'standard',
-								aspect_ratio: '1:1',
-							},
-							inputSchema: {
-								type: 'object',
-								properties: {
-									prompt: {
-										type: 'string',
-										minLength: 3,
-										maxLength: 1000,
-										description:
-											'Describe one subject for text→3D. Omit when supplying image_urls.',
-									},
-									image_urls: {
-										type: 'array',
-										items: { type: 'string', format: 'uri' },
-										minItems: 1,
-										maxItems: 4,
-										description:
-											'Up to four public https reference views of one object for image→3D.',
-									},
-									tier: { type: 'string', enum: ['draft', 'standard', 'high'] },
-									aspect_ratio: {
-										type: 'string',
-										enum: ['1:1', '4:3', '3:4', '16:9', '9:16'],
-									},
-								},
-							},
-						}),
+						// Pass the fully-built shared bazaar block (it already carries
+						// `info` + `schema`, so extensionsForAccepts uses it verbatim rather
+						// than re-deriving a schema that would drop the output schema). This
+						// is what makes the discovery doc byte-identical to the live 402.
+						extensions: extensionsForAccepts(accepts, FORGE_BAZAAR),
 					};
 				})(),
 				(() => {
