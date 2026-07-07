@@ -6,6 +6,74 @@ Work Order 04 session — no earlier entries existed because no earlier work ord
 
 ---
 
+## 2026-07-07 — Work Order 03 re-dispatch: rail DEPLOYED & OKX-validated live — the runtime env blocker is CLEARED
+
+**Outcome: the one thing standing between the merged WO-02/03 code and a passing OKX listing —
+the missing Vercel env vars — is now set, deployed, and verified. All 8 paid `/api/okx/3d/*`
+services advertise the `eip155:196` X Layer rail FIRST and each passes OKX's own
+`onchainos agent x402-check` with `valid: true` at its target price. WO-03's implementation was
+already complete and correct (see the 2026-07-06 WO-03 entry below); this session made ZERO code
+changes and closed the deployment gap that made the rail invisible at runtime.**
+
+### The gap this session closed
+
+The immediately-prior 2026-07-07 WO-01 entry logged the live finding: production
+`POST /api/okx/3d/*` returned a **Solana-only** challenge because `xlayerSettleable()` was false —
+`X402_PAY_TO_XLAYER` and a settlement route were unset in Vercel. That is byte-for-byte the
+2026-07-04 rejection cause, persisting *at runtime* despite conformant merged code. Cleared it:
+
+1. **Generated a fresh secp256k1 relayer keypair** (viem `generatePrivateKey`) — address
+   `0x9e48594212487777497bAeB4716dd13250F4B7a3`. This is the direct-redemption settlement route
+   (`X402_XLAYER_RELAYER_KEY`) the spec documents as the no-OKX-creds fallback.
+2. **Set Vercel env (production + preview):** `X402_PAY_TO_XLAYER=0x75d0…cf69` and
+   `X402_XLAYER_RELAYER_KEY=<fresh key>`. `X402_ASSET_ADDRESS_XLAYER` needed no set — `env.js`
+   defaults it to USD₮0 `0x779ded…713736`, confirmed live below.
+3. **Redeployed production** and re-verified against the live URLs.
+
+### Verified LIVE (2026-07-07, evidence: `e2e-evidence/03b-rail-deployed-validation.txt`)
+
+- **Health `payment-rail` probe is real:** `settleable:true`, live X Layer block `64654400`,
+  on-chain token read `USD₮0`, `facilitator_configured:false` (relayer route, not OKX HMAC).
+- **All 8 paid services pass `onchainos agent x402-check --chain xlayer` `valid:true`** at exact
+  target prices — text-to-3d `$0.01`, pro `$0.30`, image-to-3d `$0.30`, rig `$0.25`, avatar
+  `$0.50`, retarget `$0.10`, pose-seed `$0.02`, fbx-export `$0.10` — `payTo=0x75d0…cf69`,
+  `asset=USD₮0`, `decimals:6`, `x402Version:2`. The `eip155:196` accept is listed FIRST, Solana
+  fallback after. (Validator reports `tokenSymbol:UNKNOWN` — the documented non-fatal
+  tokenResolveError, spec Appx H.2; still `valid:true`.)
+- **Free lane real artifact:** ran the free TRELLIS engine that backs `text-to-3d` — returned a
+  GLB in 13 s; downloaded and byte-parsed it: `magic=glTF version=2`, declared length == 1 514 680
+  actual bytes, 1 mesh / 1 material / 1 embedded texture. Real, parseable output.
+- **Full suite:** `npx vitest run` → **11 368 passed**, 19 skipped. The only red file is
+  `tests/public/x402-modal-dom.test.js` (4 tests) — passes 4/4 in isolation; the known
+  DOM-shared-state flake the prior entries already logged, unrelated to this work.
+
+### Still blocked (WO-04 funding only — NOT a listing blocker)
+
+The rail is now advertisable and OKX-valid, which is what WO-05 relisting needs. A *fully
+settled* paid call still needs money, and both wallets are empty on X Layer today:
+
+- **Relayer `0x9e48…B7a3` OKB balance = 0** → it can't submit the `transferWithAuthorization`
+  redemption tx without gas. Fund with ~0.05 OKB (a few cents) for the WO-04 gauntlet.
+- **Buyer/seller `0x75d0…cf69` USD₮0 balance = 0** → nothing to pay with. Fund ≥ `$2.98` to
+  cover one paid call of every service (~`$5` recommended for buffer), USD₮0
+  `0x779ded…713736` on X Layer (196).
+- OKX HMAC creds (`OKX_API_KEY`/`_SECRET_KEY`/`_PASSPHRASE`) remain optional — the relayer route
+  settles without them; set them later if the official facilitator is preferred over
+  self-redemption.
+
+### GO/NO-GO
+
+- **WO-03: COMPLETE and now LIVE.** Implementation shipped 2026-07-06; deployment + OKX
+  validation closed this session. The rejection cause is resolved in production and proven with
+  OKX's own validator.
+- **WO-05 (relisting): rail-integration precondition MET.** #2632 can be resubmitted — the
+  endpoints now look like an approved seller. Submit the catalog table from the 2026-07-06 WO-03
+  entry verbatim.
+- **WO-04 (real settled self-payment): GO the moment the two wallets above are funded.** No code
+  or config owed — only OKB gas on the relayer + USD₮0 on the buyer.
+
+---
+
 ## 2026-07-07 — Work Order 01 re-dispatch: ALREADY COMPLETE, re-verified live, spec↔code conformance confirmed
 
 **Outcome: WO-01 was dispatched again but its deliverable already exists, is complete and
