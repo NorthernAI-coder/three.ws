@@ -690,6 +690,25 @@ scripts/gcp/revert-to-free.sh --apply      # min-instances=0 on every worker
   confirm lanes serve from GCP; run the Step-1 removals → confirm every feature
   still works on the free/original providers. The `?catalog=1` check makes this a
   2-minute confirmation, not an investigation.
+- **Live verification run (2026-07-07, gcloud + Vercel authed):**
+  - `revert-to-free.sh` dry-run executed against the live project — pre-flight,
+    the full `vercel env rm` block, and the min-instances loop all render
+    correctly; idempotent (re-run produces the identical plan).
+  - `teardown.sh` dry-run enumerated **real** resource state: `model-triposr`
+    deployed (would delete), `gs://three-ws-model-weights`, the
+    `avatar-reconstruction-key` secret and its SA present; all other workers and
+    the Artifact Registry repo not created yet — the script skips them cleanly.
+  - **Production already runs the revert-target state for chat and forge:**
+    `https://three.ws/api/forge?catalog=1` shows every GCP self-host lane
+    (`trellis_selfhost`, `hunyuan3d`, `triposg`) `configured:false` and the free
+    NIM/HF lanes `configured:true` and leading; `VERTEX_CLAUDE_ENABLED`/`_PRIMARY`
+    are not set in Vercel, so chat runs the free ladder. The four
+    `GOOGLE_CLOUD_*`/`GCP_SERVICE_ACCOUNT_JSON` vars landed in prod+preview
+    2026-07-07 (arming Imagen as backstop behind free NIM FLUX) — the Step-1
+    removal block is the exact revert for them.
+  - Net: the free/original-provider state is not hypothetical — it is what
+    production serves today, and the flip-on side is what remains gated on the
+    owner (Model Garden terms for Claude; worker deploys for forge).
 
 ## Keep / kill — post-expiry economics
 
@@ -778,7 +797,8 @@ Firestore `(default)` DB or the GCP project (prints the commands for both).
   (b) Vertex Claude where its token price beats first-party Anthropic.
 - **Then:** `scripts/gcp/teardown.sh --apply` to delete the idle resources and zero the bill.
 
-_Revert section last verified against source: 2026-07-06._
+_Revert section last verified against source: 2026-07-06; scripts dry-run against
+live GCP and prod revert-state confirmed 2026-07-07._
 
 ---
 
