@@ -245,6 +245,52 @@ describe('mcp-studio dispatch', () => {
 		expect(sc.activeIndex).toBe(2);
 	});
 
+	it('refine_model rejects a malformed parent_lineage and falls back to a fresh lineage', async () => {
+		globalThis.fetch = vi.fn(async () => ({
+			ok: true,
+			status: 200,
+			json: async () => ({ status: 'done', glb_url: 'https://three.ws/cdn/creations/vX.glb', job_id: 'JX' }),
+		}));
+		// A structurally broken lineage: two roots, non-contiguous indices — must NOT
+		// be trusted/extended. The handler seeds fresh from glb_url instead.
+		const broken = [
+			{ index: 0, parentIndex: null, glbUrl: 'https://three.ws/a.glb' },
+			{ index: 5, parentIndex: null, glbUrl: 'https://three.ws/b.glb' },
+		];
+		const r = await dispatch(
+			{ jsonrpc: '2.0', id: 12, method: 'tools/call', params: { name: 'refine_model', arguments: { glb_url: 'https://three.ws/cdn/creations/origin.glb', instruction: 'make it red', parent_lineage: broken } } },
+			auth,
+			mkReq(),
+		);
+		const sc = r.result.structuredContent;
+		// Fresh lineage rooted at glb_url → exactly 2 clean versions, single root.
+		expect(sc.lineage).toHaveLength(2);
+		expect(sc.lineage[0].label).toBe('Original');
+		expect(sc.lineage[0].glbUrl).toBe('https://three.ws/cdn/creations/origin.glb');
+		expect(sc.activeIndex).toBe(1);
+	});
+
+	it('refine_model honors a valid parent_index to branch off an earlier version', async () => {
+		globalThis.fetch = vi.fn(async () => ({
+			ok: true,
+			status: 200,
+			json: async () => ({ status: 'done', glb_url: 'https://three.ws/cdn/creations/branch.glb', job_id: 'JB' }),
+		}));
+		const lineage = [
+			{ index: 0, parentIndex: null, glbUrl: 'https://three.ws/o.glb', prompt: 'a robot', refKind: 'origin', label: 'Original' },
+			{ index: 1, parentIndex: 0, glbUrl: 'https://three.ws/v1.glb', prompt: 'a robot, gold', instruction: 'gold', refKind: 'text', label: 'gold' },
+		];
+		const r = await dispatch(
+			{ jsonrpc: '2.0', id: 13, method: 'tools/call', params: { name: 'refine_model', arguments: { glb_url: 'https://three.ws/v1.glb', instruction: 'silver instead', parent_prompt: 'a robot', parent_lineage: lineage, parent_index: 0 } } },
+			auth,
+			mkReq(),
+		);
+		const sc = r.result.structuredContent;
+		expect(sc.lineage).toHaveLength(3);
+		// New version branches off the ORIGINAL (index 0), not the leaf (index 1).
+		expect(sc.lineage[2].parentIndex).toBe(0);
+	});
+
 	it('refine_model requires both glb_url and instruction', async () => {
 		const spy = vi.fn();
 		globalThis.fetch = spy;
