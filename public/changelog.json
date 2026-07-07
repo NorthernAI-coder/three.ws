@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-07T01:01:47.631Z",
+	"generated_at": "2026-07-07T02:31:30.946Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -101,6 +101,16 @@
 		{
 			"date": "2026-07-07",
 			"type": "update",
+			"title": "Free live pump.fun launches feed for agents",
+			"summary": "The Crypto Data API now has a live launch feed: GET /api/crypto/launches returns the freshest pump.fun mints, newest first, with everything a discovery or sniper agent filters on — name, symbol, age down to the tenth of a minute, current market cap, bonding-curve progress, and the dev wallet. Filter server-side with minMarketCap and maxAgeMin, then watch the interesting ones climb their curve via the bonding-status endpoint (the two share the exact same curve math, so they can never disagree). Free, no key, no account — built to be polled. Full reference with runnable curls at /docs/crypto-api.",
+			"link": "/docs/crypto-api",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
 			"title": "Free text→3D generation API for agents",
 			"summary": "Any AI agent can now turn a text prompt into a real 3D model with one call to /api/3d/generate — free, keyless, no account, no wallet. Describe a single object and get back a textured GLB (inline when it finishes fast, otherwise a job token you poll at /api/3d/generate?job=<id>). It runs on the free draft lane (NVIDIA NIM TRELLIS): draft-fidelity geometry, GLB only, no rigging — honest about being a prototyping tier, with a generous per-IP rate limit protecting the shared GPU. Need denser meshes with PBR textures, or an animation-ready rigged character? The response and docs point straight at paid Forge Pro and Rigged Avatars. No other agent-payments platform gives away 3D generation.",
 			"link": null,
@@ -127,6 +137,17 @@
 			"link": "/docs/api-reference",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "Free token-snapshot API for crypto agents",
+			"summary": "New free endpoint in the Crypto Data API: GET /api/crypto/token returns the full current market state of any token from its contract address in one call — price, 24-hour change, market cap, FDV, liquidity, volume, and a link to its trading venue. It reads live DexScreener data on any chain it indexes, and fresh pump.fun launches that don't have a DEX pair yet still resolve through pump.fun's public record. No API key, no account — built for trading agents deciding whether to buy, alert, or ignore.",
+			"link": "/docs/crypto-api",
+			"tags": [
+				"feature",
+				"sdk"
 			]
 		},
 		{

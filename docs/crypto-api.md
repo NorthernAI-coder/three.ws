@@ -44,7 +44,9 @@ is documented in its section below and machine-readable in the OpenAPI doc.
 | Endpoint | Verb(s) | What it answers |
 |----------|---------|-----------------|
 | [`/api/crypto/bonding`](https://three.ws/api/crypto/bonding) | `GET` | Where a pump.fun token sits on its bonding curve — % to graduation, SOL in the curve, and whether it has migrated to an AMM. |
+| [`/api/crypto/launches`](https://three.ws/api/crypto/launches) | `GET` | The freshest pump.fun launches, newest first — age, market cap, bonding-curve progress, dev wallet — with `minMarketCap` / `maxAgeMin` filters built for polling agents. |
 | [`/api/crypto/symbol`](https://three.ws/api/crypto/symbol) | `GET` · `POST` | Whether up to 20 candidate tickers are taken — exact and fuzzy (look-alike) collisions across live registries. |
+| [`/api/crypto/token`](https://three.ws/api/crypto/token) | `GET` | The current market state of any token by contract address — price, 24 h change, market cap, FDV, liquidity, volume, and venue link in one call. |
 | [`/api/crypto/trending`](https://three.ws/api/crypto/trending) | `GET` | Solana tokens ranked by momentum (volume + buy pressure + spike + short-window price change) fused across sources. |
 | [`/api/crypto/wallet`](https://three.ws/api/crypto/wallet) | `GET` | A wallet's native balance, every token it holds, and a rough USD valuation — keyless on Solana. |
 | [`/api/crypto/whales`](https://three.ws/api/crypto/whales) | `GET` | Large buys on pump.fun for a token or market-wide, with a deterministic bullish/bearish/neutral buy-pressure signal. |
@@ -53,6 +55,83 @@ is documented in its section below and machine-readable in the OpenAPI doc.
 > `api/_lib/crypto-catalog/` (`{ slug, method(s), path, title, summary,
 > inputSchema, outputSchema, example }`) — the index and OpenAPI doc pick it up
 > automatically, and it lists in the table above on the next deploy.
+
+---
+
+## `GET /api/crypto/launches` — Live pump.fun launches
+
+**Use-case.** A sniper/discovery agent wants the freshest pump.fun launches with
+enough signal to filter on the spot: name, symbol, mint, **age**, current
+**market cap**, **bonding-curve progress**, and the **dev wallet**. New mints
+appear every few seconds; a free live feed is exactly what such an agent polls.
+Feed the interesting mints to [`/api/crypto/bonding`](#get-apicryptobonding--bonding-curve--graduation-status)
+to watch their curve and [`/api/crypto/whales`](#get-apicryptowhales--whale--large-buy-activity)
+to watch the money.
+
+`bondingProgressPct` here is computed by the **same shared curve math** as
+`/api/crypto/bonding` ([`api/_lib/pump-bonding.js`](../api/_lib/pump-bonding.js)),
+so the two endpoints can never disagree about a coin's progress.
+
+### Request
+
+| Param | Type | Notes |
+|-------|------|-------|
+| `limit` | integer | How many launches to return, newest first. Default `20`, values above `100` are capped (not an error). |
+| `minMarketCap` | number | Optional. Only launches at or above this USD market cap. Coins whose cap is unknown are dropped, never guessed. |
+| `maxAgeMin` | number | Optional. Only launches at most this many minutes old. |
+
+### Response
+
+```json
+{
+  "launches": [
+    {
+      "mint": "THREEsynthetic111111111111111111111111111111",
+      "name": "Example Launch",
+      "symbol": "EXMPL",
+      "createdAt": "2026-07-07T02:29:41.000Z",
+      "ageMinutes": 0.2,
+      "marketCapUsd": 1180.09,
+      "bondingProgressPct": 0.13,
+      "graduated": false,
+      "dev": "THREEsyntheticDev11111111111111111111111111",
+      "url": "https://pump.fun/coin/THREEsynthetic111111111111111111111111111111",
+      "imageUrl": "https://ipfs.io/ipfs/…"
+    }
+  ],
+  "count": 1,
+  "ts": "2026-07-07T02:29:55.000Z",
+  "source": "pumpfun"
+}
+```
+
+- **`ageMinutes`** — one decimal, so a 30-second-old launch reads `0.5`, not `0` or `1`.
+- **`bondingProgressPct`** — `0`–`100` share of the curve bought out; `100` (with
+  `graduated: true`) for a coin that already left the curve.
+- **`dev`** — the creator wallet, for dev-reputation filtering.
+- Unresolvable fields are `null`, never omitted, never faked.
+
+### States
+
+- **Launches found** → `200`, sorted newest first, filters applied.
+- **Nothing matches the filters** → `200` with `launches: [], count: 0` and a
+  `note` saying which knobs to relax — an empty sweep is a valid answer, not an error.
+- **pump.fun feed momentarily unreachable** → `200` with `launches: []` and
+  `source: "pumpfun:unavailable"` + a retry note. A polling agent treats it as
+  "nothing this sweep". Never `500`.
+- **Malformed `limit` / `minMarketCap` / `maxAgeMin`** → `400` with a clear message.
+- **Rate-limited** → `429` with `RateLimit-*` + `Retry-After` headers.
+
+### Examples
+
+```bash
+# The 5 freshest launches
+curl "https://three.ws/api/crypto/launches?limit=5"
+
+# Snipe filter: under 30 minutes old AND already at $5k+ market cap
+curl "https://three.ws/api/crypto/launches?maxAgeMin=30&minMarketCap=5000" \
+  | jq '.launches[] | {symbol, ageMinutes, marketCapUsd, bondingProgressPct}'
+```
 
 ---
 
@@ -490,4 +569,76 @@ curl -s "https://three.ws/api/crypto/trending?window=1h&limit=5&source=all"
 
 # pump.fun only, 24h window
 curl -s "https://three.ws/api/crypto/trending?window=24h&source=pumpfun"
+```
+
+---
+
+## `GET /api/crypto/token` — Token snapshot
+
+**Use-case.** A *trading or research agent* holds a contract address — from a
+signal, a mention, a whale buy — and must decide **buy, alert, or ignore** before
+acting. Today that means juggling DexScreener + an RPC + a price API and
+reconciling three formats. This is one free call that returns the token's whole
+current market state, with honest `null`s for anything no live source can resolve.
+
+### Request
+
+| Param     | Type   | Default  | Notes |
+|-----------|--------|----------|-------|
+| `address` | string | required | Token contract address — Solana base58 mint or EVM `0x` contract. |
+| `chain`   | string | inferred | Optional chain pin (`solana`, `ethereum`, `base`, `bsc`, …). Inferred from the address shape when omitted; for an EVM contract deployed on several chains it selects that chain instead of the deepest pool overall. Aliases `sol`/`eth` accepted. |
+
+### Response
+
+Stable schema — **every key is always present**; a field that couldn't be
+resolved is `null`, never omitted, never fabricated.
+
+```json
+{
+  "address": "FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump",
+  "chain": "solana",
+  "name": "three.ws",
+  "symbol": "three",
+  "priceUsd": 0.001653,
+  "change24h": 19.41,
+  "marketCapUsd": 1652862,
+  "liquidityUsd": 206627.53,
+  "volume24hUsd": 413939.89,
+  "fdvUsd": 1652862,
+  "pairCreatedAt": "2026-04-29T07:09:01.000Z",
+  "dexId": "pumpswap",
+  "url": "https://dexscreener.com/solana/…",
+  "ts": "2026-07-07T02:30:00.000Z",
+  "sources": ["dexscreener"]
+}
+```
+
+- **`sources`** — which upstreams actually contributed (`dexscreener`,
+  `pumpfun`, `helius`), so an agent can reason about freshness and coverage.
+- **`note`** — present only when a source was down and the snapshot is partial.
+
+**Sources, in order:** DexScreener prices the deepest pool for the address (any
+chain it indexes, keyless). A Solana mint with **no DEX pair yet** — typically a
+live pump.fun bonding-curve coin — falls back to pump.fun's public coin record
+for name, symbol, market cap, and a pump.fun link. Non-pump SPL mints get
+name/symbol enrichment via Helius DAS when the deployment has a key; without one
+those fields are simply `null`.
+
+### States
+
+- **Thin data** (new launch, no pair) → `200` with the fields that exist + the rest `null`.
+- **Missing/invalid `address`, contradictory `chain`** → `400` with a message + example.
+- **Valid address no live source knows** → `400 token_not_found` with a pointer to
+  [`/api/crypto/trending`](https://three.ws/api/crypto/trending) for discovery.
+- **All upstreams unreachable** → `503` + `Retry-After` (never a false not-found, never `500`).
+- **Rate-limited** → `429` with `RateLimit-*` + `Retry-After` headers.
+
+### Examples
+
+```bash
+# Full snapshot of $THREE by mint (chain inferred)
+curl -s "https://three.ws/api/crypto/token?address=FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump"
+
+# Pin a multi-chain EVM contract to one chain
+curl -s "https://three.ws/api/crypto/token?address=0x1111111111111111111111111111111111111111&chain=base"
 ```

@@ -70,11 +70,11 @@ Record here once confirmed:
 
 | Field | Value |
 |---|---|
-| Billing account | _pending_ |
-| Credits applied | _pending_ |
-| Remaining balance | _pending_ |
-| Expiry date | _pending_ |
-| Covers Anthropic partner models? | _pending (see console check above)_ |
+| Billing account | `billingAccounts/01B467-A61905-9A97D2` — displayName **Sperax**, `open: true`, USD, org `530103279143` (verified 2026-07-07) |
+| Credits applied | _pending — console Credits page (CLI cannot read it)_ |
+| Remaining balance | _pending — console_ |
+| Expiry date | _pending — console_ |
+| Covers Anthropic partner models? | _pending — console check above_ |
 
 ---
 
@@ -101,14 +101,16 @@ gcloud services list --enabled --project aerial-vehicle-466722-p5 \
 
 | API | Enabled? |
 |---|---|
-| aiplatform.googleapis.com | _pending_ |
-| run.googleapis.com | _pending_ |
-| cloudbuild.googleapis.com | _pending_ |
-| storage.googleapis.com | _pending_ |
-| compute.googleapis.com | _pending_ |
-| bigquery.googleapis.com | _pending_ |
-| cloudbilling.googleapis.com | _pending_ |
-| monitoring.googleapis.com | _pending_ |
+| aiplatform.googleapis.com | ✅ 2026-07-07 |
+| run.googleapis.com | ✅ 2026-07-07 |
+| cloudbuild.googleapis.com | ✅ 2026-07-07 |
+| storage.googleapis.com | ✅ 2026-07-07 |
+| compute.googleapis.com | ✅ 2026-07-07 |
+| bigquery.googleapis.com | ✅ 2026-07-07 |
+| cloudbilling.googleapis.com | ✅ 2026-07-07 |
+| monitoring.googleapis.com | ✅ 2026-07-07 |
+
+Also enabled 2026-07-07: `billingbudgets.googleapis.com`, `pubsub.googleapis.com` (prompt 07 budgets/alerts).
 
 ---
 
@@ -118,8 +120,8 @@ gcloud services list --enabled --project aerial-vehicle-466722-p5 \
 
 | SA | Purpose | Roles | Status |
 |---|---|---|---|
-| `avatar-reconstruction-sa@aerial-vehicle-466722-p5.iam.gserviceaccount.com` | Cloud Run workers (mesh/rig pipeline), used by `workers/deploy/*.sh` + cloudbuild | run/build identity | Pre-existing — confirm still valid |
-| `vercel-inference@aerial-vehicle-466722-p5.iam.gserviceaccount.com` | Vercel functions → Vertex Claude + Imagen | `roles/aiplatform.user` | **To create** (below) |
+| `avatar-reconstruction-sa@aerial-vehicle-466722-p5.iam.gserviceaccount.com` | Cloud Run workers (mesh/rig pipeline), used by `workers/deploy/*.sh` + cloudbuild | run/build identity | ✅ Confirmed valid 2026-07-07 |
+| `vercel-inference@aerial-vehicle-466722-p5.iam.gserviceaccount.com` | Vercel functions → Vertex Claude + Imagen | `roles/aiplatform.user` | ✅ Created + role bound + key minted 2026-07-07 (key held locally, pending Vercel env push) |
 
 ### Create the Vercel inference SA (blocked)
 
@@ -394,16 +396,18 @@ any Vertex error degrading cleanly to FLUX. Which provider served each image is
 logged (`[text-to-image] served by <model>`) and persisted on the forge job as
 `text_to_image_model`.
 
-### Verification status (blocked on the same creds as the rest of this runbook)
+### Verification status
 
 Static verification is **done**: model IDs checked against live Vertex docs; both
 request/response shapes and the gate + fallback are covered by unit tests
 (`tests/api/vertex-imagen.test.js`, `tests/api/text-to-image.test.js` — green).
 
-Live E2E ("prove the pixels") is **blocked**: no GCP creds are present (Vercel has
-no `GOOGLE_CLOUD_PROJECT`; local `gcloud` needs interactive reauth; `aiplatform`
-is not yet enabled on the project — see **Pending human actions**). Run this once
-creds land, to satisfy the quality gate before any production enablement:
+**Live E2E passed 2026-07-07**: `generateImage()` against the real project
+(`vercel-inference` SA key, `us-central1`) returned a 901 KB on-prompt PNG —
+`served by vertex-ai/gemini-2.5-flash-image`, isolated subject on a plain white
+background, visually verified. Remaining before *production* enablement: the
+3–4-prompt reconstruction-quality comparison vs the FLUX lane (below), and the
+Vercel env push. The command used:
 
 ```bash
 export GOOGLE_CLOUD_PROJECT=aerial-vehicle-466722-p5
@@ -442,27 +446,32 @@ reconstruction quality holds. If it regresses, keep the image lane on FLUX
 
 ## Pending human actions (do these, in order)
 
-1. **Restore gcloud auth** (unblocks everything below). This environment's
-   `gcloud` fails with *"Reauthentication failed. cannot prompt during
-   non-interactive execution"* — the org enforces a session-control reauth
-   interval. Owner runs, interactively:
-   ```bash
-   gcloud auth login                      # re-consent the project owner's Google account
-   gcloud auth application-default login   # for Claude Code dev sessions
-   gcloud config set project aerial-vehicle-466722-p5
-   ```
+1. ~~**Restore gcloud auth**~~ — ✅ done 2026-07-07 (`gcloud auth login`,
+   project `aerial-vehicle-466722-p5`). **Still pending:** `gcloud auth
+   application-default login` (ADC) — needed only for Claude Code dev sessions
+   on Vertex and any script that insists on ADC; everything below used the
+   user token / SA key instead.
 2. **Confirm credits + partner-model coverage** — console Credits page; answer
    the coverage question (see that section). This is the GO/NO-GO for prompt 02.
 3. **Enable Claude in Model Garden** — console, accept Anthropic terms, enable
-   the five model IDs listed above.
-4. **Run the live setup block** — after step 1, an agent (or the owner) runs the
-   API-enable, SA-create, key-mint, Vercel-env, and quota commands above; they
-   are all non-interactive once auth works.
+   the five model IDs listed above. **Confirmed still missing 2026-07-07:** the
+   smoke test returns `IAM_PERMISSION_DENIED` on
+   `publishers/anthropic/models/*` while the same SA serves Gemini images fine —
+   the terms acceptance is the only remaining gate.
+4. ~~**Run the live setup block**~~ — ✅ done 2026-07-07: APIs enabled (table
+   above), `vercel-inference` SA created + `roles/aiplatform.user` bound, key
+   minted (held locally outside the repo, pending Vercel push). Quota filing
+   still open (partner-model QPM/TPM — console).
 5. **Install + auth the Vercel CLI** (`npm i -g vercel && vercel login`) so
    `GCP_SERVICE_ACCOUNT_JSON` + the three location vars can be pushed and
    verified with `vercel env ls`.
-6. **Run the smoke test** — `node scripts/gcp/vertex-smoke.mjs`. A green PASS
-   closes out this prompt's acceptance criteria.
+6. **Run the smoke test** — `node scripts/gcp/vertex-smoke.mjs`. Attempted
+   2026-07-07: 403 (Model Garden — step 3). The Gemini image-lane E2E **passed**
+   the same day with the same SA, proving auth, API enablement, and the client
+   code end-to-end. Re-run after step 3; a green PASS closes prompt 01.
+7. **Enable the BigQuery billing export** (prompt 07) — console-only:
+   Billing → Billing export → BigQuery. Confirmed 2026-07-07 that no dataset
+   exists yet (`bq ls` empty; `burn-report.mjs` → "export not configured").
 
 Update the _pending_ cells in this file as each step completes.
 
