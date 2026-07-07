@@ -232,8 +232,14 @@ describe('GET /api/3d/generate?job= — poll lifecycle', () => {
 		expect(body.error).toBe('missing_job');
 	});
 
-	it('400s on a malformed job handle', async () => {
+	it('treats a whitespace-only job param as missing', async () => {
 		const { res, body } = await dispatch(makeReq({ method: 'GET', url: '/api/3d/generate?job=%20%20' }), makeRes());
+		expect(res.statusCode).toBe(400);
+		expect(body.error).toBe('missing_job');
+	});
+
+	it('400s on a malformed job handle', async () => {
+		const { res, body } = await dispatch(makeReq({ method: 'GET', url: '/api/3d/generate?job=bad*job*id' }), makeRes());
 		expect(res.statusCode).toBe(400);
 		expect(body.error).toBe('invalid_job');
 	});
