@@ -988,10 +988,6 @@
 			"dest": "/avatar-artifact.html"
 		},
 		{
-			"src": "/avatar-studio-demo/?",
-			"dest": "/avatar-studio-demo.html"
-		},
-		{
 			"src": "/forge/embed/?",
 			"dest": "/forge-embed.html"
 		},
@@ -4193,10 +4189,6 @@
 			}
 		},
 		{
-			"src": "/app-demo",
-			"dest": "/app-demo.html"
-		},
-		{
 			"src": "/embed-demo",
 			"dest": "/embed-demo.html"
 		},
@@ -4325,14 +4317,6 @@
 		{
 			"src": "/agent-studio/",
 			"dest": "/agent-studio.html"
-		},
-		{
-			"src": "/creating",
-			"dest": "/creating.html"
-		},
-		{
-			"src": "/creating/",
-			"dest": "/creating.html"
 		},
 		{
 			"src": "/legal/privacy/?",

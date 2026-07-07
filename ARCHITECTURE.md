@@ -2284,7 +2284,7 @@ sequenceDiagram
 | `introduction.md` · `how-it-works.md` · `start-here.md` · `quick-start.md` | Platform onboarding |
 | `architecture.md` · `layers.md` | Narrative architecture (companion to this file) |
 | `api-reference.md` · `api/` · `js-api.md` | REST + JS API reference |
-| `sdk.md` · `sdk-launch.md` | SDK usage + publish runbook |
+| `sdk.md` | SDK usage |
 | `mcp.md` · `mcp-3d-studio.md` · `mcp-agent.md` · `mcp-studio.md` · `mcp-x402-bazaar.md` · `ibm-x402-mcp.md` | MCP server catalogs |
 | `x402.md` · `aws-builder-center-marketplace-x402.md` | x402 payment rail |
 | `smart-contracts.md` · `solana.md` · `solana-pumpfun.md` · `solana-reputation.md` · `onchain-agents.md` · `erc8004.md` | On-chain systems |
@@ -2312,7 +2312,7 @@ sequenceDiagram
 | `docs/x402-offer-receipt/` | 7 x402 offer/receipt protocol docs |
 | `docs/pumpfun-program/` | 6 pump.fun program references |
 | `docs/zauth/` | 5 auth/identity protocol docs |
-| `docs/agent-briefs/` | 4 agent briefs |
+| `docs/agent-briefs/` | 3 agent briefs |
 | `docs/ops/` · `docs/security/` | Operational + security runbooks |
 | `docs/ibm.md` · `docs/aws-*` · `docs/nvidia-inception/` | Partner integration kits (IBM watsonx, AWS Marketplace, NVIDIA Inception) |
 
