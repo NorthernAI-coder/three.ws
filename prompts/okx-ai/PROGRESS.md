@@ -6,6 +6,71 @@ Work Order 04 session — no earlier entries existed because no earlier work ord
 
 ---
 
+## 2026-07-07 — Work Order 04 session #2: rail deployed to prod, gauntlet armed, PAUSED on funding
+
+**Outcome: the X Layer / OKX rail is now LIVE on production and every funding-independent
+leg of the gauntlet passes. Presented the consolidated funding request
+([`e2e-evidence/FUNDING-REQUEST.md`](e2e-evidence/FUNDING-REQUEST.md)) and paused per Phase 1.
+No money spent yet — wallet holds 0 on all chains.**
+
+### What changed this session (deploy, not code)
+
+The WO-02/03 code was already in HEAD; it was just never activated in production because the
+X Layer rail env vars were absent (that is what the 2026-07-06 WO-04 NO-GO actually caught).
+Fixed by provisioning prod env + redeploy:
+
+- `X402_PAY_TO_XLAYER = 0x75d00a2713565171f33216e5aa2a375e076ecf69` → Vercel prod.
+- `X402_XLAYER_RELAYER_KEY` → Vercel prod. **Fresh keypair generated this session; address
+  `0x1B60Cb12cE894Efc2470bB18Bf2D41755b49AB2a`; private key lives ONLY in Vercel env +
+  session scratchpad, never committed.** This is the direct-redemption settle path (Path B),
+  used when OKX facilitator creds are absent.
+- `X402_ASSET_ADDRESS_XLAYER` already defaults to USD₮0 in `env.js` — no action.
+- Redeployed prod (a transient "deployment failed, retry later" fired once during the
+  dep-install phase but the build had already completed; the env change is live — confirmed
+  below).
+
+### Verified LIVE against production (evidence in `e2e-evidence/`)
+
+| Check | Result | Evidence |
+|---|---|---|
+| X Layer accept now emitted | `accepts[0]` = `{eip155:196, USD₮0, payTo 0x75d0…cf69, per-service amount}` on all 8 REST services | `01-x402-check-all.txt`, `02/03-*-402*` |
+| Buyer-CLI validation | `onchainos agent x402-check --body '{}'` → `valid:true`, `network:eip155:196` for text-to-3d/pro, image-to-3d, rig, avatar, retarget, pose-seed, fbx-export | `01-x402-check-all.txt` |
+| Free lane (case 1) | health `ok:true` (5 real subsystem probes incl. `payment-rail settleable:true`), catalog lists 11 services | `01-health-*`, `01-catalog-body.json` |
+| Buyer can sign (case 2 leg) | `onchainos payment pay` → `PAYMENT-SIGNATURE`, scheme `exact`, wallet `0x75d0…cf69`, 1168-byte header | `02-pay-attempt.json`, `02-auth-header.txt` |
+| Seller verify path live | real signed header replayed unfunded → `HTTP 402 insufficient_balance` + fresh `eip155:196` challenge (on-chain `balanceOf` ran) | `02-replay-unfunded.json` |
+| Garbage header (case 5d) | → `HTTP 400 invalid_payment` ("X-PAYMENT JSON parse failed"), no crash, no tool run | `05d-garbage-body.txt` |
+
+`payment-rail` health: `settleable:true, facilitator_configured:false, token USD₮0, block ~64.6M`
+— i.e. Path B (relayer) is the active settle route until OKX creds land.
+
+### Funding request presented (Phase 1) — PAUSED here
+
+Buyer == seller (`0x75d0…cf69` both sides) ⇒ settlement is a self-transfer, net-zero, so the
+USD₮0 float is one-time (covers the largest single call, not the sum). Ask:
+- **2.0 USD₮0** → `0x75d0…cf69` on X Layer 196 (floor 0.5 = the avatar flagship).
+- **0.3 OKB** → relayer `0x1B60…AB2a` on X Layer (Path B gas) — OR provide `OKX_API_KEY`/
+  `OKX_SECRET_KEY`/`OKX_PASSPHRASE` for the gasless official-facilitator Path A (recommended,
+  it's the exact rail the OKX reviewer's buyer uses; then no OKB needed).
+- **0.10 USDC + 0.02 SOL** → Solana `9PirGw…fnyc` for case 7 legacy regression.
+
+### Open finding for WO-05/06 (NOT a WO-04 blocker)
+
+**`identity-studio` (WO-06 surface) mis-advertises its rail.** It routes through the shared
+MCP auth path (`handleIdentityStudio` → `authenticateRequest` → `paymentRequirements()`),
+NOT the clean `okxXLayerAccept`+`sendOkx402` path the 8 REST services use. Consequences on
+its live 402: (a) accepts are **Solana-first**, so a buyer / `x402-check` auto-selects the
+Solana rail, not X Layer; (b) the empty-body probe prices the X Layer accept at `1000`
+($0.001), not the catalog's $1.50. Fix belongs in WO-06 (or before WO-05 submits that row)
+and touches shared MCP infra (blast radius = `api/mcp-3d.js` too), so it was deliberately
+NOT changed here. The 8 WO-03 REST services — WO-04's actual targets — are all correct.
+
+### GO/NO-GO
+- **Gauntlet cases 2–7 + settlement: BLOCKED on funding only.** Everything else is proven.
+- **Work Order 05: NO-GO until the gauntlet runs green post-funding** AND the identity-studio
+  rail finding above is resolved (it would otherwise list a Solana-first, mispriced flagship).
+
+---
+
 ## 2026-07-07 — Work Order 03 re-dispatch: rail DEPLOYED & OKX-validated live — the runtime env blocker is CLEARED
 
 **Outcome: the one thing standing between the merged WO-02/03 code and a passing OKX listing —

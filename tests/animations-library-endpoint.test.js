@@ -18,8 +18,8 @@ vi.mock('../api/_lib/r2.js', () => ({ getObjectBuffer: (...a) => getObjectBuffer
 
 const { default: handler } = await import('../api/animations/library.js');
 
-function fakeReq(method = 'GET') {
-	return { method, url: '/api/animations/library', headers: {} };
+function fakeReq(method = 'GET', url = '/api/animations/library') {
+	return { method, url, headers: {} };
 }
 
 function fakeRes() {
@@ -95,5 +95,48 @@ describe('GET /api/animations/library', () => {
 		const res = fakeRes();
 		await handler(fakeReq('POST'), res);
 		expect(res.statusCode).toBe(405);
+	});
+
+	// ── Bounded pagination (opt-in via ?limit) ──────────────────────────────
+	const CLIPS = Array.from({ length: 5 }, (_, i) => ({ ...CLIP, name: `mx-clip-${i}` }));
+
+	it('pages a large manifest with ?limit and exposes next_offset', async () => {
+		getObjectBuffer.mockResolvedValue(Buffer.from(JSON.stringify({ clips: CLIPS })));
+		const res = fakeRes();
+		await handler(fakeReq('GET', '/api/animations/library?limit=2'), res);
+		const body = JSON.parse(res.body);
+		expect(body.total).toBe(5); // full catalog size, not the page size
+		expect(body.clips.map((c) => c.name)).toEqual(['mx-clip-0', 'mx-clip-1']);
+		expect(body.offset).toBe(0);
+		expect(body.next_offset).toBe(2);
+	});
+
+	it('honors ?offset and returns next_offset=null on the final page', async () => {
+		getObjectBuffer.mockResolvedValue(Buffer.from(JSON.stringify({ clips: CLIPS })));
+		const res = fakeRes();
+		await handler(fakeReq('GET', '/api/animations/library?limit=2&offset=4'), res);
+		const body = JSON.parse(res.body);
+		expect(body.clips.map((c) => c.name)).toEqual(['mx-clip-4']);
+		expect(body.offset).toBe(4);
+		expect(body.next_offset).toBe(null);
+	});
+
+	it('returns an empty page (not an error) when offset runs past the end', async () => {
+		getObjectBuffer.mockResolvedValue(Buffer.from(JSON.stringify({ clips: CLIPS })));
+		const res = fakeRes();
+		await handler(fakeReq('GET', '/api/animations/library?limit=2&offset=99'), res);
+		const body = JSON.parse(res.body);
+		expect(body.clips).toEqual([]);
+		expect(body.total).toBe(5);
+		expect(body.next_offset).toBe(null);
+	});
+
+	it('omits pagination fields entirely when ?limit is absent (legacy contract)', async () => {
+		getObjectBuffer.mockResolvedValue(Buffer.from(JSON.stringify({ clips: CLIPS })));
+		const res = fakeRes();
+		await handler(fakeReq('GET', '/api/animations/library'), res);
+		const body = JSON.parse(res.body);
+		expect(body).toEqual({ clips: CLIPS, total: 5, generated_at: null });
+		expect('next_offset' in body).toBe(false);
 	});
 });

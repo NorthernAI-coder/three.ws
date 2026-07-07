@@ -60,6 +60,16 @@ vi.mock('../../api/_lib/ssrf-guard.js', () => ({
 	SsrfBlockedError: class SsrfBlockedError extends Error {},
 }));
 
+// The prompt director runs in-process over the shared llm.js free-provider
+// chain. Mock it: default is "director unavailable" (throws → fallback template,
+// the state a keyless deployment lands in), and a test can install a spy to
+// assert what the director was handed or make it return a shaped prompt.
+const llmSpy = vi.hoisted(() => ({ fn: null }));
+vi.mock('../../api/_lib/llm.js', () => ({
+	llmComplete: (...args) =>
+		llmSpy.fn ? llmSpy.fn(...args) : Promise.reject(new Error('llm unavailable')),
+}));
+
 // The pipeline is a pure HTTP client over three.ws surfaces — mock global
 // fetch with a tiny programmable router.
 const fetchRoutes = { chat: null, forgeSubmit: null, forgePoll: null, rig: null, render: null, ref: null };
@@ -69,7 +79,8 @@ function jsonResponse(status, body) {
 const realFetch = globalThis.fetch;
 beforeEach(() => {
 	r2Store.clear();
-	fetchRoutes.chat = () => new Response(null, { status: 503 }); // director down → fallback template
+	fetchRoutes.chat = () => new Response(null, { status: 503 }); // legacy: nothing calls /api/chat now
+	llmSpy.fn = null; // default: director unavailable → deterministic fallback template
 	fetchRoutes.forgeSubmit = () => jsonResponse(200, { job_id: 'forge-gen-1', status: 'queued', eta: 30 });
 	fetchRoutes.forgePoll = () => jsonResponse(200, { status: 'running' });
 	fetchRoutes.rig = () => jsonResponse(200, { job_id: 'forge-rig-1', status: 'queued' });
@@ -355,17 +366,39 @@ describe('pipeline state machine', () => {
 
 	it('a Chinese brief is accepted and reaches the prompt director verbatim', async () => {
 		let directorSaw = null;
-		fetchRoutes.chat = (u, init) => {
-			directorSaw = JSON.parse(init.body).message;
-			return new Response(null, { status: 503 });
+		// Director available but returns nothing usable → capture the input, then
+		// fall back. Proves the raw brief + the English-output instruction reach it.
+		llmSpy.fn = async ({ system, user }) => {
+			directorSaw = { system, user };
+			return { text: '' };
 		};
 		const brief = '一个冷静精准的链上会计智能体，喜欢深蓝色';
 		const created = await call('create_identity', { agent_name: '账本猞猁', brief });
 		expect(created.result.isError).toBeUndefined();
-		expect(directorSaw).toContain(brief);
-		expect(directorSaw).toContain('ALWAYS write the prompt in English');
-		// Fallback template still embeds the brief when the director is down.
+		expect(directorSaw.user).toContain(brief);
+		expect(directorSaw.system).toContain('ALWAYS write the prompt in English');
+		// Fallback template still embeds the brief when the director yields nothing.
 		expect(created.result.structuredContent.brief_truncated).toBe(false);
+	});
+
+	it('a directed prompt is used verbatim when the LLM director succeeds', async () => {
+		const shaped = 'stoic navy-armored auditor android, silver circuit filigree, standing neutral, plain backdrop';
+		// The director is instructed to output ONLY the prompt as a single line;
+		// models routinely wrap it in quotes, which the shaper strips.
+		llmSpy.fn = async () => ({ text: `"${shaped}"` });
+		const created = await call('create_identity', {
+			agent_name: 'LedgerLynx',
+			brief: 'a calm on-chain accounting agent',
+			style_hints: 'deep navy and silver',
+		});
+		expect(created.result.isError).toBeUndefined();
+		// prompt + directed surface on the status poll (describeIdentityJob).
+		const status = await call('identity_status', { job_id: created.result.structuredContent.job_id });
+		const sc = status.result.structuredContent;
+		expect(sc.directed).toBe(true);
+		// First line only, surrounding quotes stripped — no fallback scaffolding.
+		expect(sc.prompt).toBe(shaped);
+		expect(sc.prompt).not.toContain('full-body humanoid character:');
 	});
 
 	it('an absurdly long brief is truncated and flagged, not silently mangled', async () => {

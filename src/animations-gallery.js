@@ -10,8 +10,10 @@
 //
 // All are normalized to one card shape — poster thumbnail, derived category
 // (src/animation-categories.js), duration, loop mode — then filtered (search +
-// category + loop/once), sorted, and paginated client-side; even the full
-// catalog is a few hundred KB of metadata.
+// category + loop/once), sorted, and paginated client-side (PAGE_SIZE at a time,
+// infinite-scroll, lazy thumbnails). The full catalog is fetched from the CDN in
+// bounded pages (LIBRARY_PAGE_SIZE) rather than one large response, so a library
+// that grows past thousands of clips never lands as a single unbounded payload.
 //
 // Previews run through ONE shared WebGL engine (src/animations-live-preview.js):
 // hovering a card (or opening the detail modal) moves the singleton canvas into
@@ -30,6 +32,12 @@ const LIBRARY_API = '/api/animations/library';
 const PAGE_SIZE = 36;
 // Cap community pagination so a large catalog can't stall first paint.
 const COMMUNITY_MAX = 300;
+// Page size for the full CDN catalog fetch. Matches the endpoint's max page so
+// each response stays bounded (~400 KB) as the library grows past thousands of
+// clips, instead of one ever-growing blob. A hard ceiling of pages guards
+// against a runaway manifest.
+const LIBRARY_PAGE_SIZE = 1000;
+const LIBRARY_MAX_PAGES = 50;
 const HOVER_DELAY_MS = 130;
 
 const REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -135,10 +143,23 @@ async function fetchCommunity() {
 }
 
 async function fetchFullLibrary() {
-	const res = await fetch(LIBRARY_API);
-	if (!res.ok) throw new Error(`HTTP ${res.status}`);
-	const data = await res.json();
-	return (Array.isArray(data.clips) ? data.clips : []).map(normalizeFullLibraryClip);
+	// Page through the catalog with the endpoint's opt-in ?limit/?offset so each
+	// response is bounded and individually CDN-cacheable. The endpoint returns
+	// `next_offset: null` on the last page; the page ceiling is a runaway guard.
+	const out = [];
+	let offset = 0;
+	for (let i = 0; i < LIBRARY_MAX_PAGES; i++) {
+		const res = await fetch(`${LIBRARY_API}?limit=${LIBRARY_PAGE_SIZE}&offset=${offset}`, {
+			cache: 'force-cache',
+		});
+		if (!res.ok) throw new Error(`HTTP ${res.status}`);
+		const data = await res.json();
+		const clips = Array.isArray(data.clips) ? data.clips : [];
+		out.push(...clips);
+		if (data.next_offset == null || clips.length === 0) break;
+		offset = data.next_offset;
+	}
+	return out.map(normalizeFullLibraryClip);
 }
 
 function normalizeLibraryClip(clip) {

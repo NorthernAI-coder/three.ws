@@ -394,20 +394,38 @@ export const limits = {
 	// distinct override gets its own isolated bucket under the rl:api:ip prefix.
 	apiIp: (ip, opts = {}) =>
 		getLimiter('api:ip', { limit: 120, window: '1 m', ...opts }).limit(ip),
-	// Free, unauthenticated 3D Studio (api/mcp-studio.js) abuse protection. The
-	// studio runs generation operator-funded for anonymous ChatGPT users, so each
-	// generation call costs the platform real GPU/provider spend. These are the
-	// real per-IP quota (NOT a comment): a short burst cap stops hammering and an
-	// hourly cap bounds cost per source. Critical — fail closed in prod when Redis
-	// is absent rather than allow unbounded spend across serverless instances.
+	// Free, unauthenticated 3D Studio (api/mcp-studio.js) abuse protection. Every
+	// studio tool routes through a FREE lane (NVIDIA NIM text→3D, HF Spaces
+	// image→3D) — zero marginal vendor cost — because the studio never names the
+	// paid Replicate backend and this deployment has free engines configured, so
+	// forge's free-first router never falls back to paid (see BACKENDS.trellis:
+	// "Free deployments never route here automatically"). These per-IP caps (a
+	// short burst cap that stops hammering + an hourly cap per source) still
+	// enforce whenever Redis is healthy — they are real quota, not a comment.
+	//
+	// NON-critical on purpose (fail OPEN on a Redis outage), mirroring the paid
+	// server's own free lane (mcp3dGenerateFree): "a Redis outage must never deny
+	// a zero-cost generation." Failing these closed took the whole free studio
+	// down during the June-2026 Upstash over-quota outage — a self-inflicted
+	// denial of a free feature for no spend saved. Spend is still protected in
+	// depth: /api/forge underneath fail-CLOSES its own paid-lane global breaker
+	// (mcp3dGenerateGlobal), so even a misrouted paid call can't drain budget.
 	studioGenBurst: (ip) =>
-		getLimiter('studio:gen:burst', { limit: 4, window: '1 m', critical: true }).limit(ip),
+		getLimiter('studio:gen:burst', { limit: 4, window: '1 m' }).limit(ip),
 	studioGenHourly: (ip) =>
-		getLimiter('studio:gen:hourly', { limit: 30, window: '1 h', critical: true }).limit(ip),
+		getLimiter('studio:gen:hourly', { limit: 30, window: '1 h' }).limit(ip),
 	// Cheap per-IP cap on studio transport/discovery (initialize, tools/list,
 	// ping, resources). Bounds discovery floods without touching the generation
 	// budget. Non-critical: a missing-Redis misconfig degrades gracefully.
 	studioIp: (ip) => getLimiter('studio:ip', { limit: 300, window: '1 m' }).limit(ip),
+	// Free-studio persona writes (create_agent_persona / persona_say): each fetches
+	// or restores a bounded GLB and writes a small identity record — cheap, but not
+	// free, so a per-IP burst cap stops a scripted flood from filling storage. The
+	// read path (get_agent_persona) rides the studioIp transport cap above.
+	// Non-critical: like the generation lanes, a Redis outage must never deny a
+	// zero-cost embodiment feature (spend is protected in depth downstream).
+	studioPersonaWrite: (ip) =>
+		getLimiter('studio:persona:write', { limit: 20, window: '1 m' }).limit(ip),
 	// Per-principal ceiling on the expensive/gated pump-fun MCP tools (vanity grind,
 	// whale/claim watches, metadata upload that burns shared IPFS pinning credits).
 	// A bearer authorizes these for free, so without a per-principal cap one account
@@ -464,15 +482,17 @@ export const limits = {
 		getLimiter('mcp3d:status', { limit: 240, window: '1 m', local: true }).limit(key),
 	// Platform-wide hourly circuit breaker across ALL free-studio IPs, so
 	// distributed callers each under their own studioGenHourly cap can't
-	// collectively drain the shared GPU/provider budget. Shares the
-	// FORGE_PAID_GLOBAL_HOURLY envelope with the paid lane. Critical → fails closed
-	// in prod without Redis rather than uncapping spend. (studioIp / studioGenBurst
-	// / studioGenHourly are defined above next to the other mcp buckets.)
+	// collectively flood the free NVIDIA / HF allocation. Enforced whenever Redis
+	// is healthy. NON-critical (fail OPEN on a Redis outage) for the same reason as
+	// studioGenBurst/Hourly above: the studio's lanes are zero marginal cost, so a
+	// Redis outage must never dead-end a free generation. Real paid spend is still
+	// fail-CLOSED one layer down at forge's own mcp3dGenerateGlobal, which this
+	// breaker only backstops. (studioIp / studioGenBurst / studioGenHourly are
+	// defined above next to the other mcp buckets.)
 	studioGenerateGlobal: () =>
 		getLimiter('studio:generate:global', {
 			limit: FORGE_PAID_GLOBAL_HOURLY,
 			window: '1 h',
-			critical: true,
 		}).limit('global'),
 	// Forge prompt enhancer — one free-tier LLM rewrite per call. Cheap text
 	// completion, but each one hits an upstream provider, so cap per principal to

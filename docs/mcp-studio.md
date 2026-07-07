@@ -68,17 +68,21 @@ needs to display the model — no internal identifiers:
 ## Funding & limits
 
 Generation is **operator-funded**: the platform's server-side keys cover provider
-cost, so the ChatGPT user pays nothing. Because each generation costs real GPU
-spend, the endpoint enforces real per-IP abuse protection
-(`api/_lib/rate-limit.js`):
+cost, so the ChatGPT user pays nothing. Every tool routes through a **free lane**
+(NVIDIA NIM text→3D, Hugging Face Spaces image→3D) — the studio never selects the
+paid Replicate backend — so the platform's marginal cost per generation is zero.
+The endpoint still enforces real per-IP abuse protection (`api/_lib/rate-limit.js`):
 
 - **Burst:** 4 generations / minute / IP
 - **Hourly:** 30 generations / hour / IP
 - **Transport:** 300 requests / minute / IP (discovery, never throttled by the
   generation quota)
 
-These fail closed in production if the rate-limiter backend is unavailable, so a
-misconfiguration never results in unbounded spend.
+Because the lanes are zero-cost, these caps **fail open** if the rate-limiter
+backend has an outage — a Redis blip must never dead-end a free feature (the same
+posture as the paid server's own free lane). They enforce normally whenever the
+backend is healthy, and any accidental paid-lane spend is still fail-closed one
+layer down in `/api/forge`.
 
 ## Safety
 

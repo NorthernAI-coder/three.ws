@@ -10,10 +10,13 @@
 // platform's server-side keys cover provider cost). Built for the ChatGPT App
 // Directory, whose policy disqualifies tokens/credits and embedded payments.
 //
-// Abuse protection is real (it costs the platform money): a per-IP transport cap
-// plus a per-IP generation burst + hourly quota (api/_lib/rate-limit.js), which
-// fail closed in production when Redis is absent rather than allow unbounded
-// spend. The paid, crypto-enabled studio lives separately at /api/mcp-3d.
+// Abuse protection is real: a per-IP transport cap plus a per-IP generation
+// burst + hourly quota (api/_lib/rate-limit.js), enforced whenever Redis is
+// healthy. Because every studio tool routes through a zero-cost free lane
+// (NVIDIA NIM / HF Spaces), these generation caps fail OPEN on a Redis outage —
+// a Redis blip must never dead-end a free feature — mirroring the paid server's
+// own free lane. Real paid spend stays fail-closed one layer down in /api/forge.
+// The paid, crypto-enabled studio lives separately at /api/mcp-3d.
 import { cors, wrap, readJson, rateLimited } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { dispatch, PROTOCOL_VERSION } from './_mcp-studio/dispatch.js';

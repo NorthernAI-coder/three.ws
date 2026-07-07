@@ -68,6 +68,8 @@ MAX_CONCURRENT = int(os.environ.get("MAX_CONCURRENT", "1"))
 _pipeline = None
 _bucket: Optional[storage.Bucket] = None
 _sem: Optional[asyncio.Semaphore] = None
+_ready: Optional[asyncio.Event] = None
+_load_error: Optional[str] = None
 _tasks: dict[str, dict] = {}
 
 
@@ -82,14 +84,38 @@ def _load_pipeline():
     log.info("TRELLIS pipeline loaded")
 
 
+async def _load_pipeline_bg():
+    """Load the pipeline off the request path and signal readiness when done.
+
+    Runs the blocking, GPU-bound load in a worker thread so the event loop (and
+    the HTTP port) stay live. On failure the error is recorded and surfaced via
+    /health and per-task, rather than crash-looping the container.
+    """
+    global _load_error
+    loop = asyncio.get_event_loop()
+    try:
+        await loop.run_in_executor(None, _load_pipeline)
+        _ready.set()
+        log.info("TRELLIS pipeline ready")
+    except Exception as exc:  # noqa: BLE001 — surfaced via /health + task status
+        _load_error = safe_error(exc, context="model load")
+        log.error("TRELLIS pipeline load FAILED: %s", exc)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _bucket, _sem
+    global _bucket, _sem, _ready
     _bucket = storage.Client().bucket(GCS_BUCKET)
     _sem = asyncio.Semaphore(MAX_CONCURRENT)
-    loop = asyncio.get_event_loop()
-    await loop.run_in_executor(None, _load_pipeline)
-    log.info("Service ready — max_concurrent=%d", MAX_CONCURRENT)
+    _ready = asyncio.Event()
+    # Load the ~3 GB pipeline in the BACKGROUND and yield immediately. uvicorn
+    # runs the ASGI lifespan BEFORE it binds the socket, so a blocking load here
+    # would delay the port past Cloud Run's startup TCP-probe window (the model
+    # load + GPU transfer runs minutes on a cold instance) and the revision would
+    # be marked failed. Backgrounding lets the port open at once; requests that
+    # arrive before the load completes wait on _ready (see _run_inference).
+    asyncio.create_task(_load_pipeline_bg())
+    log.info("Service starting — pipeline loading in background (max_concurrent=%d)", MAX_CONCURRENT)
     yield
 
 
@@ -119,6 +145,21 @@ def _decode_image(src: str) -> Image.Image:
 
 
 async def _run_inference(task_id: str, images: list[str], body_type: str) -> None:
+    # Wait for the background pipeline load before touching the GPU. Warm
+    # instances pass instantly; a cold one waits out the load rather than
+    # NoneType-crashing. A failed load surfaces as a designed task error.
+    if _load_error:
+        _tasks[task_id].update({"status": "failed", "error": f"pipeline unavailable: {_load_error}"})
+        return
+    try:
+        await asyncio.wait_for(_ready.wait(), timeout=600)
+    except asyncio.TimeoutError:
+        _tasks[task_id].update({"status": "failed", "error": "pipeline not ready (model load timed out)"})
+        return
+    if _load_error:
+        _tasks[task_id].update({"status": "failed", "error": f"pipeline unavailable: {_load_error}"})
+        return
+
     async with _sem:
         _tasks[task_id]["status"] = "running"
         loop = asyncio.get_event_loop()
@@ -205,4 +246,6 @@ async def health() -> dict:
         "gpu_available": torch.cuda.is_available(),
         "gpu_name": torch.cuda.get_device_name(0) if torch.cuda.is_available() else None,
         "pipeline_loaded": _pipeline is not None,
+        "ready": bool(_ready and _ready.is_set()),
+        "load_error": _load_error,
     }

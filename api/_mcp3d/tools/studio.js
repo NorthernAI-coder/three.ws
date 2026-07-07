@@ -49,6 +49,7 @@ import {
 	isPersonaId,
 } from '../../_lib/persona-store.js';
 import { expressionForText, expressionFor } from '../../../src/embodiment/emotion.js';
+import { embodimentArtifact } from '../../_lib/embodiment-artifact.js';
 import { PRESETS, PRESET_GROUPS } from '../../../src/pose-presets.js';
 import {
 	renderModelViewerHtml,
@@ -202,56 +203,9 @@ function pointCloudArtifact({ plyUrl, name }) {
 	};
 }
 
-// The Apps SDK template URL the embodiment component is served from. A persona
-// tool result references this so a host (ChatGPT/Claude) renders the LIVING body
-// inline — the same hosted page the local demo harness drives.
-const EMBODIMENT_EMBED = `${env.APP_ORIGIN}/embodiment/embed`;
-
-function buildEmbedUrl({ persona, state, text, emotion, intensity, gesture }) {
-	const u = new URL(EMBODIMENT_EMBED);
-	u.searchParams.set('persona', persona.persona_id);
-	u.searchParams.set('glb', persona.glb_url);
-	if (persona.name) u.searchParams.set('name', persona.name);
-	if (state) u.searchParams.set('state', state);
-	if (text) u.searchParams.set('text', text.slice(0, 600));
-	if (emotion) u.searchParams.set('emotion', emotion);
-	if (intensity != null) u.searchParams.set('intensity', String(intensity));
-	if (gesture) u.searchParams.set('gesture', gesture);
-	return u.toString();
-}
-
-// Render the embodied persona as an inline, sandboxed artifact: a self-contained
-// HTML document that mounts the hosted embodiment component (the live, rigged body
-// that lip-syncs + emotes) and passes the turn's speak/emotion payload. Mirrors the
-// viewerArtifact contract; adds the `_meta` openai/outputTemplate key so Apps SDK
-// hosts that prefer a registered template can use the same embed URL.
-function embodimentArtifact({ persona, state = 'idle', text = '', emotion = 'neutral', intensity = 0, gesture = null }) {
-	const embedUrl = buildEmbedUrl({ persona, state, text, emotion, intensity, gesture });
-	const safe = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-	const html =
-		`<!doctype html><html lang="en"><head><meta charset="utf-8">` +
-		`<meta name="viewport" content="width=device-width,initial-scale=1">` +
-		`<title>${safe(persona.name || 'Agent')} — live</title>` +
-		`<style>html,body{margin:0;height:100%;background:transparent}` +
-		`.wrap{position:relative;width:100%;height:480px;border-radius:16px;overflow:hidden;` +
-		`background:radial-gradient(120% 120% at 50% 0%,#1a1a24 0%,#0c0c12 70%)}` +
-		`iframe{width:100%;height:100%;border:0;display:block}` +
-		`.fb{position:absolute;inset:auto 0 0 0;padding:8px 12px;font:600 12px system-ui;color:#cbd5e1;text-align:center}` +
-		`.fb a{color:#a78bfa}</style></head><body>` +
-		`<div class="wrap"><iframe title="${safe(persona.name || 'Agent')} live avatar" ` +
-		`src="${safe(embedUrl)}" allow="autoplay" sandbox="allow-scripts allow-same-origin allow-popups"></iframe>` +
-		`<noscript class="fb">Open <a href="${safe(embedUrl)}">${safe(persona.name || 'this agent')}</a> in a browser.</noscript>` +
-		`</div></body></html>`;
-	return {
-		type: 'resource',
-		resource: {
-			uri: embedUrl,
-			mimeType: 'text/html',
-			text: html,
-			_meta: { 'openai/outputTemplate': embedUrl },
-		},
-	};
-}
+// The inline "living body" artifact (buildEmbedUrl + embodimentArtifact) is shared
+// with the free studio in api/_lib/embodiment-artifact.js so both front doors drive
+// the SAME hosted embed page.
 
 // Annotations for the persona lifecycle tools. create mints a new body (write,
 // non-destructive). get is a pure read. say is a render directive that also bumps

@@ -4,7 +4,7 @@ import { TOOL_CATALOG, TOOL_NAMES } from '../api/_mcp-studio/tools.js';
 import { dispatch } from '../api/_mcp-studio/dispatch.js';
 import { COMPONENT_URI } from '../api/_mcp-studio/component.js';
 
-const ALLOWED = ['forge_free', 'text_to_avatar', 'mesh_forge', 'rig_mesh', 'forge_avatar'];
+const ALLOWED = ['forge_free', 'text_to_avatar', 'mesh_forge', 'rig_mesh', 'forge_avatar', 'refine_model'];
 
 // Anything that would signal a crypto / payment surface. The whole point of the
 // free studio app is that NONE of this appears anywhere in its contract.
@@ -144,5 +144,81 @@ describe('mcp-studio dispatch', () => {
 		);
 		expect(r.error).toBeTruthy();
 		expect(r.error.message).toMatch(/invalid params/i);
+	});
+
+	it('refine_model anchors to the parent and returns a correct, growing lineage', async () => {
+		// Mock /api/forge to complete synchronously with a distinct refined GLB.
+		globalThis.fetch = vi.fn(async () => ({
+			ok: true,
+			status: 200,
+			json: async () => ({ status: 'done', glb_url: 'https://three.ws/cdn/creations/v1.glb', job_id: 'J1', creation_id: 'C1', backend: 'nvidia-internal' }),
+		}));
+		const r = await dispatch(
+			{
+				jsonrpc: '2.0',
+				id: 9,
+				method: 'tools/call',
+				params: {
+					name: 'refine_model',
+					arguments: {
+						glb_url: 'https://three.ws/cdn/creations/origin.glb',
+						instruction: 'make it metallic',
+						parent_prompt: 'a round robot mascot',
+					},
+				},
+			},
+			auth,
+			mkReq(),
+		);
+		const sc = r.result.structuredContent;
+		expect(sc.glbUrl).toBe('https://three.ws/cdn/creations/v1.glb');
+		expect(sc.kind).toBe('refined model');
+		// Lineage: origin (index 0) → refined (index 1), the refined one active.
+		expect(sc.lineage).toHaveLength(2);
+		expect(sc.lineage[0].label).toBe('Original');
+		expect(sc.lineage[0].glbUrl).toBe('https://three.ws/cdn/creations/origin.glb');
+		expect(sc.lineage[1].instruction).toBe('make it metallic');
+		expect(sc.lineage[1].active).toBe(true);
+		expect(sc.activeIndex).toBe(1);
+		// The prompt the generator actually ran carries the parent forward.
+		expect(sc.prompt).toBe('a round robot mascot, metallic');
+		// No internal identifiers leak.
+		const serialized = JSON.stringify(r.result);
+		expect(serialized).not.toContain('nvidia-internal');
+		expect(serialized).not.toContain('creation_id');
+	});
+
+	it('refine_model extends a passed-in lineage to three versions', async () => {
+		globalThis.fetch = vi.fn(async () => ({
+			ok: true,
+			status: 200,
+			json: async () => ({ status: 'done', glb_url: 'https://three.ws/cdn/creations/v2.glb', job_id: 'J2' }),
+		}));
+		const parentLineage = [
+			{ index: 0, parentIndex: null, glbUrl: 'https://three.ws/cdn/creations/origin.glb', prompt: 'a round robot mascot', instruction: null, refKind: 'origin', label: 'Original' },
+			{ index: 1, parentIndex: 0, glbUrl: 'https://three.ws/cdn/creations/v1.glb', prompt: 'a round robot mascot, metallic', instruction: 'make it metallic', refKind: 'text', label: 'make it metallic' },
+		];
+		const r = await dispatch(
+			{ jsonrpc: '2.0', id: 10, method: 'tools/call', params: { name: 'refine_model', arguments: { glb_url: 'https://three.ws/cdn/creations/v1.glb', instruction: 'add wings', parent_prompt: 'a round robot mascot, metallic', parent_lineage: parentLineage } } },
+			auth,
+			mkReq(),
+		);
+		const sc = r.result.structuredContent;
+		expect(sc.lineage).toHaveLength(3);
+		expect(sc.lineage[2].instruction).toBe('add wings');
+		expect(sc.lineage[2].parentIndex).toBe(1);
+		expect(sc.activeIndex).toBe(2);
+	});
+
+	it('refine_model requires both glb_url and instruction', async () => {
+		const spy = vi.fn();
+		globalThis.fetch = spy;
+		const r = await dispatch(
+			{ jsonrpc: '2.0', id: 11, method: 'tools/call', params: { name: 'refine_model', arguments: { glb_url: 'https://three.ws/x.glb' } } },
+			auth,
+			mkReq(),
+		);
+		expect(r.error).toBeTruthy();
+		expect(spy).not.toHaveBeenCalled();
 	});
 });

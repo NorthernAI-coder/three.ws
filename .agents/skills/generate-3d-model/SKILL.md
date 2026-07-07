@@ -1,6 +1,6 @@
 ---
 name: generate-3d-model
-description: Turn a text prompt into a downloadable, textured 3D model (GLB). Use when you or the user want to generate, create, make, or forge a 3D model, asset, object, mesh, or prop from a text description — "make a 3D model of a robot", "generate a GLB of a sword", "I need a 3D chair". Runs on the FREE text→3D lane (no key, no account, no payment). Returns a GLB URL plus a browser viewer link.
+description: Turn a text prompt into a downloadable, textured 3D model (GLB). Use when you or the user want to generate, create, make, or forge a 3D model, asset, object, mesh, or prop from a text description — "make a 3D model of a robot", "generate a GLB of a sword", "I need a 3D chair". Runs on the FREE text→3D lane (no key, no account, free). Returns a GLB URL plus a browser viewer link.
 when_to_use: User wants a 3D object/asset/prop from text. For a posable character with a skeleton, use create-3d-avatar. To rig an existing GLB, use rig-a-model.
 license: MIT
 metadata:
@@ -12,8 +12,8 @@ metadata:
 # Generate a 3D model from text
 
 Turn a natural-language prompt into a textured, downloadable **GLB** model on the
-**free** three.ws text→3D lane (NVIDIA NIM / Microsoft TRELLIS). No API key, no
-account, no payment — the platform's server-side keys cover provider cost.
+**free** three.ws text→3D lane (NVIDIA NIM / Microsoft TRELLIS). No API key and no
+account — the platform's server-side keys cover provider cost.
 
 The result is always two things: a durable **`glbUrl`** (download / import into any
 3D tool) and a **viewer link** that renders the model in the browser.
@@ -46,7 +46,7 @@ image / multi-view → 3D, use the art-directed lanes described in
 ## Portable path — the hosted HTTP endpoint
 
 No MCP client required. The same free lane is a public JSON-RPC endpoint at
-`https://three.ws/api/mcp-studio` (no auth, no payment):
+`https://three.ws/api/mcp-studio` (no auth, no account):
 
 ```bash
 curl -s -X POST https://three.ws/api/mcp-studio \

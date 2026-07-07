@@ -18,8 +18,11 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const DATA_PATH = resolve(import.meta.dirname, '../data/agent-identities.json');
-const POLL_MS = 5000;
-const TIMEOUT_MS = 15 * 60 * 1000;
+// Overridable so a batch run can outlast the rig lane's rate-limit backoff
+// windows (the paid mcp3d:generate bucket is 30/h per IP; a single 429 parks the
+// job for up to 5 min). Defaults suit a single, unthrottled run.
+const POLL_MS = Number(process.env.IDENTITY_DEMO_POLL_MS) || 5000;
+const TIMEOUT_MS = Number(process.env.IDENTITY_DEMO_TIMEOUT_MS) || 15 * 60 * 1000;
 
 const { createIdentityJob, advanceIdentityJob, describeIdentityJob } = await import(
 	'../api/_okx3d/identity.js'

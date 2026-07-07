@@ -128,6 +128,15 @@
 		<li><strong>Retention of tool inputs:</strong> tool-call inputs and outputs follow the usage-data retention in Section 5 (90 days), except content you explicitly save (e.g. a saved avatar), which is retained as account content until you delete it.</li>
 	</ul>
 
+	<h2>10a. Free 3D Actions (ChatGPT / GPT Store)</h2>
+	<p>three.ws also exposes a free, keyless REST endpoint, <code>https://three.ws/api/3d/studio</code>, used by the <em>three.ws 3D Studio</em> custom GPT (and any OpenAPI Action client) to turn a text prompt into a downloadable 3D model. This lane involves no account, no API key, and no payment, so none of the wallet, payment, or OAuth data described in Section 10 applies to it.</p>
+	<ul>
+		<li><strong>What we receive:</strong> only the text prompt you send. We do not ask for, receive, or store any name, email, wallet address, or other personal information through this endpoint.</li>
+		<li><strong>How the prompt is used:</strong> the prompt is forwarded to our generation provider (NVIDIA NIM / Microsoft TRELLIS) solely to produce the model. Do not include personal or confidential information in the prompt.</li>
+		<li><strong>What we return:</strong> a public URL to the generated GLB model (hosted on our Cloudflare R2 CDN) and a link to view it. The response contains no account identifiers or personal data. Generated model files are served from public URLs so you can download and share them; treat a model URL as public.</li>
+		<li><strong>Abuse prevention:</strong> requests are rate-limited by IP address, used only to prevent abuse of the free lane, and prompts are screened by an automated content-safety filter so the service stays appropriate for all ages.</li>
+	</ul>
+
 	<h2>11. Changes to This Policy</h2>
 	<p>We may update this Privacy Policy. We will notify you of material changes by email or a prominent notice on the Service. The "Effective" date at the top reflects the most recent revision.</p>
 

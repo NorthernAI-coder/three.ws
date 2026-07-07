@@ -1494,9 +1494,25 @@ feeds directly (`source: "rss"`).
 GET /api/animations/library
 ```
 
-Returns the full three.ws motion library manifest — the complete Mixamo-sourced catalog of retargeted animation clips (~2,400), hosted on the R2 CDN. No auth required. CORS open. Edge-cached for 5 minutes.
+Returns the three.ws motion library manifest — the complete catalog of retargeted animation clips (2,800+ and growing as generative text→motion clips are seeded), hosted on the R2 CDN. No auth required. CORS open. Edge-cached for 5 minutes.
 
 Each entry's `url` is an absolute CDN URL to the baked clip JSON (`THREE.AnimationClip.toJSON()` format, canonical skeleton) — fetch it directly and load with `THREE.AnimationClip.parse()`, or pass the `name` to the embed viewer (`/embed/avatar?anim=<name>`) and pose studio (`/pose?anim=<name>`).
+
+**Query parameters** (optional — omit for the full catalog)
+
+| Param | Description |
+| --- | --- |
+| `limit` | Page size, `1`–`1000`. When set, the response is a bounded page instead of the whole catalog — use this to keep a single response small as the library grows. |
+| `offset` | Zero-based start index into the ordered catalog. Default `0`. |
+
+The manifest is a stable ordered array, so paging is offset-based. A paged response adds `offset` and `next_offset` (`null` on the last page); `total` is always the full catalog size. Page until `next_offset` is `null`:
+
+```
+GET /api/animations/library?limit=1000            # first 1000 → next_offset: 1000
+GET /api/animations/library?limit=1000&offset=1000 # next 1000 → next_offset: 2000
+```
+
+Omitting `limit` returns the full array exactly as before (no `offset`/`next_offset` fields) — the legacy contract is unchanged.
 
 **Response**
 

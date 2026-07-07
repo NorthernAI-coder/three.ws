@@ -98,6 +98,8 @@ const SERVERS = [
 	{ key: 'remote-agent', manifest: 'server-agent.json' },
 	{ key: 'remote-ibm', manifest: 'server-ibm.json' },
 	{ key: 'remote-bazaar', manifest: 'server-bazaar.json' },
+	// Free, non-crypto 3D Studio (api/mcp-studio.js) for the OpenAI Apps SDK.
+	{ key: 'remote-studio', manifest: 'server-studio.json' },
 ];
 
 const args = process.argv.slice(2);

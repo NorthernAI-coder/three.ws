@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-07T08:56:28.712Z",
+	"generated_at": "2026-07-07T11:29:21.993Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -87,6 +87,16 @@
 			"tags": [
 				"improvement",
 				"fix"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "Find the wallet grinder from the contract grinder",
+			"summary": "The two EVM vanity tools now point at each other. The CREATE2 grinder — which searches a salt for a vanity smart-contract address, with no private key involved — now carries a note explaining that difference and linking to the EVM Vanity Wallet generator for anyone who actually wants a wallet they hold the key to. The wallet generator already linked back; this closes the loop so you can no longer land on one and miss the other.",
+			"link": "/eth-vanity",
+			"tags": [
+				"improvement"
 			]
 		},
 		{
@@ -329,12 +339,54 @@
 		{
 			"date": "2026-07-07",
 			"type": "update",
+			"title": "The animation library API now pages, so it stays fast as the catalog grows",
+			"summary": "The motion library is heading past its current 2,800+ clips as we add generatively-produced animations. Its public API (GET /api/animations/library) can now return the catalog in bounded pages — pass ?limit and ?offset and page until there's no next_offset — so a single response never balloons no matter how large the library gets. The /animations gallery already fetches the catalog this way. Calling it with no parameters still returns the whole list exactly as before, so nothing built on the old behavior breaks.",
+			"link": "/animations",
+			"tags": [
+				"improvement",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "The free 3D Studio in ChatGPT stays up even when our rate-limiter has a blip",
+			"summary": "The free 3D Studio generates entirely on no-cost engines, so there's no spend to protect by shutting it off. We fixed a case where a hiccup in the rate-limiting backend could make the studio refuse every generation with a \"try again shortly\" — an outage of a free feature for no reason. Its usage caps now stay enforced when everything is healthy but step aside during a backend blip, so a prompt still returns your model. Nothing about paid features changed: those still stop safely if the same backend is unavailable.",
+			"link": null,
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
 			"title": "three.ws 3D API: free text→3D + inspection for AI agents, with pro tiers",
 			"summary": "One URL now discovers the whole free, keyless 3D API for agents. GET /api/3d returns every free endpoint — turn a text prompt into a real GLB (/api/3d/generate) and validate/optimize any glTF/GLB (/api/3d/inspect) — with a live example each, plus the paid ladder it graduates to. GET /api/3d/openapi.json is a real OpenAPI 3.1 spec generated straight from the catalog, so LangChain, openapi-generator, and Swagger UI get typed tools with no key and no account. A new docs page at /3d shows a hero, a live endpoint table, a runnable quickstart with a \"run it live\" inspection console, an embedded 3D viewer of a real model, and a clear free→paid path: free draft + inspect → Forge Pro quality tiers → animation-ready Rigged Avatars. No other agent-payments platform gives away 3D generation and inspection.",
 			"link": "/3d",
 			"tags": [
 				"feature",
 				"docs"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "three.ws 3D Studio for the GPT Store — generate 3D models in ChatGPT, free",
+			"summary": "You can now turn a text prompt into a real, downloadable 3D model right inside ChatGPT. The three.ws 3D Studio custom GPT is backed by a free, keyless REST endpoint — describe something like \"a low-poly fox\" or \"a ceramic robot figurine\" and get back a GLB you can open in Blender, Unity, Godot, or three.js, plus a browser viewer link. No account, no key, no cost. Every prompt is screened by a content-safety filter so it stays appropriate for all ages, and the model file is served from a public URL so it's easy to download and share.",
+			"link": null,
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "three.ws Agent Skills pack — for any Claude surface",
+			"summary": "Everything three.ws can do is now packaged as portable Agent Skills — self-contained folders that teach any Claude (Claude Code, the Claude apps, or an Agent SDK build) how to use the platform: generate a 3D model from text, make a rigged avatar, rig a GLB you already have, run a wallet, and buy or sell services in the x402 agent economy. Forty skills in all, each with a precise trigger and runnable examples, grouped into three sets — 3D creation, wallet & payments, and market intelligence. The three 3D-creation skills are the newest and run free with no key or account. Install the pack as a Claude Code plugin, drop a skill folder into any project, or upload one to a Claude project.",
+			"link": null,
+			"tags": [
+				"sdk",
+				"feature"
 			]
 		},
 		{

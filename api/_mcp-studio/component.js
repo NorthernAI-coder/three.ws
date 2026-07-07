@@ -7,7 +7,11 @@
 // the returned GLB with Google's <model-viewer> (loaded from jsdelivr, declared
 // in the resource CSP). Every state is designed: loading, ready, empty, error.
 //
-// Reads structuredContent shape: { glbUrl, viewerUrl, kind, prompt, rigged? }.
+// Reads structuredContent shape: { glbUrl, viewerUrl, kind, prompt, rigged?,
+//   lineage?: [{ index, parentIndex, glbUrl, viewerUrl, label, instruction, active }],
+//   activeIndex? }. When a lineage is present (a conversational refinement) the
+// widget shows a version strip: click any version to swap it in with a cross-fade
+// (a client-side revert view — every version's GLB is already in the lineage).
 // No identifiers, no payment, no crypto — only what is needed to show the model.
 
 const MODEL_VIEWER_CDN =
@@ -36,7 +40,10 @@ export const COMPONENT_HTML = `<!doctype html>
     --poster-color: transparent;
     --progress-bar-color: #6ea8fe;
     background: transparent;
+    transition: opacity .28s ease;
   }
+  model-viewer.fading { opacity: 0; }
+  @media (prefers-reduced-motion: reduce) { model-viewer { transition: none; } }
   .overlay {
     position: absolute; inset: 0;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -66,6 +73,26 @@ export const COMPONENT_HTML = `<!doctype html>
     border: 1px solid rgba(110,168,254,0.28); border-radius: 999px;
     padding: 3px 9px; text-transform: capitalize;
   }
+  .versions {
+    display: flex; align-items: center; gap: 6px; overflow-x: auto;
+    padding: 8px 12px; border-top: 1px solid rgba(255,255,255,0.07);
+    background: rgba(10,11,14,0.5); scrollbar-width: thin;
+  }
+  .versions::-webkit-scrollbar { height: 6px; }
+  .versions::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.14); border-radius: 3px; }
+  .vlabel { font-size: 10.5px; font-weight: 600; color: #8b93a3; letter-spacing: .03em; text-transform: uppercase; flex: 0 0 auto; margin-right: 2px; }
+  button.vchip {
+    appearance: none; cursor: pointer; flex: 0 0 auto;
+    font-size: 11.5px; font-weight: 600; color: #cdd4e0;
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px; padding: 5px 10px; max-width: 160px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    transition: background .15s, border-color .15s, color .15s, transform .05s;
+  }
+  button.vchip:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.24); color: #fff; }
+  button.vchip:active { transform: translateY(1px); }
+  button.vchip:focus-visible { outline: 2px solid #6ea8fe; outline-offset: 2px; }
+  button.vchip.active { color: #eaf1ff; background: rgba(110,168,254,0.16); border-color: rgba(110,168,254,0.5); }
   .actions { display: flex; gap: 8px; }
   a.btn, button.btn {
     appearance: none; cursor: pointer; text-decoration: none;
@@ -104,6 +131,8 @@ export const COMPONENT_HTML = `<!doctype html>
     </div>
   </div>
 
+  <div id="versions" class="versions hidden" role="group" aria-label="Model versions"></div>
+
   <div id="bar" class="bar hidden">
     <span id="kind" class="chip">model</span>
     <span id="prompt" class="prompt"></span>
@@ -126,36 +155,90 @@ export const COMPONENT_HTML = `<!doctype html>
   var kindEl = document.getElementById('kind');
   var openEl = document.getElementById('open');
   var downloadEl = document.getElementById('download');
+  var versionsEl = document.getElementById('versions');
+
+  // Tracks whether the next model-viewer 'load' is a fresh render (show the
+  // stage, hide overlays) or a cross-fade swap between versions (just fade in).
+  var swapping = false;
 
   function show(el) { [loading, empty, errEl].forEach(function (n) { n.classList.add('hidden'); }); if (el) el.classList.remove('hidden'); }
 
   function fail(msg) {
     mv.classList.add('hidden');
     bar.classList.add('hidden');
+    versionsEl.classList.add('hidden');
     errMsg.textContent = msg || 'Something went wrong displaying this model.';
     show(errEl);
   }
 
+  function isHttps(u) { return typeof u === 'string' && /^https:\\/\\//.test(u); }
+
+  // Swap the displayed GLB with a cross-fade (no hard pop). Used both for the
+  // initial refined result and for clicking an earlier version in the strip.
+  function swapTo(glb) {
+    if (!isHttps(glb) || mv.getAttribute('src') === glb) return;
+    swapping = true;
+    mv.classList.add('fading');
+    setTimeout(function () { mv.setAttribute('src', glb); }, 200);
+  }
+
+  // Build the version strip from a lineage. Each chip swaps its GLB in on click;
+  // the active one is highlighted. A single-entry lineage (origin only) is hidden.
+  function renderVersions(lineage, activeGlb) {
+    versionsEl.textContent = '';
+    if (!Array.isArray(lineage) || lineage.length < 2) { versionsEl.classList.add('hidden'); return; }
+    var label = document.createElement('span');
+    label.className = 'vlabel';
+    label.textContent = 'Versions';
+    versionsEl.appendChild(label);
+    lineage.forEach(function (v) {
+      if (!v || !isHttps(v.glbUrl)) return;
+      var chip = document.createElement('button');
+      chip.className = 'vchip' + (v.glbUrl === activeGlb ? ' active' : '');
+      chip.type = 'button';
+      var text = v.label || (v.index === 0 ? 'Original' : 'Version ' + v.index);
+      chip.textContent = text;
+      chip.title = v.instruction ? '“' + v.instruction + '”' : text;
+      chip.addEventListener('click', function () {
+        for (var i = 0; i < versionsEl.children.length; i++) versionsEl.children[i].classList.remove('active');
+        chip.classList.add('active');
+        openEl.href = v.viewerUrl || v.glbUrl;
+        downloadEl.href = v.glbUrl;
+        if (v.instruction) { promptEl.textContent = v.instruction; promptEl.title = v.instruction; }
+        swapTo(v.glbUrl);
+      });
+      versionsEl.appendChild(chip);
+    });
+    versionsEl.classList.remove('hidden');
+  }
+
   function render(out) {
-    if (!out) { mv.classList.add('hidden'); bar.classList.add('hidden'); show(empty); return; }
+    if (!out) { mv.classList.add('hidden'); bar.classList.add('hidden'); versionsEl.classList.add('hidden'); show(empty); return; }
     if (out.error || out.message && !out.glbUrl) { fail(out.message || 'Generation did not return a model.'); return; }
     var glb = out.glbUrl;
-    if (!glb || typeof glb !== 'string' || !/^https:\\/\\//.test(glb)) { mv.classList.add('hidden'); bar.classList.add('hidden'); show(empty); return; }
+    if (!isHttps(glb)) { mv.classList.add('hidden'); bar.classList.add('hidden'); versionsEl.classList.add('hidden'); show(empty); return; }
 
+    swapping = false;
     show(loading);
+    mv.classList.remove('fading');
     mv.classList.add('hidden');
     mv.setAttribute('src', glb);
 
     var kind = (out.kind || 'model').replace(/_/g, ' ');
     kindEl.textContent = out.rigged ? 'rigged ' + kind : kind;
-    if (out.prompt) { promptEl.textContent = out.prompt; promptEl.title = out.prompt; }
+    var caption = out.instruction || out.prompt || '';
+    if (caption) { promptEl.textContent = caption; promptEl.title = caption; }
     else { promptEl.textContent = ''; }
     openEl.href = out.viewerUrl || glb;
     downloadEl.href = glb;
     bar.classList.remove('hidden');
+    renderVersions(out.lineage, glb);
   }
 
-  mv.addEventListener('load', function () { show(null); mv.classList.remove('hidden'); });
+  mv.addEventListener('load', function () {
+    if (swapping) { swapping = false; mv.classList.remove('fading'); return; }
+    show(null); mv.classList.remove('hidden');
+  });
   mv.addEventListener('error', function () { fail('The 3D model could not be displayed. You can still download the GLB file.'); });
 
   function current() {
