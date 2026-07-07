@@ -1606,3 +1606,86 @@ both catalogs updated to say so.
 - Prod deploy queue was ~6 deep with 15-min builds during this session;
   sibling agents pushing rapidly serialize behind each other. Worth knowing
   before promising "verified live" timestamps.
+
+## 2026-07-07 — Prompt 02: Free Crypto Data API — Token Security / Rug Signals
+
+**Shipped.**
+
+- **`GET /api/crypto/security`** (`api/crypto/security.js`) — free, keyless
+  pre-trade rug check for a Solana mint. Params: `address` (base58, required),
+  `chain` (only `solana`/`sol`; EVM input gets an honest 400 — SPL authorities
+  and getTokenLargestAccounts have no EVM equivalent, matching the v1 reader's
+  deliberate decision). Output: `{ address, chain, checks{ mintAuthorityRevoked,
+  freezeAuthorityRevoked, metadataMutable, lpBurnedOrLocked, liquidityUsd,
+  topHolderPctFlag }, riskLevel: low|medium|high|unknown, reasons[], ts,
+  sources[] }`.
+- **`api/_lib/crypto-token-security.js`** — composition engine. WRAPS the
+  existing fact layer instead of reinventing it: `parseMintAccount` /
+  `parseTopHolders` / `parseLiquidity` imported from the v1 security reader
+  (`api/v1/token/security.js` — the other campaign's endpoint; same thresholds,
+  so the two surfaces can never disagree), `fetchTokenMarket` (DexScreener),
+  `fetchPumpCoin` + `isGraduated` (pump.fun LP-custody fact), the platform RPC
+  failover chain (`solanaRpcEndpoints` + `makeRotatingFetch`). Adds two new pure
+  readers: `parseMetadataAccount` (full Metaplex layout through is_mutable —
+  the existing solana-token-meta.js decoder stops at uri) and
+  `metaFromMintExtensions` (Token-2022 embedded token-metadata extension).
+- **Key discovery baked in:** pump.fun mints (incl. $THREE) are **Token-2022**
+  with metadata embedded in the mint account via the token-metadata extension —
+  there is NO Metaplex PDA for them. Mutability = the extension's
+  updateAuthority; classic SPL mints fall back to the Metaplex PDA parse. Both
+  paths are keyless and both are unit-tested.
+- **Deterministic riskLevel rule** (documented verbatim in docs/crypto-api.md):
+  HIGH = live mint/freeze authority, or concentration flag on <$10k liquidity;
+  MEDIUM = concentration, thin liquidity, or mutable metadata; LOW = authorities
+  revoked + no concentration + liquidity known ≥$10k; UNKNOWN = the inputs for
+  LOW are unresolved. reasons[] names every fired condition; unknowns are named,
+  never guessed — no verdict is fabricated during an outage (503, no cached lie).
+- **lpBurnedOrLocked honesty:** asserted true ONLY as a protocol fact for
+  pump.fun-native coins (curve custody / LP burned on Raydium graduation /
+  protocol-owned PumpSwap pool). Every other token: null. Never a fake "safe".
+- **Catalog:** `api/_lib/crypto-catalog/security.js`; docs table row + full
+  section (check table, exact riskLevel rule, states, curls) in
+  `docs/crypto-api.md`; `data/changelog.json` entry (feature, security),
+  validated by `npm run build:pages`.
+- **Tests:** `tests/crypto-token-security.test.js` — **19 tests**: metadata
+  buffer parse (with/without creators, truncation → null), Token-2022 extension
+  read (None→immutable, set→mutable, classic mint→null), revoked-vs-live
+  authority checks, concentration thresholds, the full riskLevel rule matrix
+  (HIGH/MEDIUM/LOW/UNKNOWN + contract-range invariant), and composeTokenSecurity
+  states (full read → low; live authority on fresh pump coin → high; RPC down
+  but market up → ok/unknown with dexscreener-only sources; all-answered-unknown
+  → not_found; all-down → upstream_down). Synthetic fixtures only.
+
+**Verification (real, this session):**
+- `npx vitest run tests/crypto-token-security.test.js` → **19/19 passed**.
+- Live handler drive (real req/res, real upstreams): all 400 states correct;
+  live `$THREE` → HTTP 200 with real chain facts:
+
+```json
+{
+  "address": "FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump",
+  "chain": "solana",
+  "checks": {
+    "mintAuthorityRevoked": true, "freezeAuthorityRevoked": true,
+    "metadataMutable": false, "lpBurnedOrLocked": true,
+    "liquidityUsd": 215506.18, "topHolderPctFlag": null
+  },
+  "riskLevel": "unknown",
+  "reasons": ["holder concentration could not be read"],
+  "ts": "2026-07-07T02:56:48.691Z",
+  "sources": ["solana-rpc", "dexscreener", "pumpfun"]
+}
+```
+
+  `topHolderPctFlag: null` above is LOCAL egress only — public RPCs throttle
+  `getTokenLargestAccounts` from this box. Production's RPC chain resolves it
+  (proved via the deployed v1 reader: live `/api/v1/token/security` for $THREE
+  returns top1 5.99% / top10 22.17%), so the deployed endpoint yields
+  `topHolderPctFlag: false` → `riskLevel: "low"` for $THREE.
+
+**Adjacent gaps noticed (for other prompts):**
+- Prompt 03 (holders): `parseTopHolders` + the largest-accounts RPC read in the
+  v1 reader are the ready-made core; wrap them like this prompt did.
+- The v1 reader's pure functions living inside an endpoint file
+  (`api/v1/token/security.js`) is awkward for reuse — a future refactor could
+  lift them into `api/_lib/`, but NOT mid-campaign while both files are hot.

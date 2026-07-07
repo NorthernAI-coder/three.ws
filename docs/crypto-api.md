@@ -45,6 +45,7 @@ is documented in its section below and machine-readable in the OpenAPI doc.
 |----------|---------|-----------------|
 | [`/api/crypto/bonding`](https://three.ws/api/crypto/bonding) | `GET` | Where a pump.fun token sits on its bonding curve — % to graduation, SOL in the curve, and whether it has migrated to an AMM. |
 | [`/api/crypto/launches`](https://three.ws/api/crypto/launches) | `GET` | The freshest pump.fun launches, newest first — age, market cap, bonding-curve progress, dev wallet — with `minMarketCap` / `maxAgeMin` filters built for polling agents. |
+| [`/api/crypto/security`](https://three.ws/api/crypto/security) | `GET` | Pre-trade rug check for a Solana token — authority, concentration, liquidity, mutability, and LP-custody facts composed into a deterministic riskLevel. |
 | [`/api/crypto/symbol`](https://three.ws/api/crypto/symbol) | `GET` · `POST` | Whether up to 20 candidate tickers are taken — exact and fuzzy (look-alike) collisions across live registries. |
 | [`/api/crypto/token`](https://three.ws/api/crypto/token) | `GET` | The current market state of any token by contract address — price, 24 h change, market cap, FDV, liquidity, volume, and venue link in one call. |
 | [`/api/crypto/trending`](https://three.ws/api/crypto/trending) | `GET` | Solana tokens ranked by momentum (volume + buy pressure + spike + short-window price change) fused across sources. |
@@ -641,4 +642,93 @@ curl -s "https://three.ws/api/crypto/token?address=FeMbDoX7R1Psc4GEcvJdsbNbZA3bf
 
 # Pin a multi-chain EVM contract to one chain
 curl -s "https://three.ws/api/crypto/token?address=0x1111111111111111111111111111111111111111&chain=base"
+```
+
+---
+
+## `GET /api/crypto/security` — Token security / rug signals
+
+**Use-case.** Before a *trading agent* buys — or an *LP agent* provides liquidity
+into — a token, it needs a fast "is this a honeypot / rug?" read. This is the
+single most-requested pre-trade check in crypto agent workflows. One keyless GET
+returns the on-chain FACTS (authority status, holder concentration, liquidity,
+metadata mutability, LP custody) and a **documented, deterministic** `riskLevel` —
+never an LLM opinion, and an unknown is reported as `null`/`unknown`, never
+guessed as "safe".
+
+Solana-only by design: SPL mint/freeze authorities and
+`getTokenLargestAccounts` have no EVM equivalent in this reader, so an EVM
+address gets an honest `400` instead of a half-built passthrough.
+
+### Request
+
+| Param     | Type   | Default  | Notes |
+|-----------|--------|----------|-------|
+| `address` | string | required | Solana token mint (base58). |
+| `chain`   | enum   | `solana` | Only `solana` (alias `sol`) is accepted. |
+
+### Response
+
+```json
+{
+  "address": "FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump",
+  "chain": "solana",
+  "checks": {
+    "mintAuthorityRevoked": true,
+    "freezeAuthorityRevoked": true,
+    "metadataMutable": false,
+    "lpBurnedOrLocked": true,
+    "liquidityUsd": 215506.18,
+    "topHolderPctFlag": false
+  },
+  "riskLevel": "low",
+  "reasons": [
+    "mint and freeze authorities are revoked, holders are not concentrated, and liquidity is healthy"
+  ],
+  "ts": "2026-07-07T02:56:48.691Z",
+  "sources": ["solana-rpc", "dexscreener", "pumpfun"]
+}
+```
+
+### The checks
+
+| Check | Fact it reports | Source |
+|-------|-----------------|--------|
+| `mintAuthorityRevoked` | Nobody can mint new supply (`null` authority on the mint account). `false` = the deployer can still print. | Solana RPC `getAccountInfo` (SPL **and** Token-2022 mints) |
+| `freezeAuthorityRevoked` | Nobody can freeze holders' token accounts. `false` = a classic honeypot lever. | Solana RPC |
+| `metadataMutable` | Whether the token's name/symbol/image can still be rewritten. Token-2022 mints are read from the embedded token-metadata extension's update authority (pump.fun mints work this way — there is **no Metaplex PDA** for them); classic SPL mints from the Metaplex metadata account's `is_mutable`. | Solana RPC |
+| `lpBurnedOrLocked` | LP custody. Only assertable as a **protocol fact** for pump.fun-native coins: on-curve liquidity is custodied by the bonding-curve program, and graduation burns the LP (Raydium) or moves it to a protocol-owned pool (PumpSwap) — the deployer cannot pull it either way. Any other token reports `null` (unknown), never a fake "safe". | pump.fun public record |
+| `liquidityUsd` | Depth of the deepest indexed pool. | DexScreener |
+| `topHolderPctFlag` | `true` when top-1 holder > 20% of supply **or** top-10 > 80% (the same thresholds as the v1 security reader). | Solana RPC `getTokenLargestAccounts` |
+
+### The riskLevel rule (deterministic — no LLM)
+
+Evaluated top-down; the first matching tier wins. `reasons[]` names exactly
+which conditions fired, in plain language.
+
+| Level | Rule |
+|-------|------|
+| `high` | Mint **or** freeze authority still active, **or** concentrated holders (`topHolderPctFlag`) on thin liquidity (< $10,000). |
+| `medium` | No live authority lever, but: concentrated holders, **or** liquidity < $10,000, **or** mutable metadata. |
+| `low` | Both authorities verifiably revoked **and** no concentration flag **and** liquidity known and ≥ $10,000. |
+| `unknown` | The inputs needed to clear `low` are unresolved (e.g. RPC couldn't read the mint or holders) and nothing triggered `high`/`medium`. The unresolved inputs are named in `reasons[]`. |
+
+### States
+
+- **New token, no pool yet** → `200` with `liquidityUsd: null` (and `lpBurnedOrLocked: null`
+  unless it's a pump.fun coin); `riskLevel` follows the rule — typically `unknown` or `medium`/`high`.
+- **A source is down** → `200`; only that source's checks are `null`, `sources[]` names what answered.
+- **Missing/EVM/invalid `address`** → `400` with a clear message + example.
+- **Valid mint no live source knows** → `400 token_not_found`.
+- **Every source unreachable** → `503` + `Retry-After` — no verdict is ever fabricated during an outage.
+- **Rate-limited** → `429` with `RateLimit-*` + `Retry-After` headers.
+
+### Examples
+
+```bash
+# Pre-trade check on $THREE
+curl -s "https://three.ws/api/crypto/security?address=FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump"
+
+# Just the verdict and why
+curl -s "https://three.ws/api/crypto/security?address=FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump" | jq '{riskLevel, reasons}'
 ```

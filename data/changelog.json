@@ -3,6 +3,26 @@
 	"entries": [
 		{
 			"date": "2026-07-07",
+			"title": "Platformer tours — visitors jump through your store's checkpoints",
+			"summary": "The guided tour's Explore mode now has a sibling: Platformer. Pick it in the Tour Builder (or set data-mode=\"platformer\" on the embed tag) and your page's real content — headings, product cards, buttons — becomes solid ground the visitor runs and jumps across, Mario-style, to reach each glowing checkpoint and unlock its explanation. It's the same gravity engine as the homepage playground. The two interactive modes are one experience now: visitors can flip between walking and platforming mid-tour with the M key or the on-screen mode pill, and their checkpoint progress carries across. Also fixed: pressing M during an Explore tour used to silently drop every checkpoint — the tour survives mode switches now.",
+			"tags": [
+				"feature",
+				"sdk"
+			],
+			"link": "/tour-builder"
+		},
+		{
+			"date": "2026-07-07",
+			"title": "Free token safety / rug-signal API",
+			"summary": "New free endpoint in the Crypto Data API: GET /api/crypto/security gives agents the pre-trade rug check they ask for most. One keyless call returns the on-chain facts — whether the mint and freeze authorities are revoked, whether the token's metadata can still be rewritten (including pump.fun's Token-2022 mints), top-holder concentration, liquidity depth, and whether liquidity is protocol-locked for pump.fun coins — plus a deterministic low/medium/high/unknown risk level with plain-language reasons. Facts only: anything that can't be verified is reported as unknown, never guessed as safe.",
+			"tags": [
+				"feature",
+				"security"
+			],
+			"link": "/docs/crypto-api"
+		},
+		{
+			"date": "2026-07-07",
 			"title": "Free live pump.fun launches feed for agents",
 			"summary": "The Crypto Data API now has a live launch feed: GET /api/crypto/launches returns the freshest pump.fun mints, newest first, with everything a discovery or sniper agent filters on — name, symbol, age down to the tenth of a minute, current market cap, bonding-curve progress, and the dev wallet. Filter server-side with minMarketCap and maxAgeMin, then watch the interesting ones climb their curve via the bonding-status endpoint (the two share the exact same curve math, so they can never disagree). Free, no key, no account — built to be polled. Full reference with runnable curls at /docs/crypto-api.",
 			"tags": [
