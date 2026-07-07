@@ -22,6 +22,16 @@ import {
 	directPrompt,
 } from './forge-client.js';
 import { COMPONENT_URI } from './component.js';
+// Pure, dependency-free lineage core — the SAME module the paid stdio server's
+// runRefineModel uses (mcp-server/src/tools/_lineage.js), so conversational
+// iteration behaves identically on both tracks and never drifts. It carries
+// zero payment/coin/wallet surface — safe to import into the free studio bundle.
+import {
+	composeRefinement,
+	seedLineage,
+	appendVersion,
+	summarizeLineage,
+} from '../../mcp-server/src/tools/_lineage.js';
 
 const VALID_TIER = new Set(['draft', 'standard', 'high']);
 
@@ -55,6 +65,34 @@ function toolError(message) {
 		content: [{ type: 'text', text: message }],
 		structuredContent: { error: true, message },
 		isError: true,
+	};
+}
+
+// Success envelope for a conversational refinement. Carries the same minimal,
+// identifier-free fields as ok() PLUS the version lineage the widget renders as
+// a version strip. The lineage is the durable record the client passes back on
+// the next refinement (parent_lineage) so branch/revert work without any
+// server-side session — a pointer move over an immutable array, never a mutation.
+function refineOk({ glbUrl, base, prompt, instruction, lineage, activeIndex }) {
+	const structured = {
+		kind: 'refined model',
+		glbUrl,
+		viewerUrl: viewerUrl(base, glbUrl),
+		format: 'glb',
+		...(prompt ? { prompt } : {}),
+		...(instruction ? { instruction } : {}),
+		lineage: summarizeLineage(lineage, activeIndex),
+		activeIndex,
+	};
+	const versionNo = activeIndex; // 0 = original, 1 = first refinement, …
+	return {
+		content: [
+			{
+				type: 'text',
+				text: `Refined the model (v${versionNo}: "${instruction}"). View it: ${structured.viewerUrl}\nDownload: ${glbUrl}`,
+			},
+		],
+		structuredContent: structured,
 	};
 }
 
@@ -274,6 +312,83 @@ async function handleForgeAvatar(args, _auth, req) {
 	return ok({ glbUrl: rigged.glb_url, base, kind: 'avatar', prompt: prompt || undefined, rigged: true });
 }
 
+// Conversational refinement — carry a prior model forward with a natural-language
+// change ("make it metallic", "bigger helmet"). REAL anchored re-generation: the
+// parent prompt is folded into the new prompt so form/subject/materials carry
+// forward, and when a reference image of the parent is supplied it anchors the
+// generation as image→3D. No faked diffing — the composed prompt is what the
+// generator actually runs. Every version is recorded in an immutable lineage the
+// client passes back to branch/revert. Free, stateless, zero payment surface.
+async function handleRefineModel(args, _auth, req) {
+	const base = originFromReq(req);
+	const glbUrl = String(args.glb_url || '').trim();
+	if (!/^https?:\/\//i.test(glbUrl)) return toolError('Provide the http(s) glb_url of the model to refine.');
+	const instruction = String(args.instruction || '').trim();
+	if (!instruction) return toolError('Provide an instruction describing the change, e.g. "make it metallic".');
+	const safety = checkPromptSafety(instruction);
+	if (!safety.allowed) return toolError(safety.message);
+
+	const parentPrompt = typeof args.parent_prompt === 'string' ? args.parent_prompt.trim() : '';
+	if (parentPrompt) {
+		const ps = checkPromptSafety(parentPrompt);
+		if (!ps.allowed) return toolError(ps.message);
+	}
+	const refImageUrl = args.reference_image_url ? String(args.reference_image_url).trim() : '';
+	try {
+		await guardImage(glbUrl);
+		if (refImageUrl) await guardImage(refImageUrl);
+	} catch (err) {
+		return toolError(err.userMessage ? err.message : 'That URL could not be used.');
+	}
+
+	const composed = composeRefinement(parentPrompt, instruction);
+
+	// Resolve the starting lineage: extend the one the client passed, or seed a
+	// fresh lineage rooted at the parent model. summarizeLineage() emits compact
+	// records; re-hydrate them into full version records for appendVersion.
+	const clientLineage = Array.isArray(args.parent_lineage) ? args.parent_lineage : null;
+	const baseLineage =
+		clientLineage && clientLineage.length > 0
+			? clientLineage.map((v, i) => ({
+					index: Number.isInteger(v.index) ? v.index : i,
+					parentIndex: v.parentIndex ?? (i > 0 ? i - 1 : null),
+					glbUrl: v.glbUrl,
+					viewerUrl: v.viewerUrl || null,
+					prompt: v.prompt || null,
+					instruction: v.instruction || null,
+					refKind: v.refKind || (i === 0 ? 'origin' : 'text'),
+				}))
+			: seedLineage({ glbUrl, viewerUrl: viewerUrl(base, glbUrl), prompt: parentPrompt || null });
+
+	// Branch point: refine off an earlier version instead of the leaf.
+	const parentIndex =
+		Number.isInteger(args.parent_index) && args.parent_index >= 0 && args.parent_index < baseLineage.length
+			? args.parent_index
+			: undefined;
+
+	let job;
+	try {
+		job = await generate(
+			base,
+			refImageUrl ? { prompt: composed, imageUrls: [refImageUrl], aspect: '1:1' } : { prompt: composed },
+			{ timeoutEnv: 'STUDIO_REFINE_TIMEOUT_MS' },
+		);
+	} catch (err) {
+		return toolError(failureMessage(err));
+	}
+	if (job._timedOut || !job.glb_url) return toolError('Refinement is taking longer than expected. Please try again.');
+
+	const lineage = appendVersion(baseLineage, {
+		glbUrl: job.glb_url,
+		viewerUrl: viewerUrl(base, job.glb_url),
+		prompt: composed,
+		instruction,
+		refKind: refImageUrl ? 'image' : 'text',
+		...(parentIndex !== undefined ? { parentIndex } : {}),
+	});
+	return refineOk({ glbUrl: job.glb_url, base, prompt: composed, instruction, lineage, activeIndex: lineage.length - 1 });
+}
+
 // ── definitions ─────────────────────────────────────────────────────────────
 
 const GEN_ANNOTATIONS = {
@@ -398,6 +513,54 @@ const DEFS = [
 		annotations: GEN_ANNOTATIONS,
 		_meta: widgetMeta('Generating your rigged avatar…', 'Here is your rigged avatar'),
 		handler: handleForgeAvatar,
+	},
+	{
+		name: 'refine_model',
+		title: 'Refine a 3D model by describing a change',
+		description:
+			'Iterate on a model you already generated — just describe the change in words ("make it metallic", ' +
+			'"bigger helmet", "add wings"). The studio re-generates a new version anchored to the previous one, ' +
+			'carrying its form and materials forward. Pass the previous model\'s glb_url and, when you have it, the ' +
+			'prompt that made it (parent_prompt) so the change builds on it. Each refinement is recorded as a new ' +
+			'version in a lineage you can revert to or branch from — the returned lineage drives a version strip in ' +
+			'the viewer. Renders the new version inline in the interactive 3D viewer.',
+		inputSchema: {
+			type: 'object',
+			additionalProperties: false,
+			required: ['glb_url', 'instruction'],
+			properties: {
+				glb_url: { type: 'string', format: 'uri', description: 'http(s) URL of the model to refine (e.g. the glbUrl a previous generation returned).' },
+				instruction: {
+					type: 'string',
+					minLength: 1,
+					maxLength: 500,
+					description: 'The change to make, in plain language: "make it metallic", "bigger helmet", "add a cape".',
+				},
+				parent_prompt: {
+					type: 'string',
+					maxLength: 1000,
+					description: 'Optional — the prompt that produced the model being refined, so the change builds on it instead of starting over.',
+				},
+				reference_image_url: {
+					type: 'string',
+					format: 'uri',
+					description: 'Optional http(s) image of the current model to anchor the re-generation (image→3D). Omit for text-guided refinement.',
+				},
+				parent_lineage: {
+					type: 'array',
+					description: 'Optional — the lineage array from a previous refine_model result, to extend the same version history.',
+					items: { type: 'object', additionalProperties: true },
+				},
+				parent_index: {
+					type: 'integer',
+					minimum: 0,
+					description: 'Optional — branch off an earlier version in parent_lineage (its index) instead of the latest.',
+				},
+			},
+		},
+		annotations: GEN_ANNOTATIONS,
+		_meta: widgetMeta('Refining your 3D model…', 'Here is the refined model'),
+		handler: handleRefineModel,
 	},
 ];
 

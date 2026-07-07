@@ -41,7 +41,12 @@ export const TOOL_PRICING = Object.freeze({
 	// autonomous reputation-refresh pipeline exercises it as a real x402 call and
 	// external agents pay the going rate to vet a counterparty.
 	solana_agent_reputation: { amount_usdc: 0.001, description: 'Per call — on-chain agent reputation summary' },
-	// Discovery / lookups (incl. list_animations) — free
+	// Tokenize a 3D asset — a real on-chain Solana mint: durable media promotion
+	// (R2 + IPFS), a headless thumbnail render, metadata upload, and a Metaplex
+	// Core mint whose rent the platform authority pays. Priced to cover rent +
+	// compute. The read-back (get_3d_asset_onchain) is a free public read.
+	mint_3d_asset: { amount_usdc: 0.25, description: 'Per mint — on-chain Solana 3D NFT (media + rent)' },
+	// Discovery / lookups (incl. list_animations, get_3d_asset_onchain) — free
 });
 
 export function priceFor(toolName) {

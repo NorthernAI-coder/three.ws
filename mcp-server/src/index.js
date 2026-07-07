@@ -37,6 +37,7 @@ import { buildMeshForgeTool } from './tools/mesh-forge.js';
 import { buildForgeFreeTool } from './tools/forge-free.js';
 import { buildRigMeshTool } from './tools/rig-mesh.js';
 import { buildForgeAvatarTool } from './tools/forge-avatar.js';
+import { buildRefineModelTool } from './tools/refine-model.js';
 import { buildSentimentPulseTool } from './tools/sentiment-pulse.js';
 import { buildEnsSnsResolveTool } from './tools/ens-sns-resolve.js';
 import { buildAgentDelegateActionTool } from './tools/agent-delegate-action.js';
@@ -65,6 +66,8 @@ const SERVER_INSTRUCTIONS =
 	'auto-rigging a GLB into an animation-ready model (rig_mesh), ' +
 	'one-call text→rigged-avatar generation that chains mesh generation and auto-rigging with a ' +
 	'humanoid gate (forge_avatar), ' +
+	'conversational refinement that iterates on a model by describing a change ("make it metallic", ' +
+	'"bigger helmet") with a revertable/branchable version lineage (refine_model), ' +
 	'ENS + SNS name resolution ' +
 	'(ens_sns_resolve), agent-to-agent delegation (agent_delegate_action), token sentiment pulse ' +
 	'(sentiment_pulse), pose generation (get_pose_seed), Solana token snapshots (pump_snapshot), ' +
@@ -94,6 +97,7 @@ const TOOL_BUILDERS = [
 	buildForgeFreeTool,
 	buildRigMeshTool,
 	buildForgeAvatarTool,
+	buildRefineModelTool,
 	buildEnsSnsResolveTool,
 	buildAgentDelegateActionTool,
 	buildAgentHireDiscoverTool,

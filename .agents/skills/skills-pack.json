@@ -26,7 +26,7 @@
 		},
 		{
 			"name": "generate-3d-model",
-			"description": "Turn a text prompt into a downloadable, textured 3D model (GLB). Use when you or the user want to generate, create, make, or forge a 3D model, asset, object, mesh, or prop from a text description — \"make a 3D model of a robot\", \"generate a GLB of a sword\", \"I need a 3D chair\". Runs on the FREE text→3D lane (no key, no account, no payment). Returns a GLB URL plus a browser viewer link.",
+			"description": "Turn a text prompt into a downloadable, textured 3D model (GLB). Use when you or the user want to generate, create, make, or forge a 3D model, asset, object, mesh, or prop from a text description — \"make a 3D model of a robot\", \"generate a GLB of a sword\", \"I need a 3D chair\". Runs on the FREE text→3D lane (no key, no account, free). Returns a GLB URL plus a browser viewer link.",
 			"whenToUse": "User wants a 3D object/asset/prop from text. For a posable character with a skeleton, use create-3d-avatar. To rig an existing GLB, use rig-a-model.",
 			"category": "3d/creative",
 			"origin": "three.ws",

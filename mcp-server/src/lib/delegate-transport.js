@@ -16,6 +16,21 @@ function talkEndpoint() {
 	return v && v.trim() ? v.trim() : 'https://three.ws/api/agents/talk';
 }
 
+// The talk endpoint requires an authenticated principal — each delegation burns
+// platform LLM credit, so it will not run for an anonymous caller (401). The MCP
+// tool has already collected the x402 payment; it presents a platform service
+// credential (a bearer API key) so the delegation the caller paid for can
+// actually execute. Without a token configured the delegation returns a clean
+// 401 error (which cancels the x402 payment — the caller is never charged for a
+// hire that could not run).
+function talkAuthToken() {
+	for (const k of ['MCP_AGENT_TALK_TOKEN', 'THREE_WS_MCP_TOKEN', 'MCP_SERVICE_TOKEN']) {
+		const v = process.env[k];
+		if (v && v.trim()) return v.trim();
+	}
+	return null;
+}
+
 /**
  * Run a delegated message against a three.ws agent.
  *
@@ -28,13 +43,17 @@ function talkEndpoint() {
  *   On transport failure, ok=false with an error string (never throws).
  */
 export async function runDelegation({ agentId, message, model, timeoutMs = 60_000 }) {
+	const headers = { 'content-type': 'application/json' };
+	const token = talkAuthToken();
+	if (token) headers.authorization = `Bearer ${token}`;
+
 	let res;
 	try {
 		res = await resilientFetch(
 			talkEndpoint(),
 			{
 				method: 'POST',
-				headers: { 'content-type': 'application/json' },
+				headers,
 				body: JSON.stringify({ agentId, message, model }),
 			},
 			{ timeoutMs, retries: 0, label: 'agent-delegate' },

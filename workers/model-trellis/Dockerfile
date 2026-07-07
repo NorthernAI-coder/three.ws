@@ -70,7 +70,12 @@ RUN pip install \
         "httpx>=0.27.0" "google-cloud-storage==2.18.0" "safetensors>=0.4.0"
 
 # ── 6. TRELLIS source (imported via PYTHONPATH, pinned for reproducibility) ───
-RUN git clone https://github.com/microsoft/TRELLIS.git /app/TRELLIS
+# --recurse-submodules is REQUIRED: TRELLIS vendors FlexiCubes (its mesh
+# extractor) as a git submodule at trellis/representations/mesh/flexicubes. A
+# plain clone leaves that dir a bare gitlink, so `from .flexicubes.flexicubes
+# import FlexiCubes` fails at model load with ModuleNotFoundError and the worker
+# crashes on startup before binding the port.
+RUN git clone --recurse-submodules https://github.com/microsoft/TRELLIS.git /app/TRELLIS
 
 WORKDIR /app
 COPY worker_security.py /app/worker_security.py

@@ -1318,6 +1318,17 @@
 			"dest": "/embed.html"
 		},
 		{
+			"src": "/embodiment/embed/?",
+			"headers": {
+				"content-security-policy": "frame-ancestors *; base-uri 'self'; object-src 'none'; report-uri /api/client-errors",
+				"x-content-type-options": "nosniff",
+				"referrer-policy": "strict-origin-when-cross-origin",
+				"permissions-policy": "microphone=(self), camera=(self), autoplay=(self), xr-spatial-tracking=*",
+				"cross-origin-resource-policy": "cross-origin"
+			},
+			"dest": "/embodiment/embed.html"
+		},
+		{
 			"src": "/embed/avatar",
 			"headers": {
 				"content-security-policy": "frame-ancestors *; base-uri 'self'; object-src 'none'; report-uri /api/client-errors",

@@ -265,7 +265,11 @@ async function main() {
 					}
 					active -= 1;
 					if (stats.found >= MAX_FOUND) {
+						// Target reached: abort every in-flight worker NOW so none grinds
+						// its current (possibly hard) target to completion. Each aborts at
+						// its next batch boundary and reports 'aborted', winding active to 0.
 						stopping = true;
+						stopAllWorkers();
 						maybeFinish();
 						return;
 					}

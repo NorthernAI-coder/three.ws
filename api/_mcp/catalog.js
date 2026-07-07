@@ -13,6 +13,7 @@ import { toolDefs as memoryDefs } from './tools/memory.js';
 import { toolDefs as embedDefs } from './tools/embed.js';
 import { toolDefs as oracleDefs } from './tools/oracle.js';
 import { toolDefs as traderDefs } from './tools/trader.js';
+import { toolDefs as tokenizeDefs } from './tools/tokenize.js';
 
 const baseDefs = [
 	...avatarDefs,
@@ -25,6 +26,7 @@ const baseDefs = [
 	...memoryDefs,
 	...oracleDefs,
 	...traderDefs,
+	...tokenizeDefs,
 ];
 
 // Free, public entry point — listed first so discovery clients see it up top.

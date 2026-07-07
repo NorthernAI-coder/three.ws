@@ -14,7 +14,7 @@ Legend: **not-started** | **blocked** | **ready-to-submit** | **submitted** | **
 | **Claude plugin marketplace** | not-started | 10 | Plugin install test not yet run end-to-end; `three-ws-3d` plugin not yet created | — |
 | **Claude Agent Skills pack** | not-started | 11 | 3D-creation skills (`generate-3d-model`, `create-3d-avatar`, `rig-a-model`) not yet added | — |
 | **OpenAI App Directory** | not-started | 04–06 | `/api/mcp-studio` free endpoint not yet built (prompt 04); GLB viewer component not yet built (prompt 05); `[HUMAN: OpenAI developer identity verification required]` | — |
-| **OpenAI GPT Store** | not-started | 12 | OpenAPI 3.1 Actions schema not yet written; `[HUMAN: GPT builder config must be pasted manually; identity verification required]` | — |
+| **OpenAI GPT Store** | ready-to-build | 12 | `/api/3d/studio` free REST Actions lane built + live-verified (real GLB, safety gate, zero crypto/PII); `_generated/openai-actions.yaml` lints clean; `_generated/openai-gpt-config.md` complete; `[HUMAN: paste config into GPT builder, upload icon-512x512.png, verify Builder Profile, submit]` | — |
 | **Official MCP Registry** | ready-to-submit | 13 | `server.json` manifests verified clean; `[HUMAN: Run mcp-publisher commands (staged in prompt 13 output) — do not publish without explicit operator approval]` | https://registry.modelcontextprotocol.io/?q=io.github.nirholas |
 | **Smithery** | not-started | 13 | Listing doc not yet written | — |
 | **Glama** | not-started | 13 | Listing doc not yet written | — |
@@ -40,7 +40,7 @@ Legend: **not-started** | **blocked** | **ready-to-submit** | **submitted** | **
 | 09 | Conversational remixable 3D | ⬜ not started | Iterate-by-chat + royalty wiring |
 | 10 | Claude plugin marketplace | ⬜ not started | 4 installable plugins |
 | 11 | Agent Skills pack | ⬜ not started | Hardened skills + 3D-creation skills |
-| 12 | OpenAI GPT Store Actions | ⬜ not started | `_generated/openai-actions.yaml` + GPT config |
+| 12 | OpenAI GPT Store Actions | ✅ built | `api/3d/studio.js` + `_generated/openai-actions.yaml` (lints clean) + `_generated/openai-gpt-config.md` |
 | 13 | MCP registries & directories | ⬜ not started | `_generated/mcp-directories/` + canonical metadata |
 | 16 | Tokenized 3D NFT | ⬜ not started | `mint_3d_asset` + `get_3d_asset_onchain` tools |
 | 17 | Embodied on-chain identity | ⬜ not started | Persona↔wallet binding + visual chain state |

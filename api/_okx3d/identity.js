@@ -26,6 +26,7 @@ import { createHash } from 'node:crypto';
 import { putObject, getObjectBuffer, publicUrl } from '../_lib/r2.js';
 import { encodeJobToken, decodeJobToken } from '../_lib/forge-job-token.js';
 import { assertSafePublicUrl } from '../_lib/ssrf-guard.js';
+import { llmComplete } from '../_lib/llm.js';
 import { PRESETS } from '../../src/pose-presets.js';
 
 const BASE = 'https://three.ws';
@@ -106,56 +107,30 @@ async function saveState(state) {
 // Prompt shaping
 // ---------------------------------------------------------------------------
 
-// Granite director over the deployed /api/chat SSE endpoint — same fail-soft
-// contract as the avatar lane: any failure returns null and the deterministic
+// LLM prompt director over the in-process free-provider chain (Groq → OpenRouter
+// → NVIDIA NIM via api/_lib/llm.js — the same server keys the platform funds).
+// Runs in-process instead of over the deployed /api/chat SSE endpoint: this
+// module executes inside the Vercel function, and a server-to-server call to
+// /api/chat is anonymous, so it hits the anon rate limiter / provider gate and
+// never actually reaches a model. Fail-soft: any failure (no keys configured,
+// every provider down, empty completion) returns null and the deterministic
 // template below takes over. Never fabricates.
-async function directIdentityPrompt({ base, agentName, brief, styleHints }) {
+async function directIdentityPrompt({ agentName, brief, styleHints }) {
 	const idea =
 		`Agent name: ${agentName}\nBrand brief: ${brief}` +
 		(styleHints ? `\nStyle hints: ${styleHints}` : '');
-	let res;
+	let out;
 	try {
-		res = await fetch(`${base}/api/chat`, {
-			method: 'POST',
-			headers: { 'content-type': 'application/json', accept: 'text/event-stream' },
-			body: JSON.stringify({
-				provider: 'watsonx',
-				message: `${IDENTITY_DIRECTOR_INSTRUCTION}\n\nIdea: ${idea}`,
-			}),
-			signal: AbortSignal.timeout(30_000),
+		out = await llmComplete({
+			system: IDENTITY_DIRECTOR_INSTRUCTION,
+			user: `Idea: ${idea}`,
+			maxTokens: 200,
+			timeoutMs: 30_000,
 		});
 	} catch {
 		return null;
 	}
-	if (!res.ok || !res.body) return null;
-	let acc = '';
-	try {
-		const reader = res.body.getReader();
-		const decoder = new TextDecoder();
-		let buf = '';
-		for (;;) {
-			const { value, done } = await reader.read();
-			if (done) break;
-			buf += decoder.decode(value, { stream: true });
-			const lines = buf.split('\n');
-			buf = lines.pop() ?? '';
-			for (const line of lines) {
-				if (!line.startsWith('data: ')) continue;
-				let evt;
-				try {
-					evt = JSON.parse(line.slice(6));
-				} catch {
-					continue;
-				}
-				if (evt.type === 'chunk' && typeof evt.text === 'string') acc += evt.text;
-				else if (evt.type === 'error') return null;
-				else if (evt.type === 'done' && typeof evt.text === 'string' && !acc) acc = evt.text;
-			}
-		}
-	} catch {
-		return null;
-	}
-	const refined = acc.trim().replace(/^["']|["']$/g, '').split('\n')[0].trim();
+	const refined = (out?.text || '').trim().replace(/^["']|["']$/g, '').split('\n')[0].trim();
 	return refined.length >= 3 && refined.length <= 1000 ? refined : null;
 }
 
@@ -190,8 +165,8 @@ export function fallbackIdentityPrompt({ brief, styleHints }) {
 	);
 }
 
-export async function shapeIdentityPrompt({ base = BASE, agentName, brief, styleHints }) {
-	const directed = await directIdentityPrompt({ base, agentName, brief, styleHints });
+export async function shapeIdentityPrompt({ agentName, brief, styleHints }) {
+	const directed = await directIdentityPrompt({ agentName, brief, styleHints });
 	return {
 		directed,
 		effective: clampPrompt(directed || fallbackIdentityPrompt({ brief, styleHints })),
@@ -450,7 +425,6 @@ export async function createIdentityJob({
 	if (refUrl) await validateReferenceImage(refUrl);
 
 	const prompt = await shapeIdentityPrompt({
-		base,
 		agentName: name,
 		brief: effectiveBrief,
 		styleHints: hints,

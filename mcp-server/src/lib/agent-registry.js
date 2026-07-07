@@ -18,6 +18,16 @@ function baseUrl() {
 /**
  * Fetch candidate agents from the live three.ws public directory.
  *
+ * The directory's full-text `q` is a strict pre-filter — a natural-language task
+ * sentence ("help me run a pump.fun token launch") routinely matches nothing even
+ * when the individual agents are perfectly relevant. So when a `q`-filtered query
+ * comes back empty we broaden: retry without `q` and hand the reputation/
+ * engagement-ranked pool to the client-side relevance scorer (rankCandidates),
+ * which orders it by task-token overlap anyway. Discovery therefore never
+ * dead-ends on phrasing — it degrades to "the best agents we have" rather than an
+ * empty shortlist. When the directory grows, the `q` pre-filter still does the
+ * heavy lifting on the happy path.
+ *
  * @param {object} opts
  * @param {string} [opts.q]      — full-text query (task keywords)
  * @param {string} [opts.skill]  — skill-slug filter
@@ -25,6 +35,16 @@ function baseUrl() {
  * @returns {Promise<object[]>} raw agent rows from /api/agents/public
  */
 export async function fetchCandidates({ q, skill, limit = 24 } = {}) {
+	const rows = await fetchDirectory({ q, skill, limit });
+	// A skill filter is an explicit, honored constraint — never widen past it.
+	// A `q` that filtered everything out is just phrasing noise: broaden it away.
+	if (rows.length === 0 && q) {
+		return fetchDirectory({ skill, limit });
+	}
+	return rows;
+}
+
+async function fetchDirectory({ q, skill, limit = 24 } = {}) {
 	const url = new URL(`${baseUrl()}/api/agents/public`);
 	if (q) url.searchParams.set('q', String(q).slice(0, 100));
 	if (skill) url.searchParams.set('skill', String(skill).toLowerCase());

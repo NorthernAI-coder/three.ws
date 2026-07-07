@@ -335,6 +335,12 @@ const appConfig = {
 				constellation: resolve(__dirname, 'pages/constellation.html'),
 				embed: resolve(__dirname, 'pages/embed.html'),
 				'embed-demo': resolve(__dirname, 'pages/embed-demo.html'),
+				// Embodiment embed: a living, rigged agent body (lip-sync + emotion
+				// + idle) that renders inline in ChatGPT/Claude. Registered as an
+				// input so its inline module graph — /apps-sdk/embodiment/* → three
+				// → src/animation-* + src/embodiment/* — gets bundled to /assets/*
+				// chunks instead of shipping unresolved bare imports.
+				'embodiment-embed': resolve(__dirname, 'pages/embodiment/embed.html'),
 				integrations: resolve(__dirname, 'pages/integrations.html'),
 				partners: resolve(__dirname, 'pages/partners.html'),
 				sperax: resolve(__dirname, 'pages/sperax.html'),
@@ -1000,6 +1006,8 @@ support: resolve(__dirname, 'pages/support.html'),
 					'/stage/': resolve(root, 'pages/stage.html'),
 					'/dad': resolve(root, 'pages/dad.html'),
 					'/dad/': resolve(root, 'pages/dad.html'),
+					'/embodiment/embed': resolve(root, 'pages/embodiment/embed.html'),
+					'/embodiment/embed/': resolve(root, 'pages/embodiment/embed.html'),
 					'/agenc/embodied': resolve(root, 'pages/agenc/embodied.html'),
 					'/agenc/embodied/': resolve(root, 'pages/agenc/embodied.html'),
 					'/agenc/room': resolve(root, 'pages/agenc/room.html'),
