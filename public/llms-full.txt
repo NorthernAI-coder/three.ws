@@ -1246,6 +1246,12 @@ URL: https://three.ws/docs/pump-launcher
 
 Deploy a brand-new pump.fun token in one paid call — no SOL, no wallet, no account. Inputs, outputs, pricing, correctness guarantees, and the free symbol-check → launch → launch-feed funnel.
 
+### Docs · x402 Developer Tools
+
+URL: https://three.ws/docs/x402-dev-tools
+
+A free test bench for x402 developers — echo your payment envelope, debug a failed 402 exchange, and verify a receipt's attestation and settlement against a live server, all without spending anything.
+
 ### Docs · x402 Buyer Client
 
 URL: https://three.ws/docs/x402-buyer

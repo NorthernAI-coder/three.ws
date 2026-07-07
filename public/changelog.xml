@@ -47,6 +47,14 @@
 			<description>Cross-chain Agent Reputation — score any wallet, mint, or agent id (Solana or EVM) 0–100 from real on-chain evidence before your agent pays, trades, or delegates.</description>
 		</item>
 		<item>
+			<title>Docs · x402 Developer Tools</title>
+			<link>https://three.ws/docs/x402-dev-tools</link>
+			<guid isPermaLink="false">2026-07-07:Docs · x402 Developer Tools</guid>
+			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>A free test bench for x402 developers — echo your payment envelope, debug a failed 402 exchange, and verify a receipt's attestation and settlement against a live server, all without spending anything.</description>
+		</item>
+		<item>
 			<title>3D model inspection is now free</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-07-07:3D model inspection is now free</guid>
@@ -189,6 +197,14 @@
 			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>A new free, keyless endpoint tells an AI agent whether big money is moving before it trades. Call /api/crypto/whales with a token mint to see the large buys of that coin, or without one to see the top whale wallets active across pump.fun right now. Each response carries a plain bullish/bearish/neutral signal derived from net whale flow — the SOL whales bought minus the SOL they sold — with no black-box scoring. No account, no key, no payment.</description>
+		</item>
+		<item>
+			<title>Free x402 developer toolkit — echo, debug, and verify a receipt against a live server</title>
+			<link>https://three.ws/docs/x402-dev-tools</link>
+			<guid isPermaLink="false">2026-07-07:Free x402 developer toolkit — echo, debug, and verify a receipt against a live server</guid>
+			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Building an x402 integration against three.ws just got easier. Three new free, keyless tools: echo shows you exactly what the server sees when you send a payment — the decoded envelope with every signature redacted, plus a local valid/invalid verdict without charging you. debug turns a failed 402 exchange into an ordered fix list keyed to the real reasons a payment gets rejected (wrong version, shorthand network, decimal amounts, underpayment). verify-receipt recomputes a paid response's SHA-256 attestation to prove it wasn't altered, and confirms a settlement transaction on-chain. A new docs page ties all six developer tools together.</description>
 		</item>
 		<item>
 			<title>Give your assistant a living 3D body that lip-syncs and emotes in the chat</title>

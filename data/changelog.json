@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-07-07",
+			"title": "Free x402 developer toolkit — echo, debug, and verify a receipt against a live server",
+			"summary": "Building an x402 integration against three.ws just got easier. Three new free, keyless tools: echo shows you exactly what the server sees when you send a payment — the decoded envelope with every signature redacted, plus a local valid/invalid verdict without charging you. debug turns a failed 402 exchange into an ordered fix list keyed to the real reasons a payment gets rejected (wrong version, shorthand network, decimal amounts, underpayment). verify-receipt recomputes a paid response's SHA-256 attestation to prove it wasn't altered, and confirms a settlement transaction on-chain. A new docs page ties all six developer tools together.",
+			"tags": [
+				"feature",
+				"docs"
+			],
+			"link": "/docs/x402-dev-tools"
+		},
+		{
+			"date": "2026-07-07",
 			"title": "Give your assistant a living 3D body that lip-syncs and emotes in the chat",
 			"summary": "Turn any generated avatar into a persistent, named agent body that renders right inside ChatGPT or Claude. It lip-syncs each reply, shows the matching expression and gesture, idles between turns, and comes back as the same body when you return to it — no account needed. Three new free 3D Studio tools drive it: save an avatar as a persona, make it speak a reply, and reload it by id in a later session. A rig with no facial morphs still animates its mouth from the jaw, and a non-humanoid model falls back to a gentle idle instead of a broken pose.",
 			"tags": [

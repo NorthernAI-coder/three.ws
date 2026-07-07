@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-07T12:18:42.059Z",
+	"generated_at": "2026-07-07T13:43:23.839Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -2031,6 +2031,16 @@
 					"path": "/docs/pump-launcher",
 					"title": "Docs · Pump Launcher",
 					"description": "Deploy a brand-new pump.fun token in one paid call — no SOL, no wallet, no account. Inputs, outputs, pricing, correctness guarantees, and the free symbol-check → launch → launch-feed funnel.",
+					"added": "2026-07-07",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/docs/x402-dev-tools",
+					"title": "Docs · x402 Developer Tools",
+					"description": "A free test bench for x402 developers — echo your payment envelope, debug a failed 402 exchange, and verify a receipt's attestation and settlement against a live server, all without spending anything.",
 					"added": "2026-07-07",
 					"auth": null,
 					"indexable": true,
