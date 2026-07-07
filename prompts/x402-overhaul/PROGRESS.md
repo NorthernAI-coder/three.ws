@@ -1414,3 +1414,93 @@ build-x402-catalog.mjs` and `npx vitest` could not run in-tree. Worked around by
 - Consolidation of the three vanity routes (if ever wanted) is a prompt 21/22 call, as
   this prompt noted — descriptions now make each one's distinct purpose explicit, so no
   urgency.
+
+## 2026-07-07 — Prompt 01: Free Crypto Data API — Token Snapshot
+
+**Shipped.**
+
+- **`GET /api/crypto/token`** (`api/crypto/token.js`) — free, keyless token
+  market snapshot by contract address. Params: `address` (Solana base58 mint or
+  EVM 0x, required), `chain` (optional DexScreener chainId pin — `solana`,
+  `ethereum`, `base`, `bsc`, …; aliases `sol`/`eth`; inferred from address shape
+  when omitted). Output (stable schema, every key always present, unresolved =
+  null): `{ address, chain, name, symbol, priceUsd, change24h, marketCapUsd,
+  liquidityUsd, volume24hUsd, fdvUsd, pairCreatedAt, dexId, url, ts, sources[],
+  note? }`. Rate-limited via the bundle's `cryptoDataIp` + `cryptoDataGlobal`
+  buckets.
+- **`api/_lib/crypto-token-snapshot.js`** — composition engine, wraps existing
+  readers rather than reimplementing: `fetchTokenMarket` (token-market.js /
+  DexScreener, deepest pool, any chain), `fetchPumpCoin` + `mapBondingStatus`
+  (pump-bonding.js — keyless identity + mcap fallback for fresh Solana launches
+  with no DEX pair), `getMetadataForMints` (token-metadata.js / Helius DAS —
+  name/symbol enrichment only when a key exists; the bare `mint.slice(0,6)`
+  placeholder is detected via `isBareMeta` and never surfaced as a real symbol).
+  Deps-injectable (`composeTokenSnapshot(input, {fetchMarket, fetchPump,
+  fetchMeta})`) so every state is unit-tested without network.
+- **`api/_lib/token-market.js`** — two additive extensions to the shared reader:
+  `fdv_usd` in the return shape and an `opts.chain` pair filter (pins multi-chain
+  EVM deployments to one chain). Existing consumers unchanged; their suites pass.
+- **States:** missing/invalid address and contradictory chain → fast 400 with
+  example; valid address no source knows → `400 token_not_found` (matches the
+  bundle's /bonding convention) with a pointer to /api/crypto/trending; DEX down
+  but pump.fun up → 200 partial + `note`; every source down → `503` +
+  `Retry-After: 15` (never a false not-found — an outage is only reported as
+  upstream_down, not as "token doesn't exist"); rate-limited → 429. Never 500.
+- **Catalog:** `api/_lib/crypto-catalog/token.js` (inputSchema/outputSchema
+  shape) — already globbed by the prompt-10 index, so /api/crypto and
+  /api/crypto/openapi.json list it on deploy with no other change.
+- **Docs:** `docs/crypto-api.md` — canonical-table row + full endpoint section
+  (named use-case: trading/research agent deciding buy / alert / ignore from a
+  contract address; params, stable-schema note, source order, states, curls).
+  `data/changelog.json` entry (tags: feature, sdk), validated by
+  `npm run build:pages`; inserted preserving the file's tab formatting (a naive
+  json.dump rewrite reformats all 11k lines — reverted and re-inserted surgically).
+- **Tests:** `tests/crypto-token-snapshot.test.js` — 15 tests: stable-schema key
+  set, market mapping incl. thin-data nulls, pump-coin merge precedence
+  (DexScreener wins), bare-metadata rejection, chain inference (Solana never
+  consults EVM paths and vice versa), chain-filter passthrough, and every
+  degradation state (dex down + pump ok → partial+note; keyless meta stays null
+  while pump resolves; all-answered-none-know → not_found; all-down →
+  upstream_down). Synthetic mints only ($THREE + `THREEsynthetic…` + `0x1111…`).
+
+**Verification (all real, this session):**
+- `npx vitest run tests/crypto-token-snapshot.test.js` → **15/15 passed**.
+- Regression on the shared reader: `tests/api/token-market.test.js` +
+  `tests/token-layer.test.js` → **58/58**; `tests/crypto-catalog.test.js` (with my
+  descriptor in the globbed dir) → green. Full `npm test`: 11290 passed, 5 failed —
+  all 5 pre-existing/concurrent-agent failures in unrelated surfaces
+  (x402 ring-catalog parity, `api/_lib/market/token-market.js` single-flight — a
+  DIFFERENT module from the `api/_lib/token-market.js` this prompt touched,
+  x402 pipeline, payment modal DOM); none touch this prompt's files.
+- Live handler drive (real req/res, real upstreams): 400 missing/invalid/
+  mismatch/not-found all correct; live `$THREE` → HTTP 200:
+
+```json
+{
+  "address": "FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump",
+  "chain": "solana",
+  "name": "three.ws",
+  "symbol": "three",
+  "priceUsd": 0.00167,
+  "change24h": 20.16,
+  "marketCapUsd": 1669933,
+  "liquidityUsd": 207743.76,
+  "volume24hUsd": 414088.54,
+  "fdvUsd": 1669933,
+  "pairCreatedAt": "2026-04-29T07:09:01.000Z",
+  "dexId": "pumpswap",
+  "url": "https://dexscreener.com/solana/5byl7…",
+  "ts": "2026-07-07T02:30:21.191Z",
+  "sources": ["dexscreener"]
+}
+```
+
+**Adjacent gaps noticed (for other prompts):**
+- Prompts 02 (token security) and 03 (holders) are the last crypto-bundle
+  endpoints without catalog descriptors; 04 (pumpfun launches) is referenced by
+  the /bonding docs (`/api/crypto/launches`) but not yet in `api/crypto/`.
+- `buildTokenRisk` in the SAME `token-market.js` this prompt wrapped is a
+  ready-made scoring core for prompt 02 — wrap it, don't reinvent.
+- There are TWO token-market modules (`api/_lib/token-market.js` and
+  `api/_lib/market/token-market.js`, different contracts). Worth a rename or a
+  doc-block cross-reference — easy to grab the wrong one.
