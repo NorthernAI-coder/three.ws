@@ -29,6 +29,27 @@ vi.mock('../../api/_lib/rate-limit.js', () => ({
 	clientIp: () => '203.0.113.7',
 }));
 
+// Boundary stubs for the infra leaves the gateway/http import but the public
+// text→3D path never exercises (no DB, no auth session, no Sentry, no ops
+// alerts, no usage metering). Stubbing them keeps the suite hermetic — it
+// exercises the REAL gateway control flow and REAL response envelope without
+// depending on those packages being installed.
+vi.mock('../../api/_lib/db.js', () => ({
+	isDbUnavailableError: () => false,
+	isDbCapacityError: () => false,
+	isStoragePressured: () => false,
+}));
+vi.mock('../../api/_lib/sentry.js', () => ({ captureException: () => {} }));
+vi.mock('../../api/_lib/alerts.js', () => ({ sendOpsAlert: () => {} }));
+vi.mock('../../api/_lib/zauth.js', () => ({ instrument: () => null, drain: async () => {} }));
+vi.mock('../../api/_lib/usage.js', () => ({ recordEvent: () => {} }));
+vi.mock('../../api/_lib/auth.js', () => ({
+	authenticateBearer: async () => null,
+	extractBearer: () => null,
+	getSessionUser: async () => null,
+	hasScope: () => true,
+}));
+
 const ORIGINAL_FETCH = globalThis.fetch;
 const ENV_KEYS = ['NVIDIA_API_KEY', 'STUDIO_API_BASE', 'PUBLIC_APP_ORIGIN', 'APP_ORIGIN'];
 const saved = {};
@@ -115,7 +136,7 @@ const QUEUED_FIXTURE = {
 
 describe('shapeResult — lane boundary contract', () => {
 	it('maps the inline-done shape to a done payload with a viewer URL', async () => {
-		const { shapeResult } = await import('../../api/v1/ai/text-to-3d.js');
+		const { shapeResult } = await import('../../api/v1/ai/_text-to-3d-lane.js');
 		const out = shapeResult(DONE_FIXTURE, 'https://three.ws');
 		expect(out).toEqual({
 			status: 'done',
@@ -128,7 +149,7 @@ describe('shapeResult — lane boundary contract', () => {
 	});
 
 	it('maps the queued shape to a pending payload with the free poll URL', async () => {
-		const { shapeResult } = await import('../../api/v1/ai/text-to-3d.js');
+		const { shapeResult } = await import('../../api/v1/ai/_text-to-3d-lane.js');
 		const out = shapeResult(QUEUED_FIXTURE, 'https://three.ws');
 		expect(out).toEqual({
 			status: 'pending',
@@ -158,11 +179,17 @@ describe('POST /api/v1/ai/text-to-3d — validation', () => {
 });
 
 describe('POST /api/v1/ai/text-to-3d — configuration', () => {
-	it('returns 503 not_configured naming NVIDIA_API_KEY when the lane is unconfigured', async () => {
+	it('returns 503 not_configured (var named to the operator, not the client) when the lane is unconfigured', async () => {
+		// The platform never leaks which secret is unset to the client; the var is
+		// named to the operator via the log line. Spy on it to prove that.
+		const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 		const { res, body } = await dispatch(makeReq({ body: { prompt: 'a small ceramic robot figurine' } }), makeRes());
 		expect(res.statusCode).toBe(503);
 		expect(body.error).toBe('not_configured');
-		expect(body.error_description).toMatch(/NVIDIA_API_KEY/);
+		// Client body stays generic (no secret name leaked).
+		expect(body.error_description).not.toMatch(/NVIDIA_API_KEY/);
+		// Operator-facing log names the exact missing var.
+		expect(errSpy.mock.calls.flat().join(' ')).toMatch(/NVIDIA_API_KEY/);
 	});
 });
 

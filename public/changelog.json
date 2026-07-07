@@ -1,11 +1,279 @@
 {
-	"generated_at": "2026-07-06T21:07:37.686Z",
+	"generated_at": "2026-07-07T01:01:47.631Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-07-07",
+			"type": "launch",
+			"title": "3D API",
+			"summary": "Free, keyless 3D API for AI agents: turn a text prompt into a real GLB model and validate/optimize any glTF/GLB, all from one URL with a live OpenAPI 3.1 spec. Free draft generation and inspection graduate to paid Forge Pro quality tiers and animation-ready Rigged Avatars. No key, no account.",
+			"link": "/3d",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "launch",
+			"title": "Crypto Data API",
+			"summary": "Free, keyless crypto data for AI agents in one API: token snapshots, security/rug signals, holder concentration, live pump.fun launches, bonding-curve status, whale activity, trending tokens, wallet portfolios and ticker-availability checks. No key, no account, no paywall.",
+			"link": "/crypto",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "launch",
+			"title": "Docs · Crypto Data API",
+			"summary": "Developer reference for the free, keyless Crypto Data API bundle: the one-call discovery endpoint (GET /api/crypto), the generated OpenAPI 3.1 spec, and every endpoint's inputs, outputs, states, and curl examples — token snapshots, bonding status, whales, trending, wallet portfolios, and symbol availability.",
+			"link": "/docs/crypto-api",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "launch",
+			"title": "Docs · Pump Launcher",
+			"summary": "Deploy a brand-new pump.fun token in one paid call — no SOL, no wallet, no account. Inputs, outputs, pricing, correctness guarantees, and the free symbol-check → launch → launch-feed funnel.",
+			"link": "/docs/pump-launcher",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "launch",
+			"title": "Docs · Trust Primitives",
+			"summary": "Cross-chain Agent Reputation — score any wallet, mint, or agent id (Solana or EVM) 0–100 from real on-chain evidence before your agent pays, trades, or delegates.",
+			"link": "/docs/trust-primitives",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "3D model inspection is now free",
+			"summary": "Validating and optimizing a glTF/GLB no longer costs anything. The new free, keyless /api/3d/inspect takes a model URL (or a raw upload) and returns whether it's spec-valid, its full structural stats — vertices, triangles, materials, textures, animations, extensions — and a severity-ranked list of exactly what to fix to make it smaller and faster for the web. It runs the official Khronos glTF-Validator plus the same inspection core the platform's paid pipelines use. This capability used to be a paid x402 endpoint (model-check); a validation utility should be free — it builds trust and points agents at the paid Forge Pro, Rigged Avatar, and optimization tiers when they need the heavy lifting done for them.",
+			"link": null,
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "Agent reputation now scores any wallet or agent on any chain",
+			"summary": "The paid Agent Reputation endpoint no longer only works on three.ws agents — pass ANY counterparty and get a deterministic 0–100 trust score before you pay, trade, or delegate to it. It auto-detects the type — a Solana wallet, an EVM 0x address, a pump.fun mint, an ERC-8004 agent id, or a three.ws agent_id — and scores it from real on-chain evidence: transaction history, account age, distinct counterparties, holdings, settlement reliability, prior settled agent payments, and ERC-8004 feedback. Every score comes with the underlying evidence links and a clear list of what couldn't be read; an unknown or unscannable subject returns score:null, never a fabricated number. A new batch mode scores up to 25 counterparties in one call. It's a genuine pre-transaction trust primitive that works across chains, not just on our own platform.",
+			"link": "/docs/trust-primitives",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "Forge listing sharpened: clear 3D generation tiers for agents",
+			"summary": "Forge — our text→3D and image→3D generation — now reads like the crown jewel it is on the x402 agent marketplaces. The listing leads with what agents actually build (game assets, NFT collections, 3D scenes, product viz), spells out the three quality tiers and their flat USDC prices (draft $0.05 / standard $0.15 / high $0.50), and points newcomers to the free keyless draft lane as an on-ramp. The input and output schemas are now complete enough for an agent to call it blind — the prompt, the reference-image mode, the free job-token poll, and the finished GLB — and it's tagged so it surfaces under 3D, AI, and Utility. Under the hood the discovery listing and the live payment challenge now share one source of truth, so what an agent sees can never drift from what it pays for.",
+			"link": "/docs/3d-api",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "Free bonding-curve status API for pump.fun tokens",
+			"summary": "A new free, keyless endpoint tells an agent exactly where a pump.fun token sits on its bonding curve: how far along it is toward graduation (%), how much SOL is in the curve, how many tokens are left to buy, and whether it has already graduated and migrated to Raydium or PumpSwap. Timing entries and exits around graduation is a core meme-trading move, and this is the one call that answers it — no account, no key, just GET /api/crypto/bonding?mint=<mint>. It pairs with the live launches feed to watch fresh mints climb their curve. Part of the free three.ws Crypto Data API; full reference with runnable curls at /docs/crypto-api.",
+			"link": "/docs/crypto-api",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "Free text→3D generation API for agents",
+			"summary": "Any AI agent can now turn a text prompt into a real 3D model with one call to /api/3d/generate — free, keyless, no account, no wallet. Describe a single object and get back a textured GLB (inline when it finishes fast, otherwise a job token you poll at /api/3d/generate?job=<id>). It runs on the free draft lane (NVIDIA NIM TRELLIS): draft-fidelity geometry, GLB only, no rigging — honest about being a prototyping tier, with a generous per-IP rate limit protecting the shared GPU. Need denser meshes with PBR textures, or an animation-ready rigged character? The response and docs point straight at paid Forge Pro and Rigged Avatars. No other agent-payments platform gives away 3D generation.",
+			"link": null,
+			"tags": [
+				"feature",
+				"sdk"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "Free text→3D now has a first-class API endpoint",
+			"summary": "The free text-to-3D lane — the only text-to-mesh service in the agent-payments ecosystem — finally has a clean, versioned endpoint instead of being buried under forge job plumbing. POST a prompt to /api/v1/ai/text-to-3d and get back a textured GLB and a viewer link: no key, no wallet, nothing to sign. It runs on the free NVIDIA NIM TRELLIS lane with a per-IP quota of 10 generations a day; past that it returns a clear rate-limit notice pointing at the paid forge tiers for higher volume and quality, never a silent paywall. The GLB either comes back inline or as a job you poll to completion.",
+			"link": "/docs/api-reference",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "Free token security check answers \"is this a rug?\" in one call",
+			"summary": "New free, keyless endpoint: GET /api/v1/token/security turns any Solana mint into an on-chain security report — the first question every trading agent asks before touching a token. It reports whether the mint and freeze authorities are still active (supply can be inflated / accounts frozen), how concentrated the top holders are, how deep the liquidity is, and how old the trading pair is, composing Solana RPC and DexScreener into one answer. There's no invented 'risk score' — just factual flags like mint_authority_active, top1_holder_over_20pct, liquidity_under_10k, and pair_younger_than_24h that agents weigh themselves. Every field is always present (null when a source can't resolve it, never faked), each section degrades independently, and an EVM address gets an honest 'Solana only' 400. Capped at 20 calls/min per IP.",
+			"link": "/docs/api-reference",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "Free trending-tokens API for crypto agents",
+			"summary": "New free, keyless endpoint GET /api/crypto/trending gives any AI agent a ranked \"what's hot right now\" list in one call — no account, no key. Tokens are ranked by momentum (a 0–100 score blending windowed trade volume, buy pressure, a volume-spike signal, and short-window price change), fused live across pump.fun, DexScreener's boosted board, and GMGN smart money. Pick a window (5m, 1h, or 24h) and a source (pump.fun only or all), and get back each token's mint, symbol, market cap, volume, price change, score, and link. If an upstream is down it returns whatever ranked data it has with a note instead of failing.",
+			"link": "/docs/crypto-api",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "Free wallet portfolio API for agents",
+			"summary": "New free, keyless endpoint: GET /api/crypto/wallet returns any wallet's native balance, every token it holds, and a rough USD valuation in one call — no account, no API key. It's built for agents that need to size up a wallet before they act: a treasury agent checking its own runway, a copy-trade agent reading a leader's holdings, or a pre-trade check on a counterparty. Solana works with no key at all (it falls back to the public RPC plus Jupiter and pump.fun pricing); tokens that can't be priced are still listed with their balance, never dropped or faked.",
+			"link": null,
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "Free whale-activity API for crypto agents",
+			"summary": "A new free, keyless endpoint tells an AI agent whether big money is moving before it trades. Call /api/crypto/whales with a token mint to see the large buys of that coin, or without one to see the top whale wallets active across pump.fun right now. Each response carries a plain bullish/bearish/neutral signal derived from net whale flow — the SOL whales bought minus the SOL they sold — with no black-box scoring. No account, no key, no payment.",
+			"link": null,
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "New: three.ws Crypto Data API docs",
+			"summary": "One page now documents the whole free, keyless Crypto Data API for AI agents — live at /crypto. It lays out all nine reads an agent needs mid-trade (token snapshot, security/rug signals, holders & concentration, live pump.fun launches, bonding-curve status, whale activity, symbol availability, wallet portfolio, trending) with a copy-paste quickstart in curl, JavaScript and Python, a real request/response example for each, and a live 'Try it' console right in the browser. Every endpoint is free with no key and no account. The page probes production in real time and marks each endpoint Live or Coming soon, so it stays honest as the API rolls out — and points you to the paid uniques (Pump Launcher, Vanity, Forge) when your agent is ready to act on the data.",
+			"link": "/crypto",
+			"tags": [
+				"feature",
+				"docs"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "On-chain identity verification now works cross-platform for any claim",
+			"summary": "The Identity Verifier is no longer three.ws-only. Give it any claim that an identity controls an address — an ENS name (vitalik.eth), an SNS name (bonfida.sol), an EVM or Solana wallet, an ERC-8004 agent id, or a three.ws agent_id — and it returns real on-chain evidence the link is genuine: ENS/SNS resolution, a contract's deploy transaction and deployer, a token's mint and metadata authorities, an ERC-8004 registry entry, or the three.ws deploy record. Every verdict is true, false, or unverifiable — and it never reports true without concrete on-chain proof, so an insufficient read is honestly labeled instead of guessed. An agent can now verify whoever it's about to pay, trade, or delegate to, whatever platform they came from. Pair it with cross-chain Agent Reputation: verify who they are, then score whether to trust them. Full evidence model at /docs/trust-primitives.",
+			"link": "/docs/trust-primitives",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "One x402 call runs the whole 3D asset pipeline",
+			"summary": "New endpoint POST /api/x402/pipeline runs a full chain of 3D stages — generate → rig → remesh → gameready → stylize — as a single paid job with one price. Describe what you want (a text prompt or an existing GLB) and get back a rigged, game-ready GLB: text or GLB in, finished asset out. You pick the stages as an ordered chain, the 402 challenge quotes the exact sum of just those stages, and you poll the job for free at /api/forge?job=<id> while it advances, watching each stage's progress. Only stages whose lane is live on the deployment are offered, and if a stage fails mid-chain the job is marked failed at that stage with every completed stage's output still delivered — honest partial value, never a silent dead-end. It's the only end-to-end asset pipeline in the x402 ecosystem.",
+			"link": "/docs/3d-pipeline",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "Pump Launcher listing sharpened + wired to the free symbol & launches APIs",
+			"summary": "The paid Pump Launcher (/api/x402/pump-launch) now sells what it actually does: deploy a brand-new pump.fun token in one call with no SOL, no wallet, and no account — you pay $5 in USDC and the platform fronts the deploy cost, optionally grinds a vanity mint, and signs the create transaction. The discovery listing and its schema were rewritten so an agent can call it blind — every input (name, symbol, a pre-pinned metadataUri or an imageUrl we pin for you, creator-rewards wallet, optional vanity prefix/suffix) and every output (mint, tx signature, metadata URI, pump.fun URL) is now spelled out. It's also wired into the free Crypto Data API: check your ticker is free first with /api/crypto/symbol, then confirm your deploy landed on the live /api/crypto/launches feed. A new docs page walks the whole flow.",
+			"link": "/docs/pump-launcher",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "Speech for agents: keyless text-to-speech and speech-to-text over x402",
+			"summary": "Two new AI endpoints give agents a voice and an ear with no account and no API key. POST /api/v1/ai/tts turns text into natural multilingual speech (nine languages on the NVIDIA Magpie lane); POST /api/v1/ai/asr transcribes audio to text with confidence and duration — the only speech-to-text lane anywhere in the x402 ecosystem. Both are free to try — 10 TTS calls and 5 ASR clips per day per IP — and past that quota each call is a tiny USDC micropayment settled on Solana or Base ($0.005 per TTS call, $0.01 per ASR clip). The response looks the same whether it was free or paid, so an agent writes one integration for both. Full reference with runnable curls lives at /docs/api-reference.",
+			"link": "/docs/api-reference",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "Symbol-availability check is now free",
+			"summary": "Checking whether a token ticker is already taken is now free and keyless at /api/crypto/symbol — no account, no payment. Send up to 20 candidate tickers in one call and get back, for each, whether it's available plus any exact collisions and fuzzy look-alikes (e.g. MOONZ vs MOONS) already live across the market, so your name won't get lost among clones. It's the natural first step before minting: clear the name here for free, then launch through the Pump Launcher. Previously this was a paid endpoint; it's now a free discovery utility with exact + fuzzy matching across live registries, and it degrades gracefully (never a false 'available') if a data source is down.",
+			"link": "/docs/crypto-api",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "Text→image API for agents — 5 free a day, then pay per image",
+			"summary": "Agents can now turn a text prompt into a real image with one call to /api/v1/ai/image — no API key, no account. The first 5 images a day per IP are free; after that each image is a single $0.02 USDC micropayment over x402, settled on Solana or Base, with nothing to sign up for. It runs on the same subsidized lanes as the 3D forge (NVIDIA NIM FLUX and the Google Vertex/Gemini image lane) and returns a durable URL to the rendered image. Pick an aspect ratio, pass an optional seed for reproducible results, and check lane health at /api/v1/ai/image?health=1. A quota slot is only spent when an image actually ships — a bad prompt or a provider content refusal never costs you a free generation.",
+			"link": "/docs/api-reference",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "The 3D asset pipeline is now purchasable stage-by-stage",
+			"summary": "Every working stage of the platform's 3D pipeline is now its own pay-per-call x402 endpoint, so an agent can buy exactly the step it needs and get a finished asset URL back in one call — no account, no API key. Rig a static model into an animation-ready one ($0.05), remesh or retopologize to a clean topology ($0.03), make a mesh game-ready to a poly budget ($0.03), geometrically restyle it — voxel, brick, voronoi, low-poly ($0.03), or strip an image's background to a transparent PNG for image→3D ($0.01). Each call validates your input, runs the real worker, checks the output is a valid asset, and hands back a durable first-party URL — and if anything fails, you're never charged. Nobody else in the x402 ecosystem sells a 3D asset pipeline.",
+			"link": "/docs/3d-pipeline",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "three.ws 3D API: free text→3D + inspection for AI agents, with pro tiers",
+			"summary": "One URL now discovers the whole free, keyless 3D API for agents. GET /api/3d returns every free endpoint — turn a text prompt into a real GLB (/api/3d/generate) and validate/optimize any glTF/GLB (/api/3d/inspect) — with a live example each, plus the paid ladder it graduates to. GET /api/3d/openapi.json is a real OpenAPI 3.1 spec generated straight from the catalog, so LangChain, openapi-generator, and Swagger UI get typed tools with no key and no account. A new docs page at /3d shows a hero, a live endpoint table, a runnable quickstart with a \"run it live\" inspection console, an embedded 3D viewer of a real model, and a clear free→paid path: free draft + inspect → Forge Pro quality tiers → animation-ready Rigged Avatars. No other agent-payments platform gives away 3D generation and inspection.",
+			"link": "/3d",
+			"tags": [
+				"feature",
+				"docs"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "three.ws Crypto Data API: one free, keyless crypto data bundle for AI agents",
+			"summary": "The free crypto endpoints are now one product with a single front door. GET /api/crypto lists the whole bundle — bonding-curve status, whale activity, trending tokens, wallet portfolios, and symbol availability — each with its inputs, outputs, and a live example, so an agent discovers everything in one call (ask for HTML and it renders a browsable page instead of JSON). GET /api/crypto/openapi.json is a real OpenAPI 3.1 spec generated straight from that catalog, so LangChain, openapi-generator, and Swagger UI produce typed clients and callable tools with no key and no account. New endpoints join the index and the spec automatically the moment they ship, and a zero-endpoint state is a valid \"coming soon\", never an error. Full reference lives at /docs/crypto-api.",
+			"link": "/docs/crypto-api",
+			"tags": [
+				"feature",
+				"sdk"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "Vanity address grinder listing overhauled",
+			"summary": "Our Solana vanity grinder — grind a brand-new address that starts with your ticker for a branded token mint or agent/treasury wallet — now reads like the flagship it is on the x402 agent marketplaces. The listing leads with what agents actually use it for, spells out both output formats (a raw keypair or an importable BIP-39 seed phrase), the character caps and the full price ladder ($0.01–$0.25 for a keypair, $0.05–$0.50 for a mnemonic), and the security model: nothing is ever stored, the secret is served once over TLS and stripped from the replay cache, and an optional sealed-delivery key means the plaintext never appears in the response or any log. The discovery schema is now complete enough for an agent to grind an address blind, and the premium pre-ground inventory tier is now indexable too — so all three vanity tiers surface on the marketplaces and can never drift from what the live payment charges. New reference doc at /docs/vanity.",
+			"link": "/docs/vanity",
+			"tags": [
+				"improvement"
+			]
+		},
 		{
 			"date": "2026-07-06",
 			"type": "launch",
