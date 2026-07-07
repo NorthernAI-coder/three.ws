@@ -44,6 +44,7 @@ is documented in its section below and machine-readable in the OpenAPI doc.
 | Endpoint | Verb(s) | What it answers |
 |----------|---------|-----------------|
 | [`/api/crypto/bonding`](https://three.ws/api/crypto/bonding) | `GET` | Where a pump.fun token sits on its bonding curve — % to graduation, SOL in the curve, and whether it has migrated to an AMM. |
+| [`/api/crypto/holders`](https://three.ws/api/crypto/holders) | `GET` | Holder distribution for a Solana token — top wallets with % of supply, cumulative top-10 share, and a documented concentration verdict. |
 | [`/api/crypto/launches`](https://three.ws/api/crypto/launches) | `GET` | The freshest pump.fun launches, newest first — age, market cap, bonding-curve progress, dev wallet — with `minMarketCap` / `maxAgeMin` filters built for polling agents. |
 | [`/api/crypto/security`](https://three.ws/api/crypto/security) | `GET` | Pre-trade rug check for a Solana token — authority, concentration, liquidity, mutability, and LP-custody facts composed into a deterministic riskLevel. |
 | [`/api/crypto/symbol`](https://three.ws/api/crypto/symbol) | `GET` · `POST` | Whether up to 20 candidate tickers are taken — exact and fuzzy (look-alike) collisions across live registries. |
@@ -731,4 +732,93 @@ curl -s "https://three.ws/api/crypto/security?address=FeMbDoX7R1Psc4GEcvJdsbNbZA
 
 # Just the verdict and why
 curl -s "https://three.ws/api/crypto/security?address=FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump" | jq '{riskLevel, reasons}'
+```
+
+---
+
+## `GET /api/crypto/holders` — Holders & concentration
+
+**Use-case.** An *agent sizing a position* needs holder distribution before it
+commits: how many holders exist, what share the top wallets control, whether the
+dev or insiders still dominate. High concentration = exit risk — the top wallets
+can drain the pool before the agent can react. One free call answers it with
+real on-chain data.
+
+### Request
+
+| Param     | Type    | Default  | Notes |
+|-----------|---------|----------|-------|
+| `address` | string  | required | Solana token mint (base58). |
+| `chain`   | enum    | `solana` | Only `solana` (alias `sol`) is accepted. |
+| `limit`   | integer | `10`     | Top holders to return, `1`–`50` (capped, not an error). |
+
+### Response
+
+```json
+{
+  "address": "FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump",
+  "chain": "solana",
+  "holderCount": 3241,
+  "top": [
+    { "owner": "THREEsynthetic1111111111111111111111111111A", "amount": 59968211131,
+      "pct": 6.0 }
+  ],
+  "top10Pct": 22.17,
+  "concentration": "low",
+  "ts": "2026-07-07T03:05:00.000Z",
+  "sources": ["helius-das", "solana-rpc"]
+}
+```
+
+- **`top[].owner`** — the holder's *wallet*, aggregated across all of its token
+  accounts on the keyed path; on the keyless path each entry is one token
+  account's resolved owner (or the account address itself if the owner read
+  failed, honestly un-aggregated).
+- **`top[].amount`** — raw base units. **`pct`** — % of on-chain supply, 2 decimals.
+- **`holderCount`** — exact only when the keyed walk enumerated every account;
+  `null` otherwise (keyless RPC cannot count holders — it is never guessed).
+- LP pools and bonding-curve accounts appear among holders when they genuinely
+  hold supply (e.g. an on-curve pump.fun coin's curve account) — real custody,
+  reported as-is.
+
+### The concentration rule (documented thresholds)
+
+| Verdict | Rule |
+|---------|------|
+| `high` | `top10Pct` > 80 |
+| `medium` | `top10Pct` > 50 |
+| `low` | `top10Pct` ≤ 50 |
+| `unknown` | `top10Pct` unresolved |
+
+The 80% bar matches the security endpoint's `topHolderPctFlag`, so the two
+surfaces can never contradict each other.
+
+### Sources
+
+- **Keyed (when the deployment has an indexer key):** Helius DAS
+  `getTokenAccounts` — pages through the token's accounts and aggregates by
+  owner wallet, so a whale split across accounts reads as one holder. Walk
+  capped at 5,000 accounts; beyond it `holderCount` is `null` with a `note`.
+- **Keyless fallback (always available):** Solana RPC `getTokenLargestAccounts`
+  (the chain's top 20 token accounts) + `getMultipleAccounts` to resolve owners
+  + the mint's supply for percentages. Coarse but real, and marked in `note`.
+
+### States
+
+- **Brand-new token, zero token accounts** → `200` with `top: []`,
+  `concentration: "unknown"`, and a note — a valid empty, not an error.
+- **Missing/EVM/invalid `address`** → `400` with a clear message + example.
+- **Valid address that isn't an on-chain mint** → `400 token_not_found`.
+- **Holder sources unreachable or throttled** → `503` + `Retry-After`. A throttled
+  RPC is never reported as "no holders". Never `500`.
+- **Rate-limited** → `429` with `RateLimit-*` + `Retry-After` headers.
+
+### Examples
+
+```bash
+# Top 10 holders of $THREE with the concentration verdict
+curl -s "https://three.ws/api/crypto/holders?address=FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump"
+
+# Just the verdict for position sizing
+curl -s "https://three.ws/api/crypto/holders?address=FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump" | jq '{top10Pct, concentration}'
 ```

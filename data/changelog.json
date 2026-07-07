@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-07-07",
+			"title": "Free holder distribution / concentration API",
+			"summary": "New free endpoint in the Crypto Data API: GET /api/crypto/holders shows who actually holds a Solana token before you size a position — the top wallets with their share of supply, the cumulative top-10 percentage, and a clear low/medium/high concentration verdict on documented thresholds. When the platform's indexer key is available holders are aggregated by wallet with an exact count; without it the endpoint still returns the chain's real top accounts, clearly labeled. No API key, no account, honest nulls for anything unknowable.",
+			"tags": [
+				"feature"
+			],
+			"link": "/docs/crypto-api"
+		},
+		{
+			"date": "2026-07-07",
 			"title": "Platformer tours — visitors jump through your store's checkpoints",
 			"summary": "The guided tour's Explore mode now has a sibling: Platformer. Pick it in the Tour Builder (or set data-mode=\"platformer\" on the embed tag) and your page's real content — headings, product cards, buttons — becomes solid ground the visitor runs and jumps across, Mario-style, to reach each glowing checkpoint and unlock its explanation. It's the same gravity engine as the homepage playground. The two interactive modes are one experience now: visitors can flip between walking and platforming mid-tour with the M key or the on-screen mode pill, and their checkpoint progress carries across. Also fixed: pressing M during an Explore tour used to silently drop every checkpoint — the tour survives mode switches now.",
 			"tags": [
