@@ -300,7 +300,7 @@ export class EmbodimentStage {
 		const gesture = turn.gesture || expr.gesture;
 
 		this._setState('speaking', { text, emotion: expr.emotion, intensity: expr.intensity, gesture });
-		this.face.setTarget(expr.face);
+		this.face.setEmotion(expr.emotion, expr.intensity);
 		this._playGestureOrIdle(gesture, expr.idle);
 
 		// Lip-sync source, best-first.
@@ -347,7 +347,7 @@ export class EmbodimentStage {
 		this.mouth.setMouthShape({ open: 0, wide: 0, round: 0 });
 		if (settle && this.state === 'speaking') {
 			this._setState('idle');
-			this.face.setTarget({});
+			this.face.clear();
 			this._playGestureOrIdle(null, 'idle');
 		}
 	}
