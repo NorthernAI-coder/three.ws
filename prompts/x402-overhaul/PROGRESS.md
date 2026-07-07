@@ -724,12 +724,26 @@ holdings.
   severity ordering, raw-upload full-contract, and invalid-input handling
   (empty body, non-model bytes, missing url, wrong method, rate-limited).
 
-**Live response captured** (raw-upload path, real bundled GLB
-`public/avatars/cesium-man.glb`):
+**Live responses captured** (production, 2026-07-07 — both input paths, real GLB):
+
+URL path — `GET https://three.ws/api/3d/inspect?url=https://three.ws/avatars/cesium-man.glb`:
+
+```json
+{"url":"https://three.ws/avatars/cesium-man.glb","valid":true,"stats":{"vertices":3273,"triangles":4672,"materials":1,"textures":1,"animations":1,"extensions":[],"meshes":1,"nodes":22,"scenes":1,"skins":1,"joints":19,"indexedPrimitives":1,"nonIndexedPrimitives":0,"extensionsRequired":[],"container":"glb","generator":"glTF-Transform v4.4.0"},"sizeBytes":438044,"recommendations":[{"severity":"info","issue":"Model looks well-optimized for web delivery — no suggestions flagged.","fix":"No action needed — the model is already well-suited for web delivery."}],"validation":{"valid":true,"validatorVersion":"2.0.0-dev.3.10","numErrors":0,"numWarnings":1,"numInfos":0,"numHints":0},"ts":"2026-07-07T02:18:25.486Z"}
+```
+
+Raw-upload path — `POST https://three.ws/api/3d/inspect` with `--data-binary @public/avatars/cesium-man.glb`:
+same stats/validation body with `"url":null`, `"ts":"2026-07-07T02:18:44.005Z"`. ✓
+
+Error states verified live (never 500):
 
 ```
-<!-- pending: pasted after test/verify run once the shared node_modules install storm settles -->
+GET /api/3d/inspect                                  → 400 {"error":"missing_url","error_description":"query param \"url\" is required (or POST a model body)"}
+GET /api/3d/inspect?url=https://three.ws/style.css   → 400 {"error":"invalid_model","error_description":"not a valid glTF/GLB: input is not a valid GLB or JSON glTF"}
+GET /api/3d/inspect?url=<upstream 404>               → 502 {"error":"fetch_failed",…,"retry":"the source URL did not return the model — check it is public and try again"}
 ```
+
+Tests green: `npx vitest run tests/api/3d-inspect.test.js` → **10 passed (10)** (2026-07-07).
 
 **Adjacent gaps noticed (for other prompts):**
 - Prompt 14 owns `api/_lib/3d-catalog/index.js` (assembler), `api/3d/index.js`,
