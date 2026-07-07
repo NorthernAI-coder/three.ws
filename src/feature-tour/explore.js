@@ -17,6 +17,7 @@
 import {
 	launchPlayground,
 	exitPlayground,
+	switchPlaygroundMode,
 	getPlaygroundMode,
 	resolveConfig,
 } from '../../walk-sdk/src/index.js';
@@ -146,18 +147,37 @@ export class ExploreMode {
 				<span class="tws-cp-hud__msg" id="tws-cp-msg"></span>
 			</div>
 			<div class="tws-cp-hud__dots" id="tws-cp-dots"></div>
+			<button class="tws-cp-hud__mode" id="tws-cp-mode" type="button" aria-label="Switch movement mode">
+				<span class="tws-cp-hud__mode-ic" id="tws-cp-mode-ic">🚶</span>
+				<span id="tws-cp-mode-name">Stroll</span>
+				<span class="tws-cp-hud__mode-swap">tap or press M to switch</span>
+			</button>
 			<button class="tws-cp-hud__exit" id="tws-cp-exit" aria-label="Exit">✕ Exit</button>`;
 		injectHudStyles();
 		document.body.appendChild(hud);
 		this._hud = hud;
 		hud.querySelector('#tws-cp-dots').innerHTML = this.stops.map(() => '<i></i>').join('');
 		hud.querySelector('#tws-cp-exit').addEventListener('click', () => this.exit());
+		hud.querySelector('#tws-cp-mode').addEventListener('click', () => switchPlaygroundMode());
 		this._reachedCount = 0;
+		this._syncMode();
+	}
+
+	// Keep the HUD's mode toggle showing the live movement model. Fired on build
+	// and whenever the playground reports a switch (walk-playground:mode).
+	_syncMode() {
+		if (!this._hud) return;
+		const platformer = getPlaygroundMode() === 'platformer';
+		const ic = this._hud.querySelector('#tws-cp-mode-ic');
+		const name = this._hud.querySelector('#tws-cp-mode-name');
+		if (ic) ic.textContent = platformer ? '🎮' : '🚶';
+		if (name) name.textContent = platformer ? 'Platformer' : 'Stroll';
 	}
 
 	_setHud(i, talking, done = false) {
 		if (!this._hud) return;
 		this._hudState = [i, talking, done];
+		this._syncMode();
 		const total = this.stops.length;
 		if (talking) this._reachedCount = Math.max(this._reachedCount || 0, i + 1);
 		const reached = done ? total : this._reachedCount || 0;
@@ -260,6 +280,12 @@ function injectHudStyles() {
 .tws-cp-hud__dots i{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.18);transition:.2s}
 .tws-cp-hud__dots i.active{background:#6ee7b7;box-shadow:0 0 8px rgba(110,231,183,.8);transform:scale(1.2)}
 .tws-cp-hud__dots i.done{background:#34d399}
+.tws-cp-hud__mode{display:inline-flex;align-items:center;gap:7px;border:1px solid rgba(122,162,255,.4);background:rgba(122,162,255,.14);color:#e7eaf2;font:700 12px/1 inherit;padding:8px 13px;border-radius:999px;cursor:pointer;pointer-events:auto;transition:background .18s ease,border-color .18s ease,transform .12s ease}
+.tws-cp-hud__mode:hover{background:rgba(122,162,255,.3);border-color:rgba(122,162,255,.65)}
+.tws-cp-hud__mode:active{transform:scale(.97)}
+.tws-cp-hud__mode:focus-visible{outline:2px solid #7aa2ff;outline-offset:2px}
+.tws-cp-hud__mode-ic{font-size:14px;line-height:1}
+.tws-cp-hud__mode-swap{color:#aeb6c8;font-weight:600;font-size:11px}
 .tws-cp-hud__exit{position:absolute;top:-14px;right:-10px;border:1px solid rgba(255,255,255,.16);background:rgba(20,24,34,.95);color:#cfd5e4;font:700 11px/1 inherit;padding:6px 10px;border-radius:99px;cursor:pointer;pointer-events:auto}
 .tws-cp-hud__exit:hover{color:#fff;border-color:rgba(248,113,113,.7)}
 .tws-cp-toast{position:fixed;left:50%;top:20px;transform:translateX(-50%) translateY(-10px);z-index:${Z_HUD};padding:11px 18px;background:rgba(14,16,22,.95);border:1px solid rgba(122,162,255,.3);border-radius:12px;color:#e7eaf2;font:600 13px/1.3 system-ui,sans-serif;opacity:0;transition:.3s;box-shadow:0 10px 30px rgba(0,0,0,.5)}

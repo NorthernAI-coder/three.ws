@@ -215,6 +215,14 @@
 			<description>Two new AI endpoints give agents a voice and an ear with no account and no API key. POST /api/v1/ai/tts turns text into natural multilingual speech (nine languages on the NVIDIA Magpie lane); POST /api/v1/ai/asr transcribes audio to text with confidence and duration — the only speech-to-text lane anywhere in the x402 ecosystem. Both are free to try — 10 TTS calls and 5 ASR clips per day per IP — and past that quota each call is a tiny USDC micropayment settled on Solana or Base ($0.005 per TTS call, $0.01 per ASR clip). The response looks the same whether it was free or paid, so an agent writes one integration for both. Full reference with runnable curls lives at /docs/api-reference.</description>
 		</item>
 		<item>
+			<title>Switch walk and platformer modes right from the tour</title>
+			<link>https://three.ws/tour</link>
+			<guid isPermaLink="false">2026-07-07:Switch walk and platformer modes right from the tour</guid>
+			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>When you take the interactive site tour, you can now switch between the two ways to move — gentle Stroll and gravity-powered Platformer — with a clearly labeled toggle built right into the tour bar, next to the checkpoint counter and Exit. Before, the only switch was a small pill tucked in the top corner that collided with the site navigation and was easy to miss; the toggle now shows which mode you're in, says &quot;tap or press M to switch,&quot; and updates live as you flip between them. Keyboard players can still press M anytime.</description>
+		</item>
+		<item>
 			<title>Symbol-availability check is now free</title>
 			<link>https://three.ws/docs/crypto-api</link>
 			<guid isPermaLink="false">2026-07-07:Symbol-availability check is now free</guid>
