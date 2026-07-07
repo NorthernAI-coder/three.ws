@@ -215,6 +215,44 @@ Reference: [api/_lib/x402-spec.js](../api/_lib/x402-spec.js) `paymentRequirement
 
 ---
 
+## 5. Implementation (Work Order 02 — landed 2026-07-07)
+
+The OKX/X Layer rail was implemented as an **addition** to the existing multi-rail
+`x402-spec.js` seams — not a parallel payment stack. The `eip155:196` accept, the OKX
+facilitator verify/settle route, and the x402-v2 receipt header names all flow through
+the same `paymentRequirements()` / `verifyPayment()` / `settlePayment()` /
+`encodePaymentResponseHeader()` functions every other rail uses, selected by the network
+of the presented payment. Spec → code map (file:line at landing commit `05de055d6`):
+
+| Spec / Gap | Requirement | Code |
+|---|---|---|
+| §1.1, G1–G5, G12 | The `eip155:196` accept, byte-shaped to the approved-seller wire (`scheme:exact`, USD₮0 asset, `extra.{name,version,symbol,transferMethod,decimals}`, `maxTimeoutSeconds:86400`) | [`okxXLayerAccept()`](../api/_lib/x402-xlayer-okx.js#L190-L210) — the domain constants `USDT0_DOMAIN_NAME='USD₮0'` (₮ = U+20AE) / `USDT0_DOMAIN_VERSION='1'` are [pinned + commented](../api/_lib/x402-xlayer-okx.js#L59-L65) against Appx H.3 |
+| §1.1 | Advertise the accept only when settlement is actually possible (never 402-then-502) | [`xlayerSettleable()`](../api/_lib/x402-xlayer-okx.js#L179-L185); wired into [`paymentRequirements()`](../api/_lib/x402-spec.js#L239-L246) after the Solana/Base/BSC accepts (multi-rail coexistence, requirement 4) |
+| §1.1 amount | Advertised == verified == settled, all from `priceBatch`/`studioX402Amount` (requirement 6) | The X Layer accept takes `common.amount` (the per-tool price) unchanged — USD₮0 shares USDC's 6-decimal atomic scale, so `150000` = $0.15 across every rail. [x402-spec.js#L245](../api/_lib/x402-spec.js#L245) |
+| §1.2 step 3, G6 | Route verify/settle to the OKX rail by network | [`facilitatorFor()` → `{okxXLayer:true}`](../api/_lib/x402-spec.js#L287-L292) for `eip155:196` |
+| §1.2 step 4, requirement 2 | Verify BEFORE work — real EIP-712 recovery (ERC-1271-aware for smart-account wallets), recipient/amount/time-window checks, unused-nonce + `balanceOf` on-chain, then the OKX facilitator `/verify` when credentialed | [`verifyOkxXLayerPayment()`](../api/_lib/x402-xlayer-okx.js#L272-L416); dispatched from [`verifyPayment()`](../api/_lib/x402-spec.js#L1014-L1022). Invalid/underpaid/expired throws `X402Error` 402 → fresh challenge, tool does not run |
+| §1.2 step 6, §1.4, requirement 3 | Settle only after tool success; OKX facilitator `/settle` (`syncSettle:true`) primary, direct EIP-3009 redemption fallback; return `{success,status,transaction,payer,amount}` | [`settleOkxXLayerPayment()`](../api/_lib/x402-xlayer-okx.js#L442-L530); dispatched from [`settlePayment()`](../api/_lib/x402-spec.js#L1110-L1120). Called only after `anySuccess` in [mcp-3d.js](../api/mcp-3d.js#L103-L119) and [okx/3d/[service].js](../api/okx/3d/%5Bservice%5D.js#L377-L392) |
+| §1.3, G7 | Read the buyer's `PAYMENT-SIGNATURE` (x402 v2) header; parse the OKX `{accepted, payload:{authorization,signature}}` dialect | [auth.js reads `payment-signature`](../api/_mcp/auth.js#L94-L97); [`selectRequirement()` matches `paymentPayload.accepted.network`](../api/_lib/x402-spec.js#L786-L792); [`extractAuthorization()`](../api/_lib/x402-xlayer-okx.js#L237-L249) |
+| §1.4, G8 | Emit `PAYMENT-RESPONSE` (x402 v2) receipt with `status`+`amount`; keep `x-payment-response` (v1) as an alias | [`encodePaymentResponseHeader()`](../api/_lib/x402-spec.js#L1169-L1186) now passes through `status`/`amount`; both header names set in [mcp-3d.js#L108-L116](../api/mcp-3d.js#L108-L116) and [service].js; both added to the [CORS expose list](../api/_lib/http.js#L383-L386) |
+| §Q4/§Q5, G6/G11 | OKX facilitator client (HMAC-SHA256 auth) | Adopt the official SDK [`OKXFacilitatorClient` from `@okxweb3/app-x402-core@^0.2.0`](../api/_lib/x402-xlayer-okx.js#L51) behind our seams (SDK decision §3) — no hand-rolled dialect |
+| G9 | HTTP-level 402 gate | Already present (Appx H.1); unchanged. The `send402`/`sendAuthChallenge` non-MCP branch emits the challenge to bare `tools/call` |
+| G10 | Keep the OKX accept minimal | The X Layer accept carries no per-accept Bazaar extension; `sendOkx402()` ([x402-xlayer-okx.js#L218-L232](../api/_lib/x402-xlayer-okx.js#L218-L232)) emits the minimal `{x402Version,resource,accepts}` for the decomposed `/api/okx/3d/*` services. (The `/api/mcp-3d` MCP endpoint keeps its Bazaar body for its non-OKX discovery role; the X Layer accept inside it is still minimal.) |
+
+**Config / env (all through `api/_lib/env.js`, never hardcoded):**
+
+| Var | Purpose | Set in Vercel? |
+|---|---|---|
+| `X402_PAY_TO_XLAYER` | Seller receiving address on X Layer (owner wallet `0x75d0…cf69`) | ✅ Preview + Production (owner set 2026-07-07) |
+| `X402_ASSET_ADDRESS_XLAYER` | USD₮0 mint; defaults to `0x779ded…713736` in [env.js](../api/_lib/env.js#L752-L754) so it needs no explicit set | default |
+| `X402_XLAYER_RELAYER_KEY` | Relayer key for the direct-redemption settle fallback (no OKX creds) | ✅ Preview + Production |
+| `OKX_API_KEY` / `OKX_SECRET_KEY` / `OKX_PASSPHRASE` | OKX facilitator HMAC — enables the official `/verify`+`/settle` route | ❌ **owner action** (see PROGRESS) |
+
+With `X402_PAY_TO_XLAYER` + `X402_XLAYER_RELAYER_KEY` set, `xlayerSettleable()` is true and the rail is advertised and settleable via direct redemption today. The OKX facilitator creds are the preferred settle route (gasless, first-party) and remain the one owner blocker for WO-04's funded run.
+
+**Verification captured this session (local, real module over `node:http`):** unpaid `POST tools/call text_to_3d` → `HTTP/1.1 402` whose `accepts[1]` is the `eip155:196` USD₮0 entry with every §1.1 field byte-exact (`extra.name` bytes = `555344e282ae30`, confirmed). `onchainos payment pay --selected-index 1` ACCEPTED it and returned a `PAYMENT-SIGNATURE` header signing `value:"150000"` to our payTo on `eip155:196`. Replaying that header against our endpoint (wallet holds 0 USD₮0) ran the real on-chain verify and returned `402 error:"insufficient_balance"` with a fresh full challenge — the tool did not run. Field-validated captures in `prompts/okx-ai/e2e-evidence/`.
+
+---
+
 ## Appendix — raw captures (verbatim, dated 2026-07-06)
 
 ### A. WIRE-OKLINK — Onchain Data Explorer #2023 (174 sales), `get_chain_info`

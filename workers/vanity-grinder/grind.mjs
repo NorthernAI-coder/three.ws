@@ -186,12 +186,19 @@ let stopping = false;
 let onStop = null;
 const workers = [];
 
-// Abort every worker's in-flight grind. Workers check the stop flag between
-// batches (~sub-second) and post 'aborted', letting the run wind down cleanly.
+// The stop signal is a SharedArrayBuffer flag, NOT a postMessage. A worker grinds
+// in a SYNCHRONOUS loop (grindToCompletion) that never yields to its event loop
+// mid-target, so a queued 'stop' message would sit unprocessed until the whole
+// target finishes — a hard target would then ignore stop for minutes. A shared
+// atomic, by contrast, is read directly inside the sync loop at each batch
+// boundary, so every worker aborts within one ~sub-second batch.
+const stopBuffer = new SharedArrayBuffer(4);
+const stopFlag = new Int32Array(stopBuffer);
+
+// Abort every worker's in-flight grind. Flip the shared flag; workers observe it
+// between batches (~sub-second) and post 'aborted', letting the run wind down.
 function stopAllWorkers() {
-	for (const w of workers) {
-		try { w.postMessage({ type: 'stop' }); } catch { /* worker already gone */ }
-	}
+	Atomics.store(stopFlag, 0, 1);
 }
 
 async function main() {
@@ -245,7 +252,7 @@ async function main() {
 		};
 
 		for (let i = 0; i < WORKER_COUNT; i++) {
-			const worker = new Worker(join(HERE, 'grind-worker.mjs'), { workerData: { index: i } });
+			const worker = new Worker(join(HERE, 'grind-worker.mjs'), { workerData: { index: i, stopBuffer } });
 			workers.push(worker);
 			worker.on('message', async (msg) => {
 				if (msg.type === 'ready') {

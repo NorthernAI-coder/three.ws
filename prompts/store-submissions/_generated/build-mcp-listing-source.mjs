@@ -127,7 +127,7 @@ const doc = {
 		namespace: 'io.github.nirholas',
 		website: 'https://three.ws',
 		repository: 'https://github.com/nirholas/three.ws',
-		contactEmail: 'gm@three.ws',
+		contactEmail: 'support@three.ws',
 		officialRegistrySearch: 'https://registry.modelcontextprotocol.io/?q=io.github.nirholas',
 		promotedCoin: '$THREE (Solana: FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump)',
 		icon: 'https://three.ws/three-ws-mcp-icon.svg',

@@ -88,7 +88,7 @@ export function sendJsonRpcError(res, id, code, message, data) {
 export async function authenticateRequest(
 	req,
 	res,
-	{ x402Amount, resourcePath = '/api/mcp', challenge, allowFree = false } = {},
+	{ x402Amount, resourcePath = '/api/mcp', challenge, allowFree = false, extraAccepts = [] } = {},
 ) {
 	const bearer = extractBearer(req);
 	// OKX Agent Payments Protocol buyers replay with PAYMENT-SIGNATURE (x402 v2
@@ -119,10 +119,14 @@ export async function authenticateRequest(
 	}
 
 	const resourceUrl = resolveResourceUrl(req, resourcePath);
-	const requirements = paymentRequirements(
-		resourceUrl,
-		x402Amount != null ? { amount: x402Amount } : {},
-	);
+	// A dedicated endpoint can prepend rails the shared builder doesn't emit —
+	// e.g. the OKX X Layer (eip155:196) accept must LEAD for OKX buyers (their
+	// CLI auto-selects the first `exact` entry). Prepended so it also participates
+	// in verifyPayment, letting an X Layer replay verify + settle here.
+	const requirements = [
+		...extraAccepts,
+		...paymentRequirements(resourceUrl, x402Amount != null ? { amount: x402Amount } : {}),
+	];
 
 	if (paymentHeader) {
 		try {
@@ -169,7 +173,7 @@ export async function authenticateRequest(
 	return null;
 }
 
-export async function handleSse(req, res, { resourcePath = '/api/mcp', challenge } = {}) {
+export async function handleSse(req, res, { resourcePath = '/api/mcp', challenge, extraAccepts = [] } = {}) {
 	// We don't hold long-lived server→client subscriptions yet; respond politely.
 	const bearer = extractBearer(req);
 	// Unauthenticated callers without an X-PAYMENT header get a 401 +
@@ -181,7 +185,7 @@ export async function handleSse(req, res, { resourcePath = '/api/mcp', challenge
 		return await sendAuthChallenge(res, {
 			req,
 			resourceUrl: sseResourceUrl,
-			requirements: paymentRequirements(sseResourceUrl),
+			requirements: [...extraAccepts, ...paymentRequirements(sseResourceUrl)],
 			challenge,
 		});
 	}

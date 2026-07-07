@@ -1,13 +1,19 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { TOOL_CATALOG, TOOL_NAMES } from '../api/_mcp-studio/tools.js';
+import { PERSONA_TOOL_CATALOG, PERSONA_TOOL_NAMES } from '../api/_mcp-studio/persona-tools.js';
 import { dispatch } from '../api/_mcp-studio/dispatch.js';
 import { COMPONENT_URI } from '../api/_mcp-studio/component.js';
 
+// The generation tools (render the model-viewer widget) + the three embodiment /
+// persona tools (render the living-body embed).
 const ALLOWED = ['forge_free', 'text_to_avatar', 'mesh_forge', 'rig_mesh', 'forge_avatar', 'refine_model'];
+const PERSONA = ['create_agent_persona', 'get_agent_persona', 'persona_say'];
+const ALL = [...ALLOWED, ...PERSONA];
 
 // Anything that would signal a crypto / payment surface. The whole point of the
-// free studio app is that NONE of this appears anywhere in its contract.
+// free studio app is that NONE of this appears anywhere in its contract — the
+// embodiment tools are held to the same bar (a persona is a name and a body).
 const FORBIDDEN = /x402|payment|paymentrequired|wallet|usdc|solana|\$three|pump\.fun|pumpfun|token|coin|credit|price|\bpaid\b|crypto|onchain|web3|mint/i;
 
 function mkReq() {
@@ -51,7 +57,36 @@ describe('mcp-studio catalog', () => {
 	});
 
 	it('exposes ZERO crypto / payment surface anywhere in the catalog', () => {
-		expect(FORBIDDEN.test(JSON.stringify(TOOL_CATALOG))).toBe(false);
+		expect(FORBIDDEN.test(JSON.stringify([...TOOL_CATALOG, ...PERSONA_TOOL_CATALOG]))).toBe(false);
+	});
+});
+
+describe('mcp-studio embodiment (persona) tools', () => {
+	it('exposes exactly the three persona tools', () => {
+		const names = PERSONA_TOOL_CATALOG.map((t) => t.name).sort();
+		expect(names).toEqual([...PERSONA].sort());
+		expect(PERSONA_TOOL_NAMES.sort()).toEqual([...PERSONA].sort());
+	});
+
+	it('each persona tool has a title, a minimal closed input schema, and no leaky fields', () => {
+		for (const t of PERSONA_TOOL_CATALOG) {
+			expect(typeof t.title).toBe('string');
+			expect(t.title.length).toBeGreaterThan(0);
+			expect(t.inputSchema.additionalProperties).toBe(false);
+			const props = Object.keys(t.inputSchema?.properties || {});
+			expect(props.some((p) => /history|context|session|messages|conversation/i.test(p))).toBe(false);
+		}
+	});
+
+	it('annotations mark create/say as writes and get as a pure read', () => {
+		const byName = Object.fromEntries(PERSONA_TOOL_CATALOG.map((t) => [t.name, t]));
+		expect(byName.create_agent_persona.annotations.readOnlyHint).toBe(false);
+		expect(byName.persona_say.annotations.readOnlyHint).toBe(false);
+		expect(byName.get_agent_persona.annotations.readOnlyHint).toBe(true);
+	});
+
+	it('carries ZERO crypto / payment surface', () => {
+		expect(FORBIDDEN.test(JSON.stringify(PERSONA_TOOL_CATALOG))).toBe(false);
 	});
 });
 
@@ -70,9 +105,9 @@ describe('mcp-studio dispatch', () => {
 		expect(FORBIDDEN.test(JSON.stringify(r))).toBe(false);
 	});
 
-	it('tools/list returns the five tools', async () => {
+	it('tools/list returns the generation + persona tools', async () => {
 		const r = await dispatch({ jsonrpc: '2.0', id: 2, method: 'tools/list' }, auth, mkReq());
-		expect(r.result.tools.map((t) => t.name).sort()).toEqual([...ALLOWED].sort());
+		expect(r.result.tools.map((t) => t.name).sort()).toEqual([...ALL].sort());
 	});
 
 	it('serves the Apps SDK widget resource', async () => {

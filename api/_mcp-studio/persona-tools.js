@@ -17,6 +17,9 @@
 // token, wallet, coin, or payment surface anywhere here — a persona is a name and
 // a 3D body. (The free-studio catalog test asserts that invariant.)
 
+import Ajv from 'ajv';
+import addFormats from 'ajv-formats';
+
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { assertSafePublicUrl } from '../_lib/ssrf-guard.js';
 import { isValidGlbHeader, inspectGlb } from '../_lib/glb-inspect.js';
@@ -286,3 +289,11 @@ const DEFS = [
 export const PERSONA_TOOL_CATALOG = DEFS.map(({ handler: _h, ...schema }) => schema);
 export const PERSONA_DEFS = DEFS;
 export const PERSONA_TOOL_NAMES = DEFS.map((d) => d.name);
+
+const ajv = new Ajv({ allErrors: true, useDefaults: true, coerceTypes: true, strict: false });
+addFormats(ajv);
+
+// name → { handler, validate } — merged into the dispatcher's tool map.
+export const PERSONA_TOOLS = Object.fromEntries(
+	DEFS.map(({ name, handler, inputSchema }) => [name, { handler, validate: inputSchema ? ajv.compile(inputSchema) : null }]),
+);
