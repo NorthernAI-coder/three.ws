@@ -49,6 +49,26 @@ Cloud Scheduler: 76 jobs (one per vercel.json cron) → GET /api/cron/* with
 - **Region:** `us-central1` for everything (same as the model workers).
 - **Image:** `us-central1-docker.pkg.dev/aerial-vehicle-466722-p5/cloud-run-source-deploy/three-ws-api:latest`
 
+### Production database (verified 2026-07-07)
+
+The DB is **Neon Postgres, not hosted on Vercel** — the migration did not and
+could not "move" it; Cloud Run connects to the same instance via `DATABASE_URL`.
+
+- **Production DB:** Neon host `ep-muddy-morning-af1v1xpa-pooler.c-2.us-west-2.aws.neon.tech`
+  — the live one, verified holding **344 tables / ~676k rows / 13.7k users /
+  13.3k avatars**. This is the value `DATABASE_URL` carries on the Cloud Run
+  service (and it was among the few vars the Vercel pull returned non-empty).
+- **NOT production:** `ep-rapid-surf-ak9p7occ` (Neon project `wild-river-11025097`)
+  appears in old env archives — it is a **stale/smaller copy** (85 tables /
+  ~127k rows / 224 avatars). Do not point production at it.
+- ⚠️ **DECOMMISSION HAZARD:** this Neon project was likely provisioned via
+  Vercel's Postgres integration. **Deleting the Vercel project may delete or
+  orphan the Neon database.** Before decommissioning Vercel, log into
+  neon.tech, confirm the `ep-muddy-morning` project is owned by a standalone
+  Neon account (not a Vercel-managed org), and transfer/claim it if not. This
+  is the single highest-stakes item in the whole migration — the data is the
+  crown jewels.
+
 ### Service accounts (IMPORTANT — the project's default compute SA was deleted)
 
 Every build and deploy MUST pin these explicitly or it fails with
