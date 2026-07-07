@@ -6,6 +6,83 @@ Work Order 04 session — no earlier entries existed because no earlier work ord
 
 ---
 
+## 2026-07-07 — Work Order 02 session: COMPLETE — OKX/X Layer rail gaps closed, verified, documented
+
+**Outcome: our A2MCP/MCP endpoints are first-class OKX Agent Payments Protocol sellers.**
+The `eip155:196` USD₮0 accept, the OKX facilitator verify/settle route, and the x402-v2
+receipt header names all flow through the SAME `x402-spec.js` seams every other rail uses —
+no parallel payment stack. The spec gained a new **§5 "Implementation"** section mapping
+every clause + gap to `file:line`. The rail code was already in HEAD (converged from the
+concurrent WO-02/03/04 sessions, commit `05de055d6`); this session closed the remaining G8
+header gaps, added endpoint-level tests, unblocked the deploy, and did the real local +
+buyer's-eye verification. **Note:** the rail is already LIVE in production (WO-04 session #2
+below); for X Layer relayer/funding specifics defer to the relayer-reconciliation entry
+below — THE relayer is `0x9e48…B7a3`, USD₮0 buyer/seller is `0x75d0…cf69`.
+
+### What this session changed (on top of the converged HEAD implementation)
+
+- **G8 finished on the MCP endpoints.** `api/mcp-3d.js` and `api/okx/3d/[service].js` now
+  emit BOTH `PAYMENT-RESPONSE` (x402 v2, what OKX buyers decode) and `x-payment-response`
+  (v1 alias) on a settled paid call — they previously set only the v1 name.
+- **Receipt carries `status` + `amount`.** `encodePaymentResponseHeader()`
+  ([x402-spec.js](../../api/_lib/x402-spec.js)) passes through the OKX SettleResponse
+  `status` ("success"/"pending") and `amount` (spec §1.4); the X Layer settle
+  ([x402-xlayer-okx.js](../../api/_lib/x402-xlayer-okx.js)) returns them on both the
+  facilitator and direct-redemption paths.
+- **CORS.** `PAYMENT-RESPONSE` added to `access-control-expose-headers`
+  ([http.js](../../api/_lib/http.js)) so cross-origin agent clients can read the receipt.
+- **Tests.** `tests/api/mcp-3d-challenge.test.js` gained an OKX-rail block (11→15 tests):
+  the `eip155:196` accept's byte-exact shape (incl. `extra.name` = `USD₮0`, U+20AE),
+  per-tool amount scaling, multi-rail coexistence (Base + X Layer), and a paid-leg test
+  proving both v2/v1 receipt headers ship with `status`+`amount`.
+- **Docs.** Spec §5 Implementation (spec→code map + env table); `docs/api-reference.md`
+  multi-rail payments section; `data/changelog.json` holder entry (feature/infra).
+- **Deploy unblock (concurrent-agent regression).** `server-studio.json` (committed clean
+  at HEAD by concurrent commit `86c675cb8`, AFTER WO-04's prod redeploy) had a 286-char
+  `description`; registry max is 100, so `build:vercel` → `audit:mcp` failed and every
+  future deploy was broken. Trimmed to 96 chars. Not this WO's file, but it blocked my
+  preview deploy and the team's next prod deploy.
+
+### Verification captured (real, not theatrical) — evidence in `e2e-evidence/02-*`
+
+- **Tests:** `mcp-3d-challenge` 15/15; with `okx-3d-services` + `mcp-3d` + `x402-spec` +
+  `mcp` = **110/110** in one run. One pre-existing unrelated failure elsewhere
+  (`x402-pipeline` "partial-failure semantics" — fails with my changes stashed too).
+- **Local integration (real module over `node:http`, OKX env set):** unpaid
+  `POST tools/call text_to_3d` → `HTTP/1.1 402` with TWO accepts — Base (`eip155:8453`) AND
+  X Layer (`eip155:196`). Field-by-field vs spec §1.1, all present: `scheme:exact`,
+  `payTo:0x75d0…cf69`, `asset:0x779ded…713736`, `amount:"150000"` (text_to_3d standard,
+  6-dp USD₮0), `maxTimeoutSeconds:86400`,
+  `extra:{symbol:USDT,name:USD₮0,version:1,transferMethod:eip3009,decimals:6}`. The `₮`
+  bytes = `555344e282ae30` (U+20AE), matching spec Appx H.3.
+- **Buyer's-eye check:** `onchainos payment pay --payload <our 402> --selected-index 1`
+  ACCEPTED it → `header_name: PAYMENT-SIGNATURE`, `scheme: exact`, signed EIP-3009
+  `value:"150000"` to our payTo on `eip155:196`. CLI did not reject our challenge.
+- **Full unfunded round-trip:** replaying that `PAYMENT-SIGNATURE` against our endpoint ran
+  our REAL verify (EIP-712 recovery + `authorizationState` + `balanceOf` on X Layer RPC)
+  and returned `402 error:"insufficient_balance"` with a fresh full challenge — the tool did
+  NOT run. Verify-gates-execution proven; funded success leg is WO-04's.
+
+### 6 requirements — status
+
+1. Challenge (OKX-valid 402, all `extra` fields, decimals-scaled) — ✅ verified locally.
+2. Verify before work (real on-chain, invalid→fresh challenge, tool doesn't run) — ✅.
+3. Settle after success + `PAYMENT-RESPONSE` — ✅ (paid-leg unit test; live settle is WO-04).
+4. Multi-rail coexistence (Base accept still present) — ✅ same challenge.
+5. Free lane intact (getting_started / discovery) — ✅ existing tests green.
+6. Amounts consistent (advertised == verified == settled from `priceBatch`) — ✅.
+
+### Blocked on / owner action
+
+- **OKX facilitator creds** (`OKX_API_KEY`/`OKX_SECRET_KEY`/`OKX_PASSPHRASE`) — enable the
+  preferred gasless facilitator settle route. Without them the rail still settles via the
+  reconciled relayer `0x9e48…B7a3` (direct EIP-3009 redemption, OKB gas). Not a blocker for
+  the challenge/verify the listing review checks.
+- **Funding** — defer to the relayer-reconciliation + WO-04 entries below (OKB → relayer
+  `0x9e48…B7a3`; USD₮0 → `0x75d0…cf69`). Only needed for WO-04's funded success leg.
+
+---
+
 ## 2026-07-07 — Relayer-key reconciliation: ONE authoritative X Layer relayer, funding target corrected
 
 **Read this before funding anything.** Two concurrent sessions (this WO-03 re-dispatch and the

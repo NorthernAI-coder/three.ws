@@ -1378,6 +1378,24 @@ Each asset has its own SIWX grant key: the endpoint passes a `resourceUrlBuilder
 
 ---
 
+## Multi-rail x402 payments (X Layer / OKX Agent Payments Protocol)
+
+Paid MCP and A2MCP endpoints advertise **every settlement rail the deployment can serve** in a single 402 challenge — one `accepts[]` array, one entry per rail. A buyer picks the rail it can pay on.
+
+- **Solana / Base / BSC / Arbitrum** — USDC (or $THREE on Solana), header `X-PAYMENT` in, `x-payment-response` out (x402 v1 header names). Facilitators: Coinbase CDP / PayAI / self.
+- **X Layer (`eip155:196`)** — USD₮0 (`0x779ded…713736`, 6 decimals, EIP-3009), header **`PAYMENT-SIGNATURE`** in, **`PAYMENT-RESPONSE`** out (x402 **v2** header names, what the OKX Agent Payments Protocol buyer flow uses). Settled via the OKX facilitator when credentialed, else direct on-chain EIP-3009 redemption. This is the rail that makes our endpoints listable on the OKX.AI marketplace.
+
+Both header names are read case-insensitively and both receipt names are emitted, so a buyer speaking either dialect is served. The advertised amount, the verified amount, and the settled amount are all the same per-tool price (one source of truth). Endpoints that speak this rail:
+
+| Endpoint | Kind | Rails advertised |
+|---|---|---|
+| `POST /api/mcp-3d` | MCP (Streamable HTTP) | Base + X Layer (+ Solana when configured) |
+| `POST /api/okx/3d/<service>` | A2MCP (decomposed 3D studio) | X Layer first, then Solana/Base |
+
+The full seller-side wire contract — challenge fields, verify→work→settle order, the `PAYMENT-SIGNATURE` payload shape, and the settlement receipt — is pinned in [`specs/okx-agent-payments.md`](../specs/okx-agent-payments.md). The per-service catalog and runnable curls are in [`docs/okx-marketplace.md`](okx-marketplace.md).
+
+---
+
 ## Coin Market Data API
 
 Public, unauthenticated, CORS-open proxies over CoinGecko (plus a news
