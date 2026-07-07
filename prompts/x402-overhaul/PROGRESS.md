@@ -1920,3 +1920,15 @@ wallets are masked here as synthetic placeholders; numbers/shape are verbatim:
 designed. If ops adds/fixes the key, holder counts + owner-aggregated walks
 activate with no code change. Prompts 02 and 03 are now fully closed — no open
 items in the campaign except prompt 21.
+
+## 2026-07-07 — Prompts 20 + 22 follow-up: trimmed + reprofiled discovery doc live
+
+Deploy landed (~8 min after the previous check). Live `/.well-known/x402.json`:
+- **65 resources** (down from 74 — the 9 de-listed internal routes are gone from
+  the storefront, exactly the prompt-20 trim).
+- **New profile live:** tagline "3D generation + crypto data + launch/trust
+  tools for AI agents.", categories `['3D','AI','Crypto','Data','Utility']`.
+- `node scripts/verify-x402-discovery.mjs` against the LIVE doc:
+  **65 clean / 0 warnings / 0 dropped by CDP/indexers.**
+
+Prompts 20 and 22 fully closed. Campaign remainder: prompt 21 only.
