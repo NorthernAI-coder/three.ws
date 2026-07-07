@@ -77,4 +77,12 @@ describe('resolveTourConfig overrides', () => {
 		const custom = [{ id: 'x', name: 'X' }];
 		expect(resolveTourConfig({ voices: custom }).voices).toBe(custom);
 	});
+
+	it('accepts the three modes and falls back to guided on anything else', () => {
+		expect(resolveTourConfig().mode).toBe('guided');
+		expect(resolveTourConfig({ mode: 'explore' }).mode).toBe('explore');
+		expect(resolveTourConfig({ mode: 'platformer' }).mode).toBe('platformer');
+		expect(resolveTourConfig({ mode: 'stroll' }).mode).toBe('guided'); // movement ≠ tour mode
+		expect(resolveTourConfig({ mode: 'EXPLORE' }).mode).toBe('guided');
+	});
 });

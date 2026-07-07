@@ -103,6 +103,14 @@
 			<description>The free text-to-3D lane — the only text-to-mesh service in the agent-payments ecosystem — finally has a clean, versioned endpoint instead of being buried under forge job plumbing. POST a prompt to /api/v1/ai/text-to-3d and get back a textured GLB and a viewer link: no key, no wallet, nothing to sign. It runs on the free NVIDIA NIM TRELLIS lane with a per-IP quota of 10 generations a day; past that it returns a clear rate-limit notice pointing at the paid forge tiers for higher volume and quality, never a silent paywall. The GLB either comes back inline or as a job you poll to completion.</description>
 		</item>
 		<item>
+			<title>Free token safety / rug-signal API</title>
+			<link>https://three.ws/docs/crypto-api</link>
+			<guid isPermaLink="false">2026-07-07:Free token safety / rug-signal API</guid>
+			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>New free endpoint in the Crypto Data API: GET /api/crypto/security gives agents the pre-trade rug check they ask for most. One keyless call returns the on-chain facts — whether the mint and freeze authorities are revoked, whether the token's metadata can still be rewritten (including pump.fun's Token-2022 mints), top-holder concentration, liquidity depth, and whether liquidity is protocol-locked for pump.fun coins — plus a deterministic low/medium/high/unknown risk level with plain-language reasons. Facts only: anything that can't be verified is reported as unknown, never guessed as safe.</description>
+		</item>
+		<item>
 			<title>Free token security check answers &quot;is this a rug?&quot; in one call</title>
 			<link>https://three.ws/docs/api-reference</link>
 			<guid isPermaLink="false">2026-07-07:Free token security check answers &quot;is this a rug?&quot; in one call</guid>
@@ -165,6 +173,14 @@
 			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>New endpoint POST /api/x402/pipeline runs a full chain of 3D stages — generate → rig → remesh → gameready → stylize — as a single paid job with one price. Describe what you want (a text prompt or an existing GLB) and get back a rigged, game-ready GLB: text or GLB in, finished asset out. You pick the stages as an ordered chain, the 402 challenge quotes the exact sum of just those stages, and you poll the job for free at /api/forge?job=&lt;id&gt; while it advances, watching each stage's progress. Only stages whose lane is live on the deployment are offered, and if a stage fails mid-chain the job is marked failed at that stage with every completed stage's output still delivered — honest partial value, never a silent dead-end. It's the only end-to-end asset pipeline in the x402 ecosystem.</description>
+		</item>
+		<item>
+			<title>Platformer tours — visitors jump through your store's checkpoints</title>
+			<link>https://three.ws/tour-builder</link>
+			<guid isPermaLink="false">2026-07-07:Platformer tours — visitors jump through your store's checkpoints</guid>
+			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The guided tour's Explore mode now has a sibling: Platformer. Pick it in the Tour Builder (or set data-mode=&quot;platformer&quot; on the embed tag) and your page's real content — headings, product cards, buttons — becomes solid ground the visitor runs and jumps across, Mario-style, to reach each glowing checkpoint and unlock its explanation. It's the same gravity engine as the homepage playground. The two interactive modes are one experience now: visitors can flip between walking and platforming mid-tour with the M key or the on-screen mode pill, and their checkpoint progress carries across. Also fixed: pressing M during an Explore tour used to silently drop every checkpoint — the tour survives mode switches now.</description>
 		</item>
 		<item>
 			<title>Pump Launcher listing sharpened + wired to the free symbol &amp; launches APIs</title>

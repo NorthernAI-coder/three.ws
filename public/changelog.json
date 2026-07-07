@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-07T02:38:02.162Z",
+	"generated_at": "2026-07-07T02:58:42.682Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -132,6 +132,17 @@
 		{
 			"date": "2026-07-07",
 			"type": "update",
+			"title": "Free token safety / rug-signal API",
+			"summary": "New free endpoint in the Crypto Data API: GET /api/crypto/security gives agents the pre-trade rug check they ask for most. One keyless call returns the on-chain facts — whether the mint and freeze authorities are revoked, whether the token's metadata can still be rewritten (including pump.fun's Token-2022 mints), top-holder concentration, liquidity depth, and whether liquidity is protocol-locked for pump.fun coins — plus a deterministic low/medium/high/unknown risk level with plain-language reasons. Facts only: anything that can't be verified is reported as unknown, never guessed as safe.",
+			"link": "/docs/crypto-api",
+			"tags": [
+				"feature",
+				"security"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
 			"title": "Free token security check answers \"is this a rug?\" in one call",
 			"summary": "New free, keyless endpoint: GET /api/v1/token/security turns any Solana mint into an on-chain security report — the first question every trading agent asks before touching a token. It reports whether the mint and freeze authorities are still active (supply can be inflated / accounts frozen), how concentrated the top holders are, how deep the liquidity is, and how old the trading pair is, composing Solana RPC and DexScreener into one answer. There's no invented 'risk score' — just factual flags like mint_authority_active, top1_holder_over_20pct, liquidity_under_10k, and pair_younger_than_24h that agents weigh themselves. Every field is always present (null when a source can't resolve it, never faked), each section degrades independently, and an EVM address gets an honest 'Solana only' 400. Capped at 20 calls/min per IP.",
 			"link": "/docs/api-reference",
@@ -210,6 +221,17 @@
 			"link": "/docs/3d-pipeline",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "Platformer tours — visitors jump through your store's checkpoints",
+			"summary": "The guided tour's Explore mode now has a sibling: Platformer. Pick it in the Tour Builder (or set data-mode=\"platformer\" on the embed tag) and your page's real content — headings, product cards, buttons — becomes solid ground the visitor runs and jumps across, Mario-style, to reach each glowing checkpoint and unlock its explanation. It's the same gravity engine as the homepage playground. The two interactive modes are one experience now: visitors can flip between walking and platforming mid-tour with the M key or the on-screen mode pill, and their checkpoint progress carries across. Also fixed: pressing M during an Explore tour used to silently drop every checkpoint — the tour survives mode switches now.",
+			"link": "/tour-builder",
+			"tags": [
+				"feature",
+				"sdk"
 			]
 		},
 		{
