@@ -575,12 +575,14 @@ targets → workers/vanity-grinder (spot CPU) → seal in-process → vanity_inv
   the platform's custodial-key pattern — with an **optional GCP-KMS envelope**
   (`VANITY_KMS_KEY`) that gates decrypt to the delivery identity via IAM.
 
-## Run it (owner, once gcloud auth is restored)
+## Run it (owner) — executed 2026-07-07, see "Measured throughput" below
 
 ```bash
 export PROJECT_ID=aerial-vehicle-466722-p5
 
-# 1) (recommended) KMS envelope — decrypt granted ONLY to the delivery SA:
+# 1) (recommended) KMS envelope — key-level decrypt granted to the delivery SA,
+#    encrypt-only to the grinder SA (project owners still inherit decrypt — see
+#    the threat model's "Insider access" row):
 ./scripts/gcp/vanity-kms-setup.sh                 # prints VANITY_KMS_KEY
 
 # 2) Put the vault secrets in Secret Manager (grinder + delivery both need them):
@@ -601,18 +603,22 @@ Migration first: `npm run db:migrate` (applies `20260706120000_vanity_premium_in
 
 ## Measured throughput & $/address
 
-Measured on a 16-vCPU dev box (the container's per-vCPU rate is identical — it's the
-same WASM engine, one worker per core):
+**Real production run — 2026-07-07, Cloud Run Job, 4 tasks × 4 vCPU (16 vCPU),
+`IGNORE_CASE=1 INCLUDE_5=1`, KMS-envelope sealing.** The full 115-target list
+(brandable 3/4/5-char prefixes + suffixes) was ground; every found key was sealed
+in-process with the `gcp-kms+aes-256-gcm` scheme and written straight to
+`vanity_inventory` — no plaintext ever hit disk, a log, or the DB.
 
 | metric | value |
 |---|---|
-| Throughput / vCPU | **~25,070 keys/sec** |
-| Throughput, 16 vCPU | **~400k keys/sec** |
-| Real run | 50+ addresses ground, all round-trip-verified (address = derived pubkey), all sealed at rest |
+| Runner | Cloud Run Job (spot-labelled), gen2, 4×4 vCPU |
+| Sealing | KMS envelope (`gcp-kms+aes-256-gcm`) — 100% of records |
+| Throughput / WASM thread | **~17,000–48,000 keys/sec** (single ed25519 WASM worker; varies by machine) |
+| Inventory loaded | **100+ addresses** (still climbing as the slow 5-char targets landed; at an 82-row checkpoint the mix was 43 rare · 27 epic · 11 legendary · 1 mythic), rarity-priced **$2–$50** |
+| Round-trip proof | every delivered key decrypts and its ed25519 pubkey == the stored address |
 
-Cost at c2d **spot** ≈ $0.015 / vCPU-hour (25k keys/sec/vCPU). Price is value-based
-($1–$50 by rarity), so the margin is enormous — the entire point of grinding on
-free credits:
+Cost at c2d **spot** ≈ $0.015 / vCPU-hour. Price is value-based ($1–$50 by rarity),
+so the margin is enormous — the entire point of grinding on free credits:
 
 | pattern | expected attempts | vCPU-seconds | **$/address (spot)** | list price |
 |---|---:|---:|---:|---:|
@@ -630,6 +636,46 @@ targets instead of hanging a worker. **Case-insensitive prefixes and suffixes
 toward them. Revenue math: even 200 addresses cost cents of credits to grind and
 list at $1–$50 each — a four-figure sellable asset for a near-zero credit outlay.
 
+**Fix landed this run — worker stop signal.** `grindToCompletion` is a *synchronous*
+loop, so a worker mid-target never drains its message queue; the old
+`postMessage({type:'stop'})` sat unread until the (possibly hard) target finished,
+hanging the process on `MAX_FOUND` and on SIGTERM. The stop signal is now a
+`SharedArrayBuffer` atomic the sync loop polls at each 25k-key batch boundary, so
+every worker aborts within a fraction of a second — proven by
+`tests/vanity-wasm-grinder.test.js` ("grindToCompletion stop signal"). Two Cloud
+Build/Run gaps were also fixed: the Dockerfile now copies `src/shared` (the WASM
+glue imports `src/shared/log.js` — without it every worker crashed at load and the
+job wrote zero rows), and the deploy script builds via a cloudbuild config as the
+`three-ws-build` SA (this project has no legacy Cloud Build SA) instead of the
+mutually-exclusive `--tag`+`--config`.
+
+**Note — "spot" runner.** The Cloud Run Job path bills cheap per-vCPU-second and is
+labelled `billing=spot`, but Cloud Run Jobs are not literally GCE Spot VMs. For true
+Spot preemptible pricing on very large runs, use `--mig` (a GCE Spot MIG); the
+grinder is preemption-safe either way (SIGTERM → checkpoint → resume skips finished
+targets).
+
+## E2E verification (2026-07-07)
+
+The full production delivery pipeline was exercised against the **real Neon DB and
+real Cloud KMS**, authenticated as the **actual delivery identity**
+(`vercel-inference` SA), on a real inventory row (`navPJe3…GW1`, a `$2` rare):
+
+- **KMS decrypt** as the delivery SA succeeded (`scheme=gcp-kms+aes-256-gcm`); the
+  decrypted key's ed25519 pubkey **equals the stored address** (delivered key is valid).
+- **Single-use:** first `reserveAndReveal` returned `destroyed=true`, status
+  `destroyed`; a second call was refused (`already_revealed`); the ciphertext is no
+  longer retrievable at rest (delete-after-reveal, retention 0).
+- **Insider isolation (partial):** the **grinder SA has no decrypt binding** (key IAM
+  verified) so it can never read back what it seals; a project **owner can** decrypt
+  (see the threat model's honest caveat).
+
+The one leg not driven here is the on-chain **USDC settlement** (`verifyPayment` /
+`settlePayment`) — that is the shared x402 rail already live across every paid
+three.ws endpoint; a real settlement needs a funded buyer wallet. Everything the
+premium tier adds on top of that rail (KMS-sealed inventory, atomic single delivery,
+destruction, custody disclosure) is verified above.
+
 ## Security review (threat model)
 
 The store holds **real private keys**; the design defends each realistic threat:
@@ -640,7 +686,7 @@ The store holds **real private keys**; the design defends each realistic threat:
 | **Log leakage** | No secret is ever logged. The grinder's only "found" line is the public address + attempt count; the endpoint strips secret fields from the idempotency cache; the store's public reads select an explicit column list that omits `secret_ciphertext`. Verified by grep (`git grep -nE 'console.*(secretKey|privateKey|ciphertext)'` over the new files → none). |
 | **Delivery replay / double-spend** | Single-use is a server-side atomic CTE (`reserveAndReveal`): the reveal flips status and nulls the ciphertext in one statement guarded by `status IN ('reserved','sold') AND secret_ciphertext IS NOT NULL`. A second call captures zero rows → `already_revealed`. The x402 idempotency cache stores a secret-free copy. |
 | **Charge-without-delivery** | The endpoint decrypts (non-destructive peek) **before** settling; a KMS/decrypt outage fails the purchase *before* charging. Settle → reveal(destroy) only after decrypt is proven. |
-| **Insider access** | With `VANITY_KMS_KEY` set, decrypt is granted (IAM) **only** to the delivery service identity and every decrypt is Cloud-Audit-Logged; the grinder SA gets encrypt-only. An env-var leak alone no longer decrypts the inventory. |
+| **Insider access** | With `VANITY_KMS_KEY` set, the KMS key's own IAM policy grants `cryptoKeyDecrypter` **only** to the delivery SA (`vercel-inference`) and `cryptoKeyEncrypter` **only** to the grinder SA — so **the grinder can seal keys but can never read them back**, and every decrypt is Cloud-Audit-Logged (verified 2026-07-07: `gcloud kms keys get-iam-policy` shows exactly those two key-level bindings). **Honest caveat:** a GCP project **Owner/Editor** inherits `cloudkms.*.decrypt` and *can* decrypt (an owner can always self-grant — verified: `nich@sperax.io` with `roles/owner` decrypted a real wrapped DEK). So KMS raises the floor — a DB dump is useless, a `WALLET_ENCRYPTION_KEY` leak no longer decrypts KMS-scheme records, and no *service* identity except delivery can read keys — but it does **not** wall off a compromised project owner. That tier is covered by owner-account MFA, org-policy, and the Cloud Audit Log, not by the key IAM. |
 | **Custody dishonesty** | Every listing + delivery carries the required disclosure: platform-generated keys → use as a token mint or sweep to self-generated custody, not a treasury. Delete-after-reveal (retention 0) is the default. |
 
 ## Revert / wind-down
