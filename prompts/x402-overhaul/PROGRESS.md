@@ -1865,3 +1865,58 @@ following the ring-settle precedent).
 live ONLY in `api/wk.js`; when the canonical `api/_lib/service-catalog/` lands it
 should absorb these strings as the single source (22 ran before 21 — the prompt
 anticipated this order; descriptions are ready to lift).
+
+## 2026-07-07 — Prompts 02 + 03 follow-up: production deploys live, captures taken
+
+Deploy watcher confirmed both endpoints serving real JSON on production
+(~25 min after push, consistent with the queued-build cadence).
+
+**`GET /api/crypto/security?address=$THREE`** → HTTP 200. Every check resolved
+on production (unlike the throttled local egress), landing the predicted clean
+verdict — verbatim response:
+
+```json
+{
+  "address": "FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump",
+  "chain": "solana",
+  "checks": {
+    "mintAuthorityRevoked": true, "freezeAuthorityRevoked": true,
+    "metadataMutable": false, "lpBurnedOrLocked": true,
+    "liquidityUsd": 200071.85, "topHolderPctFlag": false
+  },
+  "riskLevel": "low",
+  "reasons": ["mint and freeze authorities are revoked, holders are not concentrated, and liquidity is healthy"],
+  "ts": "2026-07-07T03:44:38.292Z",
+  "sources": ["solana-rpc", "dexscreener", "pumpfun"]
+}
+```
+
+**`GET /api/crypto/holders?address=$THREE&limit=3`** → HTTP 200 with real ranked
+holders (top1 6.39% — the $THREE/SOL pool account — top10Pct 22.74%,
+`concentration: "low"`). Per the CLAUDE.md commit gate the third-party holder
+wallets are masked here as synthetic placeholders; numbers/shape are verbatim:
+
+```json
+{
+  "address": "FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump",
+  "chain": "solana",
+  "holderCount": null,
+  "top": [
+    { "owner": "<the $THREE/SOL pumpswap pool account>", "amount": 63901546986184, "pct": 6.39 },
+    { "owner": "THREEsynthetic1111111111111111111111111111A", "amount": 21562197571639, "pct": 2.16 },
+    { "owner": "THREEsynthetic2222222222222222222222222222B", "amount": 21491700866066, "pct": 2.15 }
+  ],
+  "top10Pct": 22.74,
+  "concentration": "low",
+  "ts": "2026-07-07T03:44:40.381Z",
+  "sources": ["solana-rpc"],
+  "note": "keyless path: top holders from the chain's 20 largest token accounts; total holder count is not derivable without an indexer key."
+}
+```
+
+**Adjacent gap:** holders served via the KEYLESS path in production
+(`sources: ["solana-rpc"]`, holderCount null) — the deployment either has no
+`HELIUS_API_KEY` or the DAS `getTokenAccounts` walk failed and fell back as
+designed. If ops adds/fixes the key, holder counts + owner-aggregated walks
+activate with no code change. Prompts 02 and 03 are now fully closed — no open
+items in the campaign except prompt 21.
