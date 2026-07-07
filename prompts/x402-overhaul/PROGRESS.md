@@ -56,6 +56,12 @@ GET /api/crypto/launches?limit=5&minMarketCap=5500&maxAgeMin=60 → 200 count:3
 GET /api/crypto/launches?limit=0 → 400 invalid_limit
 ```
 
+**Production confirmed (2026-07-07T03:10Z, post-deploy):**
+`GET https://three.ws/api/crypto/launches?limit=2` → 200 with real launches 0.1
+and 0.3 minutes old carrying live curve progress (5.06% / 5.13%), e.g.
+`{ name:"Etheria", symbol:"TOWN", ageMinutes:0.1, marketCapUsd:2455.38,
+bondingProgressPct:5.06, graduated:false }`.
+
 **Tests: green.** `tests/crypto-launches-endpoint.test.js` (11 tests: toLaunch
 mapping incl. graduated→100% and null-age degradation; newest-first sort;
 default/cap limit; all three param validations; minMarketCap drops unknown-cap
