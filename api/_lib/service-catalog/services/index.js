@@ -21,6 +21,7 @@ import vanityVerifiable from './vanity-verifiable.js';
 import vanityPremium from './vanity-premium.js';
 import permit2PaidDemo from './permit2-paid-demo.js';
 import assetDownload from './asset-download.js';
+import remixAsset from './remix-asset.js';
 import skillCall from './skill-call.js';
 import tokenIntel from './token-intel.js';
 import cosmeticPurchase from './cosmetic-purchase.js';
@@ -67,6 +68,7 @@ export const PAID_SERVICES = Object.freeze([
 	vanityPremium,
 	permit2PaidDemo,
 	assetDownload,
+	remixAsset,
 	skillCall,
 	tokenIntel,
 	cosmeticPurchase,

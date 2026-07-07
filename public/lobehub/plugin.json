@@ -1,14 +1,22 @@
 {
-	"$schema": "https://lobehub.com/schema/plugin-manifest/v1.json",
+	"$schema": "https://unpkg.com/@lobehub/chat-plugin-sdk@1.32.4/schema.json",
 	"identifier": "3d-agent",
-	"version": "0.1.0",
+	"version": "1.0.0",
 	"author": "three.ws",
+	"createdAt": "2026-04-17",
 	"homepage": "https://three.ws/",
 	"meta": {
 		"title": "three.ws",
 		"description": "Embodied 3D avatar agent with continuous emotion blending. Renders a rigged glTF avatar inside chat, responds with gestures, speech, and on-chain ERC-8004 identity.",
 		"avatar": "https://three.ws/pwa-icon.svg",
-		"tags": ["3d", "avatar", "agent", "embodied", "empathy", "erc-8004"]
+		"tags": [
+			"3d",
+			"avatar",
+			"agent",
+			"embodied",
+			"empathy",
+			"erc-8004"
+		]
 	},
 	"ui": {
 		"url": "https://three.ws/lobehub/iframe/",
@@ -27,7 +35,9 @@
 						"description": "Agent identity id (UUID) to render."
 					}
 				},
-				"required": ["agentId"]
+				"required": [
+					"agentId"
+				]
 			}
 		},
 		{
@@ -48,7 +58,9 @@
 						"maximum": 1
 					}
 				},
-				"required": ["text"]
+				"required": [
+					"text"
+				]
 			}
 		},
 		{
@@ -61,14 +73,21 @@
 					"name": {
 						"type": "string",
 						"description": "Gesture to play.",
-						"enum": ["wave", "nod", "point", "shrug"]
+						"enum": [
+							"wave",
+							"nod",
+							"point",
+							"shrug"
+						]
 					},
 					"duration": {
 						"type": "number",
 						"description": "Gesture duration in seconds (optional)."
 					}
 				},
-				"required": ["name"]
+				"required": [
+					"name"
+				]
 			}
 		},
 		{
@@ -81,7 +100,13 @@
 					"trigger": {
 						"type": "string",
 						"description": "Emotion to inject.",
-						"enum": ["concern", "celebration", "patience", "curiosity", "empathy"]
+						"enum": [
+							"concern",
+							"celebration",
+							"patience",
+							"curiosity",
+							"empathy"
+						]
 					},
 					"weight": {
 						"type": "number",
@@ -90,7 +115,9 @@
 						"maximum": 1
 					}
 				},
-				"required": ["trigger"]
+				"required": [
+					"trigger"
+				]
 			}
 		}
 	],

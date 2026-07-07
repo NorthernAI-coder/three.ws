@@ -12,9 +12,15 @@
 // char prefixes (minutes of batch CPU each) with a few 5-char stretch goals.
 
 // Brandable 3-char prefixes — fast to grind, broadly appealing.
+// NB: every char must be Base58-representable (no 0 / O / I / l) or the pattern is
+// unreachable; under ignoreCase the valid-case counterpart is matched. Keep these
+// GENERIC (product/tech/aesthetic words) — no third-party crypto tickers (commit gate).
 const PREFIX_3 = [
 	'SOL', 'AiA', 'GM3', 'WS3', 'DEV', 'BOT', 'API', 'GPU', 'LAB', 'ZAP',
 	'ARC', 'ORB', 'ION', 'NEO', 'VIP', 'ACE', 'FOX', 'OWL', 'JET', 'RAY',
+	'MAX', 'SKY', 'SUN', 'TOP', 'WEB', 'WIN', 'ZEN', 'HUB', 'KEY', 'MAP',
+	'NET', 'PAY', 'PRO', 'RUN', 'TAG', 'GEM', 'PIX', 'NAV', 'FAB', 'MEG',
+	'CAT', 'DOG', 'BEE', 'ANT', 'ELF', 'GUR', 'MAG', 'PUP', 'SAM', 'TEK',
 ];
 
 // Brandable 4-char prefixes — the premium sweet spot (unreachable by the live
@@ -23,6 +29,10 @@ const PREFIX_4 = [
 	'PUMP', 'AGNT', 'MOON', 'MINT', 'FORG', 'DEGN', 'GOLD', 'NODE', 'DASH',
 	'ECHO', 'FLUX', 'HALO', 'IRIS', 'JADE', 'KILO', 'LUNA', 'NOVA', 'ONYX',
 	'THRE', 'WS3D', 'VOID', 'ZERO', 'BASE', 'CORE',
+	'PEAK', 'BEAM', 'GLOW', 'SAGE', 'RUBY', 'MYTH', 'AXON', 'BYTE', 'CHIP',
+	'DUSK', 'EPIC', 'FERN', 'GAZE', 'HERO', 'JOLT', 'KELP', 'MESA', 'NEST',
+	'PACE', 'QUAD', 'REEF', 'SURF', 'TIDE', 'VANE', 'WAVE', 'YARN', 'ZEST',
+	'AURA', 'BOLD', 'CUSP', 'DENS', 'EMBR', 'FUZE',
 ];
 
 // 5-char stretch goals — hours of single-thread CPU, trivial on a wide spot MIG.

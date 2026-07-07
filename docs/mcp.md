@@ -43,22 +43,23 @@ The MCP server configuration is at `.mcp.json` in the project root, which Claude
 
 ## The full three.ws MCP ecosystem
 
-This page documents the hosted avatar/3D server at `/api/mcp`, but it's one of **38 three.ws MCP servers** — all listed in the [official MCP registry](https://registry.modelcontextprotocol.io/?q=io.github.nirholas), so any MCP-compatible client can discover them by name.
+This page documents the hosted avatar/3D server at `/api/mcp`, but it's one of **42 three.ws MCP servers** — all listed in the [official MCP registry](https://registry.modelcontextprotocol.io/?q=io.github.nirholas), so any MCP-compatible client can discover them by name.
 
 There are two kinds. **Hosted remote servers** run over Streamable HTTP with nothing to install — add them by URL. **Install-and-run servers** are published on npm under the `@three-ws` scope and run locally over stdio — add them in one line with `npx`.
 
-**Six hosted remote servers** (Streamable HTTP, no install):
+**Seven hosted remote servers** (Streamable HTTP, no install):
 
 | Server | Endpoint | What it does |
 |--------|----------|--------------|
 | three.ws | `/api/mcp` | Avatars, glTF/GLB validation, agent data, memory, copy-trading (this page) |
 | 3D Studio | `/api/mcp-3d` | Paid text/image→3D, rigging, retexture, optimization |
+| 3D Studio (free) | `/api/mcp-studio` | Free text/image→3D and rigged avatars — no auth, no payment |
 | Agent wallet | `/api/mcp-agent` | The agent's custodial wallet: balance, find + pay services, and `monetize_endpoint` |
 | x402 Bazaar | `/api/mcp-bazaar` | Discover and price paid agent services across the facilitator network |
 | pump.fun | `/api/pump-fun-mcp` | Free, read-only pump.fun + Solana token tools |
 | IBM x402 | `/api/ibm-mcp` | Pay-per-use IBM Granite AI |
 
-**Thirty-two install-and-run servers** on npm under the `@three-ws` scope — each runs over stdio with one command:
+**Thirty-five install-and-run servers** on npm under the `@three-ws` scope — each runs over stdio with one command:
 
 ```bash
 # 3D & avatars
@@ -117,6 +118,18 @@ npx -y @three-ws/loom-mcp          # browse & contribute to the Loom 3D-creation
 ```
 
 Every one is also registered in the MCP registry under the `io.github.nirholas/*` namespace.
+
+### Find these servers across MCP directories
+
+The same servers surface in the major MCP directories and aggregators, so any MCP-compatible client can discover three.ws by name:
+
+- **Official MCP Registry** — [registry.modelcontextprotocol.io/?q=io.github.nirholas](https://registry.modelcontextprotocol.io/?q=io.github.nirholas) (the source of truth; PulseMCP and Glama ingest from here)
+- **Smithery** — [smithery.ai/search?q=three.ws](https://smithery.ai/search?q=three.ws)
+- **Glama** — [glama.ai/mcp/servers?query=three.ws](https://glama.ai/mcp/servers?query=three.ws)
+- **PulseMCP** — [pulsemcp.com/servers?q=three.ws](https://www.pulsemcp.com/servers?q=three.ws)
+- **mcp.so** — [mcp.so/?q=three.ws](https://mcp.so/?q=three.ws)
+
+Ready-to-submit listing packages for each directory, plus the canonical metadata source they all derive from, live in [`prompts/store-submissions/_generated/`](../prompts/store-submissions/_generated/mcp-directories/).
 
 ### Per-server guides
 
@@ -407,6 +420,60 @@ Example response text:
 [WARN] no_draco: No geometry compression detected — apply Draco or Meshopt. — estimated 40% size reduction
 [INFO] ktx2_transcoding: Convert PNG/JPEG textures to KTX2 for GPU-native compression.
 ```
+
+---
+
+### `mint_3d_asset`
+
+Mint a generated or owned GLB as a **Metaplex Core NFT on Solana whose media is a live, interactive 3D viewer** — the rigged glTF model is stored under `animation_url`, not a static image. The tool promotes the GLB and a freshly-rendered thumbnail to durable storage (R2, plus IPFS when configured), builds Metaplex-compliant metadata with baked provenance (creator, prompt, generation model, parent lineage, timestamp), and mints a Core asset with an enforced Royalties plugin to the recipient. **Devnet by default**; pass `network: "mainnet"` for a real mainnet mint.
+
+The call is **idempotent**: a row is claimed before any on-chain action, so a repeat call with the same arguments returns the same mint instead of minting twice. The royalty is capped at **10 %** (1000 bps) — a higher request is clamped.
+
+**Pricing:** $0.25 USDC per mint via x402 (an OAuth bearer token bypasses payment). Supply either `avatar_id` (an avatar you own) or `glb_url`, and a recipient (`owner_wallet`, or your OAuth-linked Solana wallet).
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "avatar_id":               { "type": "string", "format": "uuid", "description": "An owned avatar to tokenize." },
+    "glb_url":                 { "type": "string", "format": "uri", "description": "Or a GLB URL to tokenize." },
+    "owner_wallet":            { "type": "string", "description": "Recipient Solana wallet (base58). Defaults to your OAuth wallet." },
+    "name":                    { "type": "string", "maxLength": 200 },
+    "description":             { "type": "string", "maxLength": 2000 },
+    "network":                 { "type": "string", "enum": ["devnet", "mainnet"], "default": "devnet" },
+    "seller_fee_basis_points": { "type": "integer", "minimum": 0, "maximum": 1000, "description": "Enforced royalty; clamped to the 10% cap." },
+    "royalty_recipient":       { "type": "string", "description": "Wallet the royalty routes to. Defaults to the owner." },
+    "parent_mint":             { "type": "string", "description": "Lineage: the asset this was remixed from." },
+    "prompt":                  { "type": "string", "maxLength": 1000 },
+    "generation_model":        { "type": "string", "maxLength": 96 },
+    "generation_provider":     { "type": "string", "maxLength": 64 },
+    "idempotency_key":         { "type": "string", "maxLength": 128 }
+  },
+  "additionalProperties": false
+}
+```
+
+The `structuredContent` returns the `mint` address, `explorer_asset_url` + `explorer_tx_url` (Solscan), `viewer_url` (the live three.ws 3D viewer), `metadata_uri`, and the `royalty` terms (`basis_points`, `percent`, `recipient`, `cap_basis_points`, `capped`).
+
+---
+
+### `get_3d_asset_onchain`
+
+Resolve a Solana mint address to its **live 3D asset**: current holder, the interactive viewer link + GLB (confirmed live via a HEAD request), baked provenance, and the enforced on-chain royalty terms. Reads the Metaplex Core asset, fetches its off-chain metadata, and joins the three.ws launch record when the asset was minted through the platform. Works on any Metaplex Core mint. Read-only, public — no auth, no payment.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "mint":    { "type": "string", "description": "The Metaplex Core asset (mint) pubkey, base58." },
+    "network": { "type": "string", "enum": ["devnet", "mainnet"], "default": "devnet" }
+  },
+  "required": ["mint"],
+  "additionalProperties": false
+}
+```
+
+Returns `holder`, `media` (`glb_url`, `image_url`, `viewer_url`, `viewer_live`), `provenance`, `royalty` (`basis_points`, `percent`, `recipient`, `enforced_onchain`, `cap_basis_points`), and, for platform mints, `minted_through_threews` + `tx_signature`.
 
 ---
 

@@ -34,6 +34,8 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
+import { getDecoders } from '../../src/viewer/internal.js';
+
 import { AnimationManager } from '../../src/animation-manager.js';
 import { AvatarMouthTarget } from '../../src/voice/avatar-morph-target.js';
 import { A2FPlayer } from '../../src/voice/a2f-player.js';
@@ -158,13 +160,24 @@ export class EmbodimentStage {
 			this._disposeObject(this._model);
 			this._model = null;
 		}
-		this.face.reset();
+		this.face.clear();
 		this._speakEnv = null;
 		this._a2fActive = false;
 
 		let gltf;
 		try {
 			const loader = new GLTFLoader();
+			// Persona bodies come from arbitrary generation lanes — the platform bake
+			// emits EXT_meshopt_compression, others may use Draco or KTX2. Wire all
+			// three decoders so a compressed GLB isn't rejected as "could not load".
+			// Degrade to a bare loader only if the decoder modules fail to import.
+			try {
+				const { dracoLoader, ktx2Loader, meshoptDecoder } = await getDecoders();
+				loader.setDRACOLoader(dracoLoader);
+				ktx2Loader.detectSupport(this.renderer);
+				loader.setKTX2Loader(ktx2Loader);
+				loader.setMeshoptDecoder(meshoptDecoder);
+			} catch { /* bare loader — uncompressed GLBs still load */ }
 			gltf = await loader.loadAsync(persona.glbUrl);
 		} catch (err) {
 			this._setState('error', { message: 'Could not load this avatar.', cause: String(err?.message || err) });
@@ -206,7 +219,7 @@ export class EmbodimentStage {
 			rigReason: this._rigMode.reason,
 			hasMouthMorphs: this.mouth.hasMouthMorphs(),
 			hasJawBone: this.mouth.hasJawBone(),
-			hasFaceMorphs: this.face.hasMorphs(),
+			hasFaceMorphs: this.face.mode === 'morph',
 			hasVisemeTrack: this.a2f.hasCoverage(),
 		});
 		return true;
@@ -257,7 +270,9 @@ export class EmbodimentStage {
 		if (this.state === 'speaking') return;
 		this._endSpeech();
 		this._setState('listening');
-		this.face.setTarget({ browInnerUp: 0.12, eyeWideLeft: 0.08, eyeWideRight: 0.08 });
+		// A subtle attentive read — a light brow-raise + eye-widen, which is
+		// exactly 'surprised' at low intensity in the emotion descriptor table.
+		this.face.setEmotion('surprised', 0.14);
 		this._playGestureOrIdle(null, 'idle');
 	}
 
@@ -267,7 +282,7 @@ export class EmbodimentStage {
 		this._endSpeech();
 		this._setState('thinking');
 		const expr = expressionFor('thinking', 0.7);
-		this.face.setTarget(expr.face);
+		this.face.setEmotion('thinking', 0.7);
 		this._playGestureOrIdle(expr.gesture, expr.idle);
 	}
 

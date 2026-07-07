@@ -1,5 +1,5 @@
 {
-	"$schema": "https://lobehub.com/schema/plugin-manifest/v1.json",
+	"$schema": "https://unpkg.com/@lobehub/chat-plugin-sdk@1.32.4/schema.json",
 	"identifier": "3d-agent",
 	"version": "1.0.0",
 	"author": "three.ws",
@@ -9,7 +9,12 @@
 		"title": "three.ws",
 		"description": "Embed any on-chain or off-chain three.ws as an embodied avatar inside your chat.",
 		"avatar": "https://three.ws/pwa-icon.svg",
-		"tags": ["3d", "avatar", "embodied-agent", "erc-8004"]
+		"tags": [
+			"3d",
+			"avatar",
+			"embodied-agent",
+			"erc-8004"
+		]
 	},
 	"ui": {
 		"url": "https://three.ws/lobehub/iframe/",
@@ -35,7 +40,9 @@
 						"description": "Agent identity id (UUID) to render."
 					}
 				},
-				"required": ["agentId"]
+				"required": [
+					"agentId"
+				]
 			}
 		},
 		{
@@ -56,7 +63,9 @@
 						"maximum": 1
 					}
 				},
-				"required": ["text"]
+				"required": [
+					"text"
+				]
 			}
 		},
 		{
@@ -68,10 +77,17 @@
 				"properties": {
 					"name": {
 						"type": "string",
-						"enum": ["wave", "nod", "point", "shrug"]
+						"enum": [
+							"wave",
+							"nod",
+							"point",
+							"shrug"
+						]
 					}
 				},
-				"required": ["name"]
+				"required": [
+					"name"
+				]
 			}
 		},
 		{
@@ -83,11 +99,23 @@
 				"properties": {
 					"trigger": {
 						"type": "string",
-						"enum": ["concern", "celebration", "patience", "curiosity", "empathy"]
+						"enum": [
+							"concern",
+							"celebration",
+							"patience",
+							"curiosity",
+							"empathy"
+						]
 					},
-					"weight": { "type": "number", "minimum": 0, "maximum": 1 }
+					"weight": {
+						"type": "number",
+						"minimum": 0,
+						"maximum": 1
+					}
 				},
-				"required": ["trigger"]
+				"required": [
+					"trigger"
+				]
 			}
 		}
 	],

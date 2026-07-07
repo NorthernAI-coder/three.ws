@@ -151,18 +151,33 @@ function clampPrompt(text, max = MAX_GENERATION_PROMPT_CHARS) {
 // framing rigging requires — an identity brief ("a finance data agent") rarely
 // names a humanoid subject, so unlike forge_avatar there is no humanoid gate
 // here: the subject is BY CONSTRUCTION a humanoid character embodying the
-// brief, in both the director instruction and this template. Leads with the
-// visual description and stays inside the generation prompt budget: the frame
-// text is ~130 chars, so the brief+hints get the remaining ~170.
+// brief. A text-to-3D encoder wants a visual SUBJECT, not backstory, so this
+// leads with the (visual) style hints and reduces the brief to its first
+// sentence — the core descriptor — rather than dumping the whole narrative and
+// truncating it mid-clause. Stays inside the generation prompt budget (~130
+// chars of frame text leaves ~170 for hints + subject) and never leaves a
+// dangling comma or half-word at a cut.
 export function fallbackIdentityPrompt({ brief, styleHints }) {
-	// The style hints ARE the visual direction — they get their own budget so a
-	// long brief can never crowd them out of the prompt.
-	const hints = styleHints ? clampPrompt(styleHints, 70) : '';
-	const subject = clampPrompt(brief, MAX_GENERATION_PROMPT_CHARS - 130 - (hints ? hints.length + 2 : 0));
+	// The style hints ARE the visual direction — give them priority and their own
+	// budget so a long brief can never crowd them out of the prompt.
+	const hints = styleHints ? cleanClause(clampPrompt(styleHints, 90)) : '';
+	// First sentence only (handles both Latin ".!?" and CJK "。！？").
+	const raw = String(brief ?? '').trim();
+	const firstSentence = raw.split(/(?<=[.!?。！？])\s+/)[0] || raw;
+	const subject = cleanClause(
+		clampPrompt(firstSentence, MAX_GENERATION_PROMPT_CHARS - 140 - (hints ? hints.length + 2 : 0)),
+	);
+	const visual = [subject, hints].filter(Boolean).join(', ');
 	return (
-		`full-body humanoid character: ${subject}${hints ? `, ${hints}` : ''}, standing neutral pose, ` +
+		`full-body humanoid character embodying: ${visual}, standing neutral pose, ` +
 		'arms slightly away from body, plain background'
 	);
+}
+
+// Trim trailing sentence/clause punctuation so a clause never abuts the next
+// comma-joined fragment ("…real time., deep navy" → "…real time, deep navy").
+function cleanClause(text) {
+	return String(text ?? '').replace(/[.,;:!?。！？、\s]+$/, '');
 }
 
 export async function shapeIdentityPrompt({ agentName, brief, styleHints }) {
