@@ -1659,6 +1659,12 @@
 					"added": "2026-07-07"
 				},
 				{
+					"path": "/docs/x402-dev-tools",
+					"title": "Docs · x402 Developer Tools",
+					"description": "A free test bench for x402 developers — echo your payment envelope, debug a failed 402 exchange, and verify a receipt's attestation and settlement against a live server, all without spending anything.",
+					"added": "2026-07-07"
+				},
+				{
 					"path": "/docs/x402-buyer",
 					"title": "Docs · x402 Buyer Client",
 					"description": "How to settle a 402 challenge and pay three.ws's paid endpoints from code.",

@@ -670,6 +670,11 @@ export const limits = {
 	// Vercel) bounds one IP's throughput just as well without spending a Redis
 	// command per page view. The largest single source of avoidable quota burn.
 	publicIp: (ip) => getLimiter('public:ip', { limit: 60, window: '1 m', local: true }).limit(ip),
+	// Free x402 developer toolkit (echo / debug / verify-receipt). Free ≠
+	// abusable: these decode caller-supplied payment envelopes and recompute
+	// hashes, so 30/min per IP is generous for a developer iterating on their
+	// integration while bounding a script that hammers the decode path.
+	x402DevToolIp: (ip) => getLimiter('x402-dev-tool:ip', { limit: 30, window: '1 m' }).limit(ip),
 	// Client-side error report ingestion (api/client-errors). The browser
 	// reporter batches and caps itself at 25 events/page, so legitimate traffic
 	// is a handful of requests per pageview even on a broken page; 30/min per

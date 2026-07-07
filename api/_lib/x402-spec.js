@@ -445,7 +445,7 @@ async function authHeadersFor(config, path) {
 	return config.token ? { Authorization: `Bearer ${config.token}` } : {};
 }
 
-function decodePaymentHeader(header) {
+export function decodePaymentHeader(header) {
 	if (!header) throw new X402Error('payment_required', 'X-PAYMENT header required', 402);
 	let json;
 	try {
@@ -825,7 +825,7 @@ function selectRequirement(paymentPayload, allRequirements) {
 // Defense-in-depth: a compromised facilitator could otherwise verify a
 // payment for a smaller amount than the requirement and we'd happily
 // deliver the resource. Per the audit, this is the underpayment vector.
-function decodeSignedAmount(paymentPayload) {
+export function decodeSignedAmount(paymentPayload) {
 	const inner = paymentPayload?.payload;
 	if (!inner || typeof inner !== 'object') return null;
 	// EIP-3009 transferWithAuthorization — `authorization.value` is the
@@ -874,7 +874,7 @@ function decodeSignedAmount(paymentPayload) {
 // Defense-in-depth: the EIP-712 signature commits to `to`, so a payment whose
 // signed recipient differs from the offered payTo is invalid regardless of
 // what /verify returns.
-function decodeSignedRecipient(paymentPayload) {
+export function decodeSignedRecipient(paymentPayload) {
 	const inner = paymentPayload?.payload;
 	if (!inner || typeof inner !== 'object') return null;
 	// EIP-3009 transferWithAuthorization — `authorization.to` is signed.
