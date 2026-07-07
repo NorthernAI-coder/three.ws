@@ -37,8 +37,8 @@ curl -s https://three.ws/api/mcp-studio \
 
 ## Tools
 
-All five are free and run operator-funded on the platform's own generation
-pipeline. Annotations: `readOnlyHint:false`, `destructiveHint:false`,
+All six generation tools are free and run operator-funded on the platform's own
+generation pipeline. Annotations: `readOnlyHint:false`, `destructiveHint:false`,
 `idempotentHint:false`, `openWorldHint:true` (work runs against external model
 APIs; nothing is ever modified or deleted).
 
@@ -49,6 +49,7 @@ APIs; nothing is ever modified or deleted).
 | `mesh_forge` | Generate a 3D mesh (art-directed) | `prompt?` / `image_url?` | GLB mesh |
 | `rig_mesh` | Rig a 3D model for animation | `glb_url` | rigged GLB |
 | `forge_avatar` | Generate a rigged, animation-ready avatar | `prompt?` / `image_url?`, `allow_non_humanoid?` | rigged GLB avatar |
+| `refine_model` | Refine a 3D model by describing a change | `glb_url`, `instruction`, `parent_prompt?`, `parent_lineage?`, `parent_index?` | refined GLB + version lineage |
 
 ### Response shape
 
@@ -64,6 +65,43 @@ needs to display the model — no internal identifiers:
   "prompt": "a friendly round robot mascot, glossy white plastic"
 }
 ```
+
+### Conversational refinement (`refine_model`)
+
+Iterate on a model by describing the change in words — *"make it metallic"*,
+*"bigger helmet"*, *"add wings"*. It's a REAL anchored re-generation, never a fake
+diff: the prior prompt is carried forward and folded with your change
+(`composeRefinement`), and an optional `reference_image_url` of the current model
+anchors the regeneration as image→3D. Text-guided refinement needs only
+`glb_url` + `instruction`; passing `parent_prompt` lets the change build on the
+original spec instead of starting over.
+
+Every refinement is appended to an immutable **version lineage** returned in
+`structuredContent.lineage`. The client passes that array back as `parent_lineage`
+on the next call to extend the same thread, or targets an earlier version with
+`parent_index` to **branch**. Reverting is a pointer move over the array — no
+mutation. The inline viewer renders the lineage as a version strip you can click
+to cross-fade between versions.
+
+```json
+{
+  "kind": "refined model",
+  "glbUrl": "https://three.ws/cdn/creations/…/v1.glb",
+  "viewerUrl": "https://three.ws/viewer?src=…",
+  "format": "glb",
+  "prompt": "a friendly round robot mascot, glossy white plastic, metallic and gold",
+  "instruction": "make it metallic and gold",
+  "activeIndex": 1,
+  "lineage": [
+    { "index": 0, "parentIndex": null, "glbUrl": "…/origin.glb", "label": "Original", "active": false },
+    { "index": 1, "parentIndex": 0, "glbUrl": "…/v1.glb", "label": "make it metallic and gold", "instruction": "make it metallic and gold", "active": true }
+  ]
+}
+```
+
+The same `refine_model` capability is available on the paid stdio MCP server
+(`3d-agent-local`, $0.25 USDC per call) via the shared lineage core, so iteration
+behaves identically on both tracks.
 
 ## Funding & limits
 

@@ -56,9 +56,9 @@ async function shoot(page, url, file, { settle = 2600, speaking = false } = {}) 
 
 const shots = [
 	{ file: '01-idle.png', url: embedUrl({ state: 'idle' }), opt: { settle: 3000 } },
-	{ file: '02-joy.png', url: embedUrl({ state: 'speaking', emotion: 'joy', text: 'Congratulations — that is absolutely amazing! 🎉' }), opt: { settle: 1500, speaking: true } },
-	{ file: '03-sad.png', url: embedUrl({ state: 'speaking', emotion: 'sad', text: 'I am sorry, unfortunately that request failed.' }), opt: { settle: 1500, speaking: true } },
-	{ file: '04-angry.png', url: embedUrl({ state: 'speaking', emotion: 'angry', text: 'This is completely unacceptable and frustrating!' }), opt: { settle: 1500, speaking: true } },
+	{ file: '02-joy.png', url: embedUrl({ state: 'speaking', emotion: 'joy', text: 'Congratulations, this is absolutely amazing news and I am so happy and thrilled for you today! 🎉' }), opt: { settle: 2400, speaking: true } },
+	{ file: '03-sad.png', url: embedUrl({ state: 'speaking', emotion: 'sad', text: 'I am so sorry, but unfortunately that request failed and I could not recover it. I really regret the trouble this caused you.' }), opt: { settle: 2400, speaking: true } },
+	{ file: '04-angry.png', url: embedUrl({ state: 'speaking', emotion: 'angry', text: 'This is completely unacceptable and honestly quite frustrating. That outcome is terrible and it should never have happened this way.' }), opt: { settle: 2400, speaking: true } },
 	{ file: '05-reload-same-body.png', url: embedUrl({ state: 'idle' }), opt: { settle: 3000 } },
 	{ file: '06-nonhumanoid-fallback.png', url: embedUrl({ state: 'idle', glb: PROP, name: 'Cowboy Hat', persona: null }), opt: { settle: 3000 } },
 ];

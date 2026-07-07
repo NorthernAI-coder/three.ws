@@ -17,8 +17,11 @@ COPY workers/vanity-grinder/package.json ./package.json
 RUN npm install --omit=dev --no-audit --no-fund
 
 # Copy the source the grinder imports, preserving repo-relative layout so
-# ../../src and ../../api resolve. src/solana carries the prebuilt WASM engine.
+# ../../src and ../../api resolve. src/solana carries the prebuilt WASM engine,
+# whose glue (vanity_grinder.js) imports src/shared/log.js — src/shared MUST be
+# copied too or every worker crashes at load with "Cannot find module .../shared/log.js".
 COPY src/solana ./src/solana
+COPY src/shared ./src/shared
 COPY api/_lib ./api/_lib
 COPY workers/vanity-grinder ./workers/vanity-grinder
 

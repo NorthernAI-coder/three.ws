@@ -240,8 +240,15 @@ export class EmbodimentStage {
 		}
 		if (!defs.length) return;
 		this.anim.setAnimationDefs(defs);
-		// Ensure the idle is present before first paint; gestures lazy-load on demand.
-		await this.anim.ensureLoaded('idle').catch(() => {});
+		// Preload every base-idle an emotion can rest in (idle, the sad slump, the
+		// surprised wait) BEFORE first paint. A crossfade to an idle that isn't loaded
+		// yet would briefly show the bind pose (a T-pose) — the one thing embodiment
+		// must never do. Gestures still lazy-load on demand and only overlay, so a
+		// missing gesture never bares the rig.
+		const IDLE_CLIPS = ['idle', 'xbot-sad-pose', 'av-waiting'];
+		await Promise.all(
+			IDLE_CLIPS.filter((n) => defs.some((d) => d.name === n)).map((n) => this.anim.ensureLoaded(n).catch(() => {})),
+		);
 	}
 
 	_frameModel(model) {
@@ -283,7 +290,7 @@ export class EmbodimentStage {
 		this._setState('thinking');
 		const expr = expressionFor('thinking', 0.7);
 		this.face.setEmotion('thinking', 0.7);
-		this._playGestureOrIdle(expr.gesture, expr.idle);
+		this._playGestureOrIdle(expr.gesture, 'idle');
 	}
 
 	/**
@@ -301,7 +308,10 @@ export class EmbodimentStage {
 
 		this._setState('speaking', { text, emotion: expr.emotion, intensity: expr.intensity, gesture });
 		this.face.setEmotion(expr.emotion, expr.intensity);
-		this._playGestureOrIdle(gesture, expr.idle);
+		// Rest on the reliable neutral idle and layer the emotion as an upper-body
+		// gesture overlay — never adopt a full-body emotion POSE as the base, since a
+		// single-frame pose clip can retarget into a splayed shape on some rigs.
+		this._playGestureOrIdle(gesture, 'idle');
 
 		// Lip-sync source, best-first.
 		this._endSpeech(false);
@@ -362,7 +372,9 @@ export class EmbodimentStage {
 				.then((ok) => { if (ok) this.anim.playOverlay(gesture, { loop: false, upperBodyOnly: true }).catch(() => {}); })
 				.catch(() => {});
 		} else {
-			this.anim.stopOverlay().catch?.(() => {});
+			// stopOverlay may return void (no overlay active) — guard the return
+			// itself, not just the .catch, so a missing promise doesn't throw.
+			this.anim.stopOverlay()?.catch?.(() => {});
 		}
 	}
 

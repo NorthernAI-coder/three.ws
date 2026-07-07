@@ -168,21 +168,25 @@ async def _run_inference(task_id: str, images: list[str], body_type: str) -> Non
             img = await loop.run_in_executor(None, _decode_image, images[0])
 
             def _generate():
+                # GLB export lives in trellis.utils.postprocessing_utils.to_glb —
+                # it fuses the Gaussian appearance onto the extracted mesh and bakes
+                # a texture. It is NOT a pipeline method (the pipeline only .run()s
+                # the structured-latent generation).
+                from trellis.utils import postprocessing_utils
+
                 outputs = _pipeline.run(
                     img,
                     seed=42,
                     formats=["gaussian", "mesh"],
                     preprocess_image=True,
                 )
-                glb = _pipeline.to_glb(
+                glb = postprocessing_utils.to_glb(
                     outputs["gaussian"][0],
                     outputs["mesh"][0],
                     simplify=0.95,
                     texture_size=1024,
                 )
-                buf = io.BytesIO()
-                glb.export(buf, file_type="glb")
-                return buf.getvalue()
+                return glb.export(file_type="glb")
 
             glb_bytes = await loop.run_in_executor(None, _generate)
 

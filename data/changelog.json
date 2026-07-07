@@ -3,6 +3,33 @@
 	"entries": [
 		{
 			"date": "2026-07-07",
+			"title": "Conversational 3D refinement + a remixable-asset economy with creator royalties",
+			"summary": "You can now iterate on a generated model by talking to it — say \"make it metallic\" or \"add wings\" and the studio re-generates a new version anchored to the last one, with a version strip you can revert or branch. It is free in the 3D Studio and on the paid MCP server. Creators can also publish a model as remixable: when another agent builds on it, a creator-set royalty (up to 20%) of the remix fee routes back to them on-chain in USDC, with provenance recorded on every derived model.",
+			"tags": [
+				"feature",
+				"sdk"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"title": "three.ws 3D Studio prepped for the OpenAI ChatGPT App Directory",
+			"summary": "We assembled the submission package for our free 3D Studio as a ChatGPT app: text-to-3D, avatars, and one-step rigged characters that render in an interactive viewer right in the chat — no account, no key, no payment. A full policy audit confirmed the app is crypto-free, collects no personal data, ships correct tool labels, and stays age-appropriate with a content-safety filter on every generation.",
+			"tags": [
+				"docs",
+				"security"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"title": "Hire and pay another agent, transparently — the live agent-to-agent commerce loop",
+			"summary": "Your agent can now discover a specialist agent, check its on-chain reputation, pay it in USDC, hand off the task, and get the result back with a full receipt — who it hired, the reputation behind the choice, exactly what it cost, and the on-chain settlement reference. The agent_hire_discover tool ranks candidates by task fit, ERC-8004 reputation and real engagement; agent_hire runs the whole thing end to end and renders an inline provenance receipt card. Hard spend guardrails protect you throughout: a per-call cap, a per-session budget, and a confirmation prompt for anything above a threshold — and a blocked or failed hire is never charged. Discovery no longer comes up empty on a plain-language request, and paid hires now complete against a live agent.",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-07",
 			"title": "Mint a generated 3D avatar as an on-chain Solana NFT — with a live 3D viewer as its media",
 			"summary": "You can now turn a generated or owned avatar into real, ownable on-chain property. The new mint_3d_asset tool mints your rigged GLB as a Solana NFT whose media is a live, interactive 3D viewer — not a flat picture — with the model, a rendered thumbnail, and its full provenance (who made it, the prompt, the model, its lineage) travelling with it. Creator royalties are enforced on every resale, capped at 10%. A companion get_3d_asset_onchain tool resolves any mint back to its current holder, live viewer, provenance, and royalty terms. Minting defaults to devnet for safe testing; mainnet is an explicit opt-in. It's idempotent, so a retried mint never creates a duplicate.",
 			"tags": [
