@@ -640,10 +640,43 @@ wallet → 200 zeros; EVM w/o key → 503 not_configured; all RPC down → 503
 upstream_unavailable + Retry-After; rate-limited → 429. Never 500 on a well-formed
 request.
 
-**Live response:**
+**Live response** (captured 2026-07-07 against production, keyless path — same
+hyperactive exchange wallet the prompt-15 session used; summary via `jq`, full
+payload is ~200 tokens):
+
+```json
+{
+  "address": "5tzFkiKscXHK5ZXCGbXZxdw7gTjjD1mBwuoFbhUvuAi9",
+  "chain": "solana",
+  "native": { "symbol": "SOL", "amount": 1352112.26668551, "usd": 110478475.31 },
+  "totalUsd": 1257880884.71,
+  "tokenCount": 3795,
+  "truncated": true,
+  "ts": "2026-07-07T02:17:55.049Z",
+  "sources": ["solana-rpc", "jupiter-lite"],
+  "firstTokens": [
+    { "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", "symbol": "USDC",
+      "name": "USD Coin", "amount": 603987853.319578, "usd": 603979534.59,
+      "logo": "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png" }
+  ]
+}
+```
+
+3,795 token accounts, capped to 200 with `truncated: true` and the honest
+`tokenCount`; `sources` correctly reports the keyless path (`solana-rpc` +
+`jupiter-lite` — no Helius key on this deployment). Error states probed live the
+same session: `?address=not-a-wallet` → `400 invalid_address`,
+`&chain=dogechain` → `400 unsupported_chain` listing `["solana","ethereum"]`,
+and the `$THREE` mint address as owner → clean 200 with its real SOL + token
+holdings.
+
+**Tests** (were blocked on the node_modules install storm at ship time; run
+2026-07-07 after vitest reinstalled):
 
 ```
-<!-- pending: pasted after a live call against a real public wallet once the shared node_modules install storm settles and vitest is reinstalled cleanly. Mapping logic verified numerically inline (native 375 + THREE 1.6 + unpriced null → totalUsd 376.6). -->
+ RUN  v4.1.9 /workspaces/three.ws
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
 ```
 
 **Adjacent gaps noticed (for other prompts):**
