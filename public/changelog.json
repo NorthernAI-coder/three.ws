@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-07T03:06:11.649Z",
+	"generated_at": "2026-07-07T03:18:55.669Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -315,6 +315,16 @@
 			"tags": [
 				"feature",
 				"sdk"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "Trimmed low-value endpoints so agents find the tools that matter",
+			"summary": "The agent-facing x402 catalog got a spring clean. Nine novelty and me-too endpoints that powered in-product experiences (the club stage, the town NPCs, demo pages) no longer appear as standalone products on x402scan and agentic.market — they keep working inside the product, but they were diluting the catalog and burying the tools agents actually use. What agents now find first: the free Crypto Data API and 3D API, Forge, the pump.fun launcher, vanity addresses, and cross-chain trust primitives.",
+			"link": "/docs/crypto-api",
+			"tags": [
+				"improvement"
 			]
 		},
 		{

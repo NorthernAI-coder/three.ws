@@ -1,3 +1,6 @@
+// INTERNAL-USE ONLY; not an agent product. De-listed from the x402 discovery
+// catalog (api/wk.js) in the 2026-07 overhaul: the agent-exchange demo and the Marisol trading-desk NPC in /play buy through it; agent-facing market intel is the free /api/crypto bundle.
+// The route stays live for those consumers; do not re-add it to the catalog.
 // POST /api/x402/crypto-intel
 //
 // Agent-to-Agent Intelligence Feed — $0.01 USDC per call on Solana or Base.

@@ -1,3 +1,6 @@
+// INTERNAL-USE ONLY; not an agent product. De-listed from the x402 discovery
+// catalog (api/wk.js) in the 2026-07 overhaul: the fact-checker app (src/fact-checker-app.js) and the Sheriff Boone NPC in /play buy through it.
+// The route stays live for those consumers; do not re-add it to the catalog.
 // POST /api/x402/fact-check
 //
 // Real-Time Fact Checker — paid x402 micropayment endpoint.

@@ -1,3 +1,6 @@
+// INTERNAL-USE ONLY; not an agent product. De-listed from the x402 discovery
+// catalog (api/wk.js) in the 2026-07 overhaul: the paid intel kiosk in the /play town buys from it.
+// The route stays live for those consumers; do not re-add it to the catalog.
 // GET /api/x402/three-intel
 //
 // $THREE Town Oracle — $0.01 USDC per call on Solana or Base.

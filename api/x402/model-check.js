@@ -1,8 +1,8 @@
 // GET /api/x402/model-check?url=<glb-or-gltf>
 //
 // DEPRECATED: model inspection is now FREE at GET/POST /api/3d/inspect
-// (api/3d/inspect.js). Prefer that endpoint; retirement of this paid route is
-// tracked by prompts/x402-overhaul/20.
+// (api/3d/inspect.js). Prefer that endpoint. The 2026-07 overhaul (prompt 20)
+// kept this route cataloged as a paid convenience alongside the free one.
 //
 // Paid endpoint cataloged by the CDP x402 Bazaar (agentic.market) and the
 // pay-skills registry. For $0.001 USDC the server fetches the model bytes, runs

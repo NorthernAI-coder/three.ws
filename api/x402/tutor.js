@@ -1,3 +1,6 @@
+// INTERNAL-USE ONLY; not an agent product. De-listed from the x402 discovery
+// catalog (api/wk.js) in the 2026-07 overhaul: the /tutor page and the Schoolmarm NPC in /play buy through it.
+// The route stays live for those consumers; do not re-add it to the catalog.
 // POST /api/x402/tutor
 //
 // Pay-As-You-Learn Tutor — paid x402 micropayment endpoint. Each answered

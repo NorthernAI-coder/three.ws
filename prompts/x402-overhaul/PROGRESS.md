@@ -1760,3 +1760,63 @@ both catalogs updated to say so.
   21 (unified catalog), 22 (x402scan profile).
 - `heliusHolderWalk` would serve prompt 22's "holder growth" momentum signal
   too if trending ever wants a holder-delta feature.
+
+## 2026-07-07 — Prompt 20: Retire the Dead Endpoints from the Agent Catalog
+
+**Shipped.** Every target had a real internal consumer, so the disposition for
+ALL of them is the prompt's "internal" rule: route stays live for its in-product
+consumer; removed from the agent-facing x402 discovery catalog (`api/wk.js`);
+"INTERNAL-USE ONLY" header added; parity-test exemption documented.
+
+**Disposition table (grep evidence → call):**
+
+| Endpoint | Consumer found (grep src/ public/ pages/) | Disposition |
+|---|---|---|
+| `dance-tip` | `src/club.js`, `club-gate/audio/sequence.js`, `/play` Saloon Kid NPC (`src/game/npc/npc-catalog.js`) | de-listed, kept |
+| `three-intel` | `/play` intel kiosk (`src/game/intel-kiosk.js`) | de-listed, kept |
+| `fact-check` | `src/fact-checker-app.js` + `/play` Sheriff NPC | de-listed, kept (prompt guessed "remove"; consumer exists) |
+| `tutor` | `public/tutor.html` app, `src/erc8004/register-ui.js`, dashboard, `/play` Schoolmarm NPC | de-listed, kept |
+| `crypto-intel` | `src/agent-exchange.js`, `src/play-agent-wallet.js`, `/play` trading-desk NPC | de-listed, kept |
+| `mint-to-mesh` (+`-batch`) | `/play` Mei foundry NPC | de-listed, kept; headers note the real product is Forge |
+| `revenue-vision` (`api/insights/`) | `public/x402-stripe.html`, `public/launch-week.html` | de-listed, kept |
+| `pump-agent-audit` (deferred to 20 by prompt 06) | `/play` town NPC | de-listed, kept; header points to free `/api/crypto/whales` + `/security` |
+| `model-check`, `symbol-availability` | per prompt: do-not-touch; free replacements live (`/api/3d/inspect`, `/api/crypto/symbol`) | left cataloged; refreshed their stale "retirement tracked by prompt 20" headers to the resolved decision |
+
+**What was removed from `api/wk.js`** (463 deletions, 3 insertions): 9 REST_OUTPUT_EXAMPLES
+entries, 7 resource IIFEs, 2 CDP-bazaar resource literals (mint-to-mesh,
+revenue-vision), 4 helper consts (`mintToMeshUrl/Accepts`,
+`revenueVisionUrl/Accepts`), 9 routeMeta entries; `rate-limit-probe`'s example
+payload retargeted from crypto-intel to forge. `node --check` clean; zero
+remaining references (grep of all 8 slugs in wk.js = 0).
+
+**Route files were NOT deleted** — every one has a live consumer, and the
+routes' 402s still answer in production (verified live: dance-tip/three-intel/
+mint-to-mesh/mint-to-mesh-batch/pump-agent-audit → 402; fact-check/tutor/
+crypto-intel → 405 on GET because they are POST routes — correct method guard).
+No x402-prices entries or route tests removed (nothing was deleted).
+
+**Parity guardrail:** 8 documented EXCLUSIONS added to
+`tests/api/x402-discovery-parity.test.js` (the sanctioned escape hatch,
+following the ring-settle precedent).
+
+**Verification:**
+- `node scripts/verify-x402-discovery.mjs` → 74 resources, 0 warnings, 0 dropped
+  (live doc; the trimmed doc verifies on next deploy).
+- `/club` and `/play` load in dev (HTTP 200, scripts present) via `npm run dev`.
+- Full `npm test`: **11329 passed**, 4 failed — all four PRE-EXISTING and owned
+  by other agents' in-flight work, none touched by this prompt:
+  `x402-discovery-parity` (their new `/api/x402/pipeline` not yet cataloged),
+  `x402-ring-catalog` (their new `ai/tts|asr|image` + `pipeline-*` not yet in
+  RING_CATALOG), `x402-pipeline` (their route's own suite), and
+  `api/market/token-market` single-flight (module untouched by this prompt).
+  My change added zero failures (count went 5 → 4 during the session as one
+  owner fixed theirs).
+
+**Changelog:** holder-readable entry added (tags: improvement), validated by
+`npm run build:pages`.
+
+**Adjacent gaps noticed:**
+- The `/api/x402/pipeline` + `ai/*` catalog drift above needs its owner to add
+  wk.js entries / RING_CATALOG rows (or EXCLUSIONS) — red build until then.
+- Prompt 21 (unified catalog) and 22 (x402scan profile) remain; the trimmed
+  discovery doc is exactly the input 22 wants.

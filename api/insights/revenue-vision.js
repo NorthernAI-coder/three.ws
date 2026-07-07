@@ -1,3 +1,6 @@
+// INTERNAL-USE ONLY; not an agent product. De-listed from the x402 discovery
+// catalog (api/wk.js) in the 2026-07 overhaul: the x402 demo pages consume it.
+// The route stays live for those consumers; do not re-add it to the catalog.
 // GET /api/insights/revenue-vision
 //
 // Paid endpoint cataloged by the CDP x402 Bazaar (agentic.market) and the

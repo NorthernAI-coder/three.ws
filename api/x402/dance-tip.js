@@ -1,3 +1,6 @@
+// INTERNAL-USE ONLY; not an agent product. De-listed from the x402 discovery
+// catalog (api/wk.js) in the 2026-07 overhaul: the /club stage and the Saloon Kid NPC in the /play town buy performances through it.
+// The route stays live for those consumers; do not re-add it to the catalog.
 // GET /api/x402/dance-tip?dancer=<id>&dance=<style>
 //
 // Paid endpoint cataloged by the CDP x402 Bazaar. For $0.001 USDC the caller

@@ -247,6 +247,14 @@
 			<description>The free crypto endpoints are now one product with a single front door. GET /api/crypto lists the whole bundle — bonding-curve status, whale activity, trending tokens, wallet portfolios, and symbol availability — each with its inputs, outputs, and a live example, so an agent discovers everything in one call (ask for HTML and it renders a browsable page instead of JSON). GET /api/crypto/openapi.json is a real OpenAPI 3.1 spec generated straight from that catalog, so LangChain, openapi-generator, and Swagger UI produce typed clients and callable tools with no key and no account. New endpoints join the index and the spec automatically the moment they ship, and a zero-endpoint state is a valid &quot;coming soon&quot;, never an error. Full reference lives at /docs/crypto-api.</description>
 		</item>
 		<item>
+			<title>Trimmed low-value endpoints so agents find the tools that matter</title>
+			<link>https://three.ws/docs/crypto-api</link>
+			<guid isPermaLink="false">2026-07-07:Trimmed low-value endpoints so agents find the tools that matter</guid>
+			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The agent-facing x402 catalog got a spring clean. Nine novelty and me-too endpoints that powered in-product experiences (the club stage, the town NPCs, demo pages) no longer appear as standalone products on x402scan and agentic.market — they keep working inside the product, but they were diluting the catalog and burying the tools agents actually use. What agents now find first: the free Crypto Data API and 3D API, Forge, the pump.fun launcher, vanity addresses, and cross-chain trust primitives.</description>
+		</item>
+		<item>
 			<title>Vanity address grinder listing overhauled</title>
 			<link>https://three.ws/docs/vanity</link>
 			<guid isPermaLink="false">2026-07-07:Vanity address grinder listing overhauled</guid>
