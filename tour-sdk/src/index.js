@@ -29,7 +29,7 @@ import { ExploreMode } from './explore.js';
 import { resolveTourConfig } from './config.js';
 import { createTourState, loadCurriculum } from './curriculum.js';
 
-export const VERSION = '0.4.0';
+export const VERSION = '0.5.0';
 
 /**
  * Create a tour controller. Returns a small object the host drives:
@@ -44,10 +44,12 @@ export function createFeatureTour(options = {}) {
 	let director = null;
 	let explore = null;
 	const ensure = () => (director ||= new TourDirector(config));
+	// 'platformer' is explore with the platformer movement model.
+	const exploreConfigured = () => config.mode === 'explore' || config.mode === 'platformer';
 
-	// In explore mode, start() drives the checkpoint experience instead of the
-	// guided auto-tour — so the same nav button, ?tour deep link, and autostart
-	// all route to whichever mode the host configured.
+	// In explore/platformer mode, start() drives the checkpoint experience
+	// instead of the guided auto-tour — so the same nav button, ?tour deep link,
+	// and autostart all route to whichever mode the host configured.
 	async function startExplore() {
 		if (explore?.isActive()) return;
 		const curriculum =
@@ -72,12 +74,12 @@ export function createFeatureTour(options = {}) {
 			return explore?.isActive() === true || state.readState().active === true;
 		},
 		start(track) {
-			if (config.mode === 'explore') return startExplore();
+			if (exploreConfigured()) return startExplore();
 			return ensure().start(track);
 		},
 		startExplore,
 		resume() {
-			if (config.mode === 'explore') return startExplore();
+			if (exploreConfigured()) return startExplore();
 			return ensure().resume();
 		},
 		exit() {
@@ -94,11 +96,11 @@ export function createFeatureTour(options = {}) {
 			const params = new URLSearchParams(location.search);
 			const param = params.get(config.deepLinkParam);
 			if (param === 'start') {
-				if (config.mode === 'explore') startExplore();
+				if (exploreConfigured()) startExplore();
 				else ensure().start(params.get('track') === 'quick' ? 'quick' : 'full');
 			} else if (param === '0') {
 				control.exit();
-			} else if (param === '1' || (config.mode !== 'explore' && state.readState().active)) {
+			} else if (param === '1' || (!exploreConfigured() && state.readState().active)) {
 				control.resume();
 			}
 		},

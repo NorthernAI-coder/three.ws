@@ -90,6 +90,13 @@ export interface TourOptions {
 	ttsEndpoint?: string | null;
 	defaultVoice?: string;
 	voices?: TourVoice[];
+	/**
+	 * 'guided' (default) — the avatar walks itself and narrates.
+	 * 'explore' — the visitor drives the avatar to glowing checkpoints.
+	 * 'platformer' — explore with gravity and jumping: the page's real DOM is
+	 * solid ground. Visitors can switch explore/platformer live with the M key.
+	 */
+	mode?: 'guided' | 'explore' | 'platformer';
 	guideAvatarId?: string;
 	assetBase?: string;
 	apiBase?: string;
@@ -112,6 +119,7 @@ export interface ResolvedTourConfig {
 	ttsEndpoint: string | null;
 	defaultVoice: string;
 	voices: TourVoice[];
+	mode: 'guided' | 'explore' | 'platformer';
 	guideAvatarId: string;
 	assetBase: string;
 	apiBase: string;

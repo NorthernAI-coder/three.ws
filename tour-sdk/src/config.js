@@ -100,7 +100,9 @@ export function resolveTourConfig(opts = {}) {
 		// 'guided' — the avatar walks itself and narrates (default).
 		// 'explore' — the visitor drives the avatar (arrows/WASD/joystick) to
 		// glowing checkpoints; each one stops it to spotlight and narrate.
-		mode: opts.mode === 'explore' ? 'explore' : 'guided',
+		// 'platformer' — explore, but the page's DOM is solid ground: gravity,
+		// jumping, falling. Visitors can switch between the two live (M key).
+		mode: opts.mode === 'explore' || opts.mode === 'platformer' ? opts.mode : 'guided',
 		guideAvatarId: opts.guideAvatarId || 'realistic-female',
 		assetBase: opts.assetBase || '',
 		apiBase: opts.apiBase || '',

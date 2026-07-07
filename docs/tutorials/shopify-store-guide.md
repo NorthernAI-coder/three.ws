@@ -14,7 +14,7 @@ Open the **[Tour Builder](/tour-builder)**. It's a live playground — a demo st
 
 Make it yours:
 
-1. **Choose the experience.** **🎬 Guided** — the avatar walks the store and narrates it by itself. **🕹 Explore** — your visitors drive the avatar with their arrow keys (or a joystick on mobile) and walk it into glowing checkpoints, GTA-style, to unlock each explanation. Guided is effortless for shoppers; Explore is playful and memorable. You can preview either.
+1. **Choose the experience.** **🎬 Guided** — the avatar walks the store and narrates it by itself. **🕹 Explore** — your visitors drive the avatar with their arrow keys (or a joystick on mobile) and walk it into glowing checkpoints, GTA-style, to unlock each explanation. **🎮 Platformer** — Explore with gravity: your store's sections become solid ground and visitors run and jump between them (and can switch between Explore and Platformer live with the M key). Guided is effortless for shoppers; the interactive modes are playful and memorable. You can preview any of them.
 2. **Pick your guide.** Choose who walks the store — Ava, Leo, a robot, and more.
 3. **Add stops.** Each stop is one place the guide walks to (or, in Explore, a checkpoint the visitor walks it to) and one thing it says. Click **+ Add a stop**, then **click the section of the store** you want it to visit — the hero, a product grid, your reviews. The builder figures out how to point at it.
 4. **Write the narration.** Type what the guide should say at each stop. Keep it short and friendly — one or two sentences, like a helpful shop assistant.

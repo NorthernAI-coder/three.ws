@@ -9,7 +9,7 @@
  * /tour-builder/tour.global.js), so the preview is the product, not a mockup.
  */
 
-const VERSION_TOUR = '0.4.0';
+const VERSION_TOUR = '0.5.0';
 const VERSION_PAGE_AGENT = '0.1.1';
 const STORAGE_KEY = 'tws:tour-builder:v1';
 
@@ -73,6 +73,13 @@ function toast(msg) {
 }
 
 // ── Render: mode toggle ───────────────────────────────────────────────────
+const MODE_TOASTS = {
+	guided: 'Guided mode — the guide walks itself',
+	explore: 'Explore mode — visitors drive the guide',
+	platformer: 'Platformer mode — gravity on, visitors run and jump the store',
+};
+const isInteractive = (mode) => mode === 'explore' || mode === 'platformer';
+
 function renderMode() {
 	for (const btn of $$('#mode-toggle .mode-opt')) {
 		btn.classList.toggle('sel', btn.dataset.mode === (state.mode || 'guided'));
@@ -80,12 +87,12 @@ function renderMode() {
 			state.mode = btn.dataset.mode;
 			save();
 			renderMode();
-			toast(state.mode === 'explore' ? 'Explore mode — visitors drive the guide' : 'Guided mode — the guide walks itself');
+			toast(MODE_TOASTS[state.mode] || MODE_TOASTS.guided);
 		};
 	}
 	// The preview button label hints at what pressing it does.
 	const pv = $('#preview');
-	if (pv) pv.innerHTML = state.mode === 'explore' ? '🕹 Play' : '▶ Preview';
+	if (pv) pv.innerHTML = state.mode === 'platformer' ? '🎮 Play' : state.mode === 'explore' ? '🕹 Play' : '▶ Preview';
 }
 
 // ── Render: avatars ──────────────────────────────────────────────────────
@@ -292,10 +299,11 @@ function preview() {
 	// scroll store to top so the first stop is on-screen
 	stage.scrollTo({ top: 0, behavior: 'instant' in stage.scrollTo ? 'instant' : 'auto' });
 	requestAnimationFrame(() => tour.start('full'));
-	// Explore has its own in-experience ✕ (the one merchants ship). When the
-	// visitor uses it, restore the builder chrome so we're not stuck previewing.
+	// Explore/platformer have their own in-experience ✕ (the one merchants
+	// ship). When the visitor uses it, restore the builder chrome so we're not
+	// stuck previewing.
 	clearInterval(exploreWatch);
-	if (state.mode === 'explore') {
+	if (isInteractive(state.mode)) {
 		exploreWatch = setInterval(() => {
 			if (tour && tour.explore && !tour.explore.isActive()) exitPreview();
 		}, 400);
@@ -314,7 +322,7 @@ $('#exit-preview').addEventListener('click', exitPreview);
 // ── Export ───────────────────────────────────────────────────────────────
 function snippetEmbed() {
 	const avatar = state.avatarId !== 'realistic-female' ? `\n        data-avatar="${state.avatarId}"` : '';
-	const mode = state.mode === 'explore' ? `\n        data-mode="explore"` : '';
+	const mode = isInteractive(state.mode) ? `\n        data-mode="${state.mode}"` : '';
 	return `<script src="https://unpkg.com/@three-ws/tour@${VERSION_TOUR}/dist/tour.global.js"
         data-tour${avatar}${mode}
         data-curriculum="https://cdn.shopify.com/s/files/YOUR/PATH/curriculum.json"

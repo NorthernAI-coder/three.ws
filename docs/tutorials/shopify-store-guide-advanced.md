@@ -134,7 +134,7 @@ When the guide reaches the end of the homepage stops, it walks to a link, the pa
 The one-tag install reads `data-*` attributes:
 
 ```html
-<script src="https://unpkg.com/@three-ws/tour@0.2.0/dist/tour.global.js"
+<script src="https://unpkg.com/@three-ws/tour@0.5.0/dist/tour.global.js"
         data-tour
         data-curriculum="https://cdn.shopify.com/s/files/…/curriculum.json"
         data-avatar="realistic-male"
@@ -148,7 +148,7 @@ The one-tag install reads `data-*` attributes:
 | --- | --- | --- |
 | `data-curriculum` | — (required) | URL of your curriculum JSON |
 | `data-avatar` | `realistic-female` | Which guide walks the store — any avatar id (see below) |
-| `data-mode` | `guided` | `guided` (the avatar walks itself) or `explore` (the visitor drives it — see below) |
+| `data-mode` | `guided` | `guided` (the avatar walks itself), `explore` (the visitor drives it), or `platformer` (explore with gravity + jumping) — see below |
 | `data-autostart` | off | `full` or `quick` — start the tour automatically on page load |
 | `data-tts-endpoint` | off | A POST endpoint that returns audio for spoken narration. Without it, narration plays as paced on-screen captions |
 | `data-asset-base` | `https://three.ws` | Where avatar GLBs load from — point at your own CDN to self-host |
@@ -173,12 +173,18 @@ By default, narration shows as timed captions — zero setup, no API key. For an
 Set `data-mode="explore"` (or pick **🕹 Explore** in the [Tour Builder](/tour-builder)) and the tour becomes an interactive, GTA-style experience: instead of the avatar walking itself, **the visitor drives it** with the arrow keys (or WASD) on desktop and an on-screen joystick on mobile. It's the real three.ws "Stroll" character — it **turns to face its heading and walks or runs in full 3D**, and the page scrolls under it so the whole store is walkable. Each stop becomes a glowing **checkpoint** anchored to its section. Walk the character into the active checkpoint and it stops, spotlights the section, and narrates it — then the next checkpoint lights up. Reach them all to finish.
 
 ```html
-<script src="https://unpkg.com/@three-ws/tour@0.3.0/dist/tour.global.js"
+<script src="https://unpkg.com/@three-ws/tour@0.5.0/dist/tour.global.js"
         data-tour
         data-mode="explore"
         data-curriculum="https://cdn.shopify.com/s/files/…/curriculum.json"
         defer></script>
 ```
+
+### Platformer mode — gravity, jumping, your DOM as the level
+
+Set `data-mode="platformer"` (or pick **🎮 Platformer** in the [Tour Builder](/tour-builder)) for the same checkpoint experience with platformer physics: your store's real DOM — headings, product cards, buttons, images — becomes **solid ground**, and the visitor runs and **jumps** (Space, or the ⤒ button on mobile) from element to element to reach each checkpoint. It's the same engine as the platformer on the three.ws homepage.
+
+The two interactive modes aren't a fork — they're the same quest. The visitor can flip between strolling and platforming **mid-tour** with the **M** key or the on-screen mode pill, and the checkpoints and progress carry across the switch. `data-mode` only picks which one it starts in.
 
 Everything else works the same — same curriculum, same `targets`, same avatars, same start button. The checkpoint order follows your stop order. Notes:
 
@@ -186,7 +192,7 @@ Everything else works the same — same curriculum, same `targets`, same avatars
 - **Reduced motion is respected.** Visitors with "reduce motion" enabled get the same checkpoints and narration, auto-walked in order — no driving, no motion.
 - **The HUD** shows progress (`🎯 2 / 5`) and a hint; there's an always-visible ✕ to leave. It never blocks your store — the avatar and markers are pass-through.
 
-Explore is the more memorable, playful experience (great for a launch, a lookbook, or a brand that wants visitors to *play*); `guided` is the lower-effort, higher-completion default for pure conversion. Preview both in the [Tour Builder](/tour-builder) before you choose.
+Explore and Platformer are the more memorable, playful experiences (great for a launch, a lookbook, or a brand that wants visitors to *play* — Platformer especially rewards a store with strong visual sections to hop across); `guided` is the lower-effort, higher-completion default for pure conversion. Preview all three in the [Tour Builder](/tour-builder) before you choose.
 
 ---
 

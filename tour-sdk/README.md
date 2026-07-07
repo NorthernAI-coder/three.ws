@@ -42,7 +42,7 @@ after load.
 | `data-asset-base` | `https://three.ws` | `assetBase` |
 | `data-manifest-url` | `https://three.ws/animations/manifest.json` | `manifestUrl` |
 | `data-tts-endpoint` | off (paced captions) | `ttsEndpoint` |
-| `data-mode` | `guided` | `guided` (avatar walks itself) or `explore` (visitor drives it to checkpoints) |
+| `data-mode` | `guided` | `guided` (avatar walks itself), `explore` (visitor drives it to checkpoints), or `platformer` (explore with gravity + jumping) |
 | `data-autostart` | off | `full` \| `quick` — start on load |
 
 **Explore mode** (`data-mode="explore"`, or `{ mode: 'explore' }`): instead of
@@ -52,6 +52,14 @@ stop's section. Walking into the active checkpoint stops the guide to spotlight
 and narrate that section, then the next lights up. Same curriculum, same
 `targets`, same avatars. It runs on the stops resolvable on the current page;
 reduced-motion visitors get the checkpoints auto-walked.
+
+**Platformer mode** (`data-mode="platformer"`, or `{ mode: 'platformer' }`): the
+same checkpoint experience with the @three-ws/walk platformer physics — the
+page's real DOM (headings, cards, buttons, images) becomes solid ground, and the
+visitor runs and **jumps** (Space) from element to element to reach each
+checkpoint. In either interactive mode the visitor can flip between the two
+movement models mid-tour with the **M** key or the on-screen mode pill;
+checkpoints and progress carry across the switch.
 
 Asset defaults point at the three.ws CDN, so the tag works with zero
 configuration. Building a store tour? See the step-by-step Shopify guide:

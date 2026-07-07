@@ -52,7 +52,7 @@
 	.icon-btn:hover { color: var(--ink); border-color: var(--line-2); background: var(--edge-3); }
 
 	/* mode toggle */
-	.mode-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+	.mode-toggle { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 	.mode-opt { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 11px 12px; border: 1.5px solid var(--line); background: var(--edge-2); border-radius: var(--r-sm); text-align: left; transition: .15s; }
 	.mode-opt:hover { border-color: var(--line-2); background: var(--edge-3); }
 	.mode-opt.sel { border-color: var(--accent); background: rgba(52,211,153,.1); }
@@ -240,6 +240,7 @@
 			<div class="mode-toggle" id="mode-toggle">
 				<button class="mode-opt" data-mode="guided"><b>🎬 Guided</b><small>Avatar walks itself</small></button>
 				<button class="mode-opt" data-mode="explore"><b>🕹 Explore</b><small>Visitor drives it</small></button>
+				<button class="mode-opt" data-mode="platformer"><b>🎮 Platformer</b><small>Gravity &amp; jumping</small></button>
 			</div>
 		</div>
 

@@ -205,11 +205,48 @@ the identical bug — live `GET /api/3d` was also serving `"endpoints": []` with
   Before the fix this reproduced production's empty catalog.
 - `npx vitest run tests/crypto-catalog.test.js tests/3d-catalog.test.js` →
   **2 files, 24/24 passed** (dev-path behavior unchanged).
-- Post-deploy live capture: see below (added after the deploy went out).
+- **Post-deploy live capture (2026-07-07 02:53 UTC)** — production flipped from
+  `count: 0` to a full catalog once the fix's deploy left Vercel's (heavily
+  queued — 8 concurrent production builds) pipeline:
+
+```json
+// GET https://three.ws/api/crypto   (live)
+{ "name": "three.ws Crypto Data API", "free": true, "keyless": true,
+  "version": "1.0.0", "count": 5,
+  "endpoints": [
+    { "slug": "bonding",  "methods": ["GET"],        "path": "/api/crypto/bonding",  "title": "Bonding-Curve / Graduation Status" },
+    { "slug": "symbol",   "methods": ["GET","POST"], "path": "/api/crypto/symbol",   "title": "Symbol availability" },
+    { "slug": "trending", "methods": ["GET"],        "path": "/api/crypto/trending", "title": "Trending / hot tokens" },
+    { "slug": "wallet",   "methods": ["GET"],        "path": "/api/crypto/wallet",   "title": "Wallet Portfolio" },
+    { "slug": "whales",   "methods": ["GET"],        "path": "/api/crypto/whales",   "title": "Whale / Large-Buy Activity" }
+  ],
+  "openapi": "/api/crypto/openapi.json", "docs": "/docs/crypto-api",
+  "ts": "2026-07-07T02:53:49.248Z" }
+
+// GET https://three.ws/api/crypto/openapi.json  (live) — paths now populated:
+//   /api/crypto/bonding [get], /api/crypto/symbol [get,post],
+//   /api/crypto/trending [get], /api/crypto/wallet [get], /api/crypto/whales [get]
+
+// GET https://three.ws/api/3d  (live) — count: 2, endpoints: generate, inspect
+```
+
+  The serving deploy shows 5 entries (not the 7 in the later static-barrel
+  commit), i.e. the cwd-fallback fix alone repaired production; commit
+  `4fdbdb5cf` (a follow-on hardening by a sibling agent) additionally makes a
+  `STATIC_ENTRIES` barrel the production source of truth — belt and suspenders,
+  and it brings `launches` + `token` into the catalog when its deploy lands.
+  Both catalog suites re-run green against the barrel rewrite (24/24).
 
 **Also closed:** the original entry's vitest placeholder — the shared
 `node_modules` install-storm settled, `tests/crypto-catalog.test.js` runs green
 under real vitest (12/12); output pasted in that entry.
+
+**Full `npm test` context (2026-07-07):** 11262 passed / 5 failed test files —
+all 5 failures are on the paid-x402 / token-market surface
+(`x402-discovery-parity`, `x402-ring-catalog`, `x402-pipeline`,
+`x402-modal-dom`, `token-market-single-flight`), none reference either catalog
+assembler, and prompts 19–22 were actively editing that surface concurrently —
+pre-existing/concurrent breakage, not from this change.
 
 ---
 

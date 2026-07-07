@@ -15,11 +15,13 @@ export function createFeatureTour() {
 
 	// Opt-in interactive mode: the visitor drives the guide with arrow keys /
 	// joystick to glowing GTA-style checkpoints. Additive — the default guided
-	// tour is unchanged; this only runs when explicitly started.
-	async function startExplore() {
+	// tour is unchanged; this only runs when explicitly started. `movement`
+	// picks the starting locomotion: 'stroll' (default) or 'platformer'
+	// (gravity + jumping on the page's real DOM); M switches live either way.
+	async function startExplore(movement = 'stroll') {
 		if (explore?.isActive()) return;
 		const curriculum = await loadCurriculum();
-		explore = new ExploreMode(curriculum);
+		explore = new ExploreMode(curriculum, movement);
 		return explore.start();
 	}
 
@@ -53,7 +55,8 @@ export function createFeatureTour() {
 			const params = new URLSearchParams(location.search);
 			const param = params.get('tour');
 			if (param === 'start') {
-				if (params.get('mode') === 'explore') startExplore();
+				const mode = params.get('mode');
+				if (mode === 'explore' || mode === 'platformer') startExplore(mode === 'platformer' ? 'platformer' : 'stroll');
 				else ensure().start(params.get('track') === 'quick' ? 'quick' : 'full');
 			} else if (param === '0') {
 				control.exit();
