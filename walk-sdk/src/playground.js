@@ -104,8 +104,7 @@ function ensureCheckpointStyles() {
 .walk-cp.is-done .walk-cp__num::after{content:'✓';font-size:16px}
 @keyframes walk-cp-pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.14);opacity:.55}}
 @media (prefers-reduced-motion:reduce){.walk-cp.is-active .walk-cp__ring{animation:none}}
-.walk-pg.is-quest .walk-pg-pick,.walk-pg.is-quest .walk-pg-exit{display:none!important}
-.walk-pg.is-quest .walk-pg-mode{right:14px}
+.walk-pg.is-quest .walk-pg-pick,.walk-pg.is-quest .walk-pg-exit,.walk-pg.is-quest .walk-pg-mode{display:none!important}
 `;
 	document.head.appendChild(style);
 }

@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-07-07",
+			"title": "Switch walk and platformer modes right from the tour",
+			"summary": "When you take the interactive site tour, you can now switch between the two ways to move — gentle Stroll and gravity-powered Platformer — with a clearly labeled toggle built right into the tour bar, next to the checkpoint counter and Exit. Before, the only switch was a small pill tucked in the top corner that collided with the site navigation and was easy to miss; the toggle now shows which mode you're in, says \"tap or press M to switch,\" and updates live as you flip between them. Keyboard players can still press M anytime.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/tour"
+		},
+		{
+			"date": "2026-07-07",
 			"title": "Unified service catalog powering all agent storefronts",
 			"summary": "Every service three.ws offers — the paid x402 endpoints, the free Crypto Data and 3D APIs, and the OKX.AI 3D Studio listings — is now described in one canonical catalog that every storefront renders from. Before, the same service could carry different descriptions on x402scan versus our own discovery doc versus OKX, and they quietly drifted apart. Now a listing is written once and projected everywhere, automated checks fail the build if any storefront ever disagrees with the catalog, and the 3D Asset Pipeline endpoint — which had been live but invisible to marketplace crawlers — is discoverable.",
 			"tags": [

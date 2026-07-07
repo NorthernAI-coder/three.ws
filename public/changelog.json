@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-07T04:39:44.829Z",
+	"generated_at": "2026-07-07T07:43:27.288Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -272,6 +272,16 @@
 			"link": "/docs/api-reference",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "Switch walk and platformer modes right from the tour",
+			"summary": "When you take the interactive site tour, you can now switch between the two ways to move — gentle Stroll and gravity-powered Platformer — with a clearly labeled toggle built right into the tour bar, next to the checkpoint counter and Exit. Before, the only switch was a small pill tucked in the top corner that collided with the site navigation and was easy to miss; the toggle now shows which mode you're in, says \"tap or press M to switch,\" and updates live as you flip between them. Keyboard players can still press M anytime.",
+			"link": "/tour",
+			"tags": [
+				"improvement"
 			]
 		},
 		{
