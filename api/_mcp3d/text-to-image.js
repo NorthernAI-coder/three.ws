@@ -278,22 +278,31 @@ async function nimFluxImage(prompt, aspectRatio, seed = 0) {
 	throw lastErr || new Error('nim flux failed after retries');
 }
 
-// Words that signal the caller already set their own lighting / background style.
-// When present we leave the prompt untouched; otherwise we append rendering cues
-// that steer FLUX toward clean, bright, single-subject images that bake into
-// better 3D meshes (TRELLIS reconstructs geometry + texture from this image).
-const FLUX_STYLE_WORDS = [
-	'studio', 'light', 'bright', 'backlit', 'background', 'plain', 'colorful',
-	'vibrant', 'white bg', 'isolated', 'cartoon', 'stylized',
+// Background / lighting / composition cues that signal the caller already
+// controls the scene. When one is present we leave the prompt untouched;
+// otherwise we append cues that steer the image toward a single, evenly-lit
+// subject on a plain background, which reconstructs into a far cleaner 3D mesh
+// (TRELLIS / Hunyuan3D build geometry + texture from this one image).
+//
+// These are deliberately NOT art-style words. A "cartoon" or "stylized" subject
+// still needs isolation + a plain background for good reconstruction — gating
+// the suffix on style words (as an earlier version did, which also listed
+// cartoon / stylized / colorful / vibrant) let "a cartoon fox" render a full
+// illustrated forest scene on the Gemini lane: background clutter the 3D backend
+// then tries, and fails, to reconstruct. Match whole words so a substring like
+// "light" inside "lightsaber" can't wrongly suppress the cue either. The suffix
+// only ever gets ADDED relative to the old behavior, so it can only push toward
+// cleaner single-subject references, never toward busier scenes.
+const COMPOSITION_CUE_WORDS = [
+	'studio', 'light', 'bright', 'backlit', 'background', 'plain', 'white bg', 'isolated',
 ];
+const COMPOSITION_CUE_RE = new RegExp(`\\b(?:${COMPOSITION_CUE_WORDS.join('|')})\\b`, 'i');
 const FLUX_STYLE_SUFFIX = ', isolated subject, bright studio lighting, plain white background';
 
-function enhanceFluxPrompt(raw) {
+export function enhanceFluxPrompt(raw) {
 	const text = String(raw || '').trim();
 	if (!text) return text;
-	const lower = text.toLowerCase();
-	const hasStyle = FLUX_STYLE_WORDS.some((w) => lower.includes(w));
-	return hasStyle ? text : text + FLUX_STYLE_SUFFIX;
+	return COMPOSITION_CUE_RE.test(text) ? text : text + FLUX_STYLE_SUFFIX;
 }
 
 // Generate a single image from a text prompt.

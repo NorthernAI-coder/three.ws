@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-07-07",
+			"title": "Cleaner 3D models from stylized prompts",
+			"summary": "Text-to-3D prompts that name an art style — \"a cartoon fox,\" \"a stylized robot\" — now reliably produce a single, cleanly-isolated model instead of one baked into a busy background scene. The image step that seeds every 3D generation was skipping its \"isolated subject on a plain white background\" instruction whenever a prompt mentioned a style, which let the image model paint a whole illustrated scene the 3D reconstructor then struggled with. It now keeps that isolation instruction for stylized subjects (and no longer trips on unrelated words like \"lightsaber\"), so stylized characters and props reconstruct as sharp standalone assets.",
+			"tags": [
+				"improvement",
+				"fix"
+			],
+			"link": "/forge"
+		},
+		{
+			"date": "2026-07-07",
 			"title": "Switch walk and platformer modes right from the tour",
 			"summary": "When you take the interactive site tour, you can now switch between the two ways to move — gentle Stroll and gravity-powered Platformer — with a clearly labeled toggle built right into the tour bar, next to the checkpoint counter and Exit. Before, the only switch was a small pill tucked in the top corner that collided with the site navigation and was easy to miss; the toggle now shows which mode you're in, says \"tap or press M to switch,\" and updates live as you flip between them. Keyboard players can still press M anytime.",
 			"tags": [

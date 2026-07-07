@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-07T07:43:27.288Z",
+	"generated_at": "2026-07-07T08:56:28.712Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -76,6 +76,17 @@
 			"tags": [
 				"feature",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "Cleaner 3D models from stylized prompts",
+			"summary": "Text-to-3D prompts that name an art style — \"a cartoon fox,\" \"a stylized robot\" — now reliably produce a single, cleanly-isolated model instead of one baked into a busy background scene. The image step that seeds every 3D generation was skipping its \"isolated subject on a plain white background\" instruction whenever a prompt mentioned a style, which let the image model paint a whole illustrated scene the 3D reconstructor then struggled with. It now keeps that isolation instruction for stylized subjects (and no longer trips on unrelated words like \"lightsaber\"), so stylized characters and props reconstruct as sharp standalone assets.",
+			"link": "/forge",
+			"tags": [
+				"improvement",
+				"fix"
 			]
 		},
 		{

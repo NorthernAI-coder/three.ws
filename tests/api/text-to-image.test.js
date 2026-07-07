@@ -648,6 +648,53 @@ describe('textToImage — VERTEX_IMAGEN_ENABLED gate', () => {
 	});
 });
 
+describe('enhanceFluxPrompt — 3D-reference isolation suffix', () => {
+	const SUFFIX = ', isolated subject, bright studio lighting, plain white background';
+
+	async function enhance() {
+		const mod = await import('../../api/_mcp3d/text-to-image.js?t=' + Math.random());
+		return mod.enhanceFluxPrompt;
+	}
+
+	it('appends the isolation suffix to a plain subject prompt', async () => {
+		const enhanceFluxPrompt = await enhance();
+		expect(enhanceFluxPrompt('a red teapot')).toBe('a red teapot' + SUFFIX);
+	});
+
+	it('still isolates a stylized subject — style words must not suppress the suffix', async () => {
+		// Regression: "cartoon"/"stylized" are art-style words, not composition cues.
+		// Gating the suffix on them let the Gemini lane render a full illustrated
+		// scene (background clutter the 3D backend cannot reconstruct).
+		const enhanceFluxPrompt = await enhance();
+		expect(enhanceFluxPrompt('a cartoon fox character standing upright')).toBe(
+			'a cartoon fox character standing upright' + SUFFIX,
+		);
+		expect(enhanceFluxPrompt('a stylized vibrant robot')).toBe('a stylized vibrant robot' + SUFFIX);
+	});
+
+	it('leaves the prompt untouched when it already sets a background / composition cue', async () => {
+		const enhanceFluxPrompt = await enhance();
+		for (const p of [
+			'a knight on a plain white background',
+			'an owl figurine, studio lighting',
+			'a vase isolated on white bg',
+		]) {
+			expect(enhanceFluxPrompt(p)).toBe(p);
+		}
+	});
+
+	it('matches whole words only — a substring like "light" in "lightsaber" does not suppress', async () => {
+		const enhanceFluxPrompt = await enhance();
+		expect(enhanceFluxPrompt('a glowing lightsaber')).toBe('a glowing lightsaber' + SUFFIX);
+	});
+
+	it('returns an empty prompt unchanged', async () => {
+		const enhanceFluxPrompt = await enhance();
+		expect(enhanceFluxPrompt('')).toBe('');
+		expect(enhanceFluxPrompt('   ')).toBe('');
+	});
+});
+
 describe('vertex-imagen — service-account JSON hardening', () => {
 	it('rejects mangled GCP_SERVICE_ACCOUNT_JSON with a designed unconfigured error', async () => {
 		process.env.GOOGLE_CLOUD_PROJECT = 'demo-project';

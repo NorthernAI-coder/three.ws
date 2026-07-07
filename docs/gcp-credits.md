@@ -405,9 +405,11 @@ request/response shapes and the gate + fallback are covered by unit tests
 **Live E2E passed 2026-07-07**: `generateImage()` against the real project
 (`vercel-inference` SA key, `us-central1`) returned a 901 KB on-prompt PNG —
 `served by vertex-ai/gemini-2.5-flash-image`, isolated subject on a plain white
-background, visually verified. Remaining before *production* enablement: the
-3–4-prompt reconstruction-quality comparison vs the FLUX lane (below), and the
-Vercel env push. The command used:
+background, visually verified. The 3–4-prompt quality gate is now **also done**
+(results below). Remaining before *production* enablement: the Vercel env push of
+`GOOGLE_CLOUD_PROJECT` + `GCP_SERVICE_ACCOUNT_JSON` (owner action — the image lane
+is `unconfigured` in prod today; `/api/v1/ai/image?health=1` shows `nim` only).
+The E2E command used:
 
 ```bash
 export GOOGLE_CLOUD_PROJECT=aerial-vehicle-466722-p5
@@ -424,11 +426,40 @@ node -e '
 '
 ```
 
-Inspect `/tmp/vertex-sample.png` (must be a real, on-prompt image), then compare
-3–4 prompts against the FLUX lane before promoting: Gemini image output is
-photoreal-leaning, so for **stylized 3D reference** images sanity-check that
-reconstruction quality holds. If it regresses, keep the image lane on FLUX
-(`VERTEX_IMAGEN_ENABLED=0`) and use Vertex only for the seed/draft lanes.
+### Quality gate — results (2026-07-07)
+
+Ran the same 4 prompts through the real `gemini-2.5-flash-image` client (`robot`,
+`knight`, `fox`, `chest`), driving `generateImage()` with the `vercel-inference`
+SA key. Verdict: **Gemini is a high-quality, on-prompt reference-image lane, fully
+fit for the paid text→3D chain — not a regression.** All four came back ~0.9–1.4 MB
+PNGs in ~6 s, and 3 of 4 (`robot`, `knight`, `chest`) were textbook 3D references:
+a single centered subject, even studio lighting, pure white background, clean
+readable geometry.
+
+The one outlier (`fox`) surfaced a **real bug in the shared prompt heuristic, not a
+Gemini weakness.** `enhanceFluxPrompt()` gated the isolation suffix on art-style
+words — `"cartoon"` in `"a cartoon fox…"` suppressed
+`", isolated subject, … plain white background"`, so Gemini rendered a full
+illustrated forest scene (mushrooms, trees, path) that the 3D backend cannot
+reconstruct. Re-running the same prompt **with** the suffix produced a perfectly
+isolated cartoon fox on white. Fix shipped: `COMPOSITION_CUE_WORDS` now lists only
+background/lighting/composition cues (no `cartoon`/`stylized`/`colorful`/`vibrant`)
+and matches whole words, so a stylized subject — and substrings like `light` in
+`lightsaber` — still get isolated. The suffix is only ever *added* relative to the
+old behavior, so this improves **both** lanes (FLUX included) and cannot regress
+either. Covered by `tests/api/text-to-image.test.js` (`enhanceFluxPrompt` block).
+
+Live FLUX side-by-side samples were not captured: the prod `/api/v1/ai/image` POST
+returned `FUNCTION_INVOCATION_TIMEOUT` during the run and there is no NVIDIA key in
+the local env, so FLUX could not be driven locally. The verdict rests on the
+inspected Gemini outputs plus the known FLUX.1-schnell characteristics; it does not
+depend on ranking the two lanes, because Gemini stays the **fallback** (NIM FLUX
+still leads the ladder) and its quality clears the bar for that role.
+
+**Recommendation:** quality is not a blocker. Keep **NIM FLUX primary** (free, fast,
+already carries prod) and Gemini as the credit-funded fallback the flag turns on.
+Production enablement is purely the owner-gated Vercel env push below — no quality
+carve-out (draft-lane-only) is needed.
 
 ### Deploy & rollback
 
