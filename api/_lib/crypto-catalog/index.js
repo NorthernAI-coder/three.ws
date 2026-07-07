@@ -9,14 +9,11 @@
 // `GET /api/crypto` (the human/agent index) and `/api/crypto/openapi.json` (the
 // machine-readable spec). Add an endpoint → it appears in both automatically.
 //
-// Why a runtime directory read instead of a hand-maintained barrel: a barrel
-// would force every sibling prompt to edit one shared file, reintroducing the
-// merge conflicts the per-file convention exists to avoid. Vercel's file tracer
-// won't follow this dynamic `import()` on its own, so `api/crypto/index.js` and
-// `api/crypto/openapi.js` pin `includeFiles: "api/_lib/crypto-catalog/**"` in
-// vercel.json — that copies every entry file into the serverless bundle so the
-// `readdir` below finds them in production exactly as it does in local dev and
-// under vitest.
+// Production enumerates via the STATIC_ENTRIES barrel below (see its comment
+// for why: the runtime glob assembled empty in the deployed lambda). The
+// directory read still runs as an additive dev/test convenience, so the
+// drop-a-file convention keeps working locally before a descriptor's import
+// line lands, and test fixture dirs assemble pure-glob.
 //
 // Robustness contract (per the endpoint spec): a malformed or throwing entry is
 // skipped and logged, never fatal. Zero entries is a valid state — the index
@@ -25,6 +22,33 @@
 import { readdirSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { basename, dirname, join } from 'node:path';
+
+import bondingEntry from './bonding.js';
+import launchesEntry from './launches.js';
+import symbolEntry from './symbol.js';
+import tokenEntry from './token.js';
+import trendingEntry from './trending.js';
+import walletEntry from './wallet.js';
+import whalesEntry from './whales.js';
+
+// Static barrel — the PRODUCTION source of truth for the catalog. Vercel's
+// bundler only reliably ships what static imports reach: the runtime glob
+// (even with the includeFiles pin and the cwd fallback below) assembled empty
+// in the deployed lambda while finding every entry locally. The glob still
+// runs, but only as an ADDITIVE dev-time pickup for descriptors whose import
+// line hasn't landed yet.
+//
+// >>> Adding an endpoint: drop `api/_lib/crypto-catalog/<slug>.js` AND add its
+// >>> import + line here. The import is what makes it exist in production.
+const STATIC_ENTRIES = [
+	{ mod: bondingEntry, source: 'bonding.js' },
+	{ mod: launchesEntry, source: 'launches.js' },
+	{ mod: symbolEntry, source: 'symbol.js' },
+	{ mod: tokenEntry, source: 'token.js' },
+	{ mod: trendingEntry, source: 'trending.js' },
+	{ mod: walletEntry, source: 'wallet.js' },
+	{ mod: whalesEntry, source: 'whales.js' },
+];
 
 // In dev/tests `import.meta.url` is this source file, so its own directory is
 // the entry dir. In production Vercel esbuild-bundles this module INTO the
@@ -113,27 +137,49 @@ const cache = new Map();
 export async function loadCatalog({ dir = HERE, fresh = false } = {}) {
 	if (!fresh && cache.has(dir)) return cache.get(dir);
 
+	/** @type {Array<ReturnType<typeof normalize>>} */
+	const entries = [];
+	const seen = new Set();
+	const staticSources = new Set();
+
+	// The static barrel seeds the real catalog (never fixture dirs passed by
+	// tests). Barrel entries face the same validation + dedup as globbed files.
+	if (dir === HERE) {
+		for (const { mod, source } of STATIC_ENTRIES) {
+			staticSources.add(source);
+			if (!isValidEntry(mod)) {
+				console.warn(`[crypto-catalog] skipping ${source}: malformed static descriptor`);
+				continue;
+			}
+			const entry = normalize(mod);
+			const key = `${entry.method} ${entry.path}`;
+			if (seen.has(key)) continue;
+			seen.add(key);
+			entries.push(entry);
+		}
+	}
+
 	let files = [];
 	try {
 		files = readdirSync(dir).filter(
 			(f) =>
 				f.endsWith('.js') &&
 				!NON_ENTRY.has(f) &&
+				!staticSources.has(f) &&
 				!f.startsWith('_') &&
 				!f.startsWith('.') &&
 				!f.endsWith('.test.js'),
 		);
 	} catch (err) {
-		// Directory unreadable (shouldn't happen given includeFiles, but never
-		// throw from the assembler — an empty catalog is a valid served state).
-		console.warn(`[crypto-catalog] could not read entry dir ${dir}: ${err.message}`);
-		cache.set(dir, []);
-		return [];
+		// Directory unreadable (expected inside the serverless bundle, where the
+		// static barrel above already populated the catalog) — never throw.
+		if (entries.length === 0) {
+			console.warn(`[crypto-catalog] could not read entry dir ${dir}: ${err.message}`);
+		}
+		entries.sort((a, b) => a.path.localeCompare(b.path) || a.method.localeCompare(b.method));
+		cache.set(dir, entries);
+		return entries;
 	}
-
-	/** @type {Array<ReturnType<typeof normalize>>} */
-	const entries = [];
-	const seen = new Set();
 
 	for (const file of files.sort()) {
 		try {
