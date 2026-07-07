@@ -391,6 +391,14 @@
 			<description>All 42 three.ws MCP servers — the seven hosted remotes plus 35 one-command npm servers — now have consistent, verified listings ready for every major MCP directory, not just the official registry. Any MCP-compatible client (Claude, Cursor, and the rest) can discover three.ws by name wherever it looks. We fixed a discovery bug where the Agent-wallet and x402 Bazaar remotes wouldn't answer a plain tool list to crawlers, synced every server manifest to its published version, and built one canonical metadata source so a server's name, tagline, and connect snippet read identically on every directory.</description>
 		</item>
 		<item>
+			<title>three.ws moved to Google Cloud — faster, sturdier, and shutdown-proof</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-07:three.ws moved to Google Cloud — faster, sturdier, and shutdown-proof</guid>
+			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
+			<category>infra</category>
+			<description>The whole platform — every page, every API, all 76 background jobs — now runs on Google Cloud Run instead of Vercel. Why it matters: the previous host disabled the deployment and took the site down; the new home has no such kill switch, longer request limits for live streams, and dedicated capacity for the 3D pipeline that already ran on Google Cloud. Nothing changes in how you use three.ws — same URLs, same APIs, same wallet flows.</description>
+		</item>
+		<item>
 			<title>Trimmed low-value endpoints so agents find the tools that matter</title>
 			<link>https://three.ws/docs/crypto-api</link>
 			<guid isPermaLink="false">2026-07-07:Trimmed low-value endpoints so agents find the tools that matter</guid>

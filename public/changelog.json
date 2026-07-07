@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-07T13:52:23.311Z",
+	"generated_at": "2026-07-07T17:59:25.742Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -505,6 +505,17 @@
 			"tags": [
 				"infra",
 				"sdk"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "three.ws moved to Google Cloud — faster, sturdier, and shutdown-proof",
+			"summary": "The whole platform — every page, every API, all 76 background jobs — now runs on Google Cloud Run instead of Vercel. Why it matters: the previous host disabled the deployment and took the site down; the new home has no such kill switch, longer request limits for live streams, and dedicated capacity for the 3D pipeline that already ran on Google Cloud. Nothing changes in how you use three.ws — same URLs, same APIs, same wallet flows.",
+			"link": null,
+			"tags": [
+				"infra",
+				"improvement"
 			]
 		},
 		{

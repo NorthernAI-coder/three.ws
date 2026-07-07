@@ -1,0 +1,40 @@
+# syntax=docker/dockerfile:1.7-labs
+# three.ws production image for Google Cloud Run.
+# Runs server/index.mjs: the static frontend (dist/), the vercel.json route
+# table, and every api/** handler with Vercel-parity routing. See
+# server/README.md.
+#
+# Layering is cache-oriented (built via server/cloudbuild.yaml with BuildKit):
+# manifests are copied alone so the `npm ci` layer survives source-only
+# changes — the common case during the migration — cutting rebuilds from
+# ~10 min to ~3. Dependency lifecycle scripts and the root postinstall (which
+# builds the workspace SDKs from source) run after the full copy.
+FROM node:24-slim
+
+WORKDIR /app
+
+# node-gyp toolchain: native deps (better-sqlite3, bigint bindings) have no
+# Node 24 prebuilts, so `npm rebuild` compiles them from source.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Same browser-download skips as the Vercel install command.
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
+    PUPPETEER_SKIP_DOWNLOAD=1
+
+# 1. Manifests only → cacheable `npm ci` layer. --parents preserves the
+#    workspace directory structure (requires the dockerfile 1.7-labs syntax).
+COPY --parents package.json package-lock.json .npmrc* **/package.json /app/
+RUN npm ci --ignore-scripts --no-audit --no-fund
+
+# 2. Full source, then run the deferred lifecycle scripts: native/module
+#    install hooks (npm rebuild) and the root postinstall (SDK builds).
+COPY . .
+RUN npm rebuild && npm run postinstall
+
+ENV NODE_ENV=production \
+    NODE_OPTIONS=--no-deprecation
+
+EXPOSE 8080
+CMD ["node", "server/index.mjs"]

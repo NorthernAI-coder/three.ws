@@ -16,6 +16,36 @@
 !/.npmrc
 !/.gcloudignore
 !/.dockerignore
+# --- three-ws-api (Cloud Run) additions -------------------------------------
+# The root Dockerfile runs `npm ci` (workspaces) and serves the full site via
+# server/index.mjs, so the context needs every workspace dir, the data/ and
+# public/ dirs handlers read at runtime, dist/ (the built frontend, served
+# from the image), and vercel.json (the route table the server interprets).
+# character-studio ships manifest-only (216 MB of frontend source npm ci
+# doesn't need); animation-sources (2.6 GB) and dist-lib/ stay out entirely.
+!/server/
+!/Dockerfile
+!/vercel.json
+!/dist/
+!/scripts/
+!/data/
+!/examples/
+!/public/
+!/pages/
+!/sdk/
+!/solana-agent-sdk/
+!/mcp-server/
+!/mcp-bridge/
+!/packages/
+!/agent-ui-sdk/
+!/avatar-sdk/
+!/page-agent-sdk/
+!/multiplayer/
+!/walk-sdk/
+!/tour-sdk/
+!/character-studio/
+/character-studio/*
+!/character-studio/package.json
 # Re-exclude heavy/derived paths even inside the re-included directories.
 **/node_modules/
 .git/
