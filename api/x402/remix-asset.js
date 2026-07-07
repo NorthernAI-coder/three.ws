@@ -197,7 +197,7 @@ export default paidEndpoint({
 	// royalty transfer), so require the payment-identifier idempotency extension.
 	paymentIdentifier: { required: true },
 	service: withService({
-		serviceName: 'Remix a 3D asset (with creator royalties)',
+		serviceName: 'Remix a 3D asset + royalties',
 		tags: ['3d', 'remix', 'royalties', 'generation'],
 	}),
 	handler: async ({ req, res, requirement }) => {

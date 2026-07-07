@@ -16,7 +16,7 @@ export default {
 	status: 'live',
 	priceAtomics: '250000',
 	acceptsBuilder: 'standard',
-	serviceName: 'Remix a 3D asset (with creator royalties)',
+	serviceName: 'Remix a 3D asset + royalties',
 	tags: ['3d', 'remix', 'royalties', 'generation', 'glb'],
 	description:
 		'Remix a published, remixable 3D model: pay a fixed fee in USDC and describe the change in words ' +

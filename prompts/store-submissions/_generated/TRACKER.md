@@ -42,7 +42,7 @@ Legend: **not-started** | **blocked** | **ready-to-submit** | **submitted** | **
 | 11 | Agent Skills pack | ⬜ not started | Hardened skills + 3D-creation skills |
 | 12 | OpenAI GPT Store Actions | ✅ built | `api/3d/studio.js` + `_generated/openai-actions.yaml` (lints clean) + `_generated/openai-gpt-config.md` |
 | 13 | MCP registries & directories | ⬜ not started | `_generated/mcp-directories/` + canonical metadata |
-| 16 | Tokenized 3D NFT | ⬜ not started | `mint_3d_asset` + `get_3d_asset_onchain` tools |
+| 16 | Tokenized 3D NFT | 🟨 code-complete, live mint blocked | `mint_3d_asset` + `get_3d_asset_onchain` shipped + unit-verified (15/15). Live devnet mint blocked on devnet faucet daily-IP limit; run `scripts/tokenize-3d-devnet-e2e.mjs` (or `E2E_PAYER_SECRET=…`) to finish. Evidence: `_generated/tokenized/` |
 | 17 | Embodied on-chain identity | ⬜ not started | Persona↔wallet binding + visual chain state |
 | 18 | Token-gated 3D embeds | ⬜ not started | Holder-only embed gating |
 | 19 | Verifiable AI-3D provenance | ⬜ not started | Content credentials + on-chain anchor |

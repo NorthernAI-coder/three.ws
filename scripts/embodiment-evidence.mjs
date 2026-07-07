@@ -44,8 +44,12 @@ async function shoot(page, url, file, { settle = 2600, speaking = false } = {}) 
 	await page.screenshot({ path: path.join(OUT, file) });
 	page.off('console', onErr);
 	page.off('pageerror', onPage);
-	// Ignore benign favicon/network noise; keep real script errors.
-	const real = localErrs.filter((t) => !/favicon|manifest\.json 404|ERR_ABORTED/.test(t));
+	// Ignore dev-only noise (Vite HMR websocket can't reach the Codespaces-forwarded
+	// :3000 from our :3002 server; GPU-stall perf warnings from headless WebGL) and
+	// benign network noise. Keep real script/page errors.
+	const real = localErrs.filter(
+		(t) => !/favicon|manifest\.json 404|ERR_ABORTED|websocket|WebSocket|vite\]|GPU stall|GL Driver/i.test(t),
+	);
 	if (real.length) errors.push({ file, real });
 	console.log(`✓ ${file}${real.length ? `  (⚠ ${real.length} console errors)` : ''}`);
 }
@@ -62,6 +66,16 @@ const shots = [
 const browser = await chromium.launch();
 try {
 	await mkdir(OUT, { recursive: true });
+	// Warm up the dev module graph (Vite compiles three + the stage on first hit)
+	// so the first timed shot isn't racing a cold compile.
+	{
+		const ctx = await browser.newContext();
+		const page = await ctx.newPage();
+		await page.goto(embedUrl({ state: 'idle' }), { waitUntil: 'load' }).catch(() => {});
+		await page.waitForSelector('canvas', { timeout: 20000 }).catch(() => {});
+		await wait(4000);
+		await ctx.close();
+	}
 	for (const s of shots) {
 		// A fresh context per shot = a genuinely new "session" (no shared state),
 		// which is exactly what the reload-same-body case must prove.
