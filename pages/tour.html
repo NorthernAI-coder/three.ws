@@ -455,6 +455,32 @@
 			</section>
 
 			<section class="tour-section">
+				<h2 class="tour-section__title">Or drive it yourself</h2>
+				<p class="tour-section__lead">Rather play than watch? Take the controls: each page gets a glowing checkpoint, and you steer the guide to it — arrow keys or WASD on desktop, a joystick on your phone. Press <strong>M</strong> anytime to flip between the two movement styles.</p>
+				<div class="tour-tracks">
+					<button class="tour-track" id="tour-start-explore">
+						<span class="tour-track__icon">🕹</span>
+						<span class="tour-track__body">
+							<span class="tour-track__title">Explore</span>
+							<span class="tour-track__meta">walk the guide anywhere — no falling</span>
+						</span>
+						<span class="tour-track__go">▶</span>
+					</button>
+					<button class="tour-track" id="tour-start-platformer">
+						<span class="tour-track__icon">🎮</span>
+						<span class="tour-track__body">
+							<span class="tour-track__title">Platformer</span>
+							<span class="tour-track__meta">gravity on — run and jump across the page</span>
+						</span>
+						<span class="tour-track__go">▶</span>
+					</button>
+				</div>
+				<p class="tour-section__lead" style="margin-top:14px; font-size:13.5px">
+					Want this on your own site or store? Build one in the <a href="/tour-builder">Tour Builder</a> — no code, both modes included.
+				</p>
+			</section>
+
+			<section class="tour-section">
 				<h2 class="tour-section__title">What you'll see</h2>
 				<p class="tour-section__lead">The tour runs as chapters — from building your first agent to taking it on-chain.</p>
 				<div class="tour-chapters" id="tour-chapters"></div>
@@ -500,6 +526,14 @@
 			document.getElementById('tour-start-quick').addEventListener('click', () => startTour('quick'));
 			document.getElementById('tour-start-full').addEventListener('click', () => startTour('full'));
 			document.getElementById('tour-start-2').addEventListener('click', () => startTour('quick'));
+
+			// Interactive modes are single-surface (one checkpoint per page), so they
+			// start on the homepage — the engine boots there via the deep link.
+			function startInteractive(mode) {
+				location.href = '/?tour=start&mode=' + mode;
+			}
+			document.getElementById('tour-start-explore').addEventListener('click', () => startInteractive('explore'));
+			document.getElementById('tour-start-platformer').addEventListener('click', () => startInteractive('platformer'));
 
 			// Resume affordance: an in-progress tour this session (sessionStorage)
 			// takes priority; otherwise a durable cross-session bookmark
