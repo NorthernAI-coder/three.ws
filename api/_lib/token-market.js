@@ -45,11 +45,15 @@ function num(v) {
  * the buyer is never charged for missing data).
  *
  * @param {string} ca contract address (Solana mint or EVM 0x)
- * @param {{ signal?: AbortSignal }} [opts]
+ * @param {{ signal?: AbortSignal, chain?: string|null }} [opts] `chain` restricts
+ *   the pair search to one DexScreener chainId (e.g. 'solana', 'base') — an EVM
+ *   contract deployed on several chains otherwise resolves to whichever chain
+ *   holds the deepest pool.
  * @returns {Promise<null | {
  *   mint: string, symbol: string|null, name: string|null, image: string|null,
  *   chain: string|null, dex: string|null, pair_url: string|null,
  *   price_usd: number|null, change_24h: number|null, market_cap_usd: number|null,
+ *   fdv_usd: number|null,
  *   liquidity_usd: number|null, volume_24h_usd: number|null, pair_created_at: number|null,
  * }>}
  */
@@ -60,7 +64,8 @@ export async function fetchTokenMarket(ca, opts = {}) {
 	});
 	if (!r.ok) return null;
 	const data = await r.json().catch(() => null);
-	const pairs = Array.isArray(data?.pairs) ? data.pairs : [];
+	let pairs = Array.isArray(data?.pairs) ? data.pairs : [];
+	if (opts.chain) pairs = pairs.filter((p) => p.chainId === opts.chain);
 	if (!pairs.length) return null;
 
 	pairs.sort((a, b) => (b.liquidity?.usd ?? 0) - (a.liquidity?.usd ?? 0));
@@ -95,6 +100,7 @@ export async function fetchTokenMarket(ca, opts = {}) {
 		price_usd: num(p.priceUsd),
 		change_24h: p.priceChange?.h24 ?? null,
 		market_cap_usd: num(p.marketCap) ?? num(p.fdv),
+		fdv_usd: num(p.fdv),
 		liquidity_usd: num(p.liquidity?.usd),
 		volume_24h_usd: num(p.volume?.h24),
 		pair_created_at: num(p.pairCreatedAt),
