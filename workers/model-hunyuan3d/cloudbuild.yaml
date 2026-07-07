@@ -49,7 +49,7 @@ steps:
       - --memory=32Gi
       - --min-instances=${_MIN_INSTANCES}
       - --max-instances=${_MAX_INSTANCES}
-      - --timeout=300
+      - --timeout=900
       - --allow-unauthenticated
       - --add-volume=name=weights,type=cloud-storage,bucket=${_WEIGHTS_BUCKET}
       - --add-volume-mount=volume=weights,mount-path=/weights
@@ -63,3 +63,6 @@ images:
 options:
   machineType: E2_HIGHCPU_32
   logging: CLOUD_LOGGING_ONLY
+
+# CUDA custom-rasterizer + mesh-processor compiles push past the 10-minute default.
+timeout: 3600s

@@ -51,12 +51,17 @@ RUN pip install kaolin -f https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch
 
 # ── 4. setup.sh --nvdiffrast / --diffoctreerast / --mipgaussian (compiled) ────
 # These build CUDA kernels with nvcc; TORCH_CUDA_ARCH_LIST=8.9 scopes them to L4.
+# --no-build-isolation is REQUIRED: each extension's setup.py `import torch` at
+# build time, but PEP517 isolation hides the torch installed in step 1 — nvdiffrast
+# aborts with "Cannot compile nvdiffrast CUDA extension … run pip install with
+# --no-build-isolation". The flag makes the build reuse the image's torch. setuptools/
+# wheel are already present (installed in the apt layer), so no build deps are missing.
 RUN git clone https://github.com/NVlabs/nvdiffrast.git /tmp/ext/nvdiffrast \
-    && pip install /tmp/ext/nvdiffrast
+    && pip install --no-build-isolation /tmp/ext/nvdiffrast
 RUN git clone --recurse-submodules https://github.com/JeffreyXiang/diffoctreerast.git /tmp/ext/diffoctreerast \
-    && pip install /tmp/ext/diffoctreerast
+    && pip install --no-build-isolation /tmp/ext/diffoctreerast
 RUN git clone https://github.com/autonomousvision/mip-splatting.git /tmp/ext/mip-splatting \
-    && pip install /tmp/ext/mip-splatting/submodules/diff-gaussian-rasterization/ \
+    && pip install --no-build-isolation /tmp/ext/mip-splatting/submodules/diff-gaussian-rasterization/ \
     && rm -rf /tmp/ext
 
 # ── 5. Server deps ────────────────────────────────────────────────────────────
