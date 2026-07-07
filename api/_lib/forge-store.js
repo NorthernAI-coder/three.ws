@@ -408,43 +408,37 @@ export async function getPublicCreation({ id }) {
 	}
 }
 
-// Record a refinement: a new creation derived from an existing one. Inserts into
-// forge_creations with parent_creation_id + refine_instruction + lineage_index.
-// Returns the new creation id or null when the store is unavailable.
-export async function createRefinement({
+// Link an already-created creation to the one it was derived from, marking it as
+// a refinement/remix in the lineage. Called AFTER the derived model is generated
+// (the base row exists from createCreation), so the durable parent → child edge
+// is written without touching the many-laned /api/forge submit path. Sets
+// parent_creation_id + refine_instruction + lineage_index. Idempotent per row.
+// Returns true on success, false when the store is unavailable or the row is
+// missing / not owned by clientKey.
+export async function linkRefinement({
+	creationId,
 	clientKey,
-	ipHash,
 	parentCreationId,
-	prompt,
 	refineInstruction,
 	lineageIndex,
-	aspect,
-	backend,
-	tier,
-	path,
-	modelCategory,
 }) {
-	if (!forgeStoreEnabled()) return null;
-	const id = randomUUID();
-	const category = validModelCategory(modelCategory) ?? 'other';
+	if (!forgeStoreEnabled() || !creationId || !parentCreationId) return false;
 	try {
-		await sql`
-			insert into forge_creations
-				(id, client_key, ip_hash, prompt, aspect, backend, tier, path,
-				 parent_creation_id, refine_instruction, lineage_index,
-				 status, outcome, model_category)
-			values
-				(${id}, ${clientKey}, ${ipHash ?? null}, ${prompt}, ${aspect ?? null},
-				 ${backend ?? null}, ${tier ?? null}, ${path ?? null},
-				 ${parentCreationId ?? null}, ${refineInstruction ?? null},
-				 ${typeof lineageIndex === 'number' ? lineageIndex : 0},
-				 'generating', 'generated', ${category})
+		const rows = await sql`
+			update forge_creations
+			set parent_creation_id = ${parentCreationId},
+				refine_instruction = ${refineInstruction ?? null},
+				lineage_index = ${typeof lineageIndex === 'number' ? lineageIndex : 1},
+				updated_at = now()
+			where id = ${creationId}
+				and (${clientKey}::text is null or client_key = ${clientKey})
+				and parent_creation_id is null
+			returning id
 		`;
-		await recordGenerationEvent({ phase: 'start', backend, tier, path, source: 'refine' });
-		return id;
+		return rows.length > 0;
 	} catch (err) {
-		console.error('[forge-store] createRefinement failed:', err?.message);
-		return null;
+		console.error('[forge-store] linkRefinement failed:', err?.message);
+		return false;
 	}
 }
 
@@ -571,5 +565,159 @@ export async function listShowcase({ limit = 12 } = {}) {
 		if (isDbUnavailableError(err)) console.warn('[forge-store] listShowcase skipped (db unavailable):', err?.message);
 		else console.error('[forge-store] listShowcase failed:', err?.message);
 		return [];
+	}
+}
+
+// ── Remix economy ────────────────────────────────────────────────────────────
+//
+// A creator opts a finished creation into the remix bazaar (setRemixable) with a
+// license, a royalty rate, and a Solana payout wallet. Other agents browse the
+// opted-in assets (listRemixable), inspect one's provenance + terms before
+// remixing (getRemixSource), and — after a paid remix settles — the royalty
+// settlement is recorded back onto the source (recordRemixSettlement). All of
+// this lives on the SAME forge_creations rows the generator already writes; no
+// parallel asset store. USDC is the settlement asset only — no other coin.
+
+const REMIX_LICENSES = new Set(['remix-cc', 'remix-nc', 'remix-royalty', 'all-rights']);
+
+// Opt a creation into (or out of) the remix bazaar and set its terms. Scoped to
+// the owning client_key so one browser can't publish another's model. Only a
+// done row with a stored GLB can be made remixable. Royalty bps is clamped at
+// the DB check constraint (0–2000); we pre-clamp for a clean error path.
+export async function setRemixable({ creationId, clientKey, remixable, royaltyBps, creatorWallet, license }) {
+	if (!forgeStoreEnabled() || !creationId || !clientKey) return null;
+	const bps = Math.max(0, Math.min(2000, Math.round(Number(royaltyBps ?? 1000)) || 0));
+	const lic = REMIX_LICENSES.has(license) ? license : null;
+	try {
+		const rows = await sql`
+			update forge_creations
+			set remixable = ${remixable !== false},
+				remix_royalty_bps = ${bps},
+				creator_wallet_solana = ${creatorWallet ?? null},
+				model_category = coalesce(model_category, 'other'),
+				updated_at = now()
+			where id = ${creationId}
+				and client_key = ${clientKey}
+				and status = 'done'
+				and glb_url is not null
+			returning id, remixable, remix_royalty_bps, creator_wallet_solana
+		`;
+		if (!rows.length) return null;
+		const r = rows[0];
+		return {
+			id: r.id,
+			remixable: r.remixable,
+			royaltyBps: r.remix_royalty_bps,
+			creatorWallet: r.creator_wallet_solana,
+			license: lic || 'remix-royalty',
+		};
+	} catch (err) {
+		console.error('[forge-store] setRemixable failed:', err?.message);
+		return null;
+	}
+}
+
+// Newest remixable creations across all creators — powers the remix feed. Only
+// done rows with a stored GLB and remixable = true are surfaced. Cursor by
+// created_at (pass `before` = the last item's created_at ISO string).
+export async function listRemixable({ limit = 24, before } = {}) {
+	if (!forgeStoreEnabled()) return [];
+	const capped = Math.min(Math.max(Number(limit) || 24, 1), 48);
+	try {
+		const rows = before
+			? await sql`
+				select id, prompt, glb_url, preview_image_url, remix_royalty_bps,
+					creator_wallet_solana, parent_creation_id, lineage_index,
+					backend, model_category, created_at
+				from forge_creations
+				where remixable = true and status = 'done' and glb_url is not null
+					and created_at < ${before}
+				order by created_at desc
+				limit ${capped}
+			`
+			: await sql`
+				select id, prompt, glb_url, preview_image_url, remix_royalty_bps,
+					creator_wallet_solana, parent_creation_id, lineage_index,
+					backend, model_category, created_at
+				from forge_creations
+				where remixable = true and status = 'done' and glb_url is not null
+				order by created_at desc
+				limit ${capped}
+			`;
+		return rows.map((r) => ({
+			id: r.id,
+			prompt: r.prompt,
+			glb_url: r.glb_url,
+			preview_image_url: r.preview_image_url,
+			royaltyBps: r.remix_royalty_bps ?? 0,
+			// Provenance + terms VISIBLE before remixing — but never leak the raw
+			// payout wallet in the public feed; only whether royalties can route.
+			royaltyPayable: Boolean(r.creator_wallet_solana),
+			isDerived: Boolean(r.parent_creation_id),
+			lineageIndex: r.lineage_index ?? 0,
+			backend: r.backend ?? null,
+			model_category: r.model_category ?? 'other',
+			created_at: r.created_at,
+		}));
+	} catch (err) {
+		if (isDbUnavailableError(err)) console.warn('[forge-store] listRemixable skipped (db unavailable):', err?.message);
+		else console.error('[forge-store] listRemixable failed:', err?.message);
+		return [];
+	}
+}
+
+// Fetch one remixable source with the fields settlement needs: its GLB, the
+// reference image to anchor the remix, the royalty rate, and the payout wallet.
+// Includes the wallet (unlike the public feed) because the caller is the
+// settlement path, not a browser. Returns null when missing or not remixable.
+export async function getRemixSource({ creationId }) {
+	if (!forgeStoreEnabled() || !creationId) return null;
+	try {
+		const rows = await sql`
+			select id, client_key, prompt, glb_url, preview_image_url,
+				remixable, remix_royalty_bps, creator_wallet_solana,
+				parent_creation_id, lineage_index, aspect, created_at
+			from forge_creations
+			where id = ${creationId} and status = 'done' and glb_url is not null
+			limit 1
+		`;
+		if (!rows.length) return null;
+		const r = rows[0];
+		return {
+			id: r.id,
+			clientKey: r.client_key,
+			prompt: r.prompt,
+			glbUrl: r.glb_url,
+			previewImageUrl: r.preview_image_url,
+			remixable: r.remixable === true,
+			royaltyBps: r.remix_royalty_bps ?? 0,
+			creatorWallet: r.creator_wallet_solana,
+			parentCreationId: r.parent_creation_id,
+			lineageIndex: r.lineage_index ?? 0,
+			aspect: r.aspect,
+			createdAt: r.created_at,
+		};
+	} catch (err) {
+		console.error('[forge-store] getRemixSource failed:', err?.message);
+		return null;
+	}
+}
+
+// Record a completed royalty settlement on the SOURCE creation (the one that was
+// remixed). Stored as JSONB carrying the on-chain tx, amount, and the remix that
+// triggered it — the append-only provenance of income earned. Best-effort.
+export async function recordRemixSettlement({ sourceCreationId, settlement }) {
+	if (!forgeStoreEnabled() || !sourceCreationId || !settlement) return false;
+	try {
+		await sql`
+			update forge_creations
+			set remix_settlement_ref = ${JSON.stringify(settlement)}::jsonb,
+				updated_at = now()
+			where id = ${sourceCreationId}
+		`;
+		return true;
+	} catch (err) {
+		console.error('[forge-store] recordRemixSettlement failed:', err?.message);
+		return false;
 	}
 }

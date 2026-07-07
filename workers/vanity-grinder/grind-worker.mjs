@@ -6,15 +6,24 @@
 // channel (never to disk, never to a log). It then waits for the next target.
 //
 // Protocol:
-//   main → worker:  { type: 'grind', target }   |   { type: 'stop' }
+//   main → worker:  { type: 'grind', target }
 //   worker → main:  { type: 'ready' }
 //                   { type: 'found', target, publicKey, secretKey, attempts, durationMs }
 //                   { type: 'progress', attempts }
+//
+// STOP is signalled out-of-band via a SharedArrayBuffer atomic (workerData.stopBuffer),
+// NOT a message: the grind loop is synchronous and never yields to this worker's
+// event loop mid-target, so a queued 'stop' message would not be seen until the
+// target completed. The atomic is read directly inside the sync loop.
 
 import { parentPort, workerData } from 'node:worker_threads';
 import { grindToCompletion } from './wasm-grind.mjs';
 
-let stop = false;
+// Shared stop flag: the main thread writes 1 to abort every worker at once; each
+// reads it between grind batches. Tolerate its absence (older callers) by falling
+// back to a never-stop flag — the maxAttempts cap still bounds every target.
+const stopFlag = workerData?.stopBuffer ? new Int32Array(workerData.stopBuffer) : null;
+const stopRequested = () => (stopFlag ? Atomics.load(stopFlag, 0) !== 0 : false);
 const PROGRESS_EVERY = 2_000_000; // report roughly every ~80s of single-thread work
 // Give up on a target after this many attempts — a rare Base58 leading char can be
 // effectively unreachable, and an unbounded grind would pin a worker forever.
@@ -24,14 +33,10 @@ const MAX_ATTEMPTS_PER_TARGET = parseInt(process.env.MAX_ATTEMPTS_PER_TARGET || 
 
 parentPort.on('message', (msg) => {
 	if (!msg || typeof msg !== 'object') return;
-	if (msg.type === 'stop') {
-		stop = true;
-		return;
-	}
 	if (msg.type === 'grind') {
 		let lastReported = 0;
 		const result = grindToCompletion(msg.target, {
-			stopRequested: () => stop,
+			stopRequested,
 			maxAttempts: MAX_ATTEMPTS_PER_TARGET,
 			onProgress: (attempts) => {
 				if (attempts - lastReported >= PROGRESS_EVERY) {

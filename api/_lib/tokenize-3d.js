@@ -42,7 +42,7 @@ import { env } from './env.js';
 import { collectionAuthoritySigner, collectionAuthorityAddress } from './solana-collection.js';
 import { solanaConnection } from './solana/connection.js';
 import { explorerTxUrl } from './avatar-wallet.js';
-import { putObject, publicUrl, getObjectBuffer } from './r2.js';
+import { putObject, publicUrl } from './r2.js';
 import { pinToIPFS, ipfsPinningConfigured } from './ipfs-pin.js';
 import { fetchSafePublicUrl } from './ssrf-guard.js';
 import { getAvatar, resolveAvatarUrl } from './avatars.js';

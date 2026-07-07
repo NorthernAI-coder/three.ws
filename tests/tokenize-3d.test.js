@@ -11,7 +11,6 @@ import {
 	buildTokenized3dMetadata,
 	clampSellerFeeBps,
 	deriveIdempotencyKey,
-	viewerLinkFor,
 	TOKENIZE_3D_ROYALTY_CAP_BPS,
 	TOKENIZE_3D_ROYALTY_DEFAULT_BPS,
 } from '../api/_lib/tokenize-3d-metadata.js';

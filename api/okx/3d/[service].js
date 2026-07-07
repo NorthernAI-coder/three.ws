@@ -313,9 +313,17 @@ async function handleRestService(req, res, entry) {
 
 async function handleIdentityStudio(req, res) {
 	const resourcePath = '/api/okx/3d/identity-studio';
+	const resourceUrl = resolveResourceUrl(req, resourcePath);
+	// The flagship sells on OKX.AI, so its 402 must LEAD with the X Layer
+	// (eip155:196) accept — exactly like the WO-03 REST services — or an OKX
+	// buyer can't pay it. Priced at the create_identity fee; gated on the X Layer
+	// envs being present. Prepended into the MCP challenge + verify path.
+	const xlayerAccepts = xlayerSettleable()
+		? [okxXLayerAccept(resourceUrl, catalogEntry('identity-studio').amountAtomics)]
+		: [];
 
 	if (req.method === 'GET' || req.method === 'HEAD')
-		return handleSse(req, res, { resourcePath, challenge: IDENTITY_CHALLENGE });
+		return handleSse(req, res, { resourcePath, challenge: IDENTITY_CHALLENGE, extraAccepts: xlayerAccepts });
 	if (req.method === 'DELETE') return handleTerminate(req, res);
 	if (req.method !== 'POST') return send401(res, 'method not supported');
 
@@ -331,6 +339,7 @@ async function handleIdentityStudio(req, res) {
 		resourcePath,
 		challenge: IDENTITY_CHALLENGE,
 		allowFree: allFree || (isDiscoveryOnlyBatch(body) && !isMcpProtocolClient(req)),
+		extraAccepts: xlayerAccepts,
 	});
 	if (!result) return;
 	const { auth, x402Ctx } = result;

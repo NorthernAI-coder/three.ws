@@ -10,7 +10,15 @@
 import { recordEvent, logger } from '../_lib/usage.js';
 import { sanitizeToolError } from '../_lib/mcp-error-sanitize.js';
 import { TOOL_CATALOG, TOOLS } from './tools.js';
+import { PERSONA_TOOL_CATALOG, PERSONA_TOOLS } from './persona-tools.js';
 import { COMPONENT_HTML, COMPONENT_URI, COMPONENT_MIME, COMPONENT_CSP } from './component.js';
+
+// The full catalog the free studio advertises: five generation tools + three
+// embodiment/persona tools. The persona tools return their living-body view as an
+// inline resource (they don't use the model-viewer widget), so they aren't in the
+// generation-quota set — see api/mcp-studio.js callsGenerationTool.
+const ALL_TOOL_CATALOG = [...TOOL_CATALOG, ...PERSONA_TOOL_CATALOG];
+const ALL_TOOLS = { ...TOOLS, ...PERSONA_TOOLS };
 
 export const PROTOCOL_VERSION = '2025-06-18';
 
@@ -21,6 +29,10 @@ const INSTRUCTIONS = [
 	'forge_free(prompt) generates a model from text; text_to_avatar and mesh_forge generate an avatar or art-directed',
 	'mesh from text or a reference image; rig_mesh(glb_url) makes a static model animation-ready; forge_avatar does',
 	'generate + rig in one step. Each result includes a glbUrl and a viewerUrl and renders inline in a 3D viewer widget.',
+	'To give the assistant a LIVING body: create_agent_persona(glb_url, name) saves a rigged model as a named,',
+	'persistent persona and returns a persona_id; persona_say(persona_id, text) makes that body lip-sync the reply and',
+	'emote; get_agent_persona(persona_id) brings the same body back in a later session. The persona renders inline and',
+	'idles between turns.',
 ].join(' ');
 
 // The Apps SDK widget resource — one HTML template all generation tools render.
@@ -60,7 +72,7 @@ function summarize(args) {
 
 async function onToolCall(params, auth, started, req) {
 	const { name, arguments: args = {} } = params || {};
-	const tool = typeof name === 'string' && Object.hasOwn(TOOLS, name) ? TOOLS[name] : null;
+	const tool = typeof name === 'string' && Object.hasOwn(ALL_TOOLS, name) ? ALL_TOOLS[name] : null;
 	if (!tool) throw rpcError(-32602, `unknown tool: ${name}`);
 	if (tool.validate && !tool.validate(args)) {
 		const first = tool.validate.errors?.[0];
@@ -97,7 +109,7 @@ export async function dispatch(msg, auth, req) {
 		}
 		if (method === 'ping') return ok(id, {});
 		if (method === 'notifications/initialized') return null;
-		if (method === 'tools/list') return ok(id, { tools: TOOL_CATALOG });
+		if (method === 'tools/list') return ok(id, { tools: ALL_TOOL_CATALOG });
 		if (method === 'tools/call') return ok(id, await onToolCall(msg.params, auth, started, req));
 		if (method === 'resources/list') return ok(id, { resources: [RESOURCE] });
 		if (method === 'resources/read') {
