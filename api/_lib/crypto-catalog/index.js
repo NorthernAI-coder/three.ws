@@ -24,9 +24,19 @@
 
 import { readdirSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 
-const HERE = dirname(fileURLToPath(import.meta.url));
+// In dev/tests `import.meta.url` is this source file, so its own directory is
+// the entry dir. In production Vercel esbuild-bundles this module INTO the
+// `api/crypto/*.js` handler, so `import.meta.url` resolves to the handler's
+// directory (`api/crypto/`) — full of route handlers, not descriptors — and the
+// catalog would silently assemble empty. The basename check detects that case
+// and falls back to the repo-relative descriptor path, which exists inside the
+// lambda because vercel.json pins `includeFiles: "api/_lib/crypto-catalog/**"`
+// (Vercel preserves repo-relative layout under the function root / cwd).
+const SELF = dirname(fileURLToPath(import.meta.url));
+const HERE =
+	basename(SELF) === 'crypto-catalog' ? SELF : join(process.cwd(), 'api', '_lib', 'crypto-catalog');
 
 // Files in this directory that are the machinery, not catalog entries. Anything
 // starting with `_` or `.` is also treated as non-entry (private/hidden).

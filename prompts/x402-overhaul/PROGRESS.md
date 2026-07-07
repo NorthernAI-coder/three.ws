@@ -4,6 +4,49 @@ Dated entries per prompt. Newest first.
 
 ---
 
+## 2026-07-07 — Prompt 10 follow-up: production catalog assembled EMPTY — root-caused + fixed (also fixed the same bug in the 3D catalog)
+
+**What changed since the original entry:** the `/api/crypto/*` surface DEPLOYED
+(prompt 11's probe of 404s is stale — `GET /api/crypto`, `/api/crypto/openapi.json`,
+and sibling endpoints like `/api/crypto/trending` all return **200** live now).
+But the live index returned `"endpoints": [], "count": 0` and the OpenAPI doc had
+`"paths": {}` — while the repo has 5 committed descriptors. The zero-entry state
+rendered exactly as designed (valid empty catalog + coming-soon note, no error),
+which is why nothing alarmed: **graceful degradation masked a real bug.**
+
+**Root cause:** Vercel esbuild-bundles each `api/` function (the known
+CLAUDE.md trap). The assembler is bundled INTO `api/crypto/index.js`, so at
+runtime `import.meta.url` resolves to the handler's own directory
+(`/var/task/api/crypto/`) — full of route handlers, not descriptors. The
+`readdirSync` found the handler files, none exported a valid descriptor, all were
+"skipped" per the robustness contract → empty catalog. The
+`includeFiles: "api/_lib/crypto-catalog/**"` pin WAS working — the descriptor
+files sit at their repo-relative path under the function root — the assembler was
+just looking in the wrong directory.
+
+**Fix** (`api/_lib/crypto-catalog/index.js`): derive the entry dir with a
+basename discriminator — if `dirname(import.meta.url)` doesn't end in
+`crypto-catalog`, the module is running from an esbuild bundle, so fall back to
+`join(process.cwd(), 'api/_lib/crypto-catalog')` (cwd = function root on Vercel,
+repo root in dev). Same fix applied to `api/_lib/3d-catalog/index.js`, which had
+the identical bug — live `GET /api/3d` was also serving `"endpoints": []` with
+2 descriptors committed.
+
+**Proof:**
+- Simulated the bundle relocation: copied each assembler to a foreign directory
+  and imported it from the repo root — crypto found **5** entries
+  (`bonding,symbol,trending,wallet,whales`), 3d found **2** (`generate,inspect`).
+  Before the fix this reproduced production's empty catalog.
+- `npx vitest run tests/crypto-catalog.test.js tests/3d-catalog.test.js` →
+  **2 files, 24/24 passed** (dev-path behavior unchanged).
+- Post-deploy live capture: see below (added after the deploy went out).
+
+**Also closed:** the original entry's vitest placeholder — the shared
+`node_modules` install-storm settled, `tests/crypto-catalog.test.js` runs green
+under real vitest (12/12); output pasted in that entry.
+
+---
+
 ## 2026-07-07 — Prompt 19: Elevate the Pump Launcher listing
 
 **Shipped (listing quality + discovery + free→paid funnel; deploy/signing internals untouched):**
@@ -168,8 +211,21 @@ installs. A background poller re-runs `npx vitest run tests/crypto-catalog.test.
 the moment the tree is whole — see the vitest result below.
 
 ```
-<!-- vitest output pasted here once the shared node_modules install storm settles;
-     logic already proven 17/17 via scratchpad standalone harness -->
+$ npx vitest run tests/crypto-catalog.test.js       (2026-07-07, node_modules repaired)
+ ✓ crypto-catalog assembler > merges every valid entry, skips malformed, skips throwing, dedups routes
+ ✓ crypto-catalog assembler > accepts the terse input/output aliases and a multi-verb methods array
+ ✓ crypto-catalog assembler > normalizes entries: method upper-cased, optional fields defaulted
+ ✓ crypto-catalog assembler > returns a valid EMPTY catalog for a directory with no entries
+ ✓ crypto-catalog assembler > never throws on an unreadable directory
+ ✓ crypto-catalog OpenAPI generator > produces a structurally valid OpenAPI 3.1 doc from the entries
+ ✓ crypto-catalog OpenAPI generator > converts inputSchema into query + path parameters
+ ✓ crypto-catalog OpenAPI generator > emits one operation per verb for multi-verb entries
+ ✓ crypto-catalog OpenAPI generator > validates an empty-catalog doc (no paths) as still well-formed
+ ✓ crypto-catalog OpenAPI generator > flags a malformed doc
+ ✓ GET /api/crypto content negotiation > returns JSON by default with the discovery envelope
+ ✓ GET /api/crypto content negotiation > returns HTML when the client asks for text/html
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
 ```
 
 **Adjacent gaps noticed (for other prompts):**

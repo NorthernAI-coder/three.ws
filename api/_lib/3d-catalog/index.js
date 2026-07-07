@@ -27,10 +27,20 @@
 
 import { readdirSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+// In dev/tests `import.meta.url` is this source file, so its own directory is
+// the descriptor dir. In production Vercel esbuild-bundles this module INTO the
+// `api/3d/*.js` handler, so `import.meta.url` resolves to `api/3d/` — full of
+// route handlers, not descriptors — and the catalog would silently assemble
+// empty. The basename check detects that case and falls back to the
+// repo-relative descriptor path, which exists inside the lambda because
+// vercel.json pins `includeFiles: "api/_lib/3d-catalog/**"` (Vercel preserves
+// repo-relative layout under the function root / cwd).
+const SELF = dirname(fileURLToPath(import.meta.url));
+const __dirname =
+	basename(SELF) === '3d-catalog' ? SELF : join(process.cwd(), 'api', '_lib', '3d-catalog');
 
 // Infrastructure modules that live in this directory but are NOT catalog
 // entries — the assembler itself and the OpenAPI builder. Everything else that
