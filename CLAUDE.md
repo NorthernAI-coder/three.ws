@@ -175,18 +175,12 @@ When the user says commit and/or push, execute it right away. Do NOT run the com
 
 When reverting, do NOT use git's default `Revert "<original title>"` message — it reproduces the reverted commit's title (feature names, descriptions, $THREE specifics) right back into the permanent history, defeating the point of removing it. Write a neutral message instead, e.g. `Revert previous change` or `Roll back the prior commit`. Same rule for any follow-up/empty/redeploy commit: keep the message generic; never restate what was just removed.
 
-## Git: push to BOTH remotes
+## Git: push to threews only
 
-This workspace mirrors to two GitHub repos. Every push must go to both, or one deploy target falls behind.
+- `threews` → `https://github.com/nirholas/three.ws` (canonical source of truth — the ONLY push target)
+- `threeD`  → `https://github.com/nirholas/3D-Agent` (retired mirror — do NOT push to it; its `main` has diverged with foreign history)
 
-- `threeD`  → `https://github.com/nirholas/3D-Agent` (push-only mirror)
-- `threews` → `https://github.com/nirholas/three.ws` (canonical source of truth)
-
-When the user asks you to push (or to commit + push):
-1. `git push threeD main`
-2. `git push threews main`
-
-Run both in the same step. If one fails, surface the error — do not silently leave the repos out of sync. Never force-push to either remote without an explicit request.
+When the user asks you to push (or to commit + push): `git push threews main`. Owner decision 2026-07-07: work happens on three.ws only; the 3D-Agent mirror is no longer kept in sync. Never force-push without an explicit request.
 
 ## No GitHub Actions
 
@@ -194,7 +188,7 @@ Run both in the same step. If one fails, surface the error — do not silently l
 
 ## Git: NEVER pull or fetch from 3D-Agent
 
-**`threeD` (nirholas/3D-Agent) is a PUSH-ONLY mirror. NEVER run `git pull`, `git fetch`, or `git merge` from it.**
+**NEVER run `git pull`, `git fetch`, or `git merge` from `threeD` (nirholas/3D-Agent).**
 
 - `threews` (nirholas/three.ws) is the canonical source of truth. All pulls and fetches must come from `threews` only.
 - Pulling from `threeD` merges foreign history into this repo and has caused destructive README overwrites. Do not do it under any circumstances, even to resolve conflicts or sync state.
