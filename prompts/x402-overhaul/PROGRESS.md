@@ -583,7 +583,15 @@ here for the same reason.)
 
 `symbolSimilarity('MOONZ','MOONS')` = 0.500 (fuzzy hit); `('MOON','LAMBO')` = 0.000.
 
-**Test-suite note.** `npx vitest run` could not complete in this session: 20+
+**Test-suite note — RESOLVED 2026-07-07 (follow-up session).** The install storm
+settled; `npx vitest run tests/api/crypto-symbol.test.js` now passes **16/16**
+(747ms). Full `npx vitest run`: 11260 passed, 6 failed — every failure is in
+other prompts' surfaces (`api/v1/ai/asr|image|tts` and `api/x402/pipeline*`
+missing from the ring catalog / `api/wk.js` discovery mirror, plus unrelated
+`3d-generate` and `token-market-single-flight` cases). Nothing touches
+`crypto-symbol` or `symbol-availability`. Original note kept below for the record.
+
+**Test-suite note (original).** `npx vitest run` could not complete in this session: 20+
 concurrent agents were running simultaneous `npm install`s against the shared
 worktree, repeatedly tearing down and rebuilding `node_modules` (npm emitted
 `TAR_ENTRY_ERROR ENOENT` and `vitest/dist/config.js` never stayed present). The
