@@ -20,8 +20,14 @@ info:
   contact:
     name: three.ws
     url: https://three.ws
+  license:
+    name: three.ws Terms of Service
+    url: https://three.ws/legal/tos.html
 servers:
   - url: https://three.ws
+# No authentication: the free text-to-3D lane needs no API key, account, or
+# wallet. An explicit empty root security requirement declares that plainly.
+security: []
 paths:
   /api/3d/studio:
     post:
