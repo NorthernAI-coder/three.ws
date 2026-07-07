@@ -5,6 +5,11 @@ and the 1,100+ serverless handlers under [`api/`](../api/) — as one container
 on Google Cloud Run. This replaced Vercel as the production runtime
 (2026-07-07, after Vercel disabled the deployment).
 
+**Operating the platform** (load balancer, DNS, TLS, crons, env management,
+rollback, recovery procedures): see the full runbook at
+[docs/ops/gcp-production.md](../docs/ops/gcp-production.md). This README
+covers the server code itself.
+
 ## What it does
 
 [`index.mjs`](index.mjs) is a single Express server with three layers:
