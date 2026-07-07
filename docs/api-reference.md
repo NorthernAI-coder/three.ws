@@ -1493,6 +1493,65 @@ half may be `null` if its upstream is briefly unavailable.
 
 ---
 
+### Fear & Greed index
+
+```
+GET /api/coin/fear-greed?limit=<1..365>
+```
+
+Powers the `/fear-greed` page. `limit` (default 90) sets how many days of
+history to return.
+
+**Response**
+
+```json
+{
+  "current": { "value": 0, "label": "…", "ts": 0 },
+  "previous_week": { "value": 0, "label": "…", "ts": 0 },
+  "history": [{ "ts": 0, "value": 0, "label": "…" }]
+}
+```
+
+`history` is chronological (oldest → newest); `value` is 0–100 and `label` is
+one of Extreme Fear / Fear / Neutral / Greed / Extreme Greed. Source:
+alternative.me. Cached 5 min.
+
+---
+
+### Ethereum gas
+
+```
+GET /api/coin/gas
+```
+
+Powers the `/gas` page. Reads `eth_feeHistory` over the last ~20 blocks from a
+public Ethereum RPC (failover across four providers) and derives three fee tiers
+plus USD cost estimates from the live ETH price.
+
+**Response**
+
+```json
+{
+  "tiers": [
+    {
+      "key": "slow|standard|fast",
+      "base_fee_gwei": 0, "priority_fee_gwei": 0,
+      "gas_price_gwei": 0, "gas_price_wei": 0,
+      "actions": [{ "key": "transfer", "label": "ETH transfer", "gas": 21000, "usd": 0 }]
+    }
+  ],
+  "base_fee_gwei": 0,
+  "eth_price_usd": 0,
+  "actions": [{ "key": "transfer", "label": "ETH transfer", "gas": 21000 }],
+  "updated_at": 0
+}
+```
+
+`usd` is `null` if the ETH price is briefly unavailable (gwei figures stay
+live). Cached 15 s — no API key required.
+
+---
+
 ### Related news
 
 ```

@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en" class="cv-page">
+	<head>
+		<script>
+			/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */ (function () {
+				try {
+					var m = localStorage.getItem('twx_theme');
+					var l =
+						m === 'auto'
+							? window.matchMedia &&
+								window.matchMedia('(prefers-color-scheme: light)').matches
+							: m === 'light';
+					document.documentElement.setAttribute('data-theme', l ? 'light' : 'dark');
+				} catch (e) {
+					document.documentElement.setAttribute('data-theme', 'dark');
+				}
+			})();
+		</script>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Fear &amp; Greed Index · three.ws</title>
+		<meta
+			name="description"
+			content="The Crypto Fear & Greed Index — live market sentiment from 0 (Extreme Fear) to 100 (Extreme Greed), with a full historical chart and what each reading means."
+		/>
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="three.ws" />
+		<meta property="og:url" content="https://three.ws/fear-greed" />
+		<meta property="og:title" content="Fear &amp; Greed Index · three.ws" />
+		<meta
+			property="og:description"
+			content="Live crypto market sentiment from 0 (Extreme Fear) to 100 (Extreme Greed), with a full historical chart."
+		/>
+		<meta
+			property="og:image"
+			content="https://three.ws/api/page-og?s=crypto&amp;t=Crypto+Fear+%26+Greed+Index&amp;d=Live+market+sentiment+from+0+%28Extreme+Fear%29+to+100+%28Extreme+Greed%29+with+a+full+historical+chart.&amp;p=%2Ffear-greed"
+		/>
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:site" content="@trythreews" />
+		<meta name="twitter:title" content="Fear &amp; Greed Index · three.ws" />
+		<meta
+			name="twitter:description"
+			content="Live crypto market sentiment from 0 (Extreme Fear) to 100 (Extreme Greed), with a full historical chart."
+		/>
+		<meta
+			name="twitter:image"
+			content="https://three.ws/api/page-og?s=crypto&amp;t=Crypto+Fear+%26+Greed+Index&amp;d=Live+market+sentiment+from+0+%28Extreme+Fear%29+to+100+%28Extreme+Greed%29+with+a+full+historical+chart.&amp;p=%2Ffear-greed"
+		/>
+		<meta name="theme-color" content="#09090b" />
+		<link rel="icon" href="/favicon.ico" sizes="any" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="manifest" href="/site.webmanifest" />
+		<link rel="stylesheet" href="/fonts/fonts.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/src/coin-pages.css" />
+		<link rel="stylesheet" href="/footer.css" />
+		<link rel="canonical" href="https://three.ws/fear-greed" />
+		<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
+		<meta property="og:locale" content="en_US" />
+		<meta property="og:image:alt" content="Crypto Fear & Greed Index — three.ws" />
+	</head>
+	<body>
+		<header><div id="nav-container"></div></header>
+		<script src="/nav.js"></script>
+
+		<main class="cv-container">
+			<nav class="cv-crumbs" aria-label="Breadcrumb">
+				<a href="/coins">Markets</a><span class="sep">/</span
+				><span class="here">Fear &amp; Greed</span>
+			</nav>
+			<h1 class="cv-h1">Fear &amp; Greed Index</h1>
+			<p class="cv-sub">
+				One number for the mood of the crypto market — from 0 (Extreme Fear) to 100 (Extreme
+				Greed). Built from volatility, momentum, volume, social sentiment, and Bitcoin
+				dominance.
+			</p>
+
+			<!-- Current gauge + deltas. Hydrated by src/fear-greed.js. -->
+			<section
+				id="fg-now"
+				class="cv-section"
+				aria-label="Current Fear & Greed reading"
+			></section>
+
+			<!-- Historical chart. Hydrated by src/fear-greed.js. -->
+			<section id="fg-chart" class="cv-section" aria-label="Fear & Greed history"></section>
+
+			<!-- Scale legend + explanation. -->
+			<section id="fg-legend" class="cv-section" aria-label="How to read the index"></section>
+		</main>
+
+		<script type="module" src="/src/fear-greed.js"></script>
+		<script src="/brand.js" defer></script>
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
+	</body>
+</html>

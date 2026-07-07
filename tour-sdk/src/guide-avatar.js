@@ -40,6 +40,11 @@ const WALK_SPEED = 460;
 const GRAVITY = -14;
 const SPAWN_DROP = 0.32;
 
+// How snappily the guide's facing follows its movement direction, mirrored from
+// the walk world's TURN_LERP (src/walk.js) so the tour guide turns with the same
+// weight as the walk/stroll robot.
+const TURN_LERP = 0.18;
+
 export class GuideAvatar {
 	constructor(tourConfig = {}) {
 		// Feed the host's avatar settings into the walk SDK's config resolver, which
@@ -259,7 +264,14 @@ export class GuideAvatar {
 		const x = clamp(pos.x, MARGIN, window.innerWidth - s.w - MARGIN);
 		const y = clamp(pos.y, MARGIN, window.innerHeight - s.h - MARGIN);
 		const dx = x - this._pos.x;
-		if (Math.abs(dx) > 1) this._targetYaw = clamp((dx / window.innerWidth) * 2, -0.7, 0.7);
+		const dy = y - this._pos.y;
+		// Full 360° facing from the actual travel vector — the same omnidirectional
+		// turn the walk/stroll robot uses (src/walk.js: yaw = atan2(moveX, moveZ)).
+		// Screen +x maps to world +X (right); screen +y (downward, toward the viewer)
+		// maps to world +Z (toward the fixed front camera, the rig's yaw=0 forward),
+		// so atan2(dx, dy) turns the guide to face wherever it walks — left, right,
+		// toward the camera, or away — instead of the old ±40° horizontal tilt.
+		if (Math.hypot(dx, dy) > 1) this._targetYaw = Math.atan2(dx, dy);
 		this.controller?.setState('walk');
 		this._walking = true;
 		clearTimeout(this._settleTimer);
@@ -288,7 +300,11 @@ export class GuideAvatar {
 
 	_faceRect(rect) {
 		const avatarCx = this._pos.x + CANVAS_W / 2;
-		this._targetYaw = clamp((rect.cx - avatarCx) / window.innerWidth, -0.6, 0.6);
+		const avatarCy = this._pos.y + CANVAS_H / 2;
+		// Turn to fully face the highlighted target, matching the walk robot's
+		// all-directions facing rather than the old ±34° horizontal clamp. Same
+		// screen→world axis mapping as place() (dx→X, dy→Z toward the camera).
+		this._targetYaw = Math.atan2(rect.cx - avatarCx, rect.cy - avatarCy);
 	}
 
 	// Approximate screen position of the avatar's head — origin for the pointer
@@ -327,7 +343,10 @@ export class GuideAvatar {
 		if (!this.host) return;
 		this.clock.update();
 		const dt = Math.min(this.clock.getDelta(), 0.05);
-		this._yaw += (this._targetYaw - this._yaw) * 0.12;
+		// Shortest-arc turn toward the target facing. With full 360° targets the
+		// naïve (target - current) lerp would spin the long way across the ±π seam;
+		// wrapping the delta into [-π, π] keeps every turn taking the near side.
+		this._yaw += shortestAngle(this._targetYaw - this._yaw) * TURN_LERP;
 		if (this.rig) {
 			this.rig.rotation.y = this._yaw;
 			// Gravity: integrate velocity, land on the ground plane, hold there —
@@ -373,6 +392,10 @@ export class GuideAvatar {
 // ── helpers ──────────────────────────────────────────────────────────────────
 function clamp(n, lo, hi) {
 	return Math.min(hi, Math.max(lo, n));
+}
+// Wrap an angle delta into [-π, π] so a yaw lerp always rotates the short way.
+function shortestAngle(d) {
+	return Math.atan2(Math.sin(d), Math.cos(d));
 }
 function lsGet(key) {
 	try {

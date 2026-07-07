@@ -15,12 +15,36 @@
 			<description>Free, keyless 3D API for AI agents: turn a text prompt into a real GLB model and validate/optimize any glTF/GLB, all from one URL with a live OpenAPI 3.1 spec. Free draft generation and inspection graduate to paid Forge Pro quality tiers and animation-ready Rigged Avatars. No key, no account.</description>
 		</item>
 		<item>
+			<title>Compare Crypto Side by Side</title>
+			<link>https://three.ws/compare</link>
+			<guid isPermaLink="false">2026-07-07:Compare Crypto Side by Side</guid>
+			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Compare cryptocurrencies head to head — overlay normalized price performance and line up market cap, volume, FDV, supply, and all-time-high stats for up to four coins at once. The selection is saved to the URL so any matchup is shareable.</description>
+		</item>
+		<item>
 			<title>Crypto Data API</title>
 			<link>https://three.ws/crypto</link>
 			<guid isPermaLink="false">2026-07-07:Crypto Data API</guid>
 			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
 			<category>launch</category>
 			<description>Free, keyless crypto data for AI agents in one API: token snapshots, security/rug signals, holder concentration, live pump.fun launches, bonding-curve status, whale activity, trending tokens, wallet portfolios and ticker-availability checks. No key, no account, no paywall.</description>
+		</item>
+		<item>
+			<title>Crypto Fear &amp; Greed Index</title>
+			<link>https://three.ws/fear-greed</link>
+			<guid isPermaLink="false">2026-07-07:Crypto Fear &amp; Greed Index</guid>
+			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>The Crypto Fear &amp; Greed Index — live market sentiment from 0 (Extreme Fear) to 100 (Extreme Greed), shown on a gauge with a week-over-week delta, a full interactive history chart, and a labelled scale explaining what each reading means.</description>
+		</item>
+		<item>
+			<title>Crypto Market Heatmap</title>
+			<link>https://three.ws/heatmap</link>
+			<guid isPermaLink="false">2026-07-07:Crypto Market Heatmap</guid>
+			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>A live market heatmap of the top cryptocurrencies: every tile is a coin, sized by market cap and colored by its 24h or 7d price move. See where money is flowing across the whole market at a glance, then click any tile for its full profile.</description>
 		</item>
 		<item>
 			<title>Docs · Crypto Data API</title>
@@ -53,6 +77,14 @@
 			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
 			<category>launch</category>
 			<description>A free test bench for x402 developers — echo your payment envelope, debug a failed 402 exchange, and verify a receipt's attestation and settlement against a live server, all without spending anything.</description>
+		</item>
+		<item>
+			<title>Ethereum Gas Tracker</title>
+			<link>https://three.ws/gas</link>
+			<guid isPermaLink="false">2026-07-07:Ethereum Gas Tracker</guid>
+			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Live Ethereum gas fees straight from the chain — slow, standard, and fast tiers in gwei with USD cost estimates for transfers, token sends, DEX swaps, and NFT mints. Real on-chain fee history, refreshed automatically, no API key required.</description>
 		</item>
 		<item>
 			<title>3D model inspection is now free</title>
@@ -223,6 +255,14 @@
 			<description>Your agent can now discover a specialist agent, check its on-chain reputation, pay it in USDC, hand off the task, and get the result back with a full receipt — who it hired, the reputation behind the choice, exactly what it cost, and the on-chain settlement reference. The agent_hire_discover tool ranks candidates by task fit, ERC-8004 reputation and real engagement; agent_hire runs the whole thing end to end and renders an inline provenance receipt card. Hard spend guardrails protect you throughout: a per-call cap, a per-session budget, and a confirmation prompt for anything above a threshold — and a blocked or failed hire is never charged. Discovery no longer comes up empty on a plain-language request, and paid hires now complete against a live agent.</description>
 		</item>
 		<item>
+			<title>Markets grows a full toolkit — Heatmap, Fear &amp; Greed, Gas Tracker, and Compare</title>
+			<link>https://three.ws/heatmap</link>
+			<guid isPermaLink="false">2026-07-07:Markets grows a full toolkit — Heatmap, Fear &amp; Greed, Gas Tracker, and Compare</guid>
+			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The Markets surface is now four tools bigger. Heatmap shows the whole market in one view — every coin a tile sized by market cap and colored by its price move. Fear &amp; Greed puts market sentiment on a live gauge with full history. The Gas Tracker reads Ethereum fees straight from the chain, in gwei and in dollars, for transfers, swaps, and NFT mints. Compare lines up to four coins head to head — overlaying performance and every key stat, with a shareable URL. All live data, all free, all cross-linked from the markets table.</description>
+		</item>
+		<item>
 			<title>Mint a generated 3D avatar as an on-chain Solana NFT — with a live 3D viewer as its media</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-07-07:Mint a generated 3D avatar as an on-chain Solana NFT — with a live 3D viewer as its media</guid>
@@ -341,6 +381,14 @@
 			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>The free 3D Studio generates entirely on no-cost engines, so there's no spend to protect by shutting it off. We fixed a case where a hiccup in the rate-limiting backend could make the studio refuse every generation with a &quot;try again shortly&quot; — an outage of a free feature for no reason. Its usage caps now stay enforced when everything is healthy but step aside during a backend blip, so a prompt still returns your model. Nothing about paid features changed: those still stop safely if the same backend is unavailable.</description>
+		</item>
+		<item>
+			<title>The tour guide now turns to face wherever it walks</title>
+			<link>https://three.ws/tour</link>
+			<guid isPermaLink="false">2026-07-07:The tour guide now turns to face wherever it walks</guid>
+			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The guide avatar in the product tour used to only tilt slightly left or right. Now it turns in every direction — facing left, right, toward you, or away — as it walks across the page to point at each feature, the same all-directions turning the robot already had in Walk, Stroll, and Platformer modes. It reads as a character genuinely walking to its next spot instead of sliding there.</description>
 		</item>
 		<item>
 			<title>three.ws 3D API: free text→3D + inspection for AI agents, with pro tiers</title>

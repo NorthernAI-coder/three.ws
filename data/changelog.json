@@ -3,6 +3,24 @@
 	"entries": [
 		{
 			"date": "2026-07-07",
+			"title": "Markets grows a full toolkit — Heatmap, Fear & Greed, Gas Tracker, and Compare",
+			"summary": "The Markets surface is now four tools bigger. Heatmap shows the whole market in one view — every coin a tile sized by market cap and colored by its price move. Fear & Greed puts market sentiment on a live gauge with full history. The Gas Tracker reads Ethereum fees straight from the chain, in gwei and in dollars, for transfers, swaps, and NFT mints. Compare lines up to four coins head to head — overlaying performance and every key stat, with a shareable URL. All live data, all free, all cross-linked from the markets table.",
+			"tags": [
+				"feature"
+			],
+			"link": "/heatmap"
+		},
+		{
+			"date": "2026-07-07",
+			"title": "The tour guide now turns to face wherever it walks",
+			"summary": "The guide avatar in the product tour used to only tilt slightly left or right. Now it turns in every direction — facing left, right, toward you, or away — as it walks across the page to point at each feature, the same all-directions turning the robot already had in Walk, Stroll, and Platformer modes. It reads as a character genuinely walking to its next spot instead of sliding there.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/tour"
+		},
+		{
+			"date": "2026-07-07",
 			"title": "three.ws moved to Google Cloud — faster, sturdier, and shutdown-proof",
 			"summary": "The whole platform — every page, every API, all 76 background jobs — now runs on Google Cloud Run instead of Vercel. Why it matters: the previous host disabled the deployment and took the site down; the new home has no such kill switch, longer request limits for live streams, and dedicated capacity for the 3D pipeline that already ran on Google Cloud. Nothing changes in how you use three.ws — same URLs, same APIs, same wallet flows.",
 			"tags": [

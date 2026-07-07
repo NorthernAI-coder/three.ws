@@ -313,6 +313,26 @@ export const NAV_GROUPS = [
 						desc: 'Live global market data — top coins, prices, and a rich detail page for every asset',
 					},
 					{
+						title: 'Heatmap',
+						href: '/heatmap',
+						desc: 'The whole market in one view — tiles sized by market cap, colored by price move',
+					},
+					{
+						title: 'Fear & Greed',
+						href: '/fear-greed',
+						desc: 'Live market sentiment from Extreme Fear to Extreme Greed, with full history',
+					},
+					{
+						title: 'Gas Tracker',
+						href: '/gas',
+						desc: 'Live Ethereum gas fees in gwei with USD cost estimates for common actions',
+					},
+					{
+						title: 'Compare',
+						href: '/compare',
+						desc: 'Put up to four coins head to head — overlay performance and line up the stats',
+					},
+					{
 						title: 'Coin Intelligence',
 						href: '/coin-intel',
 						badge: 'Live',

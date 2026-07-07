@@ -843,6 +843,30 @@ URL: https://three.ws/coins
 
 Live global cryptocurrency market data: total market cap, dominance, Fear & Greed, and the top coins with prices, 24h/7d moves, and 7d sparklines. Every coin links to a rich /coin/:id detail page with an interactive chart, market stats, related news, and official links.
 
+### Crypto Market Heatmap
+
+URL: https://three.ws/heatmap
+
+A live market heatmap of the top cryptocurrencies: every tile is a coin, sized by market cap and colored by its 24h or 7d price move. See where money is flowing across the whole market at a glance, then click any tile for its full profile.
+
+### Crypto Fear & Greed Index
+
+URL: https://three.ws/fear-greed
+
+The Crypto Fear & Greed Index — live market sentiment from 0 (Extreme Fear) to 100 (Extreme Greed), shown on a gauge with a week-over-week delta, a full interactive history chart, and a labelled scale explaining what each reading means.
+
+### Ethereum Gas Tracker
+
+URL: https://three.ws/gas
+
+Live Ethereum gas fees straight from the chain — slow, standard, and fast tiers in gwei with USD cost estimates for transfers, token sends, DEX swaps, and NFT mints. Real on-chain fee history, refreshed automatically, no API key required.
+
+### Compare Crypto Side by Side
+
+URL: https://three.ws/compare
+
+Compare cryptocurrencies head to head — overlay normalized price performance and line up market cap, volume, FDV, supply, and all-time-high stats for up to four coins at once. The selection is saved to the URL so any matchup is shareable.
+
 ### watsonx Constellation
 
 URL: https://three.ws/constellation

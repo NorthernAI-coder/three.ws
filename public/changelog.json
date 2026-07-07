@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-07T17:59:25.742Z",
+	"generated_at": "2026-07-07T18:56:28.010Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -19,9 +19,39 @@
 		{
 			"date": "2026-07-07",
 			"type": "launch",
+			"title": "Compare Crypto Side by Side",
+			"summary": "Compare cryptocurrencies head to head — overlay normalized price performance and line up market cap, volume, FDV, supply, and all-time-high stats for up to four coins at once. The selection is saved to the URL so any matchup is shareable.",
+			"link": "/compare",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "launch",
 			"title": "Crypto Data API",
 			"summary": "Free, keyless crypto data for AI agents in one API: token snapshots, security/rug signals, holder concentration, live pump.fun launches, bonding-curve status, whale activity, trending tokens, wallet portfolios and ticker-availability checks. No key, no account, no paywall.",
 			"link": "/crypto",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "launch",
+			"title": "Crypto Fear & Greed Index",
+			"summary": "The Crypto Fear & Greed Index — live market sentiment from 0 (Extreme Fear) to 100 (Extreme Greed), shown on a gauge with a week-over-week delta, a full interactive history chart, and a labelled scale explaining what each reading means.",
+			"link": "/fear-greed",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "launch",
+			"title": "Crypto Market Heatmap",
+			"summary": "A live market heatmap of the top cryptocurrencies: every tile is a coin, sized by market cap and colored by its 24h or 7d price move. See where money is flowing across the whole market at a glance, then click any tile for its full profile.",
+			"link": "/heatmap",
 			"tags": [
 				"launch"
 			]
@@ -62,6 +92,16 @@
 			"title": "Docs · x402 Developer Tools",
 			"summary": "A free test bench for x402 developers — echo your payment envelope, debug a failed 402 exchange, and verify a receipt's attestation and settlement against a live server, all without spending anything.",
 			"link": "/docs/x402-dev-tools",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "launch",
+			"title": "Ethereum Gas Tracker",
+			"summary": "Live Ethereum gas fees straight from the chain — slow, standard, and fast tiers in gwei with USD cost estimates for transfers, token sends, DEX swaps, and NFT mints. Real on-chain fee history, refreshed automatically, no API key required.",
+			"link": "/gas",
 			"tags": [
 				"launch"
 			]
@@ -289,6 +329,16 @@
 		{
 			"date": "2026-07-07",
 			"type": "update",
+			"title": "Markets grows a full toolkit — Heatmap, Fear & Greed, Gas Tracker, and Compare",
+			"summary": "The Markets surface is now four tools bigger. Heatmap shows the whole market in one view — every coin a tile sized by market cap and colored by its price move. Fear & Greed puts market sentiment on a live gauge with full history. The Gas Tracker reads Ethereum fees straight from the chain, in gwei and in dollars, for transfers, swaps, and NFT mints. Compare lines up to four coins head to head — overlaying performance and every key stat, with a shareable URL. All live data, all free, all cross-linked from the markets table.",
+			"link": "/heatmap",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
 			"title": "Mint a generated 3D avatar as an on-chain Solana NFT — with a live 3D viewer as its media",
 			"summary": "You can now turn a generated or owned avatar into real, ownable on-chain property. The new mint_3d_asset tool mints your rigged GLB as a Solana NFT whose media is a live, interactive 3D viewer — not a flat picture — with the model, a rendered thumbnail, and its full provenance (who made it, the prompt, the model, its lineage) travelling with it. Creator royalties are enforced on every resale, capped at 10%. A companion get_3d_asset_onchain tool resolves any mint back to its current holder, live viewer, provenance, and royalty terms. Minting defaults to devnet for safe testing; mainnet is an explicit opt-in. It's idempotent, so a retried mint never creates a duplicate.",
 			"link": null,
@@ -440,6 +490,16 @@
 			"link": null,
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "The tour guide now turns to face wherever it walks",
+			"summary": "The guide avatar in the product tour used to only tilt slightly left or right. Now it turns in every direction — facing left, right, toward you, or away — as it walks across the page to point at each feature, the same all-directions turning the robot already had in Walk, Stroll, and Platformer modes. It reads as a character genuinely walking to its next spot instead of sliding there.",
+			"link": "/tour",
+			"tags": [
+				"improvement"
 			]
 		},
 		{
