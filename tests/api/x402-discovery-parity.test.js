@@ -42,6 +42,50 @@ const EXCLUSIONS = new Map([
 			'catalog — ring volume is dogfooding, not organic third-party demand, and ' +
 			'must not masquerade as such.',
 	],
+	// De-listed in the 2026-07 x402 overhaul (prompt 20): these routes stay live
+	// for their in-product consumers but are internal-use only — not agent
+	// products — so they no longer appear on x402scan/agentic.market. Each route
+	// file carries a matching "INTERNAL-USE ONLY" header.
+	[
+		'/api/x402/dance-tip',
+		'Internal: the /club stage and the /play town Saloon Kid NPC buy dancer ' +
+			'performances through it. Novelty tip-jar, not an agent product.',
+	],
+	[
+		'/api/x402/three-intel',
+		'Internal: the paid intel kiosk in the /play town buys from it. The ' +
+			'agent-facing market read is the free /api/crypto bundle.',
+	],
+	[
+		'/api/x402/fact-check',
+		'Internal: the fact-checker app and the /play Sheriff NPC buy through it. ' +
+			'Me-too LLM wrapper as an agent product; kept only for the in-product flows.',
+	],
+	[
+		'/api/x402/tutor',
+		'Internal: the /tutor page and the /play Schoolmarm NPC buy through it. ' +
+			'Me-too LLM wrapper as an agent product; kept only for the in-product flows.',
+	],
+	[
+		'/api/x402/crypto-intel',
+		'Internal: the agent-exchange demo and the /play trading-desk NPC buy ' +
+			'through it. Agent-facing market intel is the free /api/crypto bundle.',
+	],
+	[
+		'/api/x402/mint-to-mesh',
+		'Internal: the /play foundry NPC sells it. Cube novelty — the real ' +
+			'agent-facing 3D product is Forge (/api/x402/forge).',
+	],
+	[
+		'/api/x402/mint-to-mesh-batch',
+		'Internal: batch sibling of mint-to-mesh, same disposition — the real ' +
+			'agent-facing 3D product is Forge.',
+	],
+	[
+		'/api/x402/pump-agent-audit',
+		'Internal: the /play town NPC sells it. The agent-facing reads are the ' +
+			'free /api/crypto/whales and /api/crypto/security.',
+	],
 ]);
 
 function paidRoutesFromFiles() {

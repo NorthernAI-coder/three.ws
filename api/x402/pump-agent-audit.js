@@ -1,3 +1,6 @@
+// INTERNAL-USE ONLY; not an agent product. De-listed from the x402 discovery
+// catalog (api/wk.js) in the 2026-07 overhaul: the /play town NPC sells it; the agent-facing read is the free /api/crypto/whales + /api/crypto/security.
+// The route stays live for those consumers; do not re-add it to the catalog.
 // /api/x402/pump-agent-audit
 //
 // Two HTTP methods:

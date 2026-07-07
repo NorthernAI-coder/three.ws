@@ -537,19 +537,6 @@ const REST_OUTPUT_EXAMPLES = Object.freeze({
 			},
 		],
 	},
-	'/api/x402/mint-to-mesh': {
-		mint: 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump',
-		theme: { name: 'three', symbol: 'THREE', color: [0.92, 0.45, 0.18], hasImage: false },
-		glb: { mimeType: 'model/gltf-binary', bytes: 50768, base64: 'Z2xURgIAAADQxAAA...' },
-	},
-	'/api/insights/revenue-vision': {
-		power_mode: 'revenue-vision',
-		insight:
-			'Builder teams of 10–50 convert 2.4× better than enterprise prospects on the current funnel.',
-		recommended_move:
-			'Shift 30% of paid acquisition to builder-focused onboarding this sprint.',
-		confidence: 'high',
-	},
 	'/api/x402/token-intel': {
 		mint: 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump',
 		symbol: 'THREE',
@@ -830,7 +817,7 @@ const REST_OUTPUT_EXAMPLES = Object.freeze({
 		},
 	},
 	'/api/x402/rate-limit-probe': {
-		endpoint: '/api/x402/crypto-intel',
+		endpoint: '/api/x402/forge',
 		remaining_calls: 42,
 		reset_at: '2026-06-29T00:00:00.000Z',
 		limit: 500,
@@ -965,23 +952,6 @@ const REST_OUTPUT_EXAMPLES = Object.freeze({
 		caveats: [],
 		ts: '2026-07-07T00:00:00.000Z',
 	},
-	'/api/x402/pump-agent-audit': {
-		mint: 'C3vQABCDEFGHJKLMNopqrstuvwxyZ12345abcdefghi',
-		network: 'mainnet',
-		name: 'Helios',
-		symbol: 'HELIO',
-		payments: {
-			total_in_atomics: '142000000',
-			confirmed_count: 142,
-			failed_count: 3,
-			distinct_payers: 87,
-			latest_payment_at: '2026-05-14T16:45:00Z',
-		},
-		distributions: { confirmed: 12, failed: 1, latest_status: 'confirmed', latest_error: null },
-		buybacks: { confirmed: 5, failed: 0, total_burn_atomics: '500000000' },
-		risk_flags: [],
-		indexed_at: '2026-05-14T17:00:00Z',
-	},
 	'/api/x402/pump-launch': {
 		mint: 'HEL1oXyzABCDEFGHJKLMNopqrstuvwxyZ12345abcdef',
 		signature: '5xYExampleTxSignatureDoNotUse...',
@@ -1084,31 +1054,6 @@ const REST_OUTPUT_EXAMPLES = Object.freeze({
 		custodyNotice:
 			'Platform-generated key delivered once — use as a token mint or sweep to self-generated custody, not as a treasury.',
 	},
-	'/api/x402/mint-to-mesh-batch': {
-		count: 2,
-		results: [
-			{
-				ok: true,
-				mint: 'C3vQABCDEFGHJKLMNopqrstuvwxyZ12345abcdefghi',
-				theme: { name: 'Helios', symbol: 'HELIO', hasImage: true },
-				glb: { mimeType: 'model/gltf-binary', bytes: 18000, base64: 'Z2xUR...' },
-			},
-			{ ok: false, mint: 'F7kXZExampleMintDoNotUse...', error: 'meta_fetch_failed' },
-		],
-		indexed_at: '2026-05-14T17:00:00Z',
-	},
-	'/api/x402/dance-tip': {
-		ok: true,
-		ticketId: 'a3f3d6c2-1f1b-4f10-9b6c-1b1f5e0c9c34',
-		dancer: '1',
-		dance: 'rumba',
-		clip: 'rumba',
-		durationSec: 10,
-		startsAt: '2026-05-21T18:42:09.000Z',
-		endsAt: '2026-05-21T18:42:19.000Z',
-		network: 'solana',
-		amountAtomics: '1000',
-	},
 	'/api/x402/asset-download': {
 		ok: true,
 		slug: 'pole-dancer-rumba',
@@ -1124,59 +1069,6 @@ const REST_OUTPUT_EXAMPLES = Object.freeze({
 		tools: [{ type: 'function', function: { name: 'get_balance', description: 'Fetch balances.' } }],
 		content: '# Wallet Balance\n\nUse get_balance to fetch token balances...',
 		calledAt: '2026-05-31T18:48:09.000Z',
-	},
-	'/api/x402/fact-check': {
-		verdict: 'supported',
-		confidence: 0.91,
-		claim: 'The Eiffel Tower is in Paris.',
-		strictness: 'medium',
-		sources: [
-			{
-				url: 'https://en.wikipedia.org/wiki/Eiffel_Tower',
-				title: 'Eiffel Tower - Wikipedia',
-				stance: 'supports',
-				weight: 0.7,
-			},
-		],
-		costBreakdown: { searchCalls: 3, llmTokens: 1420, totalUsdc: '0.100355' },
-		attestation: 'sha256:abcdef1234567890...',
-	},
-	'/api/x402/tutor': {
-		sessionId: '8f1c0c2e-2a4d-4b6e-9b1a-3c5d7e9f0a1b',
-		answer:
-			'The sky is blue because air scatters short-wavelength blue light from the sun more than other colors (Rayleigh scattering).',
-		keyPoints: ['Sunlight contains all colors.', 'Air scatters blue more than red.'],
-		example: 'At sunset light travels farther, so more blue scatters away and the sky reddens.',
-		followUp: 'Why are sunsets red rather than blue?',
-		level: 'intermediate',
-		costThisChargeUsd: '0.010000',
-		sessionTotalUsd: '0.030000',
-		questionCount: 3,
-		attestation: 'sha256:abcd1234...',
-	},
-	'/api/x402/crypto-intel': {
-		topic: 'sol',
-		headline: 'SOL up +7.2% in 24 h — momentum building',
-		signal: 'bullish',
-		price_usd: 148.32,
-		change_24h: 7.18,
-		rationale: 'SOL gained 7.18% in 24 h. Strong momentum suggests continued upside.',
-		confidence: 0.86,
-		ts: '2026-06-03T10:00:00Z',
-	},
-	'/api/x402/three-intel': {
-		mint: 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump',
-		symbol: 'THREE',
-		price_usd: 0.003685,
-		change_24h: 12.4,
-		market_cap_usd: 3685000,
-		liquidity_usd: 412000,
-		volume_24h_usd: 1268079,
-		signal: 'bullish',
-		headline: 'THREE climbs +12.40% — moderate upside',
-		rationale: 'THREE gained +12.40% over 24 h at $0.003685; volume is healthy against liquidity.',
-		confidence: 0.86,
-		ts: '2026-06-12T10:00:00Z',
 	},
 	'/api/x402/cosmetic-purchase': {
 		ok: true,
@@ -1343,8 +1235,6 @@ async function handleX402Discovery(req, res) {
 	const mcpUrl = `${origin}/api/mcp`;
 	const mcp3dUrl = `${origin}/api/mcp-3d`;
 	const modelCheckUrl = `${origin}/api/x402/model-check`;
-	const mintToMeshUrl = `${origin}/api/x402/mint-to-mesh`;
-	const revenueVisionUrl = `${origin}/api/insights/revenue-vision`;
 	const price = RAW_AMOUNT_TO_USDC(env.X402_MAX_AMOUNT_REQUIRED);
 
 	// Build the MCP accept list (Base + Solana). `resource` is echoed on every
@@ -1390,7 +1280,7 @@ async function handleX402Discovery(req, res) {
 		return out;
 	}
 
-	// model-check / mint-to-mesh / revenue-vision are CDP-Bazaar-cataloged.
+	// model-check is CDP-Bazaar-cataloged.
 	// CDP supports Base mainnet + Arbitrum One; advertise both here so
 	// agentic.market shows the same network options buyers will see in the
 	// live 402 challenge. Each EVM entry gets a Permit2 sibling so
@@ -1456,8 +1346,6 @@ async function handleX402Discovery(req, res) {
 	const mcpAccepts = buildMcpAccepts(mcpUrl);
 	const mcp3dAccepts = buildMcpAccepts(mcp3dUrl);
 	const modelCheckAccepts = buildBazaarAccepts(modelCheckUrl);
-	const mintToMeshAccepts = buildBazaarAccepts(mintToMeshUrl);
-	const revenueVisionAccepts = buildBazaarAccepts(revenueVisionUrl);
 
 	// USE-13: per-route Bazaar service metadata. Echoed on each resource[]
 	// entry so facilitators crawling /.well-known/x402-discovery surface a
@@ -1468,18 +1356,6 @@ async function handleX402Discovery(req, res) {
 		modelCheck: withService({
 			serviceName: 'three.ws Model Check',
 			tags: ['3d', 'gltf', 'glb', 'inspection', 'validation'],
-		}),
-		mintToMesh: withService({
-			serviceName: 'three.ws Mint to Mesh',
-			tags: ['3d', 'gltf', 'solana', 'token', 'render'],
-		}),
-		mintToMeshBatch: withService({
-			serviceName: 'three.ws Mint Mesh Batch',
-			tags: ['3d', 'gltf', 'solana', 'batch', 'render'],
-		}),
-		revenueVision: withService({
-			serviceName: 'three.ws Revenue Vision',
-			tags: ['ai', 'analysis', 'growth', 'insight', 'claude'],
 		}),
 		mcp: withService({
 			serviceName: 'three.ws MCP',
@@ -1496,10 +1372,6 @@ async function handleX402Discovery(req, res) {
 		onchainIdentity: withService({
 			serviceName: 'three.ws Identity Verify',
 			tags: ['identity', 'verification', 'agent', 'trust', 'onchain'],
-		}),
-		pumpAudit: withService({
-			serviceName: 'three.ws Pump Audit',
-			tags: ['pump.fun', 'audit', 'agent', 'risk', 'solana'],
 		}),
 		pumpLaunch: withService({
 			serviceName: 'three.ws Pump Launcher',
@@ -1533,29 +1405,9 @@ async function handleX402Discovery(req, res) {
 			serviceName: 'three.ws Permit2 Demo',
 			tags: ['x402', 'permit2', 'eip2612', 'gasless', 'demo'],
 		}),
-		danceTip: withService({
-			serviceName: 'three.ws Pole Club',
-			tags: ['3d', 'avatar', 'club', 'tip', 'dance'],
-		}),
 		assetDownload: withService({
 			serviceName: 'three.ws Asset Bazaar',
 			tags: ['3d', 'asset', 'glb', 'avatar', 'download'],
-		}),
-		factCheck: withService({
-			serviceName: 'three.ws Fact Checker',
-			tags: ['fact-check', 'search', 'verification', 'llm', 'attestation'],
-		}),
-		tutor: withService({
-			serviceName: 'three.ws Pay-As-You-Learn Tutor',
-			tags: ['tutor', 'education', 'llm', 'explain', 'pay-per-call'],
-		}),
-		cryptoIntel: withService({
-			serviceName: 'three.ws Crypto Intel',
-			tags: ['crypto', 'market', 'signal', 'agent-exchange', 'solana'],
-		}),
-		threeIntel: withService({
-			serviceName: '$THREE Town Oracle',
-			tags: ['three', 'market', 'signal', 'play', 'solana'],
 		}),
 		tokenIntel: withService({
 			serviceName: 'three.ws Token Oracle',
@@ -1784,69 +1636,6 @@ async function handleX402Discovery(req, res) {
 					}),
 				},
 				{
-					path: '/api/x402/mint-to-mesh',
-					url: mintToMeshUrl,
-					method: 'GET',
-					description:
-						'Mint to Mesh — pass a Solana fungible-token mint, get back a binary glTF (GLB) cube themed for that token. Color is derived from a stable hash of the mint; when the off-chain Metaplex JSON exposes a PNG/JPEG, that image is embedded as a baseColor texture on every face. Asset.extras carry mint, name, symbol, and timestamp. Useful for any agent that needs an instantly renderable 3D representation of a token. CDP-Bazaar-cataloged.',
-					mimeType: 'application/json',
-					serviceName: routeMeta.mintToMesh.serviceName,
-					tags: routeMeta.mintToMesh.tags,
-					iconUrl: routeMeta.mintToMesh.iconUrl,
-					accepts: mintToMeshAccepts,
-					extensions: extensionsForAccepts(mintToMeshAccepts, {
-						method: 'GET',
-						discoverable: true,
-						input: { mint: 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump' },
-						inputSchema: {
-							type: 'object',
-							required: ['mint'],
-							properties: {
-								mint: {
-									type: 'string',
-									minLength: 32,
-									maxLength: 64,
-									description: 'Base58 SPL mint address on Solana mainnet.',
-								},
-							},
-						},
-					}),
-				},
-				{
-					path: '/api/insights/revenue-vision',
-					url: revenueVisionUrl,
-					method: 'GET',
-					description:
-						'Revenue Vision — agentic growth analysis powered by Claude. Hand over a mission_brief and get back a single prioritized next-best move, a data-grounded insight, and an honestly-calibrated confidence rating. CDP-Bazaar-cataloged.',
-					mimeType: 'application/json',
-					serviceName: routeMeta.revenueVision.serviceName,
-					tags: routeMeta.revenueVision.tags,
-					iconUrl: routeMeta.revenueVision.iconUrl,
-					accepts: revenueVisionAccepts,
-					extensions: extensionsForAccepts(revenueVisionAccepts, {
-						method: 'GET',
-						discoverable: true,
-						input: {
-							agent_codename: 'ledger-bot',
-							power_request: 'revenue-vision',
-							mission_brief: 'Find the highest-converting buyer segment this week.',
-						},
-						inputSchema: {
-							type: 'object',
-							required: ['agent_codename', 'power_request', 'mission_brief'],
-							properties: {
-								agent_codename: { type: 'string' },
-								power_request: { type: 'string', enum: ['revenue-vision'] },
-								mission_brief: {
-									type: 'string',
-									minLength: 4,
-									maxLength: 4000,
-								},
-							},
-						},
-					}),
-				},
-				{
 					path: '/api/mcp',
 					url: mcpUrl,
 					method: 'POST',
@@ -1984,34 +1773,6 @@ async function handleX402Discovery(req, res) {
 										description: 'the contract/mint/wallet the identity claims to control',
 									},
 									chain: { type: 'string', description: 'optional CAIP-2 chain hint' },
-								},
-							},
-						}),
-					};
-				})(),
-				(() => {
-					const url = `${origin}/api/x402/pump-agent-audit`;
-					const accepts = acceptsForPrice('20000', url);
-					return {
-						path: '/api/x402/pump-agent-audit',
-						url,
-						method: 'GET',
-						description:
-							"Pump-Agent Audit — full operational audit of a pump.fun agent-payments token: total USDC in, unique payers, distribute/buyback success history, latest error reasons, and risk flags (never_distributed, high_distribute_failure_rate, no_buybacks_run). Backed by three.ws's indexed pump_distribute_runs and pump_buyback_runs tables.",
-						mimeType: 'application/json',
-						serviceName: routeMeta.pumpAudit.serviceName,
-						tags: routeMeta.pumpAudit.tags,
-						iconUrl: routeMeta.pumpAudit.iconUrl,
-						accepts,
-						extensions: extensionsForAccepts(accepts, {
-							method: 'GET',
-							discoverable: true,
-							input: { mint: 'C3vQABCDEFGHJKLMNopqrstuvwxyZ12345abcdefghi' },
-							inputSchema: {
-								type: 'object',
-								required: ['mint'],
-								properties: {
-									mint: { type: 'string', minLength: 32, maxLength: 44 },
 								},
 							},
 						}),
@@ -2356,83 +2117,6 @@ async function handleX402Discovery(req, res) {
 					};
 				})(),
 				(() => {
-					const url = `${origin}/api/x402/mint-to-mesh-batch`;
-					const accepts = acceptsForPrice('50000', url);
-					return {
-						path: '/api/x402/mint-to-mesh-batch',
-						url,
-						method: 'POST',
-						description:
-							'Mint-to-Mesh (Batch) — resolve 1–10 Solana SPL mints to themed binary glTF cubes in a single paid call. Per-mint failures report ok:false individually instead of failing the whole batch. Output is base64 GLB bytes for Three.js / Babylon.js / model-viewer.',
-						mimeType: 'application/json',
-						serviceName: routeMeta.mintToMeshBatch.serviceName,
-						tags: routeMeta.mintToMeshBatch.tags,
-						iconUrl: routeMeta.mintToMeshBatch.iconUrl,
-						accepts,
-						extensions: extensionsForAccepts(accepts, {
-							method: 'POST',
-							discoverable: true,
-							input: {
-								mints: [
-									'C3vQABCDEFGHJKLMNopqrstuvwxyZ12345abcdefghi',
-									'F7kXZYXWVUTSRQPONMLKJIHGFEDCba9876543210xyz',
-								],
-							},
-							inputSchema: {
-								type: 'object',
-								required: ['mints'],
-								properties: {
-									mints: {
-										type: 'array',
-										minItems: 1,
-										maxItems: 10,
-										items: { type: 'string', minLength: 32, maxLength: 44 },
-									},
-								},
-							},
-						}),
-					};
-				})(),
-				(() => {
-					const url = `${origin}/api/x402/dance-tip`;
-					const accepts = acceptsForPrice('1000', url);
-					return {
-						path: '/api/x402/dance-tip',
-						url,
-						method: 'GET',
-						description:
-							'three.ws Pole Club — tip a dancer to perform one routine on the 3D pole stage. Pay $0.001 USDC per performance. Pick a dancer slot (1-4) and a dance style. The settled call returns a performance ticket the /club page consumes to spawn the dancer and play the routine for ~12 seconds.',
-						mimeType: 'application/json',
-						serviceName: routeMeta.danceTip.serviceName,
-						tags: routeMeta.danceTip.tags,
-						iconUrl: routeMeta.danceTip.iconUrl,
-						accepts,
-						extensions: extensionsForAccepts(accepts, {
-							method: 'GET',
-							discoverable: true,
-							input: { dancer: '1', dance: 'rumba' },
-							inputSchema: {
-								type: 'object',
-								required: ['dancer', 'dance'],
-								properties: {
-									dancer: {
-										type: 'string',
-										enum: ['1', '2', '3', '4'],
-										description:
-											'Stage slot 1-4 — which dancer should take the pole.',
-									},
-									dance: {
-										type: 'string',
-										enum: ['rumba', 'silly', 'thriller', 'capoeira', 'hiphop'],
-										description:
-											'Performance style — a clip in /animations/manifest.json.',
-									},
-								},
-							},
-						}),
-					};
-				})(),
-				(() => {
 					// Asset Bazaar advertises a representative price ($0.10 USDC =
 					// 100_000 atomics); the live 402 challenge always reflects the
 					// per-asset row from the paid_assets table. The discovery entry
@@ -2506,150 +2190,6 @@ async function handleX402Discovery(req, res) {
 									},
 								},
 							},
-						}),
-					};
-				})(),
-				(() => {
-					const url = `${origin}/api/x402/fact-check`;
-					const accepts = acceptsForPrice('100000', url);
-					return {
-						path: '/api/x402/fact-check',
-						url,
-						method: 'POST',
-						description:
-							'three.ws Fact Checker — pay $0.10 USDC to verify a factual claim. Generates search queries, runs multi-source web search, extracts per-source stance with an LLM, computes a weighted verdict + confidence, and returns supporting sources plus a SHA-256 attestation of the result.',
-						mimeType: 'application/json',
-						serviceName: routeMeta.factCheck.serviceName,
-						tags: routeMeta.factCheck.tags,
-						iconUrl: routeMeta.factCheck.iconUrl,
-						accepts,
-						extensions: extensionsForAccepts(accepts, {
-							method: 'POST',
-							discoverable: true,
-							input: { claim: 'The Eiffel Tower is in Paris.', strictness: 'medium' },
-							inputSchema: {
-								type: 'object',
-								required: ['claim'],
-								properties: {
-									claim: {
-										type: 'string',
-										minLength: 5,
-										maxLength: 1000,
-										description: 'The factual claim to verify.',
-									},
-									strictness: {
-										type: 'string',
-										enum: ['high', 'medium', 'low'],
-										description:
-											'high: penalizes low-authority sources. medium: default. low: accepts all sources equally.',
-									},
-								},
-							},
-						}),
-					};
-				})(),
-				(() => {
-					const url = `${origin}/api/x402/tutor`;
-					const accepts = acceptsForPrice('10000', url);
-					return {
-						path: '/api/x402/tutor',
-						url,
-						method: 'POST',
-						description:
-							'three.ws Pay-As-You-Learn Tutor — pay $0.01 USDC per answered question. Returns a leveled explanation, key points, a worked example, and a follow-up, plus a running session tab for a live itemized invoice. Pass a sessionId to accumulate a tab across questions.',
-						mimeType: 'application/json',
-						serviceName: routeMeta.tutor.serviceName,
-						tags: routeMeta.tutor.tags,
-						iconUrl: routeMeta.tutor.iconUrl,
-						accepts,
-						extensions: extensionsForAccepts(accepts, {
-							method: 'POST',
-							discoverable: true,
-							input: { question: 'Why is the sky blue?', level: 'intermediate' },
-							inputSchema: {
-								type: 'object',
-								required: ['question'],
-								properties: {
-									sessionId: {
-										type: 'string',
-										maxLength: 100,
-										description:
-											'Stable session identifier to accumulate a running tab. Omit to start a new session.',
-									},
-									question: {
-										type: 'string',
-										minLength: 5,
-										maxLength: 2000,
-										description: 'The question to be explained.',
-									},
-									context: {
-										type: 'string',
-										maxLength: 6000,
-										description:
-											'Optional code or context to ground the explanation.',
-									},
-									level: {
-										type: 'string',
-										enum: ['beginner', 'intermediate', 'expert'],
-										description:
-											'Target expertise level — controls depth and assumed background.',
-									},
-								},
-							},
-						}),
-					};
-				})(),
-				(() => {
-					const url = `${origin}/api/x402/crypto-intel`;
-					const accepts = acceptsForPrice('10000', url);
-					return {
-						path: '/api/x402/crypto-intel',
-						url,
-						method: 'POST',
-						description:
-							'three.ws Crypto Intel — Agent-to-Agent crypto intelligence feed. Pay $0.01 USDC per call to receive a live market signal (bullish / bearish / neutral) with current price, 24 h change, and a two-sentence rationale. Powered by CoinGecko live prices. Powers the three.ws agent-exchange demo where two 3D avatars trade real intel for real USDC settled on-chain.',
-						mimeType: 'application/json',
-						serviceName: routeMeta.cryptoIntel.serviceName,
-						tags: routeMeta.cryptoIntel.tags,
-						iconUrl: routeMeta.cryptoIntel.iconUrl,
-						accepts,
-						extensions: extensionsForAccepts(accepts, {
-							method: 'POST',
-							discoverable: true,
-							input: { topic: 'sol' },
-							inputSchema: {
-								type: 'object',
-								properties: {
-									topic: {
-										type: 'string',
-										description:
-											'Token ticker or CoinGecko id: btc, sol, eth, xrp, …',
-										default: 'sol',
-									},
-								},
-							},
-						}),
-					};
-				})(),
-				(() => {
-					const url = `${origin}/api/x402/three-intel`;
-					const accepts = acceptsForPrice('10000', url);
-					return {
-						path: '/api/x402/three-intel',
-						url,
-						method: 'GET',
-						description:
-							'$THREE Town Oracle — pay $0.01 USDC per call for live $THREE market intel: price, 24 h change, market cap, liquidity, 24 h volume, and a bullish / bearish / neutral signal with a two-sentence rationale. Powered by live DexScreener data. This is the oracle behind the paid intel kiosk in the $THREE town on three.ws/play.',
-						mimeType: 'application/json',
-						serviceName: routeMeta.threeIntel.serviceName,
-						tags: routeMeta.threeIntel.tags,
-						iconUrl: routeMeta.threeIntel.iconUrl,
-						accepts,
-						extensions: extensionsForAccepts(accepts, {
-							method: 'GET',
-							discoverable: true,
-							input: {},
-							inputSchema: { type: 'object', properties: {} },
 						}),
 					};
 				})(),
@@ -3345,7 +2885,7 @@ async function handleX402Discovery(req, res) {
 						extensions: extensionsForAccepts(accepts, {
 							method: 'POST',
 							discoverable: true,
-							input: { endpoint: '/api/x402/crypto-intel' },
+							input: { endpoint: '/api/x402/forge' },
 							inputSchema: {
 								type: 'object',
 								required: ['endpoint'],

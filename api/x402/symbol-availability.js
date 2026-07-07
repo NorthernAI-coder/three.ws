@@ -3,8 +3,8 @@
 //
 // DEPRECATED: symbol-availability is now a FREE, keyless discovery utility at
 // GET/POST /api/crypto/symbol (up to 20 symbols/call, exact + fuzzy collisions
-// across live registries). Prefer that route; this paid endpoint is retired in
-// prompts/x402-overhaul/20. See api/crypto/symbol.js.
+// across live registries). Prefer that route. The 2026-07 overhaul (prompt 20)
+// kept this route cataloged as a paid convenience alongside the free one.
 //
 // GET: single-ticker collision check ($0.001 USDC) — original endpoint.
 // POST: batch scan of up to 10 symbols ($0.005 USDC) — returns
