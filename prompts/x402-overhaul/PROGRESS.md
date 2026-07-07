@@ -4,6 +4,46 @@ Dated entries per prompt. Newest first.
 
 ---
 
+## 2026-07-07 — Prompt 11 (follow-up): full real-browser verification of `/crypto` + grid overflow fix
+
+The original Prompt 11 entry (below) shipped `pages/crypto.html` but could not run the
+`npm run dev` + real-browser pass — the shared `node_modules` was corrupt at the time. The
+install storm has settled (vite 7.3.2 loads clean), so that gap is now closed.
+
+**Verified in a real browser** (Vite dev on :3001 — :3000 held by a concurrent agent;
+Playwright Chromium, viewports 1440/768/320):
+- Page renders fully: hero + status pill, 9-row endpoint table, 3 quickstart tabs
+  (curl/JS/Python — tab switch swaps the code block), 19 copy buttons, 9 Try-it consoles.
+- **Live probe now returns real data** — status pill reads **"5 of 9 endpoints live"**:
+  `bonding`, `symbol`, `trending`, `wallet`, `whales` (prompts 06–10) respond through the
+  dev server; `token`, `security`, `holders`, `launches` (prompts 01–04) correctly show
+  Coming soon. The Try-it console rendered a real `/api/crypto/trending` response
+  ($THREE ranked, live market numbers) in-page. The badge-flip design works exactly as
+  intended — no page edit was needed as siblings landed.
+- **All 83 internal links resolve 200** through the dev server (nav, footer, CTA funnel:
+  `/launcher`, `/vanity-wallet`, `/forge`, `/pay`, `/docs`, `/api/crypto`,
+  `/api/crypto/openapi.json`).
+- Zero page-code console errors. Remaining console noise is by-design/environmental:
+  the probe's own 404s on the four not-yet-deployed endpoints (browser network log —
+  that IS the Coming-soon detection), the Vite HMR websocket failing through the
+  Codespaces port-forward (dev-only), and a Chromium WebGL screenshot warning.
+
+**Found & fixed one real defect** — 42px horizontal page overflow at 1440px: `.cx-eps`
+and `.cx-io` used `1fr` grid tracks (= `minmax(auto,1fr)`), so the longest unbroken line
+in the token card's example `<pre>` propagated its min-content width up through the nested
+grids past the viewport; `overflow-x:auto` on the `pre` can't shrink an `auto`-min track.
+Pinned both to `minmax(0,1fr)` (2-line CSS change in `pages/crypto.html`). Re-measured:
+`scrollWidth - clientWidth = 0` at 1440/768/320, before AND after populating all nine
+Try-it consoles. Code blocks scroll inside their own containers as designed.
+
+`npm run build:pages` — green after the change.
+
+**Adjacent gaps noticed:** prompts 01–04 (`token`, `security`, `holders`, `launches`)
+remain the only missing quarter of the API; the page and `/api/crypto` index will pick
+them up automatically when they land.
+
+---
+
 ## 2026-07-07 — Prompt 10 follow-up: production catalog assembled EMPTY — root-caused + fixed (also fixed the same bug in the 3D catalog)
 
 **What changed since the original entry:** the `/api/crypto/*` surface DEPLOYED
