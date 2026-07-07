@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-07-07",
+			"title": "Refreshed our agent-marketplace profile and product descriptions",
+			"summary": "The three.ws storefront window on x402scan and agentic.market now says what the platform actually is: 3D generation, crypto data, and launch/trust tools for AI agents — free Crypto Data API and free text-to-3D up front, pay-per-call for Forge Pro, rigged avatars, vanity addresses, token launches, and cross-chain trust checks. Category tags were added so marketplace filters surface us correctly, product descriptions now lead with what an agent uses them for, and new tests guarantee no listing ever ships with an empty description again.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/docs/start-here"
+		},
+		{
+			"date": "2026-07-07",
 			"title": "Trimmed low-value endpoints so agents find the tools that matter",
 			"summary": "The agent-facing x402 catalog got a spring clean. Nine novelty and me-too endpoints that powered in-product experiences (the club stage, the town NPCs, demo pages) no longer appear as standalone products on x402scan and agentic.market — they keep working inside the product, but they were diluting the catalog and burying the tools agents actually use. What agents now find first: the free Crypto Data API and 3D API, Forge, the pump.fun launcher, vanity addresses, and cross-chain trust primitives.",
 			"tags": [
