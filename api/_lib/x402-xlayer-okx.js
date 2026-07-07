@@ -480,6 +480,7 @@ export async function settleOkxXLayerPayment({ verified, requirement, paymentPay
 			network: result.network || NETWORK_XLAYER_MAINNET,
 			payer: result.payer || verified.payer,
 			...(result.status ? { status: result.status } : {}),
+			amount: result.amount || verified.amount,
 		};
 	}
 	const account = relayerAccount();
@@ -516,6 +517,10 @@ export async function settleOkxXLayerPayment({ verified, requirement, paymentPay
 				transaction: hash,
 				network: NETWORK_XLAYER_MAINNET,
 				payer: verified.payer,
+				// Direct redemption waited for the receipt — the transfer is
+				// confirmed, matching the facilitator's syncSettle "success".
+				status: 'success',
+				amount: verified.amount,
 			};
 		} catch (err) {
 			if (err instanceof X402Error) throw err;

@@ -4,6 +4,10 @@ description: Build and deploy a paid API that other agents can pay to use via x4
 user-invocable: true
 disable-model-invocation: false
 allowed-tools: ["Bash(npx awal@2.10.0 status*)", "Bash(npx awal@2.10.0 address*)", "Bash(npx awal@2.10.0 x402 details *)", "Bash(npx awal@2.10.0 x402 pay *)", "Bash(npm *)", "Bash(node *)", "Bash(curl *)", "Bash(mkdir *)"]
+metadata:
+  category: wallet/payments
+  cross-platform-safe: false
+  pack: three-ws-skills
 ---
 
 # Build an x402 Payment Server

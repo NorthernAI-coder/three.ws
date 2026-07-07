@@ -4,6 +4,10 @@ description: Query onchain data on Base using the CDP SQL API via x402. Use when
 user-invocable: true
 disable-model-invocation: false
 allowed-tools: ["Bash(npx awal@2.10.0 status*)", "Bash(npx awal@2.10.0 balance*)", "Bash(npx awal@2.10.0 x402 pay *)"]
+metadata:
+  category: wallet/payments
+  cross-platform-safe: false
+  pack: three-ws-skills
 ---
 
 # Query Onchain Data on Base

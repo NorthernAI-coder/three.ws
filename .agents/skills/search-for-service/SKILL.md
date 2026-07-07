@@ -4,6 +4,10 @@ description: Search and browse the x402 bazaar marketplace for paid API services
 user-invocable: true
 disable-model-invocation: false
 allowed-tools: ["Bash(npx awal@2.10.0 x402 bazaar *)", "Bash(npx awal@2.10.0 x402 details *)"]
+metadata:
+  category: wallet/payments
+  cross-platform-safe: false
+  pack: three-ws-skills
 ---
 
 # Searching the x402 Bazaar

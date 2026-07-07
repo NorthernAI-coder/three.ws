@@ -4,11 +4,12 @@
 // Discovery surface over the live x402 facilitator network: search, browse, and
 // price paid agent services from any MCP client. Shares the main server's
 // OAuth/x402 auth, rate limiting, and transport. Registered with the MCP
-// Registry as io.github.nirholas/three-ws-x402-bazaar (see server-bazaar.json).
+// Registry as io.github.nirholas/threews-x402-bazaar (see server-bazaar.json).
 import { cors, readJson, wrap } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { settlePayment, encodePaymentResponseHeader } from './_lib/x402-spec.js';
 import { peekCalledTool } from './_lib/mcp-dispatch.js';
+import { isDiscoveryOnlyBatch } from './_lib/mcp-batch-price.js';
 import { PROTOCOL_VERSION, dispatch, isPublicTool } from './_mcpbazaar/dispatch.js';
 import {
 	send401,
@@ -16,6 +17,7 @@ import {
 	authenticateRequest,
 	handleSse,
 	handleTerminate,
+	isMcpProtocolClient,
 } from './_mcp/auth.js';
 import { sendX402Error, reservePaymentProof } from './_mcp/payments.js';
 
@@ -28,11 +30,16 @@ export default wrap(async (req, res) => {
 
 	// Read + parse the body before auth so a call to the free public
 	// getting_started tool can be served without an OAuth token or x402 payment.
+	// Discovery-only batches (initialize / tools/list / ping) from plain x402
+	// agents and crawlers are likewise free — but NOT from MCP protocol clients,
+	// which need the 401 to start their OAuth flow (same gate as /api/mcp).
 	const body = await readJson(req, 1_000_000);
 	const { toolName } = peekCalledTool(body);
 
 	const result = await authenticateRequest(req, res, {
-		allowFree: Boolean(toolName && isPublicTool(toolName)),
+		allowFree:
+			Boolean(toolName && isPublicTool(toolName)) ||
+			(isDiscoveryOnlyBatch(body) && !isMcpProtocolClient(req)),
 	});
 	if (!result) return;
 	const { auth, x402Ctx } = result;

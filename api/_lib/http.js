@@ -382,7 +382,7 @@ export function cors(
 	// cross-origin readers only see CORS-safelisted response headers.
 	res.setHeader(
 		'access-control-expose-headers',
-		'PAYMENT-REQUIRED, x-payment-response, x-payment-network, x-payment-tx, link',
+		'PAYMENT-REQUIRED, PAYMENT-RESPONSE, x-payment-response, x-payment-network, x-payment-tx, link',
 	);
 	res.setHeader('access-control-max-age', '86400');
 	if (req.method === 'OPTIONS') {

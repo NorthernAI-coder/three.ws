@@ -4,6 +4,10 @@ description: Swap or trade tokens on Base or Polygon. Use when you or the user w
 user-invocable: true
 disable-model-invocation: false
 allowed-tools: ["Bash(npx awal@2.10.0 status*)", "Bash(npx awal@2.10.0 trade *)", "Bash(npx awal@2.10.0 balance*)"]
+metadata:
+  category: wallet/payments
+  cross-platform-safe: false
+  pack: three-ws-skills
 ---
 
 # Trading Tokens

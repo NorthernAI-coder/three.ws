@@ -107,7 +107,12 @@ export default wrap(async (req, res) => {
 			if (anySuccess) {
 				try {
 					const settled = await settlePayment({ verified: x402Ctx.verified });
-					res.setHeader('x-payment-response', encodePaymentResponseHeader(settled));
+					// Both receipt header names: PAYMENT-RESPONSE is the x402 v2
+					// standard (what OKX Agent Payments Protocol buyers decode),
+					// x-payment-response the v1 name legacy clients still read.
+					const receipt = encodePaymentResponseHeader(settled);
+					res.setHeader('PAYMENT-RESPONSE', receipt);
+					res.setHeader('x-payment-response', receipt);
 				} catch (err) {
 					return sendX402Error(
 						res,

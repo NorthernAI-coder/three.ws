@@ -68,9 +68,10 @@ function loadTargets() {
 	} else {
 		list = defaultTargets({ include5: env.INCLUDE_5 === '1', ignoreCase: env.IGNORE_CASE === '1' });
 	}
-	// Shard across parallel instances (a GCE MIG runs N of these).
+	// Shard across parallel instances. Cloud Run Jobs expose the task ordinal as
+	// CLOUD_RUN_TASK_INDEX — without this fallback every task would grind shard 0.
 	const shardCount = Math.max(1, parseInt(env.SHARD_COUNT || '1', 10));
-	const shardIndex = Math.max(0, parseInt(env.SHARD_INDEX || '0', 10));
+	const shardIndex = Math.max(0, parseInt(env.SHARD_INDEX ?? env.CLOUD_RUN_TASK_INDEX ?? '0', 10));
 	if (shardCount > 1) list = list.filter((_, i) => i % shardCount === shardIndex);
 	return list;
 }
