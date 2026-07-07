@@ -61,7 +61,7 @@ describe('buildWhaleResult — threshold filter', () => {
 		const trades = [buy('W1', 10), buy('W2', 4.9), buy('W3', 5)];
 		const r = buildWhaleResult({ trades, scope: 'token', mint: THREE_MINT, minSol: 5, limit: 10 });
 		expect(r.whaleCount).toBe(2);
-		expect(r.whales.map((w) => w.solMoved).sort()).toEqual([5, 10]);
+		expect(r.whales.map((w) => w.solMoved).sort((a, b) => a - b)).toEqual([5, 10]);
 		expect(r.totalSolMoved).toBe(15);
 	});
 });
