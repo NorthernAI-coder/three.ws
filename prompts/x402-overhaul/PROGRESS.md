@@ -4,6 +4,132 @@ Dated entries per prompt. Newest first.
 
 ---
 
+## 2026-07-07 — Prompt 04: Free Crypto Data API — live pump.fun launches
+
+**Shipped `GET /api/crypto/launches`** — free, keyless feed of the freshest
+pump.fun launches, newest first. Agent use-case: a sniper/discovery agent polls
+for brand-new mints with enough signal to filter on the spot (name, symbol, age,
+market cap, bonding-curve progress, dev wallet), then hands the interesting ones
+to `/api/crypto/bonding` (05) and `/api/crypto/whales` (06) — cross-linked in
+the docs, closing the dead `/api/crypto/launches` reference the bonding section
+has carried since 05 shipped.
+
+- **Endpoint** `api/crypto/launches.js` — plain free-handler pattern (`cors`+
+  `wrap`+`error`/`json`, `publicIp` per-IP limit). Input `?limit=` (default 20,
+  values above 100 capped, not an error), `?minMarketCap=` (USD), `?maxAgeMin=`.
+  Output `{ launches:[{ mint, name, symbol, createdAt, ageMinutes, marketCapUsd,
+  bondingProgressPct, graduated, dev, url, imageUrl }], count, ts, source }`.
+  Did NOT build a new scraper: wraps the existing pump.fun frontend feed, and
+  per-coin curve math is `mapBondingStatus` from `api/_lib/pump-bonding.js` —
+  the SAME shared source of truth as /bonding, so the two can never disagree.
+- **Helper** `api/_lib/pump-launch-feed.js` — new `fetchRecentPumpCoins()` that
+  keeps "feed unreachable" distinct from "feed empty" (the endpoint needs an
+  honest `source` note); `recentPumpLaunches()` refactored onto it,
+  behavior-preserving (strategy-runtime callers unaffected, suites green).
+- **Catalog** `api/_lib/crypto-catalog/launches.js` (JSON-Schema inputSchema/
+  outputSchema + synthetic example). Verified the assembler picks it up:
+  `/api/crypto` now lists bonding, launches, symbol, token, trending, wallet,
+  whales, and the OpenAPI doc emits the launches path + params.
+- **Docs** `docs/crypto-api.md` — index-table row + full section (use-case,
+  params, response sample, states, snipe-filter curl). **Changelog** entry
+  (tag `feature`) validated by `npm run build:pages`.
+
+**States:** launches found → 200 newest-first; nothing matches filters → 200
+`{launches:[],count:0}` + note (valid answer, not an error); pump.fun feed down
+→ 200 `source:"pumpfun:unavailable"` + retry note (a polling agent reads it as
+"nothing this sweep") — never 500; malformed params → 400; rate-limited → 429.
+Coins with unknown cap/age are dropped by those filters, never guessed.
+
+**Live responses captured (real pump.fun data, 2026-07-07T02:29Z, node harness
+driving the actual handler):**
+```
+GET /api/crypto/launches?limit=3 → 200, cache-control: public, s-maxage=10, swr=20
+  count:3, source:"pumpfun", newest first, e.g.
+  { mint:"3ApeC39g…rpump", name:"Computa", ageMinutes:0,
+    marketCapUsd:2279.86, bondingProgressPct:0, graduated:false,
+    dev:"2xpKBkzB…", url:"https://pump.fun/coin/3ApeC39g…", imageUrl:"…" }
+  (second row 0.2 min old at 0.126% curve progress — sub-minute freshness)
+
+GET /api/crypto/launches?limit=5&minMarketCap=5500&maxAgeMin=60 → 200 count:3
+  [W $14,465 @0.3min] [EVERMEADOW $9,937 @1.7min] [POPKID $20,156 @1.9min]
+
+GET /api/crypto/launches?limit=0 → 400 invalid_limit
+```
+
+**Tests: green.** `tests/crypto-launches-endpoint.test.js` (12 tests: toLaunch
+mapping incl. graduated→100% and null-age degradation; newest-first sort;
+default/cap limit; all three param validations; minMarketCap drops unknown-cap
+coins; maxAgeMin; empty-sweep note; upstream-down 200; 429). Touched suites
+stay green: `pump-bonding` (curve-math consumer), `wallet-intents`
+(recentPumpLaunches caller), `crypto-catalog`.
+```
+Test Files  4 passed (4)      Tests  60 passed (60)
+```
+
+**Concurrency note:** prompt 01 (token snapshot) was in flight by a sibling
+agent in this same worktree while this ran (their `token-market.js` /
+`docs/crypto-api.md` / changelog edits landed mid-session) — I picked 04 to
+avoid colliding, re-read shared files before each edit, and staged explicit
+paths only. Prompts 02 (security) and 03 (holders) remain unshipped.
+
+---
+
+## 2026-07-07 — Prompt 12 follow-up: both blocked DoD gates CLOSED (real E2E + green tests)
+
+The original Prompt 12 entry (below) shipped the code but left two items blocked on
+environment. Both are now closed with live proof:
+
+**1. Real generation end-to-end through `POST /api/3d/generate` — DONE (24.8s, inline):**
+
+```json
+// POST https://three.ws/api/3d/generate  {"prompt":"a low-poly wooden treasure chest"}
+// → HTTP 200 in 24.8s
+{ "status": "done",
+  "glbUrl": "https://pub-2534e921bf9c4314addcd4d8a6e98b7b.r2.dev/forge/anon/a374408a-b4fd-43b7-9c7d-3f09fa3beff4.glb",
+  "viewerUrl": "https://three.ws/viewer?src=https%3A%2F%2Fpub-2534e921bf9c4314addcd4d8a6e98b7b.r2.dev%2Fforge%2Fanon%2Fa374408a-b4fd-43b7-9c7d-3f09fa3beff4.glb",
+  "format": "glb", "tier": "draft", "free": true, "upgrade": { "forgePro": "/api/x402/forge", "riggedAvatars": "/api/forge?action=rig", "docs": "/docs/3d-api" } }
+```
+
+GLB verified real (downloaded + parsed): 1,889,764 bytes, `glTF` magic, glTF 2.0,
+declared length == actual, 1 mesh / 1 material / 1 texture image. A second run via
+the underlying lane (`/api/forge`, pinned free-draft body) produced
+`creation_id 3877d9cf-21c2-4e4f-8e12-339634587881` → 1,725,904-byte valid GLB
+(1 mesh / 1 material / 1 image, trimesh generator) — the free NVIDIA NIM lane is
+live and configured on prod (the earlier "no reconstruct lane configured" 502 is gone).
+
+**2. `npx vitest run tests/api/3d-generate.test.js` — GREEN (install storm over):**
+
+```
+ Test Files  1 passed (1)
+      Tests  20 passed (20)
+```
+
+One test fixed while closing this: the "malformed job handle" case sent a
+whitespace-only `?job=%20%20`, which the handler correctly treats as *missing*
+(trim → empty → `missing_job`); the test now asserts `missing_job` for
+whitespace-only and gained a genuine malformed-handle case (`bad*job*id` →
+`invalid_job`). Handler unchanged. (That test edit was swept into concurrent
+commit `2d5457892` by another agent's broad add.)
+
+**Real bug found + fixed — prod 504 on cold-lane submits:** `vercel.json` had no
+`functions` entry for `api/3d/generate.js`, so prod ran it at the 30s platform
+default while `startForge` waits up to 90s inline for the draft — a cold GPU lane
+made every well-formed POST die as a platform `FUNCTION_INVOCATION_TIMEOUT` 504
+(reproduced twice at exactly 30.2s) instead of any designed state. The in-file
+`export const config = { maxDuration: 120 }` is not honored in this setup — every
+other long route (e.g. `api/forge` at 300s) declares it in `vercel.json`. Added
+`"api/3d/generate.js": { "maxDuration": 120 }` next to the existing `api/3d`
+index/openapi entry. Warm-lane submits already finish inside 30s (proof above);
+this gives cold submits the same headroom the route was written for.
+
+**Adjacent gap noticed:** `/api/forge` returns 429 `rate_limited` after ~159s when
+the GPU slot lease is saturated — that long-blocking busy-wait is what ate the
+first submit attempts. `/api/3d/generate` maps it to a designed 429 + retry-after,
+so the contract holds, but a faster-failing lease check upstream would spare
+agents a 2.5-minute wait to learn "busy".
+
+---
+
 ## 2026-07-07 — Prompt 11 (follow-up): full real-browser verification of `/crypto` + grid overflow fix
 
 The original Prompt 11 entry (below) shipped `pages/crypto.html` but could not run the
