@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-07T11:32:31.678Z",
+	"generated_at": "2026-07-07T11:46:10.030Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -65,6 +65,17 @@
 			"tags": [
 				"feature",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "3D Studio tools can now be paid on X Layer via the OKX Agent Payments Protocol",
+			"summary": "Agents on the OKX.AI marketplace can now pay for our 3D tools the way that marketplace expects: our payment challenge now offers X Layer (chain 196) in the USD₮0 stablecoin alongside the existing USDC-on-Base/Solana options, and speaks the OKX buyer flow end to end — it verifies the payment on-chain before doing any work and only charges after the tool succeeds. Existing customers paying on Base or Solana are unaffected; this simply adds a rail. It's the integration OKX asked us to complete before re-listing our 3D Studio agent.",
+			"link": null,
+			"tags": [
+				"feature",
+				"infra"
 			]
 		},
 		{
@@ -220,6 +231,17 @@
 			"link": null,
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "Mint a generated 3D avatar as an on-chain Solana NFT — with a live 3D viewer as its media",
+			"summary": "You can now turn a generated or owned avatar into real, ownable on-chain property. The new mint_3d_asset tool mints your rigged GLB as a Solana NFT whose media is a live, interactive 3D viewer — not a flat picture — with the model, a rendered thumbnail, and its full provenance (who made it, the prompt, the model, its lineage) travelling with it. Creator royalties are enforced on every resale, capped at 10%. A companion get_3d_asset_onchain tool resolves any mint back to its current holder, live viewer, provenance, and royalty terms. Minting defaults to devnet for safe testing; mainnet is an explicit opt-in. It's idempotent, so a retried mint never creates a duplicate.",
+			"link": null,
+			"tags": [
+				"feature",
+				"sdk"
 			]
 		},
 		{
@@ -397,6 +419,17 @@
 			"link": "/docs/crypto-api",
 			"tags": [
 				"feature",
+				"sdk"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "three.ws MCP servers are now listed across Smithery, Glama, mcp.so, PulseMCP & LobeHub",
+			"summary": "All 42 three.ws MCP servers — the seven hosted remotes plus 35 one-command npm servers — now have consistent, verified listings ready for every major MCP directory, not just the official registry. Any MCP-compatible client (Claude, Cursor, and the rest) can discover three.ws by name wherever it looks. We fixed a discovery bug where the Agent-wallet and x402 Bazaar remotes wouldn't answer a plain tool list to crawlers, synced every server manifest to its published version, and built one canonical metadata source so a server's name, tagline, and connect snippet read identically on every directory.",
+			"link": null,
+			"tags": [
+				"infra",
 				"sdk"
 			]
 		},

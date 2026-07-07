@@ -55,6 +55,14 @@
 			<description>Validating and optimizing a glTF/GLB no longer costs anything. The new free, keyless /api/3d/inspect takes a model URL (or a raw upload) and returns whether it's spec-valid, its full structural stats — vertices, triangles, materials, textures, animations, extensions — and a severity-ranked list of exactly what to fix to make it smaller and faster for the web. It runs the official Khronos glTF-Validator plus the same inspection core the platform's paid pipelines use. This capability used to be a paid x402 endpoint (model-check); a validation utility should be free — it builds trust and points agents at the paid Forge Pro, Rigged Avatar, and optimization tiers when they need the heavy lifting done for them.</description>
 		</item>
 		<item>
+			<title>3D Studio tools can now be paid on X Layer via the OKX Agent Payments Protocol</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-07:3D Studio tools can now be paid on X Layer via the OKX Agent Payments Protocol</guid>
+			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Agents on the OKX.AI marketplace can now pay for our 3D tools the way that marketplace expects: our payment challenge now offers X Layer (chain 196) in the USD₮0 stablecoin alongside the existing USDC-on-Base/Solana options, and speaks the OKX buyer flow end to end — it verifies the payment on-chain before doing any work and only charges after the tool succeeds. Existing customers paying on Base or Solana are unaffected; this simply adds a rail. It's the integration OKX asked us to complete before re-listing our 3D Studio agent.</description>
+		</item>
+		<item>
 			<title>Agent reputation now scores any wallet or agent on any chain</title>
 			<link>https://three.ws/docs/trust-primitives</link>
 			<guid isPermaLink="false">2026-07-07:Agent reputation now scores any wallet or agent on any chain</guid>
@@ -173,6 +181,14 @@
 			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>A new free, keyless endpoint tells an AI agent whether big money is moving before it trades. Call /api/crypto/whales with a token mint to see the large buys of that coin, or without one to see the top whale wallets active across pump.fun right now. Each response carries a plain bullish/bearish/neutral signal derived from net whale flow — the SOL whales bought minus the SOL they sold — with no black-box scoring. No account, no key, no payment.</description>
+		</item>
+		<item>
+			<title>Mint a generated 3D avatar as an on-chain Solana NFT — with a live 3D viewer as its media</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-07:Mint a generated 3D avatar as an on-chain Solana NFT — with a live 3D viewer as its media</guid>
+			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>You can now turn a generated or owned avatar into real, ownable on-chain property. The new mint_3d_asset tool mints your rigged GLB as a Solana NFT whose media is a live, interactive 3D viewer — not a flat picture — with the model, a rendered thumbnail, and its full provenance (who made it, the prompt, the model, its lineage) travelling with it. Creator royalties are enforced on every resale, capped at 10%. A companion get_3d_asset_onchain tool resolves any mint back to its current holder, live viewer, provenance, and royalty terms. Minting defaults to devnet for safe testing; mainnet is an explicit opt-in. It's idempotent, so a retried mint never creates a duplicate.</description>
 		</item>
 		<item>
 			<title>New: three.ws Crypto Data API docs</title>
@@ -309,6 +325,14 @@
 			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The free crypto endpoints are now one product with a single front door. GET /api/crypto lists the whole bundle — bonding-curve status, whale activity, trending tokens, wallet portfolios, and symbol availability — each with its inputs, outputs, and a live example, so an agent discovers everything in one call (ask for HTML and it renders a browsable page instead of JSON). GET /api/crypto/openapi.json is a real OpenAPI 3.1 spec generated straight from that catalog, so LangChain, openapi-generator, and Swagger UI produce typed clients and callable tools with no key and no account. New endpoints join the index and the spec automatically the moment they ship, and a zero-endpoint state is a valid &quot;coming soon&quot;, never an error. Full reference lives at /docs/crypto-api.</description>
+		</item>
+		<item>
+			<title>three.ws MCP servers are now listed across Smithery, Glama, mcp.so, PulseMCP &amp; LobeHub</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-07:three.ws MCP servers are now listed across Smithery, Glama, mcp.so, PulseMCP &amp; LobeHub</guid>
+			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
+			<category>infra</category>
+			<description>All 42 three.ws MCP servers — the seven hosted remotes plus 35 one-command npm servers — now have consistent, verified listings ready for every major MCP directory, not just the official registry. Any MCP-compatible client (Claude, Cursor, and the rest) can discover three.ws by name wherever it looks. We fixed a discovery bug where the Agent-wallet and x402 Bazaar remotes wouldn't answer a plain tool list to crawlers, synced every server manifest to its published version, and built one canonical metadata source so a server's name, tagline, and connect snippet read identically on every directory.</description>
 		</item>
 		<item>
 			<title>Trimmed low-value endpoints so agents find the tools that matter</title>
