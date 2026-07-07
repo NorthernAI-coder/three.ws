@@ -653,6 +653,430 @@ Responses are cached in R2 by `sha256(voiceId + text + modelId)` for 30 days —
 
 ---
 
+## AI API — text→3D
+
+The only text→mesh lane in the x402 / agent-payments ecosystem. Turn a text
+prompt into a textured, downloadable GLB — no key, no wallet. The draft tier runs
+free on the NVIDIA NIM TRELLIS lane (the same pipeline behind the `forge_free`
+MCP tool and [/forge](https://three.ws/forge)). Higher quality/volume lives on
+the paid [x402 forge tiers](#x402-paid-endpoints--sign-in-with-x-siwx).
+
+### Text→3D (free)
+
+```
+POST /api/v1/ai/text-to-3d
+```
+
+Public, CORS-open, no auth. Free with a per-IP quota of **10 generations/day**
+(the GPU quota is real). Above the quota the endpoint returns `429` with
+`X-RateLimit-Reset` and a pointer to the paid forge tiers — it never paywalls
+silently.
+
+**Request body**
+
+```json
+{ "prompt": "a small ceramic robot figurine" }
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `prompt` | string | Describe a single object or character. 3–1000 characters. Required. |
+
+**Response — finished inline** (the NIM often completes inside the request window):
+
+```json
+{
+  "data": {
+    "status": "done",
+    "glb_url": "https://cdn.three.ws/forge/anon/<id>.glb",
+    "viewer_url": "https://three.ws/viewer?src=https%3A%2F%2Fcdn.three.ws%2Fforge%2Fanon%2F%3Cid%3E.glb",
+    "creation_id": "<uuid>",
+    "backend": "nvidia",
+    "tier": "draft"
+  }
+}
+```
+
+**Response — queued** (poll the existing free job endpoint until `status: "done"`):
+
+```json
+{
+  "data": {
+    "status": "pending",
+    "job": "f1.<signed-token>",
+    "poll_url": "/api/forge?job=f1.<signed-token>",
+    "viewer_url": null,
+    "backend": "nvidia",
+    "tier": "draft"
+  }
+}
+```
+
+Poll with `GET /api/forge?job=<job>` — it returns `{ status: "queued" | "done" | "failed", glb_url? }`.
+
+**Example**
+
+```bash
+curl -s -X POST https://three.ws/api/v1/ai/text-to-3d \
+  -H 'content-type: application/json' \
+  -d '{"prompt":"a small ceramic robot figurine"}'
+```
+
+**Errors**
+
+| Status | Code | Meaning |
+|--------|------|---------|
+| `400` | `validation_error` | `prompt` missing, shorter than 3 chars, or over 1000 |
+| `429` | `quota_exceeded` | Daily free quota spent; see `X-RateLimit-Reset` and `upgrade.endpoint` (`/api/x402/forge`) |
+| `503` | `not_configured` | The NVIDIA NIM lane isn't configured on this deployment (`NVIDIA_API_KEY`) |
+| `502`/`504` | `lane_error` / `lane_timeout` | The generation lane failed or timed out — retry |
+
+---
+
+## AI API — text→image
+
+Text→image for agents over x402 — no API key, no account. The first **5 images/day
+per IP are free**; past the quota each image is a single USDC micropayment
+(`$0.02`) settled on Solana or Base via the [x402](#x402-paid-endpoints--sign-in-with-x-siwx)
+rail. It runs on the same subsidized lanes as the 3D forge (NVIDIA NIM FLUX and
+the Google Vertex/Gemini image lane), and returns a durable https URL to the
+rendered image.
+
+### Text→image
+
+```
+POST /api/v1/ai/image
+```
+
+Public, CORS-open. Unauthenticated callers get the free daily quota first; once
+it's spent the endpoint answers with a standard `402 Payment Required` challenge
+(pay with any x402 client to receive the image). A quota slot is spent only when
+an image is actually delivered — a validation error, a content refusal, or a lane
+outage never burns a free generation.
+
+**Request body**
+
+```json
+{ "prompt": "a brass owl figurine on a plain white background", "aspect_ratio": "1:1" }
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `prompt` | string | Image description. 3–2000 characters. Required. |
+| `aspect_ratio` | string | One of `1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:2`, `2:3`. Default `1:1`. |
+| `seed` | integer | Optional deterministic seed (0–4294967295). Honored on the NIM / Replicate flux lanes; the Vertex/Gemini lane has no seed parameter and ignores it. |
+
+**Response — 200**
+
+```json
+{
+  "url": "https://cdn.three.ws/forge/refs/<id>.jpg",
+  "provider": "nvidia-nim",
+  "model": "black-forest-labs/flux.1-schnell",
+  "width": 1024,
+  "height": 1024,
+  "aspect_ratio": "1:1",
+  "seed": null,
+  "free": true,
+  "quota": { "used": 1, "limit": 5, "remaining": 4, "resetAt": "2026-07-08T00:00:00.000Z" }
+}
+```
+
+`provider` is the lane that served the image (`nvidia-nim` | `vertex` | `replicate`).
+`width`/`height` are the nominal target dimensions for the requested aspect ratio.
+
+**Example — free tier**
+
+```bash
+curl -s -X POST https://three.ws/api/v1/ai/image \
+  -H 'content-type: application/json' \
+  -d '{"prompt":"a brass owl figurine on a plain white background"}'
+```
+
+**Example — paid (past the free quota), with an x402 client**
+
+```bash
+# The x402 CLI pays the 402 challenge and returns the settled response body.
+npx x402 curl -X POST https://three.ws/api/v1/ai/image \
+  -H 'content-type: application/json' \
+  -d '{"prompt":"a neon koi swimming, dark background","aspect_ratio":"16:9"}'
+```
+
+**Lane health** (no quota burn):
+
+```bash
+curl -s 'https://three.ws/api/v1/ai/image?health=1'
+```
+
+Returns per-lane `configured`/`status` (`ok` | `down` | `degraded` | `unconfigured`)
+and `missing_env` when nothing is wired. A plain `GET /api/v1/ai/image` returns a
+discovery doc (price, free-tier width, which lanes are configured).
+
+**Errors**
+
+| Status | Code | Meaning |
+|--------|------|---------|
+| `400` | `invalid_prompt` / `prompt_too_long` / `invalid_aspect_ratio` / `invalid_seed` | Request validation failed |
+| `402` | — | Free quota spent — pay the x402 challenge to continue |
+| `422` | `content_refused` | The provider blocked the prompt on content-policy grounds (not retried) |
+| `429` | `rate_limited` | Lane briefly busy — retry after `retryAfter` seconds |
+| `503` | `not_configured` | No image lane is configured (`NVIDIA_API_KEY`, `GOOGLE_CLOUD_PROJECT` + `GCP_SERVICE_ACCOUNT_JSON`, or `REPLICATE_API_TOKEN`) |
+| `503` | `lane_unavailable` | The configured lane is temporarily down — retry |
+| `502` | `generation_failed` | The lane returned no usable image — retry |
+
+---
+
+## AI API — speech (TTS + ASR)
+
+Text-to-speech and speech-to-text for agents over x402 — no API key, no account.
+Both run on the platform's subsidized **NVIDIA NIM** lanes (Magpie multilingual TTS
+and Riva ASR) and both follow the same shape: a **free daily per-IP quota** first,
+then a single USDC micropayment settled on Solana or Base via the
+[x402](#x402-paid-endpoints--sign-in-with-x-siwx) rail. Nobody else in the x402
+ecosystem sells ASR, so `/api/v1/ai/asr` is a one-of-a-kind lane.
+
+Both endpoints return the **same JSON shape whether served free or paid** (the paid
+rail must return JSON so settlement can run), so a caller writes one parser for
+both tiers. The `tier` field reports which lane served the response.
+
+### Text→speech
+
+```
+POST /api/v1/ai/tts
+```
+
+Public, CORS-open. **10 free calls/day per IP** for text ≤500 characters; beyond the
+quota (or for text 501–4096 characters, or when an `X-PAYMENT` header is present)
+the endpoint answers a `402 Payment Required` challenge priced at **`$0.005` USDC**
+per call. Synthesis runs on the free Magpie lane in all cases — the payment is for
+access, not a different model.
+
+**Request body**
+
+```json
+{ "text": "Your deploy finished — three services are green.", "voice": "nova", "format": "wav" }
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `text` | string | Text to synthesize. Required. ≤4096 chars (free tier ≤500). |
+| `voice` | string | Voice id (`nova`, `alloy`, `shimmer`, `onyx`, …). Unknown values fall back to the default persona. Default `nova`. |
+| `format` | string | `wav` or `pcm`. Magpie emits WAV or raw PCM. Default `wav`. |
+| `language` | string | BCP-47 tag: `en-US`, `es-US`, `fr-FR`, `de-DE`, `it-IT`, `hi-IN`, `zh-CN`, `vi-VN`, `ja-JP`. Default `en-US`. |
+
+**Response — 200**
+
+```json
+{
+  "data": {
+    "audio": "UklGR... (base64)",
+    "encoding": "base64",
+    "format": "wav",
+    "content_type": "audio/wav",
+    "sample_rate": 44100,
+    "voice": "Magpie-Multilingual.EN-US.Aria",
+    "model": "magpie-tts-multilingual",
+    "characters": 47,
+    "bytes": 132344,
+    "tier": "free",
+    "free_remaining_today": 9
+  }
+}
+```
+
+`audio` is the base64-encoded clip in `content_type`. Decode it to bytes to play or
+save. `tier` is `free` or `paid`.
+
+**List voices** (free, no quota):
+
+```bash
+curl -s 'https://three.ws/api/v1/ai/tts?voices=1'
+```
+
+**Example — free tier**
+
+```bash
+curl -s -X POST https://three.ws/api/v1/ai/tts \
+  -H 'content-type: application/json' \
+  -d '{"text":"Hello from three.ws","voice":"nova"}' \
+  | jq -r '.data.audio' | base64 -d > hello.wav
+```
+
+**Example — paid (past the free quota), with an x402 client**
+
+```bash
+npx x402 curl -X POST https://three.ws/api/v1/ai/tts \
+  -H 'content-type: application/json' \
+  -d '{"text":"This one is billed at half a cent.","voice":"onyx"}'
+```
+
+### Speech→text
+
+```
+POST /api/v1/ai/asr
+```
+
+Public, CORS-open. **5 free clips/day per IP** for audio ≤60 seconds; beyond the
+quota (or for clips >60s, or when an `X-PAYMENT` header is present) the endpoint
+answers a `402 Payment Required` challenge priced at **`$0.01` USDC** per clip.
+
+Send audio one of two ways:
+
+- **JSON** — `{ "audio": "<base64>", "format": "wav" }`
+- **Raw bytes** — the audio as the request body with an `audio/*` `Content-Type`
+  (`audio/wav`, `audio/pcm` with `?rate=`, `audio/flac`, `audio/ogg`).
+
+WebM/Opus is not accepted — decode it to PCM/WAV client-side first.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `audio` | string | Base64 audio in a JSON body (data: URIs accepted). Required for the JSON transport. |
+| `format` | string | `wav` \| `pcm` \| `flac` \| `ogg`. Default `wav`. |
+| `language` | string | BCP-47 language hint. Default `en-US`. |
+| `sampleRate` | integer | Sample rate (Hz) for raw PCM. Ignored for WAV (read from the header). |
+| `words` | boolean | Return word-level timestamps. Default `false`. |
+
+**Response — 200**
+
+```json
+{
+  "data": {
+    "text": "schedule the deploy for friday morning",
+    "confidence": 0.94,
+    "duration": 2.1,
+    "language": "en-US",
+    "model": "riva-asr",
+    "tier": "free",
+    "free_remaining_today": 4
+  }
+}
+```
+
+`duration` is the seconds of audio processed. `confidence` is the mean top-alternative
+confidence. Pass `words: true` to also receive a `words` array of
+`{ word, startMs, endMs, confidence }`.
+
+**Example — free tier (base64 JSON)**
+
+```bash
+AUDIO=$(base64 -w0 clip.wav)
+curl -s -X POST https://three.ws/api/v1/ai/asr \
+  -H 'content-type: application/json' \
+  -d "{\"audio\":\"$AUDIO\",\"format\":\"wav\"}"
+```
+
+**Example — raw bytes**
+
+```bash
+curl -s -X POST https://three.ws/api/v1/ai/asr \
+  -H 'content-type: audio/wav' \
+  --data-binary @clip.wav
+```
+
+**Example — paid (past the free quota), with an x402 client**
+
+```bash
+npx x402 curl -X POST https://three.ws/api/v1/ai/asr \
+  -H 'content-type: application/json' \
+  -d "{\"audio\":\"$(base64 -w0 clip.wav)\",\"format\":\"wav\"}"
+```
+
+A plain `GET /api/v1/ai/asr` returns a capability probe (accepted encodings,
+sample rate, whether the lane is configured).
+
+**Errors** (both endpoints)
+
+| Status | Code | Meaning |
+|--------|------|---------|
+| `400` | `bad_request` / `text_too_long` | Request validation failed (empty/invalid body, or text over 4096 chars) |
+| `402` | — | Free quota spent (or over the free size limit) — pay the x402 challenge |
+| `413` | `payload_too_large` | Audio exceeds the 8 MB limit |
+| `415` | `unsupported_media_type` | Unrecognized audio `Content-Type` (ASR) |
+| `429` | `rate_limited` | Upstream credit metering hit — retry shortly |
+| `503` | `not_configured` | TTS needs `NVIDIA_API_KEY`; ASR needs `NVIDIA_API_KEY` + `NVIDIA_ASR_FUNCTION_ID` |
+| `502` | `provider_error` / `invalid_key` | The NIM lane failed — retry |
+
+---
+
+## Token API — security
+
+Rug-check any Solana token in one free call. Instead of an invented "risk score",
+this returns the **on-chain facts** an agent needs to decide for itself: whether
+the mint and freeze authorities are still active, how concentrated the top holders
+are, how deep the liquidity is, and how old the pair is. It composes
+`getAccountInfo` + `getTokenLargestAccounts` (Solana RPC) with DexScreener — data
+you could gather yourself from three sources, in one keyless request.
+
+### Token security check
+
+```
+GET /api/v1/token/security?address=<mint>
+```
+
+Public, CORS-open, no auth. Rate limited to **20 requests/min per IP**; responses
+are edge-cached for 60s. Solana only — an EVM `0x…` address returns `400`.
+
+| Query param | Type | Description |
+|-------------|------|-------------|
+| `address` | string | Base58 Solana mint address. Required. |
+
+**Response**
+
+Every field is always present — `null` when a source couldn't resolve it, never
+omitted and never faked. `sources` names which upstreams answered; `flags` are
+factual conditions (an empty array means none tripped).
+
+```json
+{
+  "data": {
+    "address": "FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump",
+    "chain": "solana",
+    "mint_authority": { "revoked": true, "address": null },
+    "freeze_authority": { "revoked": true, "address": null },
+    "supply": "999683523471616",
+    "decimals": 6,
+    "top_holders": { "top1_pct": 6.6, "top5_pct": 14.7, "top10_pct": 22.3, "holders_sampled": 20 },
+    "liquidity": { "usd": 196695.93, "largest_pair": "three/SOL", "pair_created_at": 1777446541000 },
+    "flags": [],
+    "sources": ["solana-rpc", "dexscreener"],
+    "ts": 1783382400000
+  }
+}
+```
+
+**Flags** (emitted only when the underlying facts are known):
+
+| Flag | Condition |
+|------|-----------|
+| `mint_authority_active` | The mint authority is not revoked — supply can still be inflated |
+| `freeze_authority_active` | The freeze authority is not revoked — accounts can be frozen |
+| `top1_holder_over_20pct` | The single largest account holds > 20% of supply |
+| `top10_holders_over_80pct` | The top 10 accounts hold > 80% of supply |
+| `liquidity_under_10k` | Deepest-pair liquidity is under $10,000 |
+| `pair_younger_than_24h` | The deepest pair was created less than 24h ago |
+
+**Example**
+
+```bash
+curl -s 'https://three.ws/api/v1/token/security?address=FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump'
+```
+
+**Degradation & errors**
+
+Each section resolves independently. If one upstream is down, only that section
+is nulled and it drops out of `sources` — the call still succeeds (`200`) as long
+as any section resolved.
+
+| Status | Code | Meaning |
+|--------|------|---------|
+| `400` | `validation_error` | `address` missing or not a base58 Solana address |
+| `400` | `unsupported_chain` | An EVM `0x…` address — this endpoint is Solana-only |
+| `404` | `not_found` | Sources answered but no on-chain mint or market exists for this address |
+| `429` | `rate_limited` | Over 20 requests/min from this IP — back off per `retry_after` |
+| `503` | `sources_unavailable` | Every upstream failed — transient, retry shortly |
+
+---
+
 ## Authentication API
 
 Authentication is covered in detail in the [Authentication documentation](authentication.md). Quick reference:

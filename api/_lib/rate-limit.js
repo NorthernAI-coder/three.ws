@@ -489,6 +489,12 @@ export const limits = {
 	// /api/x402/forge tiers rather than paywalling silently. Non-critical: a Redis
 	// blip degrades to the per-instance memory limiter, never blocks generation.
 	aiTextTo3d: (ip) => getLimiter('ai:text-to-3d', { limit: 10, window: '24 h' }).limit(ip),
+	// Free token security check (api/v1/token/security) — reads getAccountInfo +
+	// getTokenLargestAccounts off the shared RPC and DexScreener, all cached 60s at
+	// the edge, so this only gates cache-miss origin hits. 20/min per IP is generous
+	// for an agent screening a watchlist while capping a scripted enumeration flood.
+	// Non-critical: a Redis blip degrades to the per-instance memory limiter.
+	tokenSecurityIp: (ip) => getLimiter('token:security:ip', { limit: 20, window: '1 m' }).limit(ip),
 	// Diorama composer (api/diorama action:compose) — one free-first LLM
 	// completion per call that decomposes a sentence into a placed object set.
 	// Paid upstream egress, so cap per IP and add a global hourly circuit breaker.
@@ -679,6 +685,14 @@ export const limits = {
 		// (which caching can't stop). One bucket across all DAS endpoints.
 		heliusDasGlobal: () =>
 			getLimiter('helius-das:global', { limit: 3000, window: '1 h' }).limit('global'),
+	// Free Crypto Data API family (api/crypto/*). Keyless, no-account reads an agent
+	// makes mid-task (wallet portfolio, token snapshots). Some paths fan out to the
+	// keyed Helius/public-RPC upstreams, so a generous-but-bounded per-IP burst keeps
+	// interactive use snappy while a shared global hourly ceiling is the hard cost cap
+	// against one caller (or many) draining the upstream quota. One bucket for the family.
+	cryptoDataIp: (ip) => getLimiter('crypto-data:ip', { limit: 60, window: '1 m' }).limit(ip),
+	cryptoDataGlobal: () =>
+		getLimiter('crypto-data:global', { limit: 6000, window: '1 h' }).limit('global'),
 	// Agent-to-agent economy demo (api/agent-economy/transact). Each call can send
 	// a tiny real SOL payment from the server wallet, so cap per-IP and add a
 	// global daily ceiling as a hard spend cap independent of wallet balance.
@@ -841,6 +855,17 @@ export const limits = {
 		getLimiter('asr:user', { limit: 60, window: '1 h', critical: true }).limit(userId),
 	asrIp: (ip) =>
 		getLimiter('asr:ip', { limit: 15, window: '1 h', critical: true }).limit(ip),
+	// Productized speech package free tier (api/v1/ai/tts, api/v1/ai/asr). A tight
+	// per-IP DAILY quota that gates the free NIM lane before the x402 402
+	// fall-through — the free tier is the funnel, x402 is the metered overage.
+	// Kept low to protect the credit-metered NIM GPU allocation. Critical so a
+	// Redis outage in prod fails closed: an over-quota caller is routed to PAY
+	// (the route sends a denied free check to the 402 challenge) rather than the
+	// free GPU lane being silently uncapped across serverless instances.
+	aiTtsFreeIp: (ip) =>
+		getLimiter('ai:tts:free:ip', { limit: 10, window: '1 d', critical: true }).limit(ip),
+	aiAsrFreeIp: (ip) =>
+		getLimiter('ai:asr:free:ip', { limit: 5, window: '1 d', critical: true }).limit(ip),
 	// NVIDIA Audio2Face-3D (api/a2f) — free upstream but credit-metered, and each
 	// call streams a full speech clip through a bidirectional gRPC stream the
 	// server holds in memory while collecting the blendshape track. Meter per
