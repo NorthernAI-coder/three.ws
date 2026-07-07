@@ -1541,3 +1541,68 @@ build-x402-catalog.mjs` and `npx vitest` could not run in-tree. Worked around by
 - There are TWO token-market modules (`api/_lib/token-market.js` and
   `api/_lib/market/token-market.js`, different contracts). Worth a rename or a
   doc-block cross-reference — easy to grab the wrong one.
+
+---
+
+## 2026-07-07 — Prompt 14 close-out: live proof captured + catalog enumeration hardened to a static barrel
+
+Prompt 14's build (index, OpenAPI, docs page, registrations) had already landed;
+this session closed its one open item — the post-deploy live capture — and in
+doing so hardened the enumeration mechanism both free-API catalogs rely on.
+
+### Live verification (all captured 2026-07-07 ~02:53 UTC, production three.ws)
+
+- **`GET /api/3d`** → 200, `count: 2` — full `generate` (POST, inputSchema/
+  outputSchema/example/poll/paidTiers) + `inspect` (GET,POST) entries, paid
+  ladder (Forge Pro, Rigged Avatar), `openapi`/`docs` links. HTML negotiation
+  verified live: `Accept: text/html` → styled `<!doctype html>` page, JSON
+  otherwise.
+- **`GET /api/3d/openapi.json`** → 200, OpenAPI **3.1.0**, `paths:
+  ['/api/3d/generate' (post), '/api/3d/inspect' (get, post)]`, zero validator
+  problems.
+- **`GET /api/3d/inspect?url=https://three.ws/avatars/cesium-man.glb`** → 200,
+  `valid: true`, real stats (3273 verts / 4672 tris / 19 joints, glb).
+- **Docs page**: `/3d` and `/docs/3d-api` both 200 with the correct title.
+- **`GET /api/crypto`** → 200, `count: 5` (`bonding,symbol,trending,wallet,whales`)
+  at capture time — the deploy queue was still draining; `launches` + `token`
+  (descriptors committed mid-session by sibling agents) ride the next deploy
+  via the barrel below.
+- Registrations audited in-repo: `data/pages.json` `/3d` entry, nav link
+  (`public/nav-data.js` "3D API" → `/3d`), STRUCTURE.md row, changelog entry
+  (`feature`,`docs`, link `/3d`) — all present.
+
+### The hardening: static import barrel (commit `4fdbdb5cf`)
+
+The empty-catalog production bug (root-caused in the entry above, fixed by the
+cwd fallback in `e9ea328ce` — that fix is what the 02:53 capture proves live)
+left enumeration still dependent on `includeFiles` + runtime `readdirSync` +
+dynamic `import()` inside the lambda. Prompt 14's own spec said to prefer a
+barrel/manifest over runtime fs-glob if the glob proved unreliable — it did, so
+now `api/_lib/3d-catalog/index.js` and `api/_lib/crypto-catalog/index.js` each
+carry a `STATIC_ENTRIES` barrel of plain static imports as the production
+source of truth (Vercel's bundler ships those unconditionally). The runtime
+glob remains as an ADDITIVE dev/test pickup, so the drop-a-file convention
+still works locally before a descriptor's import line lands, and fixture dirs
+in tests still assemble pure-glob. The crypto barrel already includes the new
+`launches` + `token` descriptors (7 entries total).
+
+**Convention change for future catalog endpoints:** drop your descriptor file
+AND add its import + `STATIC_ENTRIES` line in that catalog's `index.js`. The
+import line is what makes the entry exist in production. STRUCTURE.md rows for
+both catalogs updated to say so.
+
+- Tests: `npx vitest run tests/3d-catalog.test.js tests/crypto-catalog.test.js`
+  → 2 files, **24/24 passed** (fixture-dir behavior unchanged).
+- Local barrel proof: 3d → `generate,inspect`; crypto →
+  `bonding,launches,symbol,token,trending,wallet,whales`; OpenAPI rebuilt from
+  the barrel validates with zero problems.
+- Pushed to `threews` (`4fdbdb5cf`); `threeD` mirror still rejects pushes
+  ("Repository not found", known since 2026-07-05) — repos remain out of sync.
+
+**Adjacent gaps noticed:**
+- The vercel.json `includeFiles` pins for both catalogs are now redundant
+  (barrel ships everything statically) but harmless — removable by a cleanup
+  prompt once a post-barrel deploy is verified.
+- Prod deploy queue was ~6 deep with 15-min builds during this session;
+  sibling agents pushing rapidly serialize behind each other. Worth knowing
+  before promising "verified live" timestamps.
