@@ -319,3 +319,19 @@ documented in the spec. Also required in vercel env for the rail to be advertise
   it audits now exist.
 - **Work Order 05**: submit the catalog table above (strings from `okx-catalog.js`
   verbatim via `listingDescription()`).
+
+### Deploy-pipeline fixes made en route (affects 04/05)
+
+Every Vercel deploy (including production) was failing BEFORE this session's changes, on
+two leftovers from other work streams:
+
+1. `verify:solana` drift — untracked local scratch `_prompts/sperax/ref/…/executor/index.ts`
+   carries a deliberately non-canonical Pump program id; `vercel deploy` uploads untracked
+   files and the remote scanner (no git context) walks them. Fixed by adding `_prompts/` to
+   `.vercelignore`.
+2. `audit-page-index --strict` — the committed `/sperax` page (owner-directed Sperax
+   stream, commit `de2e31a52`) never got its `data/pages.json` row. Added the minimal
+   factual row (title "Sperax on three.ws", added 2026-07-05) to unblock all deploys.
+   **Owner note:** this row auto-feeds the sitemap + public changelog page-launch entry for
+   the already-live /sperax page — flagging per the other-coin commit gate; revert the row
+   if unwanted (deploys will fail again until the page is removed or exempted).
