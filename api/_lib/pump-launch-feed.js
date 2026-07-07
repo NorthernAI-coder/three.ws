@@ -82,6 +82,24 @@ async function solPriceUsd() {
 }
 
 /**
+ * Fetch the most-recent RAW pump.fun coin objects (newest-first), keeping the
+ * "feed unreachable" case distinct from "feed genuinely empty" — the free
+ * /api/crypto/launches endpoint needs that distinction for an honest `source`
+ * note, while recentPumpLaunches() below collapses both to [] on purpose.
+ *
+ * @param {{ limit?: number }} [o] how many recent coins to pull (default 50, max 100)
+ * @returns {Promise<{ kind: 'ok', coins: object[] } | { kind: 'upstream_down', coins: [] }>}
+ */
+export async function fetchRecentPumpCoins({ limit = 50 } = {}) {
+	const n = Math.min(100, Math.max(1, Number(limit) || 50));
+	const url = `${PUMP_FRONTEND_BASE}/coins?offset=0&limit=${n}&sort=created_timestamp&order=DESC&includeNsfw=false`;
+	const data = await fetchJsonWithTimeout(url);
+	if (data == null) return { kind: 'upstream_down', coins: [] };
+	const coins = Array.isArray(data) ? data : Array.isArray(data?.coins) ? data.coins : [];
+	return { kind: 'ok', coins };
+}
+
+/**
  * Fetch the most-recent pump.fun launches (newest-first), normalized. Returns []
  * on any feed outage (the runtime treats an empty feed as "no entries this
  * sweep", never as an error — entries are best-effort, exits are not).
@@ -92,10 +110,7 @@ async function solPriceUsd() {
  */
 export async function recentPumpLaunches({ network = 'mainnet', limit = 50 } = {}) {
 	if (network !== 'mainnet') return [];
-	const n = Math.min(100, Math.max(1, Number(limit) || 50));
-	const url = `${PUMP_FRONTEND_BASE}/coins?offset=0&limit=${n}&sort=created_timestamp&order=DESC&includeNsfw=false`;
-	const data = await fetchJsonWithTimeout(url);
-	const list = Array.isArray(data) ? data : Array.isArray(data?.coins) ? data.coins : [];
+	const { coins: list } = await fetchRecentPumpCoins({ limit });
 	if (!list.length) return [];
 	const solPrice = await solPriceUsd();
 	const out = [];

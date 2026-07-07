@@ -79,6 +79,14 @@
 			<description>A new free, keyless endpoint tells an agent exactly where a pump.fun token sits on its bonding curve: how far along it is toward graduation (%), how much SOL is in the curve, how many tokens are left to buy, and whether it has already graduated and migrated to Raydium or PumpSwap. Timing entries and exits around graduation is a core meme-trading move, and this is the one call that answers it — no account, no key, just GET /api/crypto/bonding?mint=&lt;mint&gt;. It pairs with the live launches feed to watch fresh mints climb their curve. Part of the free three.ws Crypto Data API; full reference with runnable curls at /docs/crypto-api.</description>
 		</item>
 		<item>
+			<title>Free live pump.fun launches feed for agents</title>
+			<link>https://three.ws/docs/crypto-api</link>
+			<guid isPermaLink="false">2026-07-07:Free live pump.fun launches feed for agents</guid>
+			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The Crypto Data API now has a live launch feed: GET /api/crypto/launches returns the freshest pump.fun mints, newest first, with everything a discovery or sniper agent filters on — name, symbol, age down to the tenth of a minute, current market cap, bonding-curve progress, and the dev wallet. Filter server-side with minMarketCap and maxAgeMin, then watch the interesting ones climb their curve via the bonding-status endpoint (the two share the exact same curve math, so they can never disagree). Free, no key, no account — built to be polled. Full reference with runnable curls at /docs/crypto-api.</description>
+		</item>
+		<item>
 			<title>Free text→3D generation API for agents</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-07-07:Free text→3D generation API for agents</guid>
@@ -101,6 +109,14 @@
 			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>New free, keyless endpoint: GET /api/v1/token/security turns any Solana mint into an on-chain security report — the first question every trading agent asks before touching a token. It reports whether the mint and freeze authorities are still active (supply can be inflated / accounts frozen), how concentrated the top holders are, how deep the liquidity is, and how old the trading pair is, composing Solana RPC and DexScreener into one answer. There's no invented 'risk score' — just factual flags like mint_authority_active, top1_holder_over_20pct, liquidity_under_10k, and pair_younger_than_24h that agents weigh themselves. Every field is always present (null when a source can't resolve it, never faked), each section degrades independently, and an EVM address gets an honest 'Solana only' 400. Capped at 20 calls/min per IP.</description>
+		</item>
+		<item>
+			<title>Free token-snapshot API for crypto agents</title>
+			<link>https://three.ws/docs/crypto-api</link>
+			<guid isPermaLink="false">2026-07-07:Free token-snapshot API for crypto agents</guid>
+			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>New free endpoint in the Crypto Data API: GET /api/crypto/token returns the full current market state of any token from its contract address in one call — price, 24-hour change, market cap, FDV, liquidity, volume, and a link to its trading venue. It reads live DexScreener data on any chain it indexes, and fresh pump.fun launches that don't have a DEX pair yet still resolve through pump.fun's public record. No API key, no account — built for trading agents deciding whether to buy, alert, or ignore.</description>
 		</item>
 		<item>
 			<title>Free trending-tokens API for crypto agents</title>
