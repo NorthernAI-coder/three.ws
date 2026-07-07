@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-07T22:24:56.382Z",
+	"generated_at": "2026-07-07T23:03:57.701Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -506,8 +506,8 @@
 		{
 			"date": "2026-07-07",
 			"type": "update",
-			"title": "The tour guide now turns to face wherever it walks",
-			"summary": "The guide avatar in the product tour used to only tilt slightly left or right. Now it turns in every direction — facing left, right, toward you, or away — as it walks across the page to point at each feature, the same all-directions turning the robot already had in Walk, Stroll, and Platformer modes. It reads as a character genuinely walking to its next spot instead of sliding there.",
+			"title": "The tour guide now turns and walks like a real character",
+			"summary": "Two fixes to the guide avatar in the product tour. It now turns in every direction — facing left, right, toward you, or away — as it walks to each feature, the same all-directions turning the robot already had in Walk, Stroll, and Platformer modes, instead of the old slight left/right tilt. And its stride now keeps pace with its steps: the walk animation speeds up or slows to match how fast it's actually moving, so its feet plant on the ground instead of gliding. It reads as a character genuinely walking to its next spot rather than sliding there.",
 			"link": "/tour",
 			"tags": [
 				"improvement"

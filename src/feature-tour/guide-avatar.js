@@ -27,10 +27,24 @@ const CANVAS_H = 240;
 const MARGIN = 16;
 const Z_AVATAR = 2147483300;
 
-// Screen-space walking pace in px/second, matched to free-roam's WALK_SPEED so a
-// click-to-walk advances the body in lockstep with the foot cycle — the guide
-// reads as genuinely walking there, never gliding/teleporting across the page.
-const WALK_SPEED = 460;
+// Locomotion is tuned in real-world m/s — like the walk world (src/walk.js) — and
+// converted to on-screen px/second at runtime using the avatar's measured
+// pixels-per-meter (see _frame). This lets the walk clip's playback rate be scaled
+// to actual travel so the feet plant instead of skating: at 85 px/m a naive
+// 460 px/s glide is ~5.4 m/s (a sprint) against a clip authored for 1.5 m/s, which
+// is exactly the mismatch that made the guide moon-walk.
+//   WALK_MPS/RUN_MPS  — target ground speeds; NATURAL_* — the shared clips' authored
+//   ground speed at timeScale 1 (same numbers/clip as src/walk.js). The playback
+//   timeScale is target ÷ natural, so stride cadence tracks travel by construction.
+const WALK_MPS = 2.7;
+const RUN_MPS = 4.2;
+const NATURAL_WALK_MPS = 1.5;
+const NATURAL_RUN_MPS = 3.4;
+const WALK_TIMESCALE = WALK_MPS / NATURAL_WALK_MPS;
+const RUN_TIMESCALE = RUN_MPS / NATURAL_RUN_MPS;
+// Fallback screen pace (px/s) used only until the avatar is framed and its real
+// pixels-per-meter is known — then _walkPx/_runPx take over.
+const WALK_SPEED = 200;
 
 // Gravity, mirrored from the walk platformer (src/walk.js GRAVITY = -14) so the
 // guide obeys the same physics the visitor sees there: it falls onto the ground
@@ -67,6 +81,11 @@ export class GuideAvatar {
 		this.controller = null;
 		this.clock = null;
 		this._raf = 0;
+		// Screen travel pace in px/s, derived from the avatar's on-screen scale in
+		// _frame; the fallback holds until the first framing measures it.
+		this._pxPerMeter = 0;
+		this._walkPx = WALK_SPEED;
+		this._runPx = WALK_SPEED * (RUN_MPS / WALK_MPS);
 		this._yaw = 0;
 		this._targetYaw = 0;
 		this._walking = false;
@@ -240,6 +259,18 @@ export class GuideAvatar {
 		const height = Math.max(0.6, size.y);
 		camera.position.set(0, height * 0.62, height * 2.2);
 		camera.lookAt(0, height * 0.52, 0);
+		// Measure how many on-screen pixels one world meter spans at the avatar's
+		// depth, so px/s travel can be tied to the clip's m/s cadence. The visible
+		// world height at the look-at distance maps to the displayed canvas height
+		// (getBoundingClientRect, so CSS-scaled mobile sizing is handled too).
+		const camDist = camera.position.distanceTo(new Vector3(0, height * 0.52, 0));
+		const visibleWorldH = 2 * camDist * Math.tan((camera.fov * Math.PI) / 180 / 2);
+		const displayH = this.size().h || CANVAS_H;
+		this._pxPerMeter = visibleWorldH > 0 ? displayH / visibleWorldH : 0;
+		if (this._pxPerMeter > 0) {
+			this._walkPx = WALK_MPS * this._pxPerMeter;
+			this._runPx = RUN_MPS * this._pxPerMeter;
+		}
 		// Feet rest at rig-local y = 0; gravity in _tick drives rig.position.y down
 		// to the ground plane. Spawn a touch above it so the guide drops and settles
 		// onto the floor when it first appears — the same fall the walk platformer
@@ -290,7 +321,7 @@ export class GuideAvatar {
 			const step = (now) => {
 				const dt = Math.min((now - last) / 1000, 0.05);
 				last = now;
-				traveled = Math.min(dist, traveled + WALK_SPEED * dt);
+				traveled = Math.min(dist, traveled + (this._walkPx || WALK_SPEED) * dt);
 				this.place({ x: from.x + ux * traveled, y: from.y + uy * traveled });
 				if (traveled >= dist) {
 					this._walkRaf = 0;
@@ -360,6 +391,9 @@ export class GuideAvatar {
 		// toward the camera, or away — instead of the old ±40° horizontal tilt.
 		if (Math.hypot(dx, dy) > 1) this._targetYaw = Math.atan2(dx, dy);
 		this.controller?.setState(running ? 'run' : 'walk');
+		// Match clip cadence to travel so the stride ground-speed equals the body's
+		// and the feet plant (the walk world's mixer.timeScale = speed/natural trick).
+		this.controller?.setSpeed?.(running ? RUN_TIMESCALE : WALK_TIMESCALE);
 		this._walking = true;
 		clearTimeout(this._settleTimer);
 		this._settleTimer = setTimeout(() => this.settle(), 180);
@@ -371,6 +405,7 @@ export class GuideAvatar {
 		this._walking = false;
 		this._targetYaw = 0;
 		this.controller?.setState('idle');
+		this.controller?.setSpeed?.(1); // idle plays at its authored cadence
 	}
 
 	_spotBeside(rect) {

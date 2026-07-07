@@ -734,6 +734,28 @@ support: resolve(__dirname, 'pages/support.html'),
 					return res.end(readFileSync(file));
 				});
 			},
+			// Vite's dev-server warmup (server.preTransformRequests, on by default)
+			// crawls <script type="module"> URLs found in HTML entry points and
+			// resolves/loads/transforms them in-process via environment.warmupRequest,
+			// which never touches the connect middleware above (that middleware only
+			// intercepts real browser HTTP requests, which it does successfully).
+			// Two problems for the warmup path specifically:
+			//   1. No resolveId/load hook -> falls through to Vite's fs resolver,
+			//      which can't find this virtual path on disk -> "Pre-transform
+			//      error ... Does the file exist?".
+			//   2. Loading the real dist-lib bundle lets Vite's import-analysis
+			//      parse it, which chokes on the bundle's own internal
+			//      dynamic import("/risk-ack.js") of a /public asset (not
+			//      analyzable as an ES import per Vite's rules).
+			// Neither affects real page loads (already served above), so for
+			// warmup purposes only, resolve to a no-op stub that satisfies the
+			// warmup without Vite ever parsing the real bundle.
+			resolveId(id) {
+				return /^\/agent-3d\/[^/]+\/agent-3d\.(js|umd\.cjs)$/.test(id) ? id : null;
+			},
+			load(id) {
+				return /^\/agent-3d\/[^/]+\/agent-3d\.(js|umd\.cjs)$/.test(id) ? 'export {};' : null;
+			},
 			transformIndexHtml: {
 				order: 'pre',
 				handler(html) {
