@@ -35,6 +35,7 @@ import pipelineRemesh from './pipeline-remesh.js';
 import pipelineGameready from './pipeline-gameready.js';
 import pipelineStylize from './pipeline-stylize.js';
 import pipelineRembg from './pipeline-rembg.js';
+import pipeline from './pipeline.js';
 import bazaarFeed from './bazaar-feed.js';
 import billboard from './billboard.js';
 import crossChain from './cross-chain.js';
@@ -80,6 +81,7 @@ export const PAID_SERVICES = Object.freeze([
 	pipelineGameready,
 	pipelineStylize,
 	pipelineRembg,
+	pipeline,
 	bazaarFeed,
 	billboard,
 	crossChain,

@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-07-07",
+			"title": "Unified service catalog powering all agent storefronts",
+			"summary": "Every service three.ws offers — the paid x402 endpoints, the free Crypto Data and 3D APIs, and the OKX.AI 3D Studio listings — is now described in one canonical catalog that every storefront renders from. Before, the same service could carry different descriptions on x402scan versus our own discovery doc versus OKX, and they quietly drifted apart. Now a listing is written once and projected everywhere, automated checks fail the build if any storefront ever disagrees with the catalog, and the 3D Asset Pipeline endpoint — which had been live but invisible to marketplace crawlers — is discoverable.",
+			"tags": [
+				"infra",
+				"improvement"
+			],
+			"link": "/docs/start-here"
+		},
+		{
+			"date": "2026-07-07",
 			"title": "Refreshed our agent-marketplace profile and product descriptions",
 			"summary": "The three.ws storefront window on x402scan and agentic.market now says what the platform actually is: 3D generation, crypto data, and launch/trust tools for AI agents — free Crypto Data API and free text-to-3D up front, pay-per-call for Forge Pro, rigged avatars, vanity addresses, token launches, and cross-chain trust checks. Category tags were added so marketplace filters surface us correctly, product descriptions now lead with what an agent uses them for, and new tests guarantee no listing ever ships with an empty description again.",
 			"tags": [
