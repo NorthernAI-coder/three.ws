@@ -114,19 +114,22 @@ function priceAtomicsFor(format, combinedLength) {
 }
 
 const ROUTE_DESCRIPTION =
-	'three.ws Solana Vanity Grinder — generate a brand-new Solana wallet whose ' +
-	'Base58 address starts with your chosen prefix and/or ends with your chosen ' +
-	'suffix. Two output formats: format=keypair (default) returns the public ' +
-	'address and its secret key (Base58 + 64-byte array), ground in a Rust/WASM ' +
-	'ed25519 engine — capped at 3 Base58 chars, priced $0.01–$0.25. format=mnemonic ' +
-	'returns a BIP-39 seed phrase (12 or 24 words) whose derived key at ' +
-	"m/44'/501'/0'/0' lands on the vanity address, importable as a recovery phrase " +
-	'into Phantom / Solflare / the Solana CLI — capped at 2 chars (~100× slower to ' +
-	'grind), priced $0.05–$0.50. Nothing is ever stored; the secret exists only in ' +
-	'the response, served once over TLS. Optional sealTo=<X25519 public key> seals the ' +
-	'secret to you (ECIES) so the plaintext never appears in the response or any log — ' +
-	'open it client-side with the matching private key. Pay-per-call in USDC on Base or ' +
-	'Solana mainnet — no API keys, no accounts.';
+	'three.ws Solana Vanity Grinder — put your brand on-chain: get a Solana address ' +
+	'that starts with your ticker/prefix and/or ends with a chosen suffix. Use it as a ' +
+	'branded token MINT address, a recognizable agent or treasury wallet, or any wallet ' +
+	'you want identifiable at a glance. The server grinds a brand-new keypair to match — ' +
+	'no wallet, account, or SOL required. Two output formats: format=keypair (default) ' +
+	'returns the public address and its secret key (Base58 + 64-byte array), ground in a ' +
+	'Rust/WASM ed25519 engine — capped at 3 Base58 chars, priced $0.01 (1 char) / $0.05 ' +
+	'(2) / $0.25 (3). format=mnemonic returns a BIP-39 seed phrase (12 or 24 words) whose ' +
+	"derived key at m/44'/501'/0'/0' lands on the vanity address, importable as a recovery " +
+	'phrase into Phantom / Solflare / the Solana CLI — capped at 2 chars (~100× slower to ' +
+	'grind), priced $0.05 (1 char) / $0.50 (2). Security model: nothing is ever stored — ' +
+	'the secret exists only in the response, served once over TLS, and is stripped from the ' +
+	'replay/idempotency cache. Optional sealTo=<X25519 public key> seals the secret to you ' +
+	'(ECIES; x25519-hkdf-sha256-aes256gcm) so the plaintext never appears in the response ' +
+	'or any log — open it client-side with the matching private key. Keyless and ' +
+	'account-free: pay-per-call in USDC on Base or Solana mainnet — no API keys, no signup.';
 
 // Base58 excludes 0/O/I/l. Note also that an address is 32 random bytes
 // Base58-encoded, so its LEADING characters are not uniformly distributed —

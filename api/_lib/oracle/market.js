@@ -25,6 +25,7 @@
 // coin page poll almost never fans out to six upstreams.
 
 import { cacheGet, cacheSet } from '../cache.js';
+import { bondingProgressPct } from '../pump-bonding.js';
 
 const DEXSCREENER = 'https://api.dexscreener.com/latest/dex/tokens';
 const PUMP_V3 = 'https://frontend-api-v3.pump.fun';
@@ -35,12 +36,6 @@ const COINGECKO = 'https://api.coingecko.com/api/v3';
 
 const FETCH_TIMEOUT_MS = 6000;
 const WSOL = 'So11111111111111111111111111111111111111112';
-
-// pump.fun mints a fixed 1B supply (6 decimals). Of that, 793.1M tokens sit in
-// the bonding curve at launch and the coin graduates once ~206.9M have been
-// bought out of the curve. Used to derive graduation progress when neither
-// pump.fun's `complete` flag nor GeckoTerminal's graduation % is available.
-const PUMP_CURVE_INITIAL_REAL_TOKENS = 793_100_000 * 1e6;
 
 const L1 = new Map(); // key -> { value, expires }
 const L1_TTL_MS = 20_000;
@@ -126,13 +121,9 @@ async function fromPumpFun(mint) {
 	const d = await fetchJson(`${PUMP_V3}/coins-v2/${mint}`, { headers: { accept: 'application/json' } });
 	if (!d || !d.mint) return null;
 	const complete = Boolean(d.complete);
-	const realTokenReserves = num(d.real_token_reserves);
 	// Graduation progress: 100 once complete; otherwise the share of the curve's
-	// initial token float that's been bought out.
-	let bondingPct = complete ? 100 : null;
-	if (bondingPct == null && realTokenReserves != null && realTokenReserves >= 0) {
-		bondingPct = clampPct((1 - realTokenReserves / PUMP_CURVE_INITIAL_REAL_TOKENS) * 100);
-	}
+	// initial token float that's been bought out (shared curve math — pump-bonding.js).
+	const bondingPct = complete ? 100 : bondingProgressPct(d.real_token_reserves);
 	return {
 		sources: ['pumpfun'],
 		identity: {

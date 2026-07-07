@@ -116,7 +116,7 @@ The same on-chain data is exposed through every layer a reader might come from:
 | Reputation panel | agent profiles | The embedded vouch/score widget on `https://three.ws/a/<chainId>/<agentId>` |
 | `GET /api/agents/<id>/reputation` | apps | One-call JSON: `average`, `count`, `total_stake_wei` |
 | `agent_reputation` MCP tool | AI agents | Paid ($0.01 USDC) read of identity + score + stake + recent events; resolves a wallet to its agent automatically |
-| `GET /api/x402/agent-reputation` | AI agents | Paid behavioral synthesis — payments, payout success, disputes, attestations |
+| `GET /api/x402/agent-reputation` | AI agents | Paid ($0.01) cross-chain 0–100 trust score for **any** counterparty — Solana/EVM wallet, pump.fun mint, ERC-8004 agent id, or three.ws agent_id (auto-detected). See [Trust primitives](trust-primitives.md) |
 | [Agent Passport](/agent-passport.html) | trust decisions | An A–D trust grade weighted toward credentialed and verified feedback |
 | SDK `@three-ws/sdk/erc8004` | developers | `getReputation`, `getRecentReviews`, `getTotalStake` |
 

@@ -76,6 +76,12 @@ export async function fetchTokenMarket(ca, opts = {}) {
 	const info = p.info || {};
 	const txns = p.txns || {};
 
+	// Human label for the deepest pair (base/quote), plus its on-chain pair
+	// address — the security reader (/api/v1/token/security) surfaces both as the
+	// "largest_pair" fact; other callers ignore them.
+	const pairLabel =
+		base.symbol && quote.symbol ? `${base.symbol}/${quote.symbol}` : null;
+
 	return {
 		mint: tok.address || ca,
 		symbol: tok.symbol || null,
@@ -84,6 +90,8 @@ export async function fetchTokenMarket(ca, opts = {}) {
 		chain: p.chainId || null,
 		dex: p.dexId || null,
 		pair_url: p.url || null,
+		pair_address: p.pairAddress || null,
+		pair_label: pairLabel,
 		price_usd: num(p.priceUsd),
 		change_24h: p.priceChange?.h24 ?? null,
 		market_cap_usd: num(p.marketCap) ?? num(p.fdv),

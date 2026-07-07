@@ -204,7 +204,7 @@ async function persistDataUriImage(result) {
 // comes back inline as base64, no poll. Caller guarantees NVIDIA_API_KEY is set.
 // Throws on any failure (timeout, throttle, malformed body) so the caller can
 // degrade to the paid lanes; never returns a half-result.
-async function nimFluxImage(prompt, aspectRatio) {
+async function nimFluxImage(prompt, aspectRatio, seed = 0) {
 	const key = readEnv('NVIDIA_API_KEY');
 	const [width, height] = NIM_DIMENSIONS[aspectRatio] || NIM_DIMENSIONS['1:1'];
 
@@ -228,7 +228,7 @@ async function nimFluxImage(prompt, aspectRatio) {
 					mode: 'base',
 					width,
 					height,
-					seed: 0,
+					seed,
 					steps: 4,
 				}),
 				signal: controller.signal,
@@ -302,8 +302,12 @@ function enhanceFluxPrompt(raw) {
 // paid Replicate backstop on any failure — a broken or throttled preferred
 // provider must hand off, never take down the whole text→3D pipeline. The last
 // configured lane's error is surfaced only when nothing is left to try.
-export async function textToImage(prompt, { aspectRatio = '1:1', skipNim = false } = {}) {
+export async function textToImage(prompt, { aspectRatio = '1:1', skipNim = false, seed } = {}) {
 	prompt = enhanceFluxPrompt(prompt);
+	// Optional deterministic seed. Honored on the lanes that expose one (NIM FLUX,
+	// Replicate flux); the Vertex/Gemini image API has no seed parameter, so a seed
+	// is silently ignored there. Undefined preserves the prior default (seed 0).
+	const hasSeed = Number.isInteger(seed) && seed >= 0;
 	const token = readEnv('REPLICATE_API_TOKEN');
 	const hasVertex = !!readEnv('GOOGLE_CLOUD_PROJECT') && vertexImagenEnabled();
 	const hasFallback = hasVertex || !!token;
@@ -319,7 +323,7 @@ export async function textToImage(prompt, { aspectRatio = '1:1', skipNim = false
 		(skipNim || (await providersInCooldown([NIM_FLUX_COOLDOWN_KEY])).has(NIM_FLUX_COOLDOWN_KEY));
 	if (readEnv('NVIDIA_API_KEY') && !nimCooling) {
 		try {
-			return logImageProvider(await nimFluxImage(prompt, aspectRatio));
+			return logImageProvider(await nimFluxImage(prompt, aspectRatio, hasSeed ? seed : 0));
 		} catch (err) {
 			// A degraded lane (timeout / unreachable / throttle / 5xx) cools down so the
 			// next caller skips it; a clean 4xx (bad input) is not a lane-health fault.
@@ -371,6 +375,8 @@ export async function textToImage(prompt, { aspectRatio = '1:1', skipNim = false
 		// reconstructs into a far better mesh than a busy scene — steer flux
 		// toward that without overriding a caller's own composition cues.
 		go_fast: true,
+		// Deterministic seed when the caller supplied one (flux accepts `seed`).
+		...(hasSeed ? { seed } : {}),
 	};
 
 	let endpoint;

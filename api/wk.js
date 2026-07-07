@@ -900,21 +900,27 @@ const REST_OUTPUT_EXAMPLES = Object.freeze({
 		checked_at: '2026-06-28T00:00:00Z',
 	},
 	'/api/x402/agent-reputation': {
-		agent_id: '7b9a4f30-2d11-4e2d-9d12-1cdb1f6a3a55',
-		name: 'Helios',
-		wallet_address: 'AgEntWa11etExamp1eDoNotUse111111111111111111',
-		deployed_mints: 2,
-		payments: {
-			confirmed_count: 142,
-			confirmed_amount_atomics: '142000000',
-			distinct_payers: 87,
-			failed_count: 3,
-			failure_rate: 0.021,
+		subject: 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump',
+		subjectType: 'solana_mint',
+		score: 71,
+		tier: 'high',
+		signals: {
+			dimensions: {
+				activity: { available: true, weight: 25, norm: 0.62, points: 16, value: 124 },
+				age: { available: true, weight: 15, norm: 0.48, points: 7, days: 176 },
+				counterparties: { available: true, weight: 15, norm: 0.72, points: 11, value: 18 },
+				holdings: { available: true, weight: 10, norm: 1, points: 10, usd: 412000 },
+				reliability: { available: true, weight: 15, norm: 0.98, points: 15, failure_rate: 0.02 },
+				attestations: { available: true, weight: 20, norm: 0.6, points: 12, count: 6, avg_feedback: null },
+			},
+			weight_considered: 100,
 		},
-		distributions: { confirmed: 12, failed: 1, success_rate: 0.923 },
-		buybacks: { confirmed: 5, failed: 0, total_burn_atomics: '500000000' },
-		attestations: { feedback_count: 14, validation_count: 8 },
-		indexed_at: '2026-05-14T17:00:00Z',
+		evidence: [
+			{ kind: 'solana_token', ref: 'https://solscan.io/token/FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump' },
+			{ kind: 'threews_agent', ref: '/agent/7b9a4f30-2d11-4e2d-9d12-1cdb1f6a3a55' },
+		],
+		caveats: [],
+		ts: '2026-07-07T00:00:00Z',
 	},
 	'/api/x402/agent-bouncer': {
 		ok: true,
@@ -941,17 +947,23 @@ const REST_OUTPUT_EXAMPLES = Object.freeze({
 		fetchedAt: '2026-06-22T17:00:00.000Z',
 	},
 	'/api/x402/onchain-identity-verify': {
-		agent_id: '7b9a4f30-2d11-4e2d-9d12-1cdb1f6a3a55',
-		chain: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
-		contract_or_mint: 'C3vQABCDEFGHJKLMNopqrstuvwxyZ12345abcdefghi',
-		verified: true,
-		evidence: {
-			family: 'solana',
-			tx_hash: '4kHTPp9ExampleSignatureDoNotUse...',
-			wallet: 'AgEntWa11etExamp1eDoNotUse111111111111111111',
-			confirmed_at: '2026-04-30T14:08:22Z',
+		claim: {
+			identity: 'vitalik.eth',
+			address: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
+			chain: 'eip155:1',
 		},
-		indexed_at: '2026-05-14T17:00:00Z',
+		identity_type: 'ens',
+		verified: true,
+		method: 'ens-resolution',
+		evidence: [
+			{
+				kind: 'ens_forward_resolution',
+				ref: 'vitalik.eth',
+				detail: 'resolves to 0xd8da6bf26964af9d7eed9e03e53415d37aa96045',
+			},
+		],
+		caveats: [],
+		ts: '2026-07-07T00:00:00.000Z',
 	},
 	'/api/x402/pump-agent-audit': {
 		mint: 'C3vQABCDEFGHJKLMNopqrstuvwxyZ12345abcdefghi',
@@ -1030,12 +1042,17 @@ const REST_OUTPUT_EXAMPLES = Object.freeze({
 		suffix: null,
 		ignoreCase: false,
 		format: 'keypair',
-		secretKeyBase58: 'Hy5pQqgExampleSecretDoNotUse...',
+		secretKeyBase58: '<example only — the live endpoint returns the ground secret key here>',
+		mnemonic: null,
+		wordCount: null,
+		derivationPath: null,
 		attempts: 160,
 		durationMs: 6,
 		expectedAttempts: 58,
 		network: 'solana',
 		explorerUrl: 'https://solscan.io/account/SoEXAMPLEdoNotUse1111111111111111111111111111',
+		verifyUrl: 'https://three.ws/vanity/verify',
+		serviceKeyUrl: 'https://three.ws/.well-known/three-vanity.json',
 	},
 	'/api/x402/vanity-verifiable': {
 		protocol: 'three-vanity/v1',
@@ -1051,6 +1068,21 @@ const REST_OUTPUT_EXAMPLES = Object.freeze({
 		network: 'solana',
 		verifyUrl: 'https://three.ws/vanity/verify',
 		serviceKeyUrl: 'https://three.ws/.well-known/three-vanity.json',
+	},
+	'/api/x402/vanity-premium': {
+		address: 'PUMPEXAMPLEdoNotUse1111111111111111111111111',
+		prefix: 'PUMP',
+		suffix: null,
+		patternLabel: 'PUMP…',
+		rarityTier: 'rare',
+		format: 'keypair',
+		priceUsd: 12,
+		secretKeyBase58: '<delivered once — ciphertext destroyed on delivery>',
+		delivery: 'once',
+		network: 'solana',
+		explorerUrl: 'https://solscan.io/account/PUMPEXAMPLEdoNotUse1111111111111111111111111',
+		custodyNotice:
+			'Platform-generated key delivered once — use as a token mint or sweep to self-generated custody, not as a treasury.',
 	},
 	'/api/x402/mint-to-mesh-batch': {
 		count: 2,
@@ -1454,8 +1486,8 @@ async function handleX402Discovery(req, res) {
 			tags: ['mcp', '3d', 'gltf', 'solana', 'agent'],
 		}),
 		agentReputation: withService({
-			serviceName: 'three.ws Agent Reputation',
-			tags: ['reputation', 'agent', 'solana', 'attestation', 'trust'],
+			serviceName: 'Cross-chain Agent Reputation',
+			tags: ['reputation', 'trust', 'cross-chain', 'agent', 'x402'],
 		}),
 		agentBouncer: withService({
 			serviceName: 'three.ws Agent Bouncer',
@@ -1492,6 +1524,10 @@ async function handleX402Discovery(req, res) {
 		vanityVerifiable: withService({
 			serviceName: 'three.ws Provable Vanity Grinder',
 			tags: ['solana', 'vanity', 'keypair', 'wallet', 'verifiable', 'commit-reveal'],
+		}),
+		vanityPremium: withService({
+			serviceName: 'three.ws Premium Vanity',
+			tags: ['solana', 'vanity', 'wallet', 'address', 'premium'],
 		}),
 		permit2Demo: withService({
 			serviceName: 'three.ws Permit2 Demo',
@@ -1579,6 +1615,7 @@ async function handleX402Discovery(req, res) {
 		}),
 		pipelineRembg: withService({
 			serviceName: 'three.ws Pipeline - RemBG',
+			tags: ['image', 'rembg', 'cutout', 'segmentation', 'pipeline'],
 		}),
 		billboard: withService({
 			serviceName: 'three.ws Coin-World Billboard',
@@ -1852,7 +1889,7 @@ async function handleX402Discovery(req, res) {
 						url,
 						method: 'GET',
 						description:
-							"Agent Reputation — return a reputation snapshot for a three.ws agent (USDC paid in to its pump-agent tokens, distinct payers, deployed mints, distribution success rate, Solana attestation counts). Built from three.ws's proprietary index of pump_agent_payments, pump_distribute_runs, and solana_attestations.",
+							'Cross-chain Agent Reputation — get a deterministic 0–100 trust score for ANY counterparty (Solana wallet, EVM wallet, pump.fun mint, ERC-8004 agent id, or three.ws agent_id — auto-detected) before you pay, trade, or delegate to it. Scored from real on-chain evidence: transaction history, age, distinct counterparties, holdings, settlement reliability, prior settled agent payments, and ERC-8004 feedback. Unknown subjects return score:null, not a fabricated score.',
 						mimeType: 'application/json',
 						serviceName: routeMeta.agentReputation.serviceName,
 						tags: routeMeta.agentReputation.tags,
@@ -1861,11 +1898,14 @@ async function handleX402Discovery(req, res) {
 						extensions: extensionsForAccepts(accepts, {
 							method: 'GET',
 							discoverable: true,
-							input: { agent_id: '7b9a4f30-2d11-4e2d-9d12-1cdb1f6a3a55' },
+							input: { subject: 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump' },
 							inputSchema: {
 								type: 'object',
-								required: ['agent_id'],
-								properties: { agent_id: { type: 'string', format: 'uuid' } },
+								required: ['subject'],
+								properties: {
+									subject: { type: 'string' },
+									chain: { type: ['integer', 'string'] },
+								},
 							},
 						}),
 					};
@@ -1916,7 +1956,7 @@ async function handleX402Discovery(req, res) {
 						url,
 						method: 'GET',
 						description:
-							'On-Chain Identity Verifier — given a three.ws agent_id + CAIP-2 chain + contract/mint, verify ownership from the canonical meta.onchain index and return tx_hash/wallet/deploy time evidence when verified. Trust primitive before paying counterparty agents.',
+							'Cross-platform On-Chain Identity Verifier — prove any claim that an identity controls an address. `identity` can be an ENS name, an SNS (.sol) name, an EVM or Solana wallet, an ERC-8004 agent id, or a three.ws agent_id; `address` is the contract/mint/wallet it claims. Returns on-chain evidence (deploy tx + deployer, mint/update authority, ENS/SNS resolution, ERC-8004 registration, three.ws deploy record) with verified true/false/unverifiable. Trust primitive before paying counterparty agents.',
 						mimeType: 'application/json',
 						serviceName: routeMeta.onchainIdentity.serviceName,
 						tags: routeMeta.onchainIdentity.tags,
@@ -1926,17 +1966,24 @@ async function handleX402Discovery(req, res) {
 							method: 'GET',
 							discoverable: true,
 							input: {
-								agent_id: '7b9a4f30-2d11-4e2d-9d12-1cdb1f6a3a55',
-								chain: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
-								contract_or_mint: 'C3vQABCDEFGHJKLMNopqrstuvwxyZ12345abcdefghi',
+								identity: 'vitalik.eth',
+								address: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
+								chain: 'eip155:1',
 							},
 							inputSchema: {
 								type: 'object',
-								required: ['agent_id', 'chain', 'contract_or_mint'],
+								required: ['identity', 'address'],
 								properties: {
-									agent_id: { type: 'string', format: 'uuid' },
-									chain: { type: 'string', description: 'CAIP-2 chain ID' },
-									contract_or_mint: { type: 'string' },
+									identity: {
+										type: 'string',
+										description:
+											'ENS/SNS name, EVM/Solana wallet, ERC-8004 id (eip155:8453:42), or three.ws agent_id (uuid)',
+									},
+									address: {
+										type: 'string',
+										description: 'the contract/mint/wallet the identity claims to control',
+									},
+									chain: { type: 'string', description: 'optional CAIP-2 chain hint' },
 								},
 							},
 						}),
@@ -1978,7 +2025,7 @@ async function handleX402Discovery(req, res) {
 						url,
 						method: 'POST',
 						description:
-							'Pump Launcher — deploy a brand-new pump.fun token in one paid call. Supply name + symbol and either a pre-pinned metadataUri or an imageUrl (we pin the image + descriptor to pump.fun IPFS). The server fronts the SOL deploy cost and signs the create-coin tx, so the buyer needs no SOL and no account. Creator rewards accrue to any Solana wallet you nominate; optional vanity prefix/suffix grinds a custom mint address. Returns mint + tx signature + pump.fun URL.',
+							'Pump Launcher — launch a pump.fun token autonomously in one paid call: no SOL, no wallet, no account. You pay USDC; the server fronts the ~0.022 SOL deploy cost, optionally grinds a vanity mint, and signs the bonding-curve create tx. Supply name + symbol and either a pre-pinned metadataUri or an imageUrl (we pin the image + descriptor to pump.fun IPFS). Creator rewards accrue to any Solana wallet you nominate; optional vanity prefix/suffix brands the mint address. Funnel: check the ticker is free first with the FREE GET /api/crypto/symbol, then confirm the deploy on the FREE GET /api/crypto/launches feed. Returns mint + tx signature + metadataUri + pump.fun URL.',
 						mimeType: 'application/json',
 						serviceName: routeMeta.pumpLaunch.serviceName,
 						tags: routeMeta.pumpLaunch.tags,
@@ -1996,15 +2043,20 @@ async function handleX402Discovery(req, res) {
 							inputSchema: {
 								type: 'object',
 								required: ['name', 'symbol'],
+								oneOf: [{ required: ['metadataUri'] }, { required: ['imageUrl'] }],
 								properties: {
-									name: { type: 'string', maxLength: 32 },
-									symbol: { type: 'string', maxLength: 10 },
+									name: { type: 'string', minLength: 1, maxLength: 32 },
+									symbol: { type: 'string', minLength: 1, maxLength: 10 },
 									metadataUri: { type: 'string', maxLength: 2048 },
 									imageUrl: { type: 'string', maxLength: 2048 },
 									description: { type: 'string', maxLength: 2000 },
+									twitter: { type: 'string', maxLength: 2048 },
+									telegram: { type: 'string', maxLength: 2048 },
+									website: { type: 'string', maxLength: 2048 },
 									creator: { type: 'string', minLength: 32, maxLength: 44 },
 									vanityPrefix: { type: 'string', maxLength: 5 },
 									vanitySuffix: { type: 'string', maxLength: 5 },
+									vanityIgnoreCase: { type: 'boolean' },
 								},
 							},
 						}),
@@ -2104,7 +2156,7 @@ async function handleX402Discovery(req, res) {
 						url,
 						method: 'GET',
 						description:
-							'Vanity Grinder — generate a brand-new Solana keypair whose Base58 address starts with a chosen prefix and/or ends with a chosen suffix. Returns the public address and its secret key (Base58 + 64-byte array) so it imports into any Solana wallet. Ground fresh per request in a Rust/WASM ed25519 engine and never stored. Difficulty-tiered price ($0.01 for 1 char, $0.05 for 2, $0.25 for 3); combined pattern capped at 3 Base58 characters. Settlement runs only after a successful grind, so an exhausted budget costs nothing.',
+							'Vanity Grinder — put your brand on-chain: get a Solana address that starts with your ticker/prefix and/or ends with a chosen suffix, for a branded token MINT address, a recognizable agent/treasury wallet, or any wallet identifiable at a glance. The server grinds a brand-new keypair to match (no wallet, account, or SOL needed) and never stores it — the secret is served once over TLS and stripped from the replay cache. format=keypair (default) returns the address + secret key (Base58 + 64-byte array) importable into any Solana wallet, capped at 3 Base58 chars, priced $0.01 (1 char) / $0.05 (2) / $0.25 (3). format=mnemonic returns a BIP-39 seed phrase (12/24 words) whose derived key lands on the address, capped at 2 chars (~100× slower), priced $0.05 / $0.50. Optional sealTo=<X25519 pubkey> ECIES-seals the secret to you so plaintext never appears in the response or any log. Settlement runs only after a successful grind, so an exhausted budget costs nothing. Keyless — no API keys, no accounts.',
 						mimeType: 'application/json',
 						serviceName: routeMeta.vanity.serviceName,
 						tags: routeMeta.vanity.tags,
@@ -2113,7 +2165,7 @@ async function handleX402Discovery(req, res) {
 						extensions: extensionsForAccepts(accepts, {
 							method: 'GET',
 							discoverable: true,
-							input: { prefix: 'So', suffix: '', ignoreCase: '0' },
+							input: { prefix: 'So', suffix: '', ignoreCase: '0', format: 'keypair' },
 							inputSchema: {
 								type: 'object',
 								anyOf: [{ required: ['prefix'] }, { required: ['suffix'] }],
@@ -2122,19 +2174,36 @@ async function handleX402Discovery(req, res) {
 										type: 'string',
 										maxLength: 3,
 										description:
-											'Base58 characters the address must start with (excludes 0, O, I, l). Combined with suffix, max 3.',
+											'Base58 characters the address must start with (excludes 0, O, I, l). Combined with suffix, max 3 (keypair) or 2 (mnemonic).',
 									},
 									suffix: {
 										type: 'string',
 										maxLength: 3,
 										description:
-											'Base58 characters the address must end with. Combined with prefix, max 3.',
+											'Base58 characters the address must end with. Combined with prefix, max 3 (keypair) or 2 (mnemonic).',
 									},
 									ignoreCase: {
 										type: 'string',
 										enum: ['0', '1', 'true', 'false'],
 										description:
 											'When 1/true, match case-insensitively (faster, less specific).',
+									},
+									format: {
+										type: 'string',
+										enum: ['keypair', 'mnemonic'],
+										description:
+											'keypair (default): raw 64-byte Ed25519 secret key, up to 3 chars, $0.01–$0.25. mnemonic: BIP-39 seed phrase importable into any wallet, up to 2 chars, $0.05–$0.50.',
+									},
+									strength: {
+										type: 'string',
+										enum: ['128', '256'],
+										description:
+											'Mnemonic mode only. 128 → 12 words (default), 256 → 24 words. Ignored for keypair.',
+									},
+									sealTo: {
+										type: 'string',
+										description:
+											'Optional. Your 32-byte X25519 public key (Base58/Base64url/hex). When set, the secret is ECIES-sealed to it and the plaintext is omitted from the response.',
 									},
 								},
 							},
@@ -2189,6 +2258,48 @@ async function handleX402Discovery(req, res) {
 										type: 'string',
 										description:
 											'Recommended. Your 32-byte X25519 public key (Base58/Base64url/hex). When set, the secret is ECIES-sealed to it and omitted from the response.',
+									},
+								},
+							},
+						}),
+					};
+				})(),
+				(() => {
+					// Premium vanity inventory: buy a PRE-GROUND long (4–5+ char)
+					// brandable address from stock, delivered instantly once. Price
+					// scales per item ($1–$50); the catalog advertises the $1 floor tier
+					// ('1000000') while the live 402 quotes the exact price for the
+					// requested address. Distinct from /api/x402/vanity (live <=3-char
+					// grind) — this tier sells addresses too rare to grind on demand.
+					const url = `${origin}/api/x402/vanity-premium`;
+					const accepts = acceptsForPrice('1000000', url);
+					return {
+						path: '/api/x402/vanity-premium',
+						url,
+						method: 'GET',
+						description:
+							'Premium Vanity Inventory — buy a PRE-GROUND Solana address with a long (4–5+ char) brandable prefix, delivered instantly from stock. Browse available patterns and prices with a plain GET; buy one with GET ?address=<base58> via x402 (USDC on Base or Solana). Price scales with grind difficulty ($1–$50). The key is delivered exactly ONCE and its stored ciphertext is destroyed on delivery (delete-after-reveal). Optional sealTo=<X25519 public key> seals the key to you so plaintext never appears in the response. CUSTODY: keys are platform-generated — use one as a token MINT address or sweep assets to self-generated custody, not as a long-term treasury. Distinct from the live /api/x402/vanity grinder (fresh <=3-char keypair per request) — this tier sells rarer addresses too slow to grind on demand.',
+						mimeType: 'application/json',
+						serviceName: routeMeta.vanityPremium.serviceName,
+						tags: routeMeta.vanityPremium.tags,
+						iconUrl: routeMeta.vanityPremium.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'GET',
+							discoverable: true,
+							input: { address: '<base58 from the listing>' },
+							inputSchema: {
+								type: 'object',
+								properties: {
+									address: {
+										type: 'string',
+										description:
+											'A Base58 address from the premium inventory listing (GET with no address to browse). Buys that exact pre-ground address.',
+									},
+									sealTo: {
+										type: 'string',
+										description:
+											'Optional. Your 32-byte X25519 public key (Base58/Base64url/hex) to receive the key ECIES-sealed — plaintext never appears in the response.',
 									},
 								},
 							},

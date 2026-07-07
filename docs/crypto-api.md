@@ -1,0 +1,493 @@
+# Crypto Data API
+
+The three.ws **Crypto Data API** is a free, keyless bundle of read-only crypto
+endpoints built for AI agents. No account, no API key, no payment — just HTTP
+GET with a generous per-IP rate limit. Each endpoint answers one question an
+autonomous agent has mid-task, from real on-chain and pump.fun data (no mocks).
+
+Base URL: `https://three.ws`
+
+> This bundle is the free loss-leader tier. Paid, deeper analytics live behind
+> the x402 rail (see [`/.well-known/x402.json`](https://three.ws/.well-known/x402.json)).
+
+---
+
+## Discover the whole bundle in one call
+
+The API is self-describing. An agent (or a human wiring one up) hits **one URL**
+to learn every endpoint, its inputs and outputs, and a live example — no need to
+read this page first.
+
+| Discovery endpoint | Returns |
+|--------------------|---------|
+| [`GET /api/crypto`](https://three.ws/api/crypto) | The catalog: `{ name, free, keyless, version, endpoints[], docs, openapi, ts }`. Send `Accept: text/html` for a browsable page, anything else for JSON. |
+| [`GET /api/crypto/openapi.json`](https://three.ws/api/crypto/openapi.json) | A real **OpenAPI 3.1** document generated from the same catalog — point Swagger UI, `openapi-generator`, or a framework's OpenAPI tool loader at it to get typed clients / callable tools for free. |
+
+Both are generated from the catalog, so they can never drift from the live
+endpoints — a new endpoint appears in both the moment it ships. Zero endpoints is
+a valid state (empty `endpoints[]` + a "coming soon" note), never an error.
+
+```bash
+# One call, the whole map — pipe into jq to list paths
+curl -s https://three.ws/api/crypto | jq '.endpoints[] | {method, path, title}'
+
+# Generate a typed client from the spec
+curl -s https://three.ws/api/crypto/openapi.json -o crypto.openapi.json
+```
+
+### Endpoints
+
+Every endpoint is free, keyless, `GET` (a couple also accept `POST`), and rate-
+limited per IP. This table is the canonical index; each endpoint's full contract
+is documented in its section below and machine-readable in the OpenAPI doc.
+
+| Endpoint | Verb(s) | What it answers |
+|----------|---------|-----------------|
+| [`/api/crypto/bonding`](https://three.ws/api/crypto/bonding) | `GET` | Where a pump.fun token sits on its bonding curve — % to graduation, SOL in the curve, and whether it has migrated to an AMM. |
+| [`/api/crypto/symbol`](https://three.ws/api/crypto/symbol) | `GET` · `POST` | Whether up to 20 candidate tickers are taken — exact and fuzzy (look-alike) collisions across live registries. |
+| [`/api/crypto/trending`](https://three.ws/api/crypto/trending) | `GET` | Solana tokens ranked by momentum (volume + buy pressure + spike + short-window price change) fused across sources. |
+| [`/api/crypto/wallet`](https://three.ws/api/crypto/wallet) | `GET` | A wallet's native balance, every token it holds, and a rough USD valuation — keyless on Solana. |
+| [`/api/crypto/whales`](https://three.ws/api/crypto/whales) | `GET` | Large buys on pump.fun for a token or market-wide, with a deterministic bullish/bearish/neutral buy-pressure signal. |
+
+> Building an endpoint for this bundle? Drop a self-describing descriptor file in
+> `api/_lib/crypto-catalog/` (`{ slug, method(s), path, title, summary,
+> inputSchema, outputSchema, example }`) — the index and OpenAPI doc pick it up
+> automatically, and it lists in the table above on the next deploy.
+
+---
+
+## `GET /api/crypto/bonding` — Bonding-curve / graduation status
+
+**Use-case.** An agent holding or watching a pump.fun token needs to know exactly
+where it is on the bonding curve — **% to graduation**, how much SOL is in the
+curve, and whether it has already **migrated** to Raydium / PumpSwap. Timing
+entries and exits around graduation is a core meme-trading move: a coin at 95% is
+minutes from a supply/liquidity regime change; one that already graduated no longer
+trades on the curve at all. Without this an agent would have to fetch the curve
+account over RPC and do the reserve math itself — here it's one keyless GET.
+
+Pair it with [`/api/crypto/launches`](https://three.ws/api/crypto/launches) to
+discover fresh mints, then poll `bonding` on the ones worth watching.
+
+### Request
+
+| Param  | Type   | Notes |
+|--------|--------|-------|
+| `mint` | string | pump.fun token mint (base58 Solana address). Required. |
+
+### Response
+
+On-curve token (still filling the bonding curve):
+
+```json
+{
+  "mint": "FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump",
+  "onCurve": true,
+  "bondingProgressPct": 70.67,
+  "solInCurve": 32.81,
+  "tokensRemaining": 232581073.73,
+  "marketCapUsd": 10095.72,
+  "graduated": false,
+  "migratedTo": null,
+  "ts": "2026-07-07T00:00:00.000Z",
+  "source": "pumpfun"
+}
+```
+
+Graduated token (left the curve for an AMM):
+
+```json
+{
+  "mint": "THREEsynthetic1111111111111111111111111111",
+  "onCurve": false,
+  "bondingProgressPct": 100,
+  "solInCurve": null,
+  "tokensRemaining": null,
+  "marketCapUsd": 424807497.98,
+  "graduated": true,
+  "migratedTo": "pumpswap",
+  "ts": "2026-07-07T00:00:00.000Z",
+  "source": "pumpfun"
+}
+```
+
+- **`onCurve`** — `true` while the token is still on the bonding curve; `false`
+  once it has graduated.
+- **`bondingProgressPct`** — `0`–`100`, the share of the curve's token float that
+  has been bought out (`0` at launch, `100` once graduated). The math is the share
+  of the curve's initial 793.1M-token float still unsold — the same `bondingProgressPct`
+  the Oracle coin page uses, shared from
+  [`api/_lib/pump-bonding.js`](../api/_lib/pump-bonding.js).
+- **`solInCurve`** — real SOL reserves currently in the curve; `null` once graduated.
+- **`tokensRemaining`** — tokens still buyable on the curve; `null` once graduated.
+- **`graduated`** — `true` once the curve completed and the token migrated to an AMM.
+- **`migratedTo`** — `"raydium"` or `"pumpswap"` for a graduated token; `null` while
+  still on the curve.
+
+### States
+
+- **On the curve** → `200` with live `bondingProgressPct` / `solInCurve` /
+  `tokensRemaining`.
+- **Already graduated** → `200` with `graduated: true`, `migratedTo` set, and the
+  curve fields `null` / final (`bondingProgressPct: 100`).
+- **Not a pump.fun mint** (never launched on pump.fun, or an externally-indexed
+  token like WSOL/USDC) → `400 not_pumpfun_mint` with a pointer to
+  `/api/crypto/launches`.
+- **Missing / non-base58 `mint`** → `400 missing_mint` / `400 invalid_mint` with a
+  clear message.
+- **pump.fun feed unavailable** → `503 upstream_unavailable` + `Retry-After`. Never `500`.
+- **Rate-limited** → `429` with `RateLimit-*` + `Retry-After` headers.
+
+### Examples
+
+```bash
+# How close is this token to graduating?
+curl "https://three.ws/api/crypto/bonding?mint=FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump"
+
+# Has it already migrated to an AMM?
+curl "https://three.ws/api/crypto/bonding?mint=FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump" | jq '{graduated, migratedTo}'
+```
+
+---
+
+## `GET /api/crypto/whales` — Whale / large-buy activity
+
+**Use-case.** A trading or sniper agent, mid-decision, needs to know whether big
+money is moving into a token — or the pump.fun market broadly — *before* it
+commits. A whale already in means price impact is ahead; no whales means the book
+is thin. This endpoint is a free, high-signal read of large buys.
+
+### Request
+
+| Param    | Type   | Default | Notes |
+|----------|--------|---------|-------|
+| `mint`   | string | —       | Optional base58 Solana mint. **Present** → whale buys of that token. **Omitted** → top whale wallets active across pump.fun. |
+| `minSol` | number | `5`     | Minimum SOL in a single buy to qualify as a whale (floored at `0.1`). |
+| `limit`  | int    | `10`    | Rows to return (max `25`). |
+
+### Response
+
+```json
+{
+  "scope": "token",
+  "mint": "FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump",
+  "minSol": 5,
+  "whales": [
+    {
+      "wallet": "AbcDEF12345GHJKLMNopqrstuvwxyZabcdefghijk1",
+      "solMoved": 12.4,
+      "txHash": "5xTr4nSacT1oNsigNaTuReExampLe…",
+      "ts": "2026-07-07T00:00:00.000Z"
+    }
+  ],
+  "whaleCount": 1,
+  "totalSolMoved": 12.4,
+  "signal": "bullish",
+  "ts": "2026-07-07T00:00:00.000Z",
+  "source": "pump.fun"
+}
+```
+
+- **`scope`** — `token` when `mint` is supplied, else `market`.
+- **`whales`** — in `token` scope, one row per qualifying **buy** (largest
+  first). In `market` scope, one row per qualifying whale **wallet**, where
+  `solMoved` is the sum of that wallet's qualifying buys and `txHash`/`ts` point
+  at its single largest buy.
+- **`whaleCount`** — qualifying buys (token scope) or distinct whale wallets
+  (market scope).
+- **`totalSolMoved`** — total SOL across all qualifying whale buys.
+- **`signal`** — see the rule below.
+
+### The signal rule (deterministic — no LLM)
+
+The signal reads **net whale flow**: SOL bought by whales minus SOL sold by
+whales, counting only trades at or above `minSol`. A net move of at least one
+whale-sized position sets the direction, so the rule means the same thing at any
+threshold:
+
+```
+netFlow = whaleBuySol − whaleSellSol
+
+no qualifying whale trades at all   → neutral
+netFlow ≥ +minSol (net accumulation) → bullish
+netFlow ≤ −minSol (net distribution) → bearish
+otherwise (balanced)                 → neutral
+```
+
+The implementation is `computeSignal` in
+[`api/_lib/pump-whale-scan.js`](../api/_lib/pump-whale-scan.js) and is covered by
+`tests/crypto-whales.test.js`.
+
+### States
+
+- **No whales over threshold** → `200` with `whales: []`, `whaleCount: 0`, and
+  `signal: "neutral"`. Not an error.
+- **pump.fun feed unavailable** → `200` with an empty whale set and a `note`
+  field. Never `500`.
+- **Malformed `mint` / `minSol` / `limit`** → `400` with a clear message and an
+  `example`.
+- **Rate-limited** → `429` with `RateLimit-*` + `Retry-After` headers.
+
+### Examples
+
+```bash
+# Whale buys of $THREE
+curl "https://three.ws/api/crypto/whales?mint=FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump"
+
+# Top whale wallets across pump.fun, raise the bar to 10 SOL, top 5
+curl "https://three.ws/api/crypto/whales?minSol=10&limit=5"
+```
+
+---
+
+## `GET /api/crypto/wallet` — Wallet portfolio
+
+**Use-case.** An autonomous agent needs to inspect a wallet — its own or a
+counterparty's — before it transacts. A **treasury agent** checks its own runway
+(SOL + token value) before a spend; a **copy-trade agent** reads a leader wallet's
+holdings to decide what to mirror; a **pre-trade counterparty check** inspects who
+it's about to deal with (a fresh empty wallet, or a real holder?). Without this the
+agent has to juggle an RPC (`getTokenAccountsByOwner`), a metadata source, and a
+price API itself — here it's one keyless GET.
+
+### Request
+
+| Param     | Type   | Default  | Notes |
+|-----------|--------|----------|-------|
+| `address` | string | —        | Wallet address. Solana base58, or an EVM `0x` address. Required. |
+| `chain`   | string | `solana` | `solana` (keyless) or `ethereum` (needs a provider key on the deployment). |
+
+Solana is the keyless flagship: balances come from Helius DAS when a key is
+configured, and fall back to the **public Solana RPC** (`getTokenAccountsByOwner`)
+with **Jupiter Lite** + the **pump.fun bonding curve** for pricing when it isn't —
+so a real answer comes back with no key at all.
+
+### Response
+
+```json
+{
+  "address": "HKKp49zUBeaABFMpBWKCJPoNDLiR4AEEr8FJKuZPn6Nk",
+  "chain": "solana",
+  "native": { "symbol": "SOL", "amount": 2.5, "usd": 375.0 },
+  "tokens": [
+    {
+      "mint": "FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump",
+      "symbol": "THREE",
+      "name": "three.ws",
+      "amount": 1000,
+      "usd": 1.6,
+      "logo": "https://.../three.png"
+    },
+    {
+      "mint": "THREEsynthetic1111111111111111111111111111",
+      "symbol": "SYNTH",
+      "name": "Synthetic",
+      "amount": 500,
+      "usd": null,
+      "logo": null
+    }
+  ],
+  "totalUsd": 376.6,
+  "tokenCount": 2,
+  "truncated": false,
+  "ts": "2026-07-07T00:00:00.000Z",
+  "sources": ["solana-rpc", "jupiter-lite"]
+}
+```
+
+- **`native.usd` / `tokens[].usd`** — USD valuation, or `null` when the asset
+  couldn't be priced (a low-liquidity token no source can route). The balance is
+  always reported; only the valuation is nullable.
+- **`totalUsd`** — sum of every **priced** holding (unpriced ones contribute
+  nothing, they don't corrupt the total).
+- **`tokenCount`** — total tokens held, even when the returned list is capped.
+- **`truncated`** — `true` when the wallet holds more than 200 tokens; the list is
+  sorted by USD value descending and cut at 200, so the meaningful holdings survive.
+- **`stale`** — present and `true` only when every live RPC path failed and the
+  endpoint served the wallet's last-known-good snapshot instead of erroring.
+
+### States
+
+- **Invalid / missing `address`** → `400` (`invalid_address` / `missing_address`)
+  with an `example`.
+- **Unsupported `chain`** → `400 unsupported_chain` (lists supported chains).
+- **Empty wallet** → `200` with `amount: 0`, `tokens: []`, `totalUsd: 0`. Not an error.
+- **EVM chain, no provider key** → `503 not_configured` (Solana still works keyless).
+- **Every upstream RPC down** → `503 upstream_unavailable` + `Retry-After`. Never `500`.
+- **Rate-limited** → `429 rate_limited` with `retryAfter`.
+
+### Example
+
+```bash
+curl "https://three.ws/api/crypto/wallet?address=FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump&chain=solana"
+```
+
+---
+
+## `GET/POST /api/crypto/symbol` — Symbol availability
+
+**Use-case.** An agent about to launch a token needs a ticker that won't be lost
+among clones. Before it commits a mint, it batch-checks its shortlist here: an
+**exact** collision means the name is already taken; a **fuzzy** collision (e.g.
+`MOONZ` vs `MOONS`) means the brand gets diluted in aggregator search even when the
+exact string is free. Clearing the name here for free is the natural first step
+before minting through the paid **Pump Launcher** (`/api/x402/pump-launch`) — clear
+the name, then launch.
+
+Fuzzy scoring uses a pg_trgm-style trigram Jaccard similarity — the same
+exact-plus-fuzzy model the earlier *paid* `symbol-availability` endpoint ran,
+broadened from three.ws's own mint index to the whole market and made free.
+
+### Request
+
+Up to **20** symbols per call. GET takes a comma-separated list; POST takes a JSON
+array.
+
+| Param     | Where | Type     | Notes |
+|-----------|-------|----------|-------|
+| `symbols` | `?symbols=A,B,C` (GET) or body array (POST) | string[] | 1–20 tickers. A leading `$` is stripped; matching is case-insensitive. Required. |
+| `chain`   | `?chain=` (GET) or body (POST) | string | Optional. Restrict collisions to one chain (e.g. `solana`). Omit to check every indexed chain. |
+
+### Response
+
+```json
+{
+  "results": [
+    {
+      "symbol": "THREE",
+      "available": false,
+      "exactCollisions": [
+        { "symbol": "three", "name": "three.ws", "mint": "FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump", "chain": "solana" }
+      ],
+      "fuzzyCollisions": []
+    },
+    { "symbol": "MOONZ", "available": true, "exactCollisions": [], "fuzzyCollisions": [] }
+  ],
+  "availableCount": 1,
+  "takenCount": 1,
+  "chain": "solana",
+  "ts": "2026-07-07T00:00:00.000Z"
+}
+```
+
+- **`available`** — `true` when no exact collision exists, `false` when one does,
+  and `null` when the collision source couldn't be reached for that symbol (the
+  result carries a `note`, and the response sets `degraded: true`). An outage is
+  never reported as a green light.
+- **`fuzzyCollisions`** — each carries a `similarity` (0–1); sorted most-similar
+  first, capped at 10.
+- **`availableCount` / `takenCount`** — counts of `available === true` / `=== false`
+  (unverifiable `null` symbols count as neither).
+
+### States
+
+- **No symbols** → `400 missing_symbols` with the cap and an `example`.
+- **More than 20 symbols** → `400 too_many_symbols` with the cap.
+- **Registry source down** → `200` with `degraded: true`; affected symbols get
+  `available: null` + a `note`. Never `500`.
+- **Rate-limited** → `429 rate_limited` with `RateLimit-*` + `Retry-After` headers.
+
+### Examples
+
+```bash
+# GET — comma-separated shortlist, Solana only
+curl "https://three.ws/api/crypto/symbol?symbols=THREE,MOONZ,BLERGZ&chain=solana"
+
+# POST — same batch as JSON
+curl -s -X POST https://three.ws/api/crypto/symbol \
+  -H 'content-type: application/json' \
+  -d '{"symbols":["THREE","MOONZ","BLERGZ"],"chain":"solana"}'
+```
+
+---
+
+## `GET /api/crypto/trending` — Trending / hot tokens
+
+**Use-case.** A *discovery agent* needs "what's hot right now" — tokens ranked by
+momentum so it can surface opportunities, fire alerts, or shortlist candidates to
+research, without scraping five sites and inventing its own score. One call
+replaces polling pump.fun, a DEX aggregator, and a smart-money tracker and
+reconciling their formats.
+
+### Request
+
+| Param    | Type | Default | Notes |
+|----------|------|---------|-------|
+| `window` | enum | `1h`    | `5m` \| `1h` \| `24h` — the trade window the momentum score measures. |
+| `limit`  | int  | `20`    | `1`–`50` (capped at 50). |
+| `source` | enum | `all`   | `pumpfun` restricts to the pump.fun board; `all` fuses every source. |
+
+### Response
+
+```json
+{
+  "window": "1h",
+  "tokens": [
+    {
+      "mint": "FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump",
+      "symbol": "THREE",
+      "name": "three.ws",
+      "marketCapUsd": 412000,
+      "volumeUsd": 32679.02,
+      "change": 12.4,
+      "score": 75.97,
+      "url": "https://pump.fun/coin/FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump"
+    }
+  ],
+  "count": 1,
+  "ts": "2026-07-07T00:22:11.083Z",
+  "sources": ["pumpfun", "dexscreener"],
+  "note": "Partial data: gmgn unavailable; ranked from pumpfun, dexscreener."
+}
+```
+
+- **`tokens`** — ordered by `score` descending.
+- **`change`** — price change **%** over the window; `null` where an upstream
+  doesn't expose it (pump.fun's swap feed carries no per-window %).
+- **`sources`** — which upstreams actually contributed to this ranking.
+- **`note`** — present only when a source was down or the whole set is empty.
+
+### The ranking signal
+
+`score` is a **0–100 momentum score**, not a measure of raw size — a small coin
+with a fresh volume spike and heavy buying outranks a large, quiet one. Each token
+is reduced to up to four features, **normalized within its own source** so the very
+different volume scales of pump.fun vs a DEX board don't distort the blend:
+
+| Feature       | Weight | Meaning |
+|---------------|--------|---------|
+| Volume share  | 0.45   | `volumeUsd` relative to the busiest token in that source. |
+| Buy dominance | 0.25   | Buy pressure above 50/50, from real trade/txn counts. |
+| Volume spike  | 0.20   | `volumeUsd ÷ median(peers)`, saturating at 3× — the same robust peer-median an anomaly verdict uses. |
+| Price change  | 0.10   | Positive % change over the window, saturating at +50%. |
+
+The score is the weighted sum over the features actually present, divided by the
+sum of the present weights — so a source that can't supply one signal is scored on
+what it has rather than penalized. Signals are composed from the platform's
+existing scoring primitives (`scorePressure`, `summarizeWindowUsd`, `median`); see
+[`api/_lib/crypto-trending.js`](../api/_lib/crypto-trending.js).
+
+**Sources fused (all keyless):**
+
+- **pump.fun** — live board + per-coin swap trades (windowed USD volume + buy pressure).
+- **DexScreener** — boosted-token board (24h volume, 1h/24h price change, buy/sell txns).
+- **GMGN** — smart-money rank, *best-effort*: serverless egress IPs are frequently
+  Cloudflare-blocked, so it usually contributes nothing and is simply omitted from
+  `sources` — never an error.
+
+### States
+
+- **A source is down** → `200` with whatever ranked data is available, plus a `note`.
+- **Everything down** → `200` with `tokens: []`, `sources: []`, and a retry note. Never `500`.
+- **Bad `window`/`source`** → coerced to the default. **`limit` > 50** → capped at 50.
+- **Rate-limited** → `429` with `RateLimit-*` + `Retry-After` headers.
+
+### Examples
+
+```bash
+# Top 5 hottest tokens across all sources, last hour
+curl -s "https://three.ws/api/crypto/trending?window=1h&limit=5&source=all"
+
+# pump.fun only, 24h window
+curl -s "https://three.ws/api/crypto/trending?window=24h&source=pumpfun"
+```

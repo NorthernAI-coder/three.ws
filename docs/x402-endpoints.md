@@ -110,7 +110,7 @@ for to feed the oracle and sniper.
 
 | Endpoint                            | Default   | Returns                                    |
 | ----------------------------------- | --------- | ------------------------------------------ |
-| `/api/x402/agent-reputation`        | $0.01     | On-chain agent reputation summary.         |
+| `/api/x402/agent-reputation`        | $0.01     | Cross-chain 0–100 trust score for any wallet/mint/agent id ([trust primitives](trust-primitives.md)). |
 | `/api/x402/agent-bouncer`           | $0.01     | Access-gate decision for an agent/wallet.  |
 | `/api/x402/onchain-identity-verify` | $0.005    | Verifies an on-chain identity claim.       |
 | `/api/x402/skill-marketplace`       | $0.001    | Skill listings + pricing.                  |
@@ -122,6 +122,7 @@ for to feed the oracle and sniper.
 | Endpoint                                                    | Default   | Returns                                                                                      |
 | ----------------------------------------------------------- | --------- | -------------------------------------------------------------------------------------------- |
 | `/api/x402/forge`                                           | tiered    | Text/image → 3D model (price by tier; GPU-bound). See [Avatar pipeline](avatar-pipeline.md). |
+| `/api/x402/pipeline`                                        | per stage | **One call, full 3D asset pipeline** — text or GLB in, rigged/optimized game-ready GLB out. Ordered chain of `generate → rig → remesh → gameready → stylize`; the 402 quote is the exact sum of the requested stages. Poll free at `/api/forge?job=<id>` for per-stage progress. See [3D pipeline](3d-pipeline.md). |
 | `/api/x402/pipeline-rig`                                    | $0.05     | **Pipeline — Rig.** Static GLB in → animation-ready rigged GLB out (skeleton + skin weights). One paid call, durable URL. See [3D pipeline](3d-pipeline.md). |
 | `/api/x402/pipeline-remesh`                                 | $0.03     | **Pipeline — Remesh.** Retopologize a GLB (triangle/quad/lowpoly, repair, decimate to a face budget) with texture re-baked. GLB in → GLB out. See [3D pipeline](3d-pipeline.md). |
 | `/api/x402/pipeline-gameready`                              | $0.03     | **Pipeline — Game-Ready.** Retopologize to a poly budget + PBR re-bake for real-time engines. GLB in → engine-ready GLB out. See [3D pipeline](3d-pipeline.md). |
@@ -137,9 +138,10 @@ for to feed the oracle and sniper.
 
 | Endpoint                                                                                                                                                                  | Default        | Returns                                                                                                                     |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `/api/x402/pump-launch`                                                                                                                                                   | $5.00          | Launch monitoring / a managed launch.                                                                                       |
-| `/api/x402/vanity`, `/api/x402/vanity-verifiable`                                                                                                                         | per grind      | Solana vanity address mining (verifiable variant returns proof).                                                            |
-| `/api/x402/vanity-premium`                                                                                                                                                | $1–$50 by rarity | **Premium inventory** — buy a pre-ground 4–5+ char brandable address from stock. GET lists available patterns + prices (free); `?address=…` buys via x402 and delivers the key **once** (ciphertext destroyed on delivery). Browsable at `/vanity/premium`. |
+| [`/api/x402/pump-launch`](pump-launcher.md)                                                                                                                               | $5.00          | **Pump Launcher** — deploy a brand-new pump.fun token in one paid call. No SOL, no wallet, no account: the server fronts the deploy cost and signs the create tx; you pay USDC. Optional vanity mint. Full flow + funnel in [pump-launcher.md](pump-launcher.md). |
+| [`/api/x402/vanity`](vanity.md)                                                                                                                                           | $0.01–$0.50    | **Vanity Grinder** — grind a brand-new Solana address that starts with your ticker/prefix and/or ends with a suffix, for a branded token mint or agent/treasury wallet. Keypair or importable BIP-39 mnemonic; ≤3 chars; nothing stored; optional `sealTo` ECIES. Full doc: [vanity.md](vanity.md). |
+| [`/api/x402/vanity-verifiable`](vanity.md#tier-2--provably-fair-grinder)                                                                                                  | $0.02–$0.40    | **Provably-fair grinder** — same grind with a signed commit–reveal receipt proving the key was ground fresh and never kept. Spec: [PROTOCOL-vanity.md](PROTOCOL-vanity.md). |
+| [`/api/x402/vanity-premium`](vanity.md#tier-3--premium-inventory)                                                                                                         | $1–$50 by rarity | **Premium inventory** — buy a pre-ground 4–5+ char brandable address from stock. GET lists available patterns + prices (free); `?address=…` buys via x402 and delivers the key **once** (ciphertext destroyed on delivery). Browsable at `/vanity/premium`. |
 | `/api/x402/pay-by-name`                                                                                                                                                   | per call       | Resolve and pay an SNS/ENS name (see [Agent wallets](agent-wallets.md)).                                                    |
 | `/api/x402/did`                                                                                                                                                           | per call       | Decentralized identifier resolution.                                                                                        |
 | `/api/x402/billboard`                                                                                                                                                     | $0.05          | Post to the on-platform billboard.                                                                                          |
@@ -190,6 +192,7 @@ input and do not promote any specific token.
 
 ## Related
 
+- [Pump Launcher](pump-launcher.md) — the full launch flow, inputs/outputs, and the free `symbol` → launch → `launches` funnel.
 - [x402 protocol](x402.md) — the challenge/settle mechanics.
 - [x402 buyer client](x402-buyer.md) — how to pay these endpoints in code.
 - [x402 revenue & receipts](x402-revenue.md) — where settled payments are recorded and how to read endpoint revenue.
