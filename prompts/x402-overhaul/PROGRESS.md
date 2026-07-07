@@ -56,7 +56,7 @@ GET /api/crypto/launches?limit=5&minMarketCap=5500&maxAgeMin=60 → 200 count:3
 GET /api/crypto/launches?limit=0 → 400 invalid_limit
 ```
 
-**Tests: green.** `tests/crypto-launches-endpoint.test.js` (12 tests: toLaunch
+**Tests: green.** `tests/crypto-launches-endpoint.test.js` (11 tests: toLaunch
 mapping incl. graduated→100% and null-age degradation; newest-first sort;
 default/cap limit; all three param validations; minMarketCap drops unknown-cap
 coins; maxAgeMin; empty-sweep note; upstream-down 200; 429). Touched suites
