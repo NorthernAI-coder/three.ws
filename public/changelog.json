@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-07T03:24:14.799Z",
+	"generated_at": "2026-07-07T04:39:44.829Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -334,6 +334,17 @@
 			"summary": "The agent-facing x402 catalog got a spring clean. Nine novelty and me-too endpoints that powered in-product experiences (the club stage, the town NPCs, demo pages) no longer appear as standalone products on x402scan and agentic.market — they keep working inside the product, but they were diluting the catalog and burying the tools agents actually use. What agents now find first: the free Crypto Data API and 3D API, Forge, the pump.fun launcher, vanity addresses, and cross-chain trust primitives.",
 			"link": "/docs/crypto-api",
 			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "Unified service catalog powering all agent storefronts",
+			"summary": "Every service three.ws offers — the paid x402 endpoints, the free Crypto Data and 3D APIs, and the OKX.AI 3D Studio listings — is now described in one canonical catalog that every storefront renders from. Before, the same service could carry different descriptions on x402scan versus our own discovery doc versus OKX, and they quietly drifted apart. Now a listing is written once and projected everywhere, automated checks fail the build if any storefront ever disagrees with the catalog, and the 3D Asset Pipeline endpoint — which had been live but invisible to marketplace crawlers — is discoverable.",
+			"link": "/docs/start-here",
+			"tags": [
+				"infra",
 				"improvement"
 			]
 		},

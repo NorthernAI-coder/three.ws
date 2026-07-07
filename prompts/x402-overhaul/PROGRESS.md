@@ -1932,3 +1932,84 @@ Deploy landed (~8 min after the previous check). Live `/.well-known/x402.json`:
   **65 clean / 0 warnings / 0 dropped by CDP/indexers.**
 
 Prompts 20 and 22 fully closed. Campaign remainder: prompt 21 only.
+
+---
+
+## 2026-07-07 — Prompt 21: Unified Service Catalog (one source of truth, two storefronts)
+
+**Shipped.** `api/_lib/service-catalog/` — ONE canonical catalog every storefront renders
+from. Listing metadata for the same route used to live in up to three drifting places
+(endpoint `BAZAAR` exports, ~1,400 lines of hand-mirrored resource blocks in `api/wk.js`,
+the OKX catalog); a listing is now written once.
+
+- **Canonical catalog** `api/_lib/service-catalog/index.js`:
+  - `getCatalog()` — 66 normalized entries merged from 4 imported (never duplicated)
+    sources: 44 paid x402 descriptors + free crypto-catalog (9) + free 3d-catalog (2) +
+    `okx-catalog.js` rows (11). Canonical shape: slug/title/category/useCase/free/status/
+    method/path/endpoint/price{usd,atomics,networks}/serviceName/tags/description/
+    schemas/storefronts/source.
+  - `getByStorefront('x402scan'|'okx'|'crypto-index'|'3d-index')`.
+  - `toBazaarDiscovery({origin, acceptsFor, extensionsForAccepts})` — emits every static
+    `/api/x402/*` resource entry for `/.well-known/x402.json`; wk.js injects its env-aware
+    accepts builders (`standard` | `cdp-bazaar` | `permit2-only`, the last returning null
+    without CDP creds so permit2-paid-demo stays omitted exactly as at runtime).
+  - `toOkxCatalog()` — reproduces `okx-catalog.js#catalogIndex()` BYTE-FOR-BYTE (deep-equal
+    asserted in tests), so the OKX stream can point its module at ours with zero behavior
+    change. `{include:'all'}` additionally projects all 44 paid x402 services into the OKX
+    row schema with both description parts clamped to the 200-display-width rule.
+    **Note to the OKX stream:** `toOkxCatalog()` is drop-in — import it from
+    `api/_lib/service-catalog/index.js` whenever you want the expanded set.
+- **Descriptors** `api/_lib/service-catalog/services/<slug>.js` (44 files + static-import
+  barrel `services/index.js`, same production-bundling pattern as crypto-catalog): pure-data
+  listings extracted faithfully from the live discovery doc. forge's descriptor imports the
+  existing shared `forge-listing.js` + `forge-tiers.js` single sources instead of copying.
+- **wk.js refactor** — the 43 hand-written IIFE resource blocks + the routeMeta map are
+  gone (−1,540 lines; 3,198 → ~1,700): all static x402 entries now `...toBazaarDiscovery(…)`.
+  MCP transport/tool rows and dynamic agent-published listings keep their existing single
+  sources. `extensionsForAccepts` learned to pass a descriptor's `output` example through.
+- **Parity proven** (snapshot A = pre-refactor doc, snapshot C = post): 0 field diffs on
+  all 65 pre-existing resources (deep-equal keyed by path+toolName; only ordering change is
+  model-check moving after the two MCP entries — indexers key on url/toolName). Service
+  profile block byte-identical.
+- **Bonus fix, proving the workflow:** `/api/x402/pipeline` (shipped live by another agent
+  without a discovery entry — `tests/api/x402-discovery-parity.test.js` was already red on
+  main) is now cataloged via `services/pipeline.js` + one barrel row, with its output
+  example. That parity test is green again.
+- **Docs**: `specs/SERVICE_CATALOG.md` (descriptor contract, projections, CI invariants),
+  STRUCTURE.md row, `data/changelog.json` (infra+improvement) + `npm run build:pages` regen.
+
+**Tests — `tests/service-catalog.test.js` (10 tests):** assembly (source counts, unique
+slugs, canonical-field completeness, price shapes), descriptor hygiene (path=slug, ≤32-char
+serviceName, ≤5 tags), storefront filters, toBazaarDiscovery order/omission with stub
+builders, **no-drift** (renders the real wk.js discovery handler; asserts every catalog
+entry is served with identical description/serviceName/tags/method/priceAtomics AND that no
+un-cataloged static x402 resource is served), OKX strict deep-equality + all-mode width/shape.
+
+```
+npx vitest run tests/service-catalog.test.js tests/api/x402-discovery-parity.test.js
+ Test Files  2 passed (2)      Tests  17 passed (17)
+npx vitest run tests/api/x402-discovery-green.test.js tests/x402-forge-listing.test.js \
+  tests/x402-pump-launch-listing.test.js tests/okx-catalog.test.js \
+  tests/api/x402-gas-sponsoring.test.js tests/api/x402-spec.test.js
+ Test Files  6 passed (6)      Tests  87 passed (87)   (parity failure pre-dated this work; fixed)
+Full suite: 11,343 passed | 3 failed — all 3 reproduce with this change stashed
+(pre-existing, other streams: x402-ring-catalog missing api/v1/ai/* + pipeline-* rows,
+token-market-single-flight, x402-pipeline partial-failure semantics).
+```
+
+**`scripts/verify-x402-discovery.mjs --file=<locally built doc>` (env-stubbed render):**
+
+```
+--- summary ---
+  ✓ clean:        66
+  ▲ warnings:     0
+  ✗ will be DROPPED by CDP/indexers: 0
+```
+
+**Adjacent gaps noticed (for other prompts / future passes):**
+- 402-challenge descriptions in a few endpoints (e.g. `api/x402/pump-launch.js`) still differ
+  from the storefront listing copy — converge them by having endpoints import their
+  descriptor (forge already does this via forge-listing.js).
+- `tests/x402-ring-catalog.test.js` is red on main: the ring catalog lacks rows for the new
+  `api/v1/ai/{asr,image,tts}.js` and the five `pipeline-*` stage routes — belongs to the
+  ring-economy stream.
