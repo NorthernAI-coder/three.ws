@@ -1820,3 +1820,48 @@ following the ring-settle precedent).
   wk.js entries / RING_CATALOG rows (or EXCLUSIONS) — red build until then.
 - Prompt 21 (unified catalog) and 22 (x402scan profile) remain; the trimmed
   discovery doc is exactly the input 22 wants.
+
+## 2026-07-07 — Prompt 22: x402scan Profile & Resource-Description Overhaul
+
+**Shipped.**
+
+- **Server profile rewritten** (`api/wk.js` service block): tagline + description
+  now carry the real positioning — "3D generation + crypto data + launch/trust
+  tools for AI agents; free Crypto Data API and free text→3D; pay-per-call for
+  Forge Pro, rigged avatars, vanity addresses, pump.fun launches, cross-chain
+  trust checks. USDC on Solana, Base, Arbitrum." Added
+  `categories: ['3D','AI','Crypto','Data','Utility']` and replaced stale tags
+  (`gltf/glb/three-js`) with filterable ones (`text-to-3d`, `crypto-data`,
+  `trust`, `token-launch`). `docs` link moved to `/docs/start-here`.
+- **Resource curation:** ran a full local render of the discovery doc
+  (65 resources post-prompt-20 trim) and audited every description. Zero empty
+  or placeholder descriptions remained (the `skill-marketplace` blank cited in
+  the prompt was fixed by the earlier listing prompts). One real offender —
+  `model-check` ("Fetches a glTF/GLB model… CDP-Bazaar-cataloged.") — rewritten
+  to lead with the agent use-case, state the $0.001 price and the three USDC
+  networks, and cross-sell the free `/api/3d/inspect` tier; jargon suffix
+  removed. The rest already led with use-case + price after the prompt-17/18/19
+  listing overhauls and the prompt-20 trim.
+- **Guardrail tests added** (`tests/api/x402-discovery-parity.test.js`):
+  (1) profile positioning pinned (tagline, Free Crypto Data API + Forge Pro in
+  the description, exact categories, new tags), (2) no resource may ship a
+  description under 60 chars or containing TODO/placeholder, (3) every resource
+  needs ≥2 tags for storefront category filters.
+
+**Verification:**
+- Local `.well-known/x402.json` render: well-formed JSON, 65 resources, new
+  profile present (`tagline: "3D generation + crypto data + launch/trust tools
+  for AI agents."`, categories present, model-check description = the new one).
+- `node scripts/verify-x402-discovery.mjs` → 74 resources live / 0 warnings /
+  0 dropped (runs against PRODUCTION, so it validates the currently-deployed doc;
+  re-verify after this deploys — the local render above is the pre-deploy proof).
+- Parity suite: 6/7 green — the 1 failure is the PRE-EXISTING
+  `/api/x402/pipeline` drift owned by that route's in-flight agent (their route,
+  their wk.js entry; flagged in prompt 20's entry too). My three new tests pass.
+
+**Changelog:** entry added (tags: improvement), validated by `npm run build:pages`.
+
+**Note for prompt 21 (unified catalog):** the profile + curated descriptions now
+live ONLY in `api/wk.js`; when the canonical `api/_lib/service-catalog/` lands it
+should absorb these strings as the single source (22 ran before 21 — the prompt
+anticipated this order; descriptions are ready to lift).

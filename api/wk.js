@@ -1573,14 +1573,17 @@ async function handleX402Discovery(req, res) {
 			service: {
 				name: 'three.ws',
 				legal_name: 'three.ws',
-				tagline: 'AI-powered 3D model viewer and validation agent.',
+				tagline: '3D generation + crypto data + launch/trust tools for AI agents.',
 				description:
-					'three.ws is an agent-first 3D model platform. Drag-and-drop glTF/GLB preview, model validation/inspection/optimization, plus Solana agent data — reachable both as MCP tool calls and as paid REST endpoints (x402 v2). USDC on Base, Arbitrum, and Solana mainnet.',
+					'three.ws — 3D generation + crypto data + launch/trust tools for AI agents. ' +
+					'Free Crypto Data API (token snapshots, security checks, holders, whales, trending, wallets — keyless) and free text→3D generation; ' +
+					'pay-per-call for Forge Pro, rigged avatars, vanity addresses, pump.fun token launches, and cross-chain trust checks (agent reputation, on-chain identity verify). ' +
+					'Reachable as paid REST endpoints (x402 v2) and MCP tool calls. USDC on Solana, Base, and Arbitrum mainnet.',
 				operator: 'three.ws',
 				mission:
-					'Make 3D model tooling and Solana agent data machine-native so any AI agent can transact with the HTTP 402 protocol.',
+					'Give autonomous agents the tools they reach for mid-task — 3D assets, crypto data, launches, and trust — machine-native over HTTP 402.',
 				website: origin,
-				docs: `${origin}/docs/mcp`,
+				docs: `${origin}/docs/start-here`,
 				repository: 'https://github.com/nirholas/three.ws',
 				contact: `${origin}/`,
 				tags: [
@@ -1589,14 +1592,16 @@ async function handleX402Discovery(req, res) {
 					'mcp',
 					'agent-first',
 					'3d',
-					'gltf',
-					'glb',
-					'three-js',
+					'text-to-3d',
+					'crypto-data',
+					'trust',
+					'token-launch',
 					'solana',
 					'base',
 					'arbitrum',
 					'usdc',
 				],
+				categories: ['3D', 'AI', 'Crypto', 'Data', 'Utility'],
 				environment: 'apex',
 				origin,
 			},
@@ -1612,7 +1617,7 @@ async function handleX402Discovery(req, res) {
 					url: modelCheckUrl,
 					method: 'GET',
 					description:
-						'Fetches a glTF/GLB model from a URL and returns structural stats (vertex/triangle counts, materials, textures, animations, extensions) plus a prioritized list of optimization recommendations. Single GET, ?url=…. CDP-Bazaar-cataloged.',
+						'Model Check — an agent handed a 3D asset URL verifies it before using or paying for it: $0.001 USDC per call returns structural stats (vertex/triangle counts, materials, textures, animations, extensions) and prioritized optimization recommendations. Single GET with ?url=…; USDC on Solana, Base, or Arbitrum. Free tier: the same inspection is keyless at /api/3d/inspect.',
 					mimeType: 'application/json',
 					serviceName: routeMeta.modelCheck.serviceName,
 					tags: routeMeta.modelCheck.tags,

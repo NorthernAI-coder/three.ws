@@ -199,6 +199,14 @@
 			<description>The paid Pump Launcher (/api/x402/pump-launch) now sells what it actually does: deploy a brand-new pump.fun token in one call with no SOL, no wallet, and no account — you pay $5 in USDC and the platform fronts the deploy cost, optionally grinds a vanity mint, and signs the create transaction. The discovery listing and its schema were rewritten so an agent can call it blind — every input (name, symbol, a pre-pinned metadataUri or an imageUrl we pin for you, creator-rewards wallet, optional vanity prefix/suffix) and every output (mint, tx signature, metadata URI, pump.fun URL) is now spelled out. It's also wired into the free Crypto Data API: check your ticker is free first with /api/crypto/symbol, then confirm your deploy landed on the live /api/crypto/launches feed. A new docs page walks the whole flow.</description>
 		</item>
 		<item>
+			<title>Refreshed our agent-marketplace profile and product descriptions</title>
+			<link>https://three.ws/docs/start-here</link>
+			<guid isPermaLink="false">2026-07-07:Refreshed our agent-marketplace profile and product descriptions</guid>
+			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The three.ws storefront window on x402scan and agentic.market now says what the platform actually is: 3D generation, crypto data, and launch/trust tools for AI agents — free Crypto Data API and free text-to-3D up front, pay-per-call for Forge Pro, rigged avatars, vanity addresses, token launches, and cross-chain trust checks. Category tags were added so marketplace filters surface us correctly, product descriptions now lead with what an agent uses them for, and new tests guarantee no listing ever ships with an empty description again.</description>
+		</item>
+		<item>
 			<title>Speech for agents: keyless text-to-speech and speech-to-text over x402</title>
 			<link>https://three.ws/docs/api-reference</link>
 			<guid isPermaLink="false">2026-07-07:Speech for agents: keyless text-to-speech and speech-to-text over x402</guid>

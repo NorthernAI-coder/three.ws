@@ -195,4 +195,39 @@ describe('x402 discovery catalog parity', () => {
 			}
 		}
 	});
+	it('server profile leads with the real positioning (prompt 22)', async () => {
+		// The x402scan storefront window: the top-level profile must pitch the
+		// actual product mix, carry filterable categories, and never regress to
+		// the old "3D model viewer" blurb that undersold the platform.
+		const doc = await renderDiscovery();
+		const svc = doc.service;
+		expect(svc.tagline).toContain('3D generation + crypto data');
+		expect(svc.description).toContain('Free Crypto Data API');
+		expect(svc.description).toContain('Forge Pro');
+		expect(svc.categories).toEqual(['3D', 'AI', 'Crypto', 'Data', 'Utility']);
+		expect(svc.tags).toContain('text-to-3d');
+		expect(svc.tags).toContain('crypto-data');
+	});
+
+	it('no resource ships an empty or placeholder description', async () => {
+		// A blank card on x402scan reads as abandonware. Every cataloged resource
+		// must carry a substantive description (the profile overhaul bar: leads
+		// with the use-case and states the price).
+		const doc = await renderDiscovery();
+		for (const r of doc.resources) {
+			const d = String(r.description || '');
+			expect(d.length, `${r.path} description too short: "${d}"`).toBeGreaterThanOrEqual(60);
+			expect(d).not.toMatch(/TODO|placeholder|tbd/i);
+		}
+	});
+
+	it('every cataloged resource is tagged for category filtering', async () => {
+		const doc = await renderDiscovery();
+		for (const r of doc.resources) {
+			expect(
+				Array.isArray(r.tags) && r.tags.length >= 2,
+				`${r.path} needs at least two tags for storefront filters`,
+			).toBe(true);
+		}
+	});
 });
