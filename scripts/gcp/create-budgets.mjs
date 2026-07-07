@@ -49,9 +49,15 @@ function fail(msg) {
 	process.exit(1);
 }
 
+// User tokens (gcloud fallback) need x-goog-user-project on REST calls or the
+// API rejects them with a "requires a quota project" 403. SA tokens must NOT
+// send it — they carry their own quota project and may lack serviceusage.use.
+let userToken = false;
+
 async function token() {
 	if (gcpAuthConfigured()) return getGcpAccessToken();
 	try {
+		userToken = true;
 		return execFileSync('gcloud', ['auth', 'print-access-token'], { encoding: 'utf8' }).trim();
 	} catch {
 		fail('no GCP_SERVICE_ACCOUNT_JSON and `gcloud auth print-access-token` failed. Run `gcloud auth login`.');
@@ -69,7 +75,11 @@ function gcloudValue(args) {
 async function gapi(tok, method, url, body) {
 	const res = await fetch(url, {
 		method,
-		headers: { authorization: `Bearer ${tok}`, 'content-type': 'application/json' },
+		headers: {
+			authorization: `Bearer ${tok}`,
+			'content-type': 'application/json',
+			...(userToken ? { 'x-goog-user-project': project } : {}),
+		},
 		body: body ? JSON.stringify(body) : undefined,
 	});
 	const data = await res.json().catch(() => ({}));

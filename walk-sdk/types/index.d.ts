@@ -118,6 +118,13 @@ export declare function launchPlayground(opts?: {
 	dropIn?: boolean;
 	mode?: PlaygroundMode;
 	config?: unknown;
+	/** Checkpoint quest: elements the visitor must reach, in order. Works in both movement modes. */
+	checkpoints?: Array<{ el: Element }>;
+	/** Called when the active checkpoint is reached; call resume() to unfreeze and advance. */
+	onReach?: (index: number, resume: () => void) => void;
+	onComplete?: () => void;
+	/** Start the quest at this checkpoint index (used to carry progress across a mode switch). */
+	startCheckpoint?: number;
 }): unknown;
 export declare function exitPlayground(): void;
 export declare function switchPlaygroundMode(forceMode?: PlaygroundMode | null): unknown;

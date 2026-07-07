@@ -1115,12 +1115,35 @@ under-utilization get distinct, un-deduped signatures so they always land; an
 on-track day posts a quiet one-line status. If the export isn't wired it says so
 once/day rather than erroring.
 
-### Current status (2026-07-06)
+### Current status (2026-07-07)
 
-Burn rate, exhaustion projection, and full/unused-credit tracking are **wired and
-tested but not yet reporting real numbers** — they require the BigQuery billing
-export (owner console action above) + the same gcloud reauth that blocks the rest
-of the foundation. The moment the export lands and `GCP_CREDIT_TOTAL_USD` /
+Live progress after the 2026-07-07 reauth:
+
+- **Budgets: created** (billing account `01B467-A61905-9A97D2`): "gcp-credits — program" $100k
+  + per-service Vertex AI $55k / Cloud Run $20k / Compute Engine $15k, thresholds
+  25/50/75/90/100%. Pub/Sub topic `gcp-budget-alerts` created. Budget **email**
+  alerts to billing admins are active now.
+- **Pub/Sub → Telegram leg pending:** granting `billing-budget-alerts@system.gserviceaccount.com`
+  publisher on the topic fails with "does not exist" — likely the org's
+  domain-restricted-sharing policy (org `530103279143`) or the system SA is created
+  lazily on first notification. Retry after the first threshold email, or add the
+  system SA to the org's DRS allowlist. The push subscription is also deferred until
+  the Vercel CLI is authed (`GCP_BUDGET_WEBHOOK_SECRET` must land in Vercel first).
+- **Attribution labels: applied** (`label-resources.sh --apply`): all 9 Cloud Run
+  services + both buckets carry `program=gcp-credits` and a lane
+  (`forge-gpu` for the model/editing workers, `platform` for agent-sniper /
+  hyperfy-world / three-ws-multiplayer).
+- **Findings from the label sweep:** (a) `model-triposr` has **no healthy revision** —
+  container crashes on boot with `ImportError: cannot import name 'TSR' from 'tsr'`;
+  the image itself is broken, fix in the prompt-04 fleet deploy. (b) `agent-sniper`
+  references three Secret Manager secrets that **do not exist**
+  (`sniper-solana-rpc-url`, `telegram-bot-token`, `telegram-alerts-chat-id`) — the
+  serving revision still runs, but any redeploy will fail until the owner recreates
+  them.
+
+Burn rate, exhaustion projection, and full/unused-credit tracking remain **wired
+but not reporting** — they require the BigQuery billing export (owner console
+action above; confirmed still absent 2026-07-07 — `bq ls` shows no datasets). The moment the export lands and `GCP_CREDIT_TOTAL_USD` /
 `GCP_CREDIT_EXPIRY` are set, `node scripts/gcp/burn-report.mjs` prints the live
 burn rate and days-of-runway, the dashboard fills in, and the daily cron begins
 posting. Until then the app-side lane telemetry on `/dashboard/spend` is the live

@@ -161,6 +161,27 @@ import {
 } from '@three-ws/walk';
 ```
 
+#### Checkpoint quests
+
+Both movement modes accept an optional checkpoint quest — ordered target
+elements the visitor must steer the character to (this is what powers
+`@three-ws/tour`'s Explore and Platformer modes). Reaching the active
+checkpoint freezes the character and hands control to your `onReach`; call
+`resume()` to unfreeze and light up the next one. During a quest the
+link-diving mechanic is suppressed, and a live mode switch (the M key / mode
+pill, or `switchPlaygroundMode()`) carries the checkpoints and progress across
+— only the physics change. `window` fires `walk-playground:mode` with
+`{ detail: { mode } }` on every switch.
+
+```js
+launchPlayground({
+  mode: 'platformer',                        // or 'stroll'
+  checkpoints: [{ el: hero }, { el: pricing }, { el: faq }],
+  onReach: (i, resume) => narrate(i).then(resume),
+  onComplete: () => console.log('all checkpoints found'),
+});
+```
+
 ### Picker UI
 
 ```js

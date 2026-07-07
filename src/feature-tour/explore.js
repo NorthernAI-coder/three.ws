@@ -5,14 +5,21 @@
 // it stops, spotlights the section, and explains it; the next one lights up
 // until they've found them all.
 //
-// The locomotion is the REAL @three-ws/walk playground (the same engine as the
-// homepage "Stroll"): the character turns to face its heading and walks or runs
-// in full 3D with arrow keys / WASD (or an on-screen joystick / gamepad), and
-// the page scrolls under it so the whole store is walkable. This module just
-// supplies the checkpoints and narrates each one (via the tour's own Spotlight
-// and Narrator) when the playground reports the character reached it.
+// The locomotion is the REAL @three-ws/walk playground, with both of its
+// movement models: "stroll" (free walking/running, the page scrolls under the
+// character) and "platformer" (the page's real DOM is solid ground — gravity,
+// jumping, falling). The host picks the starting model, and the visitor can hop
+// between the two mid-quest with the M key or the mode pill — checkpoints and
+// progress carry across. This module just supplies the checkpoints and narrates
+// each one (via the tour's own Spotlight and Narrator) when the playground
+// reports the character reached it.
 
-import { launchPlayground, exitPlayground, resolveConfig } from '../../walk-sdk/src/index.js';
+import {
+	launchPlayground,
+	exitPlayground,
+	getPlaygroundMode,
+	resolveConfig,
+} from '../../walk-sdk/src/index.js';
 import { Spotlight } from './spotlight.js';
 import { Narrator } from './narrator.js';
 import { normalizePath } from './curriculum.js';
@@ -20,8 +27,11 @@ import { normalizePath } from './curriculum.js';
 const Z_HUD = 2147483400;
 
 export class ExploreMode {
-	constructor(curriculum) {
+	constructor(curriculum, movement = 'stroll') {
 		this.curriculum = curriculum;
+		// Starting movement model — 'platformer' turns the page into solid ground
+		// with gravity and jumping; anything else is the default free 'stroll'.
+		this.movement = movement === 'platformer' ? 'platformer' : 'stroll';
 		this.voice = 'nova';
 		this.spotlight = null;
 		this.narrator = null;
@@ -29,6 +39,14 @@ export class ExploreMode {
 		this.pg = null;
 		this.running = false;
 		this._reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+		// The playground owns Esc (exit) and M (mode switch); mirror both so the
+		// tour HUD never outlives the avatar and its help text tracks the mode.
+		this._onPgExit = () => {
+			if (this.running) this.exit();
+		};
+		this._onPgMode = () => {
+			if (this.running && this._hudState) this._setHud(...this._hudState);
+		};
 	}
 
 	isActive() {
@@ -64,19 +82,23 @@ export class ExploreMode {
 		exitPlayground();
 		window.scrollTo({ top: 0, behavior: 'auto' });
 		this.pg = launchPlayground({
-			mode: 'stroll',
+			mode: this.movement,
 			config: this._walkConfig(),
 			avatarId: undefined,
 			checkpoints: this.stops.map((s) => ({ el: s.el })),
 			onReach: (i, resume) => this._reach(i, resume),
 			onComplete: () => this._finish(),
 		});
+		window.addEventListener('walk-playground:exit', this._onPgExit);
+		window.addEventListener('walk-playground:mode', this._onPgMode);
 
 		this._activate(0);
 	}
 
 	exit() {
 		this.running = false;
+		window.removeEventListener('walk-playground:exit', this._onPgExit);
+		window.removeEventListener('walk-playground:mode', this._onPgMode);
 		try {
 			exitPlayground();
 		} catch {}
@@ -135,6 +157,7 @@ export class ExploreMode {
 
 	_setHud(i, talking, done = false) {
 		if (!this._hud) return;
+		this._hudState = [i, talking, done];
 		const total = this.stops.length;
 		if (talking) this._reachedCount = Math.max(this._reachedCount || 0, i + 1);
 		const reached = done ? total : this._reachedCount || 0;
@@ -151,11 +174,21 @@ export class ExploreMode {
 			return;
 		}
 		count.textContent = `🎯 ${reached} / ${total}`;
-		msg.textContent = talking
-			? this.stops[i].stop.title || 'Here we are'
-			: this._touch()
-				? 'Use the joystick to walk to the glowing checkpoint.'
-				: 'Use arrow keys to walk to the glowing checkpoint.';
+		msg.textContent = talking ? this.stops[i].stop.title || 'Here we are' : this._instruction();
+	}
+
+	// Movement help that tracks the LIVE playground mode — the visitor can flip
+	// between stroll and platformer mid-quest with M / the mode pill.
+	_instruction() {
+		const platformer = getPlaygroundMode() === 'platformer';
+		if (this._touch()) {
+			return platformer
+				? 'Use the buttons to run and jump to the glowing checkpoint.'
+				: 'Use the joystick to walk to the glowing checkpoint.';
+		}
+		return platformer
+			? 'Arrow keys to run, Space to jump — reach the glowing checkpoint.'
+			: 'Use arrow keys to walk to the glowing checkpoint.';
 	}
 
 	_touch() {
