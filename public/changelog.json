@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-07T13:43:23.851Z",
+	"generated_at": "2026-07-07T13:52:23.311Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -388,6 +388,16 @@
 			"link": "/docs/crypto-api",
 			"tags": [
 				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "Symbol-availability check sold honestly — a collision checker, not a market oracle",
+			"summary": "The paid batch symbol-availability endpoint no longer dresses a name-collision check up as a bullish/bearish trading signal. Its listing now describes exactly what it does — check candidate tickers for exact and look-alike collisions — and the response reports a plain availability_ratio (share of scanned symbols with no collision) instead of a fake market signal. For most agents the free, keyless /api/crypto/symbol route covers the whole market and is the better starting point.",
+			"link": null,
+			"tags": [
 				"improvement"
 			]
 		},

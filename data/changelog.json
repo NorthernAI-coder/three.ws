@@ -3,6 +3,14 @@
 	"entries": [
 		{
 			"date": "2026-07-07",
+			"title": "Symbol-availability check sold honestly — a collision checker, not a market oracle",
+			"summary": "The paid batch symbol-availability endpoint no longer dresses a name-collision check up as a bullish/bearish trading signal. Its listing now describes exactly what it does — check candidate tickers for exact and look-alike collisions — and the response reports a plain availability_ratio (share of scanned symbols with no collision) instead of a fake market signal. For most agents the free, keyless /api/crypto/symbol route covers the whole market and is the better starting point.",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-07",
 			"title": "Free x402 developer toolkit — echo, debug, and verify a receipt against a live server",
 			"summary": "Building an x402 integration against three.ws just got easier. Three new free, keyless tools: echo shows you exactly what the server sees when you send a payment — the decoded envelope with every signature redacted, plus a local valid/invalid verdict without charging you. debug turns a failed 402 exchange into an ordered fix list keyed to the real reasons a payment gets rejected (wrong version, shorthand network, decimal amounts, underpayment). verify-receipt recomputes a paid response's SHA-256 attestation to prove it wasn't altered, and confirms a settlement transaction on-chain. A new docs page ties all six developer tools together.",
 			"tags": [

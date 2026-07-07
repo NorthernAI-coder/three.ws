@@ -303,6 +303,14 @@
 			<description>Checking whether a token ticker is already taken is now free and keyless at /api/crypto/symbol — no account, no payment. Send up to 20 candidate tickers in one call and get back, for each, whether it's available plus any exact collisions and fuzzy look-alikes (e.g. MOONZ vs MOONS) already live across the market, so your name won't get lost among clones. It's the natural first step before minting: clear the name here for free, then launch through the Pump Launcher. Previously this was a paid endpoint; it's now a free discovery utility with exact + fuzzy matching across live registries, and it degrades gracefully (never a false 'available') if a data source is down.</description>
 		</item>
 		<item>
+			<title>Symbol-availability check sold honestly — a collision checker, not a market oracle</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-07:Symbol-availability check sold honestly — a collision checker, not a market oracle</guid>
+			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The paid batch symbol-availability endpoint no longer dresses a name-collision check up as a bullish/bearish trading signal. Its listing now describes exactly what it does — check candidate tickers for exact and look-alike collisions — and the response reports a plain availability_ratio (share of scanned symbols with no collision) instead of a fake market signal. For most agents the free, keyless /api/crypto/symbol route covers the whole market and is the better starting point.</description>
+		</item>
+		<item>
 			<title>Text→image API for agents — 5 free a day, then pay per image</title>
 			<link>https://three.ws/docs/api-reference</link>
 			<guid isPermaLink="false">2026-07-07:Text→image API for agents — 5 free a day, then pay per image</guid>
