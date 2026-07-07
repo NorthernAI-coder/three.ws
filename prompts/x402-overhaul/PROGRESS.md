@@ -343,8 +343,13 @@ commit gate the mints/symbols below are shown as $THREE + a synthetic placeholde
 ```
 
 Pure-logic + state assertions all pass via a standalone node harness; vitest suite
-pending the shared-`node_modules` install storm (many concurrent agents running
-`npm install` simultaneously, mutually clobbering the tree) settling.
+was pending the shared-`node_modules` install storm settling.
+**Follow-up verification (2026-07-07, later session):** install storm settled —
+`npx vitest run tests/crypto-trending.test.js` → **21/21 passed**. Live production
+probe: `GET https://three.ws/api/crypto/trending?window=1h&limit=3` → **HTTP 200**
+with real momentum-ranked pump.fun + DexScreener tokens (the 404 seen in a later
+entry's probe predated the deploy). Commit `53d207119` confirmed on `threews/main`.
+Prompt 09 is fully done — no open items.
 
 **Adjacent gaps noticed (for other prompts):**
 - Prompt 10 owns `api/_lib/crypto-catalog/index.js` (assembler) + `GET /api/crypto`
