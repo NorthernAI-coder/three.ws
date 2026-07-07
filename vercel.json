@@ -915,6 +915,22 @@
 			"dest": "/coins.html"
 		},
 		{
+			"src": "/fear-greed/?",
+			"dest": "/fear-greed.html"
+		},
+		{
+			"src": "/heatmap/?",
+			"dest": "/heatmap.html"
+		},
+		{
+			"src": "/gas/?",
+			"dest": "/gas.html"
+		},
+		{
+			"src": "/compare/?",
+			"dest": "/compare.html"
+		},
+		{
 			"src": "/coin/([a-zA-Z0-9][a-zA-Z0-9_-]{0,99})/?",
 			"dest": "/coin.html"
 		},

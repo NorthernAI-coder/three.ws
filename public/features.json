@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-07T17:59:25.728Z",
+	"generated_at": "2026-07-07T18:56:27.998Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -1381,6 +1381,46 @@
 					"title": "Markets — Live Crypto Prices",
 					"description": "Live global cryptocurrency market data: total market cap, dominance, Fear & Greed, and the top coins with prices, 24h/7d moves, and 7d sparklines. Every coin links to a rich /coin/:id detail page with an interactive chart, market stats, related news, and official links.",
 					"added": "2026-07-04",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/heatmap",
+					"title": "Crypto Market Heatmap",
+					"description": "A live market heatmap of the top cryptocurrencies: every tile is a coin, sized by market cap and colored by its 24h or 7d price move. See where money is flowing across the whole market at a glance, then click any tile for its full profile.",
+					"added": "2026-07-07",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/fear-greed",
+					"title": "Crypto Fear & Greed Index",
+					"description": "The Crypto Fear & Greed Index — live market sentiment from 0 (Extreme Fear) to 100 (Extreme Greed), shown on a gauge with a week-over-week delta, a full interactive history chart, and a labelled scale explaining what each reading means.",
+					"added": "2026-07-07",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/gas",
+					"title": "Ethereum Gas Tracker",
+					"description": "Live Ethereum gas fees straight from the chain — slow, standard, and fast tiers in gwei with USD cost estimates for transfers, token sends, DEX swaps, and NFT mints. Real on-chain fee history, refreshed automatically, no API key required.",
+					"added": "2026-07-07",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/compare",
+					"title": "Compare Crypto Side by Side",
+					"description": "Compare cryptocurrencies head to head — overlay normalized price performance and line up market cap, volume, FDV, supply, and all-time-high stats for up to four coins at once. The selection is saved to the URL so any matchup is shareable.",
+					"added": "2026-07-07",
 					"auth": null,
 					"indexable": true,
 					"tags": [],
