@@ -100,6 +100,20 @@ async function fetchDexScreener({ chain = 'sol' } = {}) {
 	}
 }
 
+// Public, one-shot wrappers around the internal pollers' fetchers so other
+// server routes (e.g. the free /api/crypto/trending aggregator) can reuse the
+// exact same live sources — the DexScreener boosted-token board and the GMGN
+// smart-money rank — without opening a streaming poll. Both return the poller's
+// `{ ok, rank, source }` / `{ ok, status|error }` result verbatim and never
+// throw, so a caller can compose them and degrade gracefully when one is down.
+export function dexScreenerTrending(opts = {}) {
+	return fetchDexScreener(opts);
+}
+
+export function gmgnSmartMoneyRank(opts = {}) {
+	return fetchRank(opts);
+}
+
 let _pollerId = 0;
 // Map<pollerId, Map<address, prevItem>>
 const _snapshots = new Map();
