@@ -613,8 +613,8 @@ in-process with the `gcp-kms+aes-256-gcm` scheme and written straight to
 |---|---|
 | Runner | Cloud Run Job (spot-labelled), gen2, 4×4 vCPU |
 | Sealing | KMS envelope (`gcp-kms+aes-256-gcm`) — 100% of records |
-| Throughput / WASM thread | **~17,000–48,000 keys/sec** (single ed25519 WASM worker; varies by machine) |
-| Inventory loaded | **100+ addresses** (still climbing as the slow 5-char targets landed; at an 82-row checkpoint the mix was 43 rare · 27 epic · 11 legendary · 1 mythic), rarity-priced **$2–$50** |
+| Throughput / WASM thread | **~18,000–20,000 keys/sec sustained** on the long grinds (measured: KELP… 34.5M attempts in 1,744s ≈ 19.8k/s; LUNA… 41M in 2,230s ≈ 18.4k/s), single ed25519 WASM worker |
+| Inventory loaded | **107 addresses ground** (106 available + 1 consumed by the E2E test): 2 uncommon · 43 rare · 46 epic · 14 legendary · 2 mythic, rarity-priced **$1–$50** |
 | Round-trip proof | every delivered key decrypts and its ed25519 pubkey == the stored address |
 
 Cost at c2d **spot** ≈ $0.015 / vCPU-hour. Price is value-based ($1–$50 by rarity),
