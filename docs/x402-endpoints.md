@@ -122,6 +122,11 @@ for to feed the oracle and sniper.
 | Endpoint                                                    | Default   | Returns                                                                                      |
 | ----------------------------------------------------------- | --------- | -------------------------------------------------------------------------------------------- |
 | `/api/x402/forge`                                           | tiered    | Text/image → 3D model (price by tier; GPU-bound). See [Avatar pipeline](avatar-pipeline.md). |
+| `/api/x402/pipeline-rig`                                    | $0.05     | **Pipeline — Rig.** Static GLB in → animation-ready rigged GLB out (skeleton + skin weights). One paid call, durable URL. See [3D pipeline](3d-pipeline.md). |
+| `/api/x402/pipeline-remesh`                                 | $0.03     | **Pipeline — Remesh.** Retopologize a GLB (triangle/quad/lowpoly, repair, decimate to a face budget) with texture re-baked. GLB in → GLB out. See [3D pipeline](3d-pipeline.md). |
+| `/api/x402/pipeline-gameready`                              | $0.03     | **Pipeline — Game-Ready.** Retopologize to a poly budget + PBR re-bake for real-time engines. GLB in → engine-ready GLB out. See [3D pipeline](3d-pipeline.md). |
+| `/api/x402/pipeline-stylize`                                | $0.03     | **Pipeline — Stylize.** Geometric restyle (voxel/brick/voronoi/lowpoly) that rebuilds the mesh. GLB in → GLB out. See [3D pipeline](3d-pipeline.md). |
+| `/api/x402/pipeline-rembg`                                  | $0.01     | **Pipeline — Background Removal.** Image in → transparent PNG out (clean reference view for image→3D). See [3D pipeline](3d-pipeline.md). |
 | `/api/x402/mint-to-mesh`, `/api/x402/mint-to-mesh-batch`    | per call  | Token/mint → 3D mesh; `mint-to-mesh-batch` runs a set at $0.05.                              |
 | `/api/x402/model-check`, `/api/x402/model-validation-sweep` | $0.001    | Validate a GLB / sweep a batch.                                                              |
 | `/api/x402/glb-optimization-report`                         | per call  | GLB size/optimization analysis.                                                              |

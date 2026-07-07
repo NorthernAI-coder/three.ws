@@ -628,6 +628,56 @@ const REST_OUTPUT_EXAMPLES = Object.freeze({
 			},
 		],
 	},
+	'/api/x402/pipeline-rig': {
+		stage: 'rig',
+		input_url: 'https://three.ws/forge/character.glb',
+		output_url: 'https://cdn.three.ws/x402-pipeline/rig/abc123.glb',
+		bytes: 1940112,
+		persisted: true,
+		rig_type: 'biped',
+	},
+	'/api/x402/pipeline-remesh': {
+		stage: 'remesh',
+		input_url: 'https://three.ws/forge/sample.glb',
+		output_url: 'https://cdn.three.ws/x402-pipeline/remesh/abc123.glb',
+		bytes: 812044,
+		persisted: true,
+		remesh_mode: 'quad',
+		operation: 'full',
+		face_count: 20000,
+		quad_ratio: 0.98,
+		textured: true,
+	},
+	'/api/x402/pipeline-gameready': {
+		stage: 'gameready',
+		input_url: 'https://three.ws/forge/prop.glb',
+		output_url: 'https://cdn.three.ws/x402-pipeline/gameready/abc123.glb',
+		bytes: 640220,
+		persisted: true,
+		topology: 'quad',
+		poly_budget: 12000,
+		face_count: 12000,
+		quad_ratio: 0.97,
+		textured: true,
+	},
+	'/api/x402/pipeline-stylize': {
+		stage: 'stylize',
+		input_url: 'https://three.ws/forge/statue.glb',
+		output_url: 'https://cdn.three.ws/x402-pipeline/stylize/abc123.glb',
+		bytes: 512880,
+		persisted: true,
+		style: 'voxel',
+		resolution: 48,
+		face_count: 18240,
+	},
+	'/api/x402/pipeline-rembg': {
+		stage: 'rembg',
+		input_url: 'https://three.ws/uploads/photo.jpg',
+		output_url: 'https://cdn.three.ws/x402-pipeline/rembg/abc123.png',
+		bytes: 284112,
+		persisted: true,
+		model: 'rmbg2',
+	},
 	'/api/x402/bazaar-feed': {
 		filter: 'new',
 		limit: 10,
@@ -1509,6 +1559,25 @@ async function handleX402Discovery(req, res) {
 		bazaarFeed: withService({
 			serviceName: 'three.ws Bazaar Feed',
 			tags: ['bazaar', 'listings', 'discovery', 'market', 'x402'],
+		}),
+		pipelineRig: withService({
+			serviceName: 'three.ws Pipeline - Rig',
+			tags: ['3d', 'rigging', 'skeleton', 'glb', 'pipeline'],
+		}),
+		pipelineRemesh: withService({
+			serviceName: 'three.ws Pipeline - Remesh',
+			tags: ['3d', 'remesh', 'retopology', 'glb', 'pipeline'],
+		}),
+		pipelineGameready: withService({
+			serviceName: 'three.ws Pipeline - Game-Ready',
+			tags: ['3d', 'gameready', 'retopology', 'glb', 'pipeline'],
+		}),
+		pipelineStylize: withService({
+			serviceName: 'three.ws Pipeline - Stylize',
+			tags: ['3d', 'stylize', 'voxel', 'glb', 'pipeline'],
+		}),
+		pipelineRembg: withService({
+			serviceName: 'three.ws Pipeline - RemBG',
 		}),
 		billboard: withService({
 			serviceName: 'three.ws Coin-World Billboard',
@@ -2745,6 +2814,157 @@ async function handleX402Discovery(req, res) {
 							inputSchema: {
 								type: 'object',
 								properties: { limit: { type: 'integer', minimum: 1, maximum: 50, default: 50 } },
+							},
+						}),
+					};
+				})(),
+				(() => {
+					const url = `${origin}/api/x402/pipeline-rig`;
+					const accepts = acceptsForPrice('50000', url);
+					return {
+						path: '/api/x402/pipeline-rig',
+						url,
+						method: 'POST',
+						description:
+							'3D Asset Pipeline — Rig: pay $0.05 USDC to make a static GLB animation-ready. A humanoid skeleton is inferred and bound to the mesh with skin weights so the model can walk, wave, and emote. POST a public glb_url; get back a durable first-party rigged GLB URL. No other x402 resource rigs a mesh.',
+						mimeType: 'application/json',
+						serviceName: routeMeta.pipelineRig.serviceName,
+						tags: routeMeta.pipelineRig.tags,
+						iconUrl: routeMeta.pipelineRig.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'POST',
+							discoverable: true,
+							input: { glb_url: 'https://three.ws/forge/character.glb', rig_type: 'biped' },
+							inputSchema: {
+								type: 'object',
+								required: ['glb_url'],
+								properties: {
+									glb_url: { type: 'string', format: 'uri', description: 'Public HTTPS URL of the static .glb mesh to rig.' },
+									rig_type: { type: 'string', enum: ['biped', 'quadruped'], default: 'biped' },
+								},
+							},
+						}),
+					};
+				})(),
+				(() => {
+					const url = `${origin}/api/x402/pipeline-remesh`;
+					const accepts = acceptsForPrice('30000', url);
+					return {
+						path: '/api/x402/pipeline-remesh',
+						url,
+						method: 'POST',
+						description:
+							'3D Asset Pipeline — Remesh: pay $0.03 USDC to retopologize a GLB. Triangle, quad, or low-poly remeshing plus repair and decimation to a target face count, with the texture re-baked onto the new topology. POST a public glb_url and options; get back a durable first-party GLB URL.',
+						mimeType: 'application/json',
+						serviceName: routeMeta.pipelineRemesh.serviceName,
+						tags: routeMeta.pipelineRemesh.tags,
+						iconUrl: routeMeta.pipelineRemesh.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'POST',
+							discoverable: true,
+							input: { glb_url: 'https://three.ws/forge/sample.glb', remesh_mode: 'quad', target_faces: 20000 },
+							inputSchema: {
+								type: 'object',
+								required: ['glb_url'],
+								properties: {
+									glb_url: { type: 'string', format: 'uri', description: 'Public HTTPS URL of the source .glb mesh.' },
+									remesh_mode: { type: 'string', enum: ['triangle', 'quad', 'lowpoly'], default: 'triangle' },
+									operation: { type: 'string', enum: ['full', 'simplify', 'repair', 'convert'], default: 'full' },
+									target_faces: { type: 'integer', minimum: 1000, maximum: 500000, default: 50000 },
+									texture_size: { type: 'integer', enum: [512, 1024, 2048], default: 1024 },
+								},
+							},
+						}),
+					};
+				})(),
+				(() => {
+					const url = `${origin}/api/x402/pipeline-gameready`;
+					const accepts = acceptsForPrice('30000', url);
+					return {
+						path: '/api/x402/pipeline-gameready',
+						url,
+						method: 'POST',
+						description:
+							'3D Asset Pipeline — Game-Ready: pay $0.03 USDC to make a GLB engine-ready. The mesh is retopologized to a fixed polygon budget (quad QuadriFlow or silhouette-preserving low-poly) with PBR re-baked onto the new topology. POST a public glb_url + poly_budget; get back a durable first-party GLB URL.',
+						mimeType: 'application/json',
+						serviceName: routeMeta.pipelineGameready.serviceName,
+						tags: routeMeta.pipelineGameready.tags,
+						iconUrl: routeMeta.pipelineGameready.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'POST',
+							discoverable: true,
+							input: { glb_url: 'https://three.ws/forge/prop.glb', topology: 'quad', poly_budget: 12000 },
+							inputSchema: {
+								type: 'object',
+								required: ['glb_url'],
+								properties: {
+									glb_url: { type: 'string', format: 'uri', description: 'Public HTTPS URL of the source .glb mesh.' },
+									topology: { type: 'string', enum: ['quad', 'tri'], default: 'quad' },
+									poly_budget: { type: 'integer', minimum: 1000, maximum: 500000, default: 15000 },
+									texture_size: { type: 'integer', enum: [1024, 2048], default: 1024 },
+								},
+							},
+						}),
+					};
+				})(),
+				(() => {
+					const url = `${origin}/api/x402/pipeline-stylize`;
+					const accepts = acceptsForPrice('30000', url);
+					return {
+						path: '/api/x402/pipeline-stylize',
+						url,
+						method: 'POST',
+						description:
+							'3D Asset Pipeline — Stylize: pay $0.03 USDC to geometrically restyle a GLB. Voxel, brick, Voronoi-shatter, or faceted low-poly filters that rebuild the mesh itself (not a shader), so the look survives export to any engine. POST a public glb_url + style; get back a durable first-party GLB URL.',
+						mimeType: 'application/json',
+						serviceName: routeMeta.pipelineStylize.serviceName,
+						tags: routeMeta.pipelineStylize.tags,
+						iconUrl: routeMeta.pipelineStylize.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'POST',
+							discoverable: true,
+							input: { glb_url: 'https://three.ws/forge/statue.glb', style: 'voxel', resolution: 48 },
+							inputSchema: {
+								type: 'object',
+								required: ['glb_url'],
+								properties: {
+									glb_url: { type: 'string', format: 'uri', description: 'Public HTTPS URL of the source .glb mesh.' },
+									style: { type: 'string', enum: ['voxel', 'brick', 'voronoi', 'lowpoly'], default: 'voxel' },
+									resolution: { type: 'integer', description: 'Style density, clamped per filter.' },
+								},
+							},
+						}),
+					};
+				})(),
+				(() => {
+					const url = `${origin}/api/x402/pipeline-rembg`;
+					const accepts = acceptsForPrice('10000', url);
+					return {
+						path: '/api/x402/pipeline-rembg',
+						url,
+						method: 'POST',
+						description:
+							'3D Asset Pipeline — Background Removal: pay $0.01 USDC to strip the background from an image, returning a transparent PNG — the clean reference view image→3D reconstruction needs so it never bakes a room into the mesh. POST a public image_url; get back a durable first-party PNG URL.',
+						mimeType: 'application/json',
+						serviceName: routeMeta.pipelineRembg.serviceName,
+						tags: routeMeta.pipelineRembg.tags,
+						iconUrl: routeMeta.pipelineRembg.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'POST',
+							discoverable: true,
+							input: { image_url: 'https://three.ws/uploads/photo.jpg', model: 'rmbg2' },
+							inputSchema: {
+								type: 'object',
+								required: ['image_url'],
+								properties: {
+									image_url: { type: 'string', format: 'uri', description: 'Public HTTPS URL of the source image (PNG, JPEG, WEBP, or GIF).' },
+									model: { type: 'string', enum: ['rmbg2', 'u2net', 'isnet', 'u2net_human_seg', 'silueta'], default: 'rmbg2' },
+								},
 							},
 						}),
 					};
