@@ -23,39 +23,18 @@ import { defineEndpoint, fail } from '../../_lib/gateway.js';
 import { json } from '../../_lib/http.js';
 import { limits } from '../../_lib/rate-limit.js';
 import { backendIsConfigured } from '../../_lib/forge-tiers.js';
-import { startForge, originFromReq, viewerUrl } from '../../_mcp-studio/forge-client.js';
+import { startForge, originFromReq } from '../../_mcp-studio/forge-client.js';
+import { shapeResult, quotaBody, resetSeconds, DAILY_QUOTA, PROMPT_MIN, PROMPT_MAX } from './_text-to-3d-lane.js';
 
-const DAILY_QUOTA = 10;
-const PROMPT_MIN = 3;
-const PROMPT_MAX = 1000;
-const PAID_FORGE_ENDPOINT = '/api/x402/forge';
+export { shapeResult } from './_text-to-3d-lane.js';
 
-// Translate a /api/forge draft-lane payload into the versioned response contract.
-// Pure + exported so the lane boundary can be pinned in tests against real
-// captured shapes (inline-done vs queued) without touching the network.
-export function shapeResult(job, base) {
-	const glbUrl = typeof job?.glb_url === 'string' ? job.glb_url : '';
-	if (job?.status === 'done' && glbUrl) {
-		return {
-			status: 'done',
-			glb_url: glbUrl,
-			viewer_url: viewerUrl(base, glbUrl),
-			creation_id: job.creation_id ?? null,
-			backend: 'nvidia',
-			tier: 'draft',
-		};
-	}
-	// Queued: hand back the signed job token and the existing free poll URL. The
-	// viewer link isn't known until the GLB lands, so it's null until then.
-	const token = job?.job_id ?? null;
-	return {
-		status: 'pending',
-		job: token,
-		poll_url: token ? `/api/forge?job=${encodeURIComponent(token)}` : null,
-		viewer_url: null,
-		backend: 'nvidia',
-		tier: 'draft',
-	};
+// The NVIDIA NIM lane can't serve without its key. Throw the platform's canonical
+// missing-env error so the gateway's `wrap` renders the standard 503
+// not_configured envelope and names the exact var to the operator (logs + ops
+// alert) — which secrets are unset is operator information, never leaked to the
+// client (see api/_lib/http.js `wrap`).
+function throwNotConfigured() {
+	throw new Error('Missing required env var: NVIDIA_API_KEY');
 }
 
 // Map a startForge lane failure to an honest boundary error. The buyer/user is
@@ -63,7 +42,9 @@ export function shapeResult(job, base) {
 function failFromLane(err) {
 	const code = err?.code;
 	if (code === 'not_configured') {
-		fail(503, 'not_configured', err.message || 'Free text→3D is not configured on this deployment — set NVIDIA_API_KEY.');
+		// The nvidia backend's not_configured is precisely a missing NVIDIA env —
+		// route it through the same canonical 503 not_configured path.
+		throwNotConfigured();
 	}
 	if (code === 'busy') {
 		fail(429, 'rate_limited', err.message || 'The free text→3D lane is momentarily busy — try again shortly.');
@@ -88,38 +69,22 @@ export default defineEndpoint({
 		}
 
 		// The free draft lane pins the NVIDIA NIM TRELLIS backend. If its key isn't
-		// present the lane can't serve — surface a clear 503 naming the exact var.
+		// present the lane can't serve — surface the platform's clean 503
+		// not_configured (the missing var is named to the operator, not the client).
 		if (!backendIsConfigured('nvidia')) {
-			fail(
-				503,
-				'not_configured',
-				'Free text→3D is not configured on this deployment — set NVIDIA_API_KEY to enable the NVIDIA NIM TRELLIS lane.',
-			);
+			throwNotConfigured();
 		}
 
 		// Per-IP daily GPU quota. Above it: 429 with reset + paid upsell, never a
 		// silent paywall. Consumed before submit so a burst can't outrun the meter.
 		const rl = await limits.aiTextTo3d(ip);
 		if (!rl.success) {
-			const resetSec = Math.max(1, Math.ceil(((rl.reset ?? Date.now()) - Date.now()) / 1000));
+			const resetSec = resetSeconds(rl, Date.now());
 			res.setHeader('X-RateLimit-Limit', String(rl.limit ?? DAILY_QUOTA));
 			res.setHeader('X-RateLimit-Remaining', '0');
 			res.setHeader('X-RateLimit-Reset', String(resetSec));
 			res.setHeader('Retry-After', String(resetSec));
-			return json(res, 429, {
-				error: 'quota_exceeded',
-				error_description: `Free text→3D is capped at ${DAILY_QUOTA} generations per day per IP. Your quota resets in ${resetSec}s.`,
-				retry_after: resetSec,
-				reset_seconds: resetSec,
-				quota: { limit: rl.limit ?? DAILY_QUOTA, window: '24h' },
-				// Not a paywall — a doorway. The paid forge tiers have no daily cap and
-				// add higher quality/volume for agents that outgrow the free lane.
-				upgrade: {
-					message: 'Need higher volume or quality? The paid forge tiers have no daily cap.',
-					endpoint: PAID_FORGE_ENDPOINT,
-					docs: '/docs/api-reference',
-				},
-			});
+			return json(res, 429, quotaBody(rl, resetSec));
 		}
 
 		const base = originFromReq(req);

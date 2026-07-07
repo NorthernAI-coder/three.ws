@@ -49,13 +49,14 @@ function failure(code, message, extra = {}) {
 // Submit a generation job to /api/forge. Handles both the synchronous-done shape
 // (the free NVIDIA lane often completes inside the submit window) and the queued
 // shape ({ job_id }). `backend`/`path` let forge_free pin the free NVIDIA lane.
-export async function startForge(base, { prompt, imageUrls, aspect, backend, path }) {
+export async function startForge(base, { prompt, imageUrls, aspect, backend, path, tier }) {
 	const payload = {
 		...(prompt ? { prompt } : {}),
 		...(Array.isArray(imageUrls) && imageUrls.length ? { image_urls: imageUrls } : {}),
 		...(aspect ? { aspect_ratio: aspect } : {}),
 		...(backend ? { backend } : {}),
 		...(path ? { path } : {}),
+		...(tier ? { tier } : {}),
 	};
 	let res;
 	try {

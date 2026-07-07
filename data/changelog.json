@@ -3,6 +3,24 @@
 	"entries": [
 		{
 			"date": "2026-07-07",
+			"title": "Free bonding-curve status API for pump.fun tokens",
+			"summary": "A new free, keyless endpoint tells an agent exactly where a pump.fun token sits on its bonding curve: how far along it is toward graduation (%), how much SOL is in the curve, how many tokens are left to buy, and whether it has already graduated and migrated to Raydium or PumpSwap. Timing entries and exits around graduation is a core meme-trading move, and this is the one call that answers it — no account, no key, just GET /api/crypto/bonding?mint=<mint>. It pairs with the live launches feed to watch fresh mints climb their curve. Part of the free three.ws Crypto Data API; full reference with runnable curls at /docs/crypto-api.",
+			"tags": [
+				"feature"
+			],
+			"link": "/docs/crypto-api"
+		},
+		{
+			"date": "2026-07-07",
+			"title": "Vanity address grinder listing overhauled",
+			"summary": "Our Solana vanity grinder — grind a brand-new address that starts with your ticker for a branded token mint or agent/treasury wallet — now reads like the flagship it is on the x402 agent marketplaces. The listing leads with what agents actually use it for, spells out both output formats (a raw keypair or an importable BIP-39 seed phrase), the character caps and the full price ladder ($0.01–$0.25 for a keypair, $0.05–$0.50 for a mnemonic), and the security model: nothing is ever stored, the secret is served once over TLS and stripped from the replay cache, and an optional sealed-delivery key means the plaintext never appears in the response or any log. The discovery schema is now complete enough for an agent to grind an address blind, and the premium pre-ground inventory tier is now indexable too — so all three vanity tiers surface on the marketplaces and can never drift from what the live payment charges. New reference doc at /docs/vanity.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/docs/vanity"
+		},
+		{
+			"date": "2026-07-07",
 			"title": "Speech for agents: keyless text-to-speech and speech-to-text over x402",
 			"summary": "Two new AI endpoints give agents a voice and an ear with no account and no API key. POST /api/v1/ai/tts turns text into natural multilingual speech (nine languages on the NVIDIA Magpie lane); POST /api/v1/ai/asr transcribes audio to text with confidence and duration — the only speech-to-text lane anywhere in the x402 ecosystem. Both are free to try — 10 TTS calls and 5 ASR clips per day per IP — and past that quota each call is a tiny USDC micropayment settled on Solana or Base ($0.005 per TTS call, $0.01 per ASR clip). The response looks the same whether it was free or paid, so an agent writes one integration for both. Full reference with runnable curls lives at /docs/api-reference.",
 			"tags": [
