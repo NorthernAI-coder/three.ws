@@ -33,13 +33,13 @@ Authoritative sources (re-fetch at submission time; requirements move):
 ## Run order
 
 ### Track A — Claude Connectors Directory (do first)
-1. `01-claude-tool-annotation-audit.md` — every tool has a correct `title` + annotation set. (Also unblocks OpenAI.)
-2. `02-claude-reviewer-access-guide.md` — free verification path, graceful `PaymentRequired`, reviewer setup/test-account doc.
-3. `03-claude-submission-package.md` — privacy URL, allowed-links, server metadata, the exact form-fill content + compliance acknowledgments.
+1. `01-claude-tool-annotation-audit.md` — ✅ SHIPPED (verified 2026-07-07; prompt retired — deliverables live in the repo/`_generated/`) — every tool has a correct `title` + annotation set. (Also unblocks OpenAI.)
+2. `02-claude-reviewer-access-guide.md` — ✅ SHIPPED (verified 2026-07-07; prompt retired — deliverables live in the repo/`_generated/`) — free verification path, graceful `PaymentRequired`, reviewer setup/test-account doc.
+3. `03-claude-submission-package.md` — ✅ SHIPPED (verified 2026-07-07; prompt retired — deliverables live in the repo/`_generated/`) — privacy URL, allowed-links, server metadata, the exact form-fill content + compliance acknowledgments.
 
 ### Track B — OpenAI ChatGPT App (do after Track A, or in parallel)
 4. `04-openai-free-3d-endpoint.md` — a free, non-crypto, scoped 3D-generation MCP endpoint.
-5. `05-openai-apps-sdk-component.md` — the embedded GLB-viewer UI component the Apps SDK expects.
+5. `05-openai-apps-sdk-component.md` — ✅ SHIPPED (verified 2026-07-07; prompt retired — deliverables live in the repo/`_generated/`) — the embedded GLB-viewer UI component the Apps SDK expects.
 6. `06-openai-submission-package.md` — OpenAI directory metadata, policy-compliance audit, screenshots, developer verification.
 
 ### Track C — Differentiation layer (the 10x–100x; what makes us NOT just another listing)
@@ -51,7 +51,7 @@ Baseline (01–06) gets us *listed*. Track C makes us *un-ignorable*. The thesis
 The 100x meta-move (positioning, not a single prompt): don't just *be in* the stores — **own a category across them.** Publish an open pattern for 3D-native / spatial MCP responses (tool results that return live interactive scenes, not text) and x402 agent-commerce patterns, and be the reference implementation other apps call under the hood. Infrastructure, not an app.
 
 ### Track D — Claude plugin & skill ecosystem (beyond the Connectors Directory)
-10. `10-claude-code-plugin-marketplace.md` — finish, validate, and make installable the three.ws Claude Code plugin marketplace (`/plugin marketplace add`), incl. the missing 3D plugin.
+10. `10-claude-code-plugin-marketplace.md` — ✅ SHIPPED (verified 2026-07-07; prompt retired — deliverables live in the repo/`_generated/`) — finish, validate, and make installable the three.ws Claude Code plugin marketplace (`/plugin marketplace add`), incl. the missing 3D plugin.
 11. `11-claude-agent-skills-pack.md` — harden the wallet/x402 skills into a distributable Agent Skills pack and add the 3D-creation skills. Tags a crypto-free creative subset the OpenAI track reuses.
 
 ### Track E — OpenAI GPT Store + MCP registries
@@ -59,7 +59,7 @@ The 100x meta-move (positioning, not a single prompt): don't just *be in* the st
 13. `13-mcp-registry-directories.md` — get every three.ws MCP server listed + consistent across the official registry, Smithery, Glama, mcp.so, PulseMCP, LobeHub, from one canonical metadata source.
 
 ### Track F — Shared (run early, finish last)
-14. `14-cross-store-asset-kit.md` — one canonical icon/screenshot/copy kit (Claude-full + OpenAI-free variants) every listing reuses, plus a live submission tracker across all targets.
+14. `14-cross-store-asset-kit.md` — ✅ SHIPPED (verified 2026-07-07; prompt retired — deliverables live in the repo/`_generated/`) — one canonical icon/screenshot/copy kit (Claude-full + OpenAI-free variants) every listing reuses, plus a live submission tracker across all targets.
 
 ### Track G — Net-new primitives at the 3D × AI × crypto × web3 intersection (the build layer)
 Tracks A–F get us *listed, packaged, and distributed*. Track G is where we **build tools people actually use** by fusing the four things only three.ws has in one place — generation, embeddable 3D, Solana/x402 rails, and agent identity. Each is a standalone, shippable primitive that also becomes a flagship use case for the listings above.
