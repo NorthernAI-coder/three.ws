@@ -104,7 +104,7 @@ export default paidEndpoint({
 	description: DESCRIPTION,
 	bazaar: BAZAAR,
 	service: withService({
-		serviceName: 'three.ws Pipeline — Rig',
+		serviceName: 'three.ws Pipeline - Rig',
 		tags: ['3d', 'rigging', 'skeleton', 'glb', 'pipeline'],
 	}),
 	requiredScope: 'x402:bypass',
