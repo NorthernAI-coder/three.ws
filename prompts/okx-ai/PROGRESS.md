@@ -335,3 +335,35 @@ two leftovers from other work streams:
    **Owner note:** this row auto-feeds the sitemap + public changelog page-launch entry for
    the already-live /sperax page — flagging per the other-coin commit gate; revert the row
    if unwanted (deploys will fail again until the page is removed or exempted).
+
+---
+
+## 2026-07-07 — Work Order 05 session: STOPPED AT THE HARD GATE — no GO from 04
+
+**Outcome: Work Order 05 (update #2632 + resubmit) did not run. Its hard gate requires an
+explicit GO from Work Order 04, and 04 has never executed.** No code changed, no CLI writes,
+no money moved, agent #2632 untouched.
+
+### Gate audit
+
+- The only WO-04 session entry in this log (2026-07-06) is a **NO-GO** (preconditions then
+  missing — since fixed by the 01/03 sessions).
+- The WO-03 close-out's "Work Order 04: GO" is a *conditional green light for 04 to run*
+  ("once the owner sets the env vars + funds"), not a GO **from** 04 for 05. The 04 gauntlet
+  (real funded payment per service, settlement verified on X Layer) has produced no entry
+  and no evidence files beyond the 2026-07-06 precondition probes.
+- Git history since 2026-07-06 confirms: no commit touches `prompts/okx-ai/` with WO-04
+  results; nothing new under `prompts/okx-ai/e2e-evidence/`.
+
+### What unblocks the sequence (unchanged owner items, from the 01/03 entries)
+
+1. **OKX API credentials** in Vercel env: `OKX_API_KEY`, `OKX_SECRET_KEY`, `OKX_PASSPHRASE`,
+   plus `X402_PAY_TO_XLAYER=0x75d00a2713565171f33216e5aa2a375e076ecf69`.
+2. **USD₮0 funding** of `0x75d00a2713565171f33216e5aa2a375e076ecf69` on X Layer (chainId 196),
+   token `0x779ded0c9e1022225f8e0630b35a9b54be713736` — ≥ $2.98 covers one paid call of every
+   catalog service; ~$5 recommended.
+
+### Next
+
+- Owner provisions the two items above → run **Work Order 04** (`04-e2e-real-payment-test.md`)
+  → on its explicit GO, re-dispatch this Work Order 05.
