@@ -505,6 +505,15 @@ path verified end-to-end via `scanTokenWhales`/`scanMarketWhales` (output above)
 The vitest file mirrors those exact assertions; re-run
 `npx vitest run tests/crypto-whales.test.js` once the install storm settles.
 
+**2026-07-07 follow-up — test re-run done.** `npx vitest run
+tests/crypto-whales.test.js` now runs clean: **14/14 pass**. One assertion had a
+test-side bug (numeric array compared via comparator-less `.sort()`, which sorts
+lexicographically — `[10, 5]` stays `[10, 5]` because `"10" < "5"`); fixed with
+`.sort((a, b) => a - b)`. Production re-verified live the same day: market scope
+(`?minSol=3&limit=3`) returned 31 whales / 468.4 SOL / `bearish`, and token scope
+for `$THREE` returned three ≥5 SOL buys with real tx hashes. Prompt 06 DoD fully
+closed.
+
 **Adjacent gaps noticed (for other prompts):**
 - Prompt 10 owns `api/_lib/crypto-catalog/index.js` (assembler), `api/crypto/index.js`,
   `/api/crypto/openapi.json`, the `/docs/crypto-api` page registration in
