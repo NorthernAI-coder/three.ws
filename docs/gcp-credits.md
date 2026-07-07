@@ -1040,8 +1040,10 @@ $100k over ~2 months is ~$1,600/day. This section is how we **see** the burn in
 real time, **attribute** it to each lane, **alert** before any lane runs away
 (especially the GPU fleet and Vertex Claude if flipped to primary), and guard the
 opposite failure — credits sitting **unused** at expiry. Everything here is code
-that is live and runnable now; the only blocked step is enabling the BigQuery
-billing export (one console action) and the same gcloud reauth as the foundation.
+that is live and runnable now; gcloud auth is restored and the budget→webhook path
+is wired and tested (below). The only steps left are two owner actions: selecting
+the pre-created `billing_export` dataset in the console and setting the Telegram ops
+creds in Vercel.
 
 ### The burn report — `scripts/gcp/burn-report.mjs`
 
@@ -1123,18 +1125,22 @@ which turns each threshold crossing into a Telegram ping via `sendOpsAlert` — 
 PRIVATE ops chat (`TELEGRAM_ALERTS_CHAT_ID`), **never** the holders' channel.
 Deduped per budget+threshold so each crossing pings once/hour.
 
-Wire the push subscription (owner, after `--apply`):
+Wire the push subscription (**done 2026-07-07** — commands kept for rotation/DR;
+the live subscription is `gcp-budget-alerts-webhook`, `ACTIVE`):
 
 ```bash
 # 1. shared secret the handler checks (constant-time)
 printf '<random-secret>' | vercel env add GCP_BUDGET_WEBHOOK_SECRET production
-# 2. let the budgets SA publish to the topic
+# 2. (optional) let the budgets SA publish to the topic — GCP's budget notifier
+#    provisions its own publisher on the first real threshold, so this manual grant
+#    is not required; it currently fails "does not exist" (org DRS / lazy SA).
 gcloud pubsub topics add-iam-policy-binding gcp-budget-alerts \
   --project=aerial-vehicle-466722-p5 \
   --member=serviceAccount:billing-budgets.iam.gserviceaccount.com --role=roles/pubsub.publisher
 # 3. push subscription → the webhook (secret in the query string)
-gcloud pubsub subscriptions create gcp-budget-alerts-push \
+gcloud pubsub subscriptions create gcp-budget-alerts-webhook \
   --project=aerial-vehicle-466722-p5 --topic=gcp-budget-alerts \
+  --ack-deadline=30 \
   --push-endpoint="https://three.ws/api/webhooks/gcp-budget-alert?token=<random-secret>"
 ```
 
@@ -1202,7 +1208,7 @@ under-utilization get distinct, un-deduped signatures so they always land; an
 on-track day posts a quiet one-line status. If the export isn't wired it says so
 once/day rather than erroring.
 
-### Current status (2026-07-07)
+### Current status (2026-07-07, later session)
 
 Live progress after the 2026-07-07 reauth:
 
@@ -1210,12 +1216,27 @@ Live progress after the 2026-07-07 reauth:
   + per-service Vertex AI $55k / Cloud Run $20k / Compute Engine $15k, thresholds
   25/50/75/90/100%. Pub/Sub topic `gcp-budget-alerts` created. Budget **email**
   alerts to billing admins are active now.
-- **Pub/Sub → Telegram leg pending:** granting `billing-budget-alerts@system.gserviceaccount.com`
-  publisher on the topic fails with "does not exist" — likely the org's
-  domain-restricted-sharing policy (org `530103279143`) or the system SA is created
-  lazily on first notification. Retry after the first threshold email, or add the
-  system SA to the org's DRS allowlist. The push subscription is also deferred until
-  the Vercel CLI is authed (`GCP_BUDGET_WEBHOOK_SECRET` must land in Vercel first).
+- **Pub/Sub → webhook leg: WIRED & TESTED.** `GCP_BUDGET_WEBHOOK_SECRET` pushed to
+  Vercel prod; push subscription `gcp-budget-alerts-webhook` created against
+  `https://three.ws/api/webhooks/gcp-budget-alert?token=…` (state `ACTIVE`). Auth
+  verified live against prod: no/invalid token → `401`, valid token → `200` ACK. A
+  synthetic budget notification published to the topic delivers through the
+  subscription to the handler. **Last hop still owner-gated:** `sendOpsAlert`
+  no-ops because `TELEGRAM_BOT_TOKEN` + `TELEGRAM_ALERTS_CHAT_ID` are **not** set in
+  Vercel prod (owner secrets — same missing creds as `agent-sniper` below). Set both
+  in Vercel and the ops ping goes live with zero code change. The
+  `billing-budget-alerts@system.gserviceaccount.com` publisher grant still returns
+  "does not exist" (org DRS or lazy system-SA creation) — GCP's budget notifier
+  provisions its own publisher on the first real threshold crossing, so the
+  end-to-end path does not depend on that manual grant; the synthetic-publish test
+  above already proves subscription → webhook.
+- **BigQuery billing export: dataset pre-created.** `billing_export` (location `US`)
+  now exists in `aerial-vehicle-466722-p5` — the owner's remaining step is only to
+  **select it** in Billing → Billing export → BigQuery export (still console-only;
+  no gcloud/API path exists, confirmed this session). Once selected, BigQuery
+  auto-creates `gcp_billing_export_v1_01B467_A61905_9A97D2` and the burn report /
+  dashboard / cron begin reporting. `burn-report.mjs` currently degrades correctly
+  to "billing export table not found" against the empty dataset.
 - **Attribution labels: applied** (`label-resources.sh --apply`): all 9 Cloud Run
   services + both buckets carry `program=gcp-credits` and a lane
   (`forge-gpu` for the model/editing workers, `platform` for agent-sniper /
@@ -1229,12 +1250,21 @@ Live progress after the 2026-07-07 reauth:
   them.
 
 Burn rate, exhaustion projection, and full/unused-credit tracking remain **wired
-but not reporting** — they require the BigQuery billing export (owner console
-action above; confirmed still absent 2026-07-07 — `bq ls` shows no datasets). The moment the export lands and `GCP_CREDIT_TOTAL_USD` /
-`GCP_CREDIT_EXPIRY` are set, `node scripts/gcp/burn-report.mjs` prints the live
-burn rate and days-of-runway, the dashboard fills in, and the daily cron begins
-posting. Until then the app-side lane telemetry on `/dashboard/spend` is the live
-view. Program budget targets for the alerts: Claude-on-Vertex $40–60k, GPU fleet
-$15–25k, Imagen $3–5k, vanity/observability/misc ~$5k.
+but not reporting** — they need the owner to select the pre-created `billing_export`
+dataset in the console (one click; dataset now exists) and set `GCP_CREDIT_TOTAL_USD` /
+`GCP_CREDIT_EXPIRY`. The moment the export starts flowing, `node scripts/gcp/burn-report.mjs`
+prints the live burn rate and days-of-runway, the dashboard fills in, and the daily
+cron begins posting. Until then the app-side lane telemetry on `/dashboard/spend` is
+the live view. Program budget targets for the alerts: Claude-on-Vertex $40–60k, GPU
+fleet $15–25k, Imagen $3–5k, vanity/observability/misc ~$5k.
 
-_Spend-observability section last verified against source: 2026-07-06._
+**Two remaining owner actions to fully activate prompt-07 ops:**
+1. Billing → Billing export → BigQuery export → select the `billing_export` dataset
+   (already created); then set `GCP_BILLING_DATASET=billing_export`,
+   `GCP_BILLING_ACCOUNT_ID=01B467-A61905-9A97D2`, `GCP_CREDIT_TOTAL_USD=100000`,
+   `GCP_CREDIT_EXPIRY=<date>` in Vercel + `.env`.
+2. Set `TELEGRAM_BOT_TOKEN` + `TELEGRAM_ALERTS_CHAT_ID` in Vercel prod so budget
+   alerts (subscription already delivering) and the daily cron actually ping the ops
+   chat instead of no-op'ing.
+
+_Spend-observability section last verified against source: 2026-07-07 (later session)._
