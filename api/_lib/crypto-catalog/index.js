@@ -25,6 +25,7 @@ import { basename, dirname, join } from 'node:path';
 
 import bondingEntry from './bonding.js';
 import launchesEntry from './launches.js';
+import securityEntry from './security.js';
 import symbolEntry from './symbol.js';
 import tokenEntry from './token.js';
 import trendingEntry from './trending.js';
@@ -43,6 +44,7 @@ import whalesEntry from './whales.js';
 const STATIC_ENTRIES = [
 	{ mod: bondingEntry, source: 'bonding.js' },
 	{ mod: launchesEntry, source: 'launches.js' },
+	{ mod: securityEntry, source: 'security.js' },
 	{ mod: symbolEntry, source: 'symbol.js' },
 	{ mod: tokenEntry, source: 'token.js' },
 	{ mod: trendingEntry, source: 'trending.js' },

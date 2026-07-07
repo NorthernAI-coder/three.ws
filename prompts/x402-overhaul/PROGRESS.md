@@ -1643,7 +1643,10 @@ both catalogs updated to say so.
 - **lpBurnedOrLocked honesty:** asserted true ONLY as a protocol fact for
   pump.fun-native coins (curve custody / LP burned on Raydium graduation /
   protocol-owned PumpSwap pool). Every other token: null. Never a fake "safe".
-- **Catalog:** `api/_lib/crypto-catalog/security.js`; docs table row + full
+- **Catalog:** `api/_lib/crypto-catalog/security.js` + registered in the
+  STATIC_ENTRIES barrel in `crypto-catalog/index.js` (required for production
+  since 4fdbdb5cf — the glob alone doesn't survive the esbuild bundle);
+  docs table row + full
   section (check table, exact riskLevel rule, states, curls) in
   `docs/crypto-api.md`; `data/changelog.json` entry (feature, security),
   validated by `npm run build:pages`.
