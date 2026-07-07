@@ -63,6 +63,14 @@
 			<description>The paid Agent Reputation endpoint no longer only works on three.ws agents — pass ANY counterparty and get a deterministic 0–100 trust score before you pay, trade, or delegate to it. It auto-detects the type — a Solana wallet, an EVM 0x address, a pump.fun mint, an ERC-8004 agent id, or a three.ws agent_id — and scores it from real on-chain evidence: transaction history, account age, distinct counterparties, holdings, settlement reliability, prior settled agent payments, and ERC-8004 feedback. Every score comes with the underlying evidence links and a clear list of what couldn't be read; an unknown or unscannable subject returns score:null, never a fabricated number. A new batch mode scores up to 25 counterparties in one call. It's a genuine pre-transaction trust primitive that works across chains, not just on our own platform.</description>
 		</item>
 		<item>
+			<title>Cleaner 3D models from stylized prompts</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-07-07:Cleaner 3D models from stylized prompts</guid>
+			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Text-to-3D prompts that name an art style — &quot;a cartoon fox,&quot; &quot;a stylized robot&quot; — now reliably produce a single, cleanly-isolated model instead of one baked into a busy background scene. The image step that seeds every 3D generation was skipping its &quot;isolated subject on a plain white background&quot; instruction whenever a prompt mentioned a style, which let the image model paint a whole illustrated scene the 3D reconstructor then struggled with. It now keeps that isolation instruction for stylized subjects (and no longer trips on unrelated words like &quot;lightsaber&quot;), so stylized characters and props reconstruct as sharp standalone assets.</description>
+		</item>
+		<item>
 			<title>Forge listing sharpened: clear 3D generation tiers for agents</title>
 			<link>https://three.ws/docs/3d-api</link>
 			<guid isPermaLink="false">2026-07-07:Forge listing sharpened: clear 3D generation tiers for agents</guid>
