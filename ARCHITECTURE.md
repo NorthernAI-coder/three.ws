@@ -2303,20 +2303,19 @@ sequenceDiagram
 | Subdir | Contents |
 |--------|----------|
 | `docs/tutorials/` | 43 step-by-step tutorials |
-| `docs/roadmap/` | 22 roadmap / future-work docs |
 | `docs/internal/` | 26 internal specs & proposals (e.g. SNS partnership) |
 | `docs/ux-flows/` | 12 UX flow walkthroughs |
-| `docs/store-submissions/` | 22 app-store / marketplace listing kits |
 | `docs/audits/` · `docs/audit/` | 16 audit reports |
 | `docs/improvement-plans/` | 11 improvement plans |
 | `docs/x402-offer-receipt/` | 7 x402 offer/receipt protocol docs |
 | `docs/pumpfun-program/` | 6 pump.fun program references |
 | `docs/zauth/` | 5 auth/identity protocol docs |
-| `docs/agent-briefs/` | 3 agent briefs |
 | `docs/ops/` · `docs/security/` | Operational + security runbooks |
 | `docs/ibm.md` · `docs/aws-*` · `docs/nvidia-inception/` | Partner integration kits (IBM watsonx, AWS Marketplace, NVIDIA Inception) |
 
 > `docs/ALL.md` (3.4 MB) is a generated concatenation of the entire docs tree; `docs/llms.txt` / `docs/llms-full.txt` are the LLM-discovery indexes.
+
+> **Prompt / work-order collections** (agent-dispatch task files and campaign runbooks — not product docs) live under the top-level [`prompts/`](prompts) directory, not `docs/`: `store-submissions/`, `agent-briefs/`, and `roadmap/` (moved out of `docs/`), alongside `gcp-credits/`, `okx-ai/`, `x402-catalog/`, and `x402-overhaul/`.
 
 ---
 
