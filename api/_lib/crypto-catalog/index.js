@@ -24,6 +24,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { basename, dirname, join } from 'node:path';
 
 import bondingEntry from './bonding.js';
+import holdersEntry from './holders.js';
 import launchesEntry from './launches.js';
 import securityEntry from './security.js';
 import symbolEntry from './symbol.js';
@@ -43,6 +44,7 @@ import whalesEntry from './whales.js';
 // >>> import + line here. The import is what makes it exist in production.
 const STATIC_ENTRIES = [
 	{ mod: bondingEntry, source: 'bonding.js' },
+	{ mod: holdersEntry, source: 'holders.js' },
 	{ mod: launchesEntry, source: 'launches.js' },
 	{ mod: securityEntry, source: 'security.js' },
 	{ mod: symbolEntry, source: 'symbol.js' },

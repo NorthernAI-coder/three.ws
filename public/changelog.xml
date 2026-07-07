@@ -79,6 +79,14 @@
 			<description>A new free, keyless endpoint tells an agent exactly where a pump.fun token sits on its bonding curve: how far along it is toward graduation (%), how much SOL is in the curve, how many tokens are left to buy, and whether it has already graduated and migrated to Raydium or PumpSwap. Timing entries and exits around graduation is a core meme-trading move, and this is the one call that answers it — no account, no key, just GET /api/crypto/bonding?mint=&lt;mint&gt;. It pairs with the live launches feed to watch fresh mints climb their curve. Part of the free three.ws Crypto Data API; full reference with runnable curls at /docs/crypto-api.</description>
 		</item>
 		<item>
+			<title>Free holder distribution / concentration API</title>
+			<link>https://three.ws/docs/crypto-api</link>
+			<guid isPermaLink="false">2026-07-07:Free holder distribution / concentration API</guid>
+			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>New free endpoint in the Crypto Data API: GET /api/crypto/holders shows who actually holds a Solana token before you size a position — the top wallets with their share of supply, the cumulative top-10 percentage, and a clear low/medium/high concentration verdict on documented thresholds. When the platform's indexer key is available holders are aggregated by wallet with an exact count; without it the endpoint still returns the chain's real top accounts, clearly labeled. No API key, no account, honest nulls for anything unknowable.</description>
+		</item>
+		<item>
 			<title>Free live pump.fun launches feed for agents</title>
 			<link>https://three.ws/docs/crypto-api</link>
 			<guid isPermaLink="false">2026-07-07:Free live pump.fun launches feed for agents</guid>

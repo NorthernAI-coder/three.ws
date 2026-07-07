@@ -1692,3 +1692,65 @@ both catalogs updated to say so.
 - The v1 reader's pure functions living inside an endpoint file
   (`api/v1/token/security.js`) is awkward for reuse — a future refactor could
   lift them into `api/_lib/`, but NOT mid-campaign while both files are hot.
+
+## 2026-07-07 — Prompt 03: Free Crypto Data API — Holders & Concentration
+
+**Shipped.**
+
+- **`GET /api/crypto/holders`** (`api/crypto/holders.js`) — free holder
+  distribution for a Solana mint. Params: `address` (required), `chain`
+  (solana/sol only; EVM → honest 400), `limit` 1..50 (default 10, capped not
+  errored). Output: `{ address, chain, holderCount, top:[{ owner, amount,
+  pct }], top10Pct, concentration: low|medium|high|unknown, ts, sources[],
+  note? }`.
+- **`api/_lib/crypto-token-holders.js`** — composition engine, two real paths:
+  1. **Keyed:** Helius DAS `getTokenAccounts` walk (≤5 pages × 1000), aggregated
+     by OWNER wallet (a whale split across token accounts reads as one holder);
+     exact `holderCount` only when the walk completed — beyond the cap it's
+     null + note, never a guess.
+  2. **Keyless (always works):** RPC `getTokenLargestAccounts` (top 20) +
+     `getMultipleAccounts` owner resolution + mint supply for pct; holderCount
+     null (unknowable keylessly), marked in `note`.
+  Supply/percentages anchor on the same `parseMintAccount` the security surfaces
+  use. Concentration thresholds documented + exported: high >80 / medium >50 /
+  low ≤50 / unknown — the 80 bar deliberately matches the security endpoints'
+  top10 flag so surfaces can't contradict.
+- **Two real bugs caught by exercising live before shipping:**
+  1. Mint readable + holder read down → was falling through to `not_found`;
+     now `upstream_down` (a transport failure must never read as "token doesn't
+     exist").
+  2. Public RPCs throttle `getTokenLargestAccounts` with a JSON-RPC **error
+     envelope** — counting that as "answered" turned throttling into a false
+     "brand-new token, no holders" for $THREE. Now only a real array counts as
+     an answer; the throttled read returns a retryable 503. Both regression-tested.
+- **Catalog:** `api/_lib/crypto-catalog/holders.js` + STATIC_ENTRIES barrel
+  registration in `crypto-catalog/index.js` (required for production).
+- **Docs:** table row + full section (concentration thresholds table, both
+  source paths, LP/curve-account honesty note, states, curls) in
+  `docs/crypto-api.md`. `data/changelog.json` entry (feature), validated via
+  `npm run build:pages`.
+- **Tests:** `tests/crypto-token-holders.test.js` — **16 tests**: pct/top10
+  math, owner aggregation + limit cap + zero-balance drop + unresolved-owner
+  keying, threshold boundaries (80/50 exact edges), keyless fallback shape,
+  helius complete/incomplete/throwing paths, brand-new-mint valid-empty,
+  not_found vs upstream_down separation incl. the error-envelope case.
+
+**Verification (real, this session):**
+- `npx vitest run tests/crypto-token-holders.test.js` → **16/16 passed**;
+  `tests/crypto-catalog.test.js` green with the new barrel entry (catalog
+  assembles: bonding, holders, launches, security, symbol, token, trending,
+  wallet, whales).
+- Live handler drive: 400 states correct. Live `$THREE` from THIS box → honest
+  `503 upstream_unavailable` because the local egress is throttled for
+  `getTokenLargestAccounts` on every public RPC in the chain (same limitation
+  documented in prompt 02) — NOT an endpoint fault: production resolves these
+  exact reads (proved live via `/api/v1/token/security` returning top1 5.99% /
+  top10 22.17% for $THREE). Production 200 to be captured post-deploy alongside
+  the prompt-01/02 probes.
+
+**Adjacent gaps noticed:**
+- Prompts 01–03 + 04 are now all built → the original 10-endpoint crypto bundle
+  is complete. Remaining campaign work: 20 (deprecate dead endpoints),
+  21 (unified catalog), 22 (x402scan profile).
+- `heliusHolderWalk` would serve prompt 22's "holder growth" momentum signal
+  too if trending ever wants a holder-delta feature.

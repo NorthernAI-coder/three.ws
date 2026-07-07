@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-07T02:58:42.682Z",
+	"generated_at": "2026-07-07T03:06:11.649Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -93,6 +93,16 @@
 			"type": "update",
 			"title": "Free bonding-curve status API for pump.fun tokens",
 			"summary": "A new free, keyless endpoint tells an agent exactly where a pump.fun token sits on its bonding curve: how far along it is toward graduation (%), how much SOL is in the curve, how many tokens are left to buy, and whether it has already graduated and migrated to Raydium or PumpSwap. Timing entries and exits around graduation is a core meme-trading move, and this is the one call that answers it — no account, no key, just GET /api/crypto/bonding?mint=<mint>. It pairs with the live launches feed to watch fresh mints climb their curve. Part of the free three.ws Crypto Data API; full reference with runnable curls at /docs/crypto-api.",
+			"link": "/docs/crypto-api",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-07-07",
+			"type": "update",
+			"title": "Free holder distribution / concentration API",
+			"summary": "New free endpoint in the Crypto Data API: GET /api/crypto/holders shows who actually holds a Solana token before you size a position — the top wallets with their share of supply, the cumulative top-10 percentage, and a clear low/medium/high concentration verdict on documented thresholds. When the platform's indexer key is available holders are aggregated by wallet with an exact count; without it the endpoint still returns the chain's real top accounts, clearly labeled. No API key, no account, honest nulls for anything unknowable.",
 			"link": "/docs/crypto-api",
 			"tags": [
 				"feature"
