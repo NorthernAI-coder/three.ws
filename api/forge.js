@@ -1865,6 +1865,15 @@ async function pollJob(req, res, jobId) {
 		return rateLimited(res, rl);
 	}
 
+	// A pipeline job token (POST /api/x402/pipeline) polls here too, but its record
+	// is a multi-stage chain, not a single provider job. Hand it to the pipeline
+	// engine, which advances the state machine one tick and returns per-stage
+	// progress. Plain forge jobs (below) are unaffected.
+	if (token?.provider === 'pipeline') {
+		const { pollPipeline } = await import('./_lib/pipeline.js');
+		return pollPipeline(res, token.taskId, jobId);
+	}
+
 	const provider = token?.provider || 'replicate';
 	const upstreamId = token?.taskId || jobId;
 	const clientKey = clientKeyFrom(req);
