@@ -133,7 +133,7 @@ export default paidEndpoint({
 	description: DESCRIPTION,
 	bazaar: BAZAAR,
 	service: withService({
-		serviceName: 'three.ws Pipeline — Remesh',
+		serviceName: 'three.ws Pipeline - Remesh',
 		tags: ['3d', 'remesh', 'retopology', 'glb', 'pipeline'],
 	}),
 	requiredScope: 'x402:bypass',
