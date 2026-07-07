@@ -184,7 +184,7 @@ When the user asks you to push (or to commit + push): `git push threews main`. O
 
 ## No GitHub Actions
 
-**We do not use GitHub Actions.** Do not create, edit, or rely on workflows under `.github/workflows/`. Automation runs elsewhere (Vercel deploys, workers, local scripts) — never propose a GitHub Actions workflow as the solution for CI, scheduling, or deployment.
+**We do not use GitHub Actions.** Do not create, edit, or rely on workflows under `.github/workflows/`. Automation runs elsewhere (Cloud Build deploys, Cloud Scheduler crons, workers, local scripts) — never propose a GitHub Actions workflow as the solution for CI, scheduling, or deployment.
 
 ## Git: NEVER pull or fetch from 3D-Agent
 
@@ -197,7 +197,9 @@ When the user asks you to push (or to commit + push): `git push threews main`. O
 
 - Frontend: vanilla JS modules + Vite (`npm run dev`, port 3000).
 - 3D: Three.js with glTF/GLB.
-- Backend touchpoints: Vercel functions in `api/`, workers in `workers/`.
+- Backend touchpoints: serverless-style handlers in `api/`, workers in `workers/`.
+- **Production runs on Google Cloud Run, NOT Vercel** (migrated 2026-07-07 after Vercel disabled the deployment). One container ([server/index.mjs](server/index.mjs)) serves the static frontend, the vercel.json route table, and all `api/**` handlers; the 76 crons run on Cloud Scheduler. Deploy with `npm run deploy:gcp` (frontend changes need `npm run build` first). `vercel.json` is a LIVE config file consumed by the server (routes + crons) — never delete it as a leftover. Full runbook incl. LB/DNS/TLS/env/rollback/recovery: `docs/ops/gcp-production.md`. GCP builds/deploys must pin the `three-ws-build@` (build) and `three-ws@` (runtime) service accounts — the project's default compute SA was deleted.
+- **Env-var trap:** `vercel env pull` returns EMPTY for secret-type vars — never trust a Vercel env export as complete. Production env lives on the Cloud Run service (`gcloud run services describe/update three-ws-api --region us-central1`).
 - Solana/agent SDKs in `sdk/`, `solana-agent-sdk/`, `agent-payments-sdk/`.
 - Real APIs in use: Pump.fun feed, Solana RPC, OpenAI/Anthropic via worker proxies. Never mock these.
 - **Orientation:** `STRUCTURE.md` maps every product surface to its directory. Read it before exploring the 60+ top-level dirs.
