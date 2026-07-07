@@ -13,6 +13,12 @@ import { Readable } from 'node:stream';
 process.env.PUBLIC_APP_ORIGIN = 'https://three.ws';
 process.env.X402_PAY_TO_BASE ||= '0x0000000000000000000000000000000000000001';
 process.env.X402_ASSET_ADDRESS_BASE ||= '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+// OKX Agent Payments Protocol rail (specs/okx-agent-payments.md): payTo +
+// settlement route configured → the eip155:196 accept is advertised. The
+// relayer key is a synthetic, publicly-known test vector.
+process.env.X402_PAY_TO_XLAYER ||= '0x75d00a2713565171f33216e5aa2a375e076ecf69';
+process.env.X402_XLAYER_RELAYER_KEY ||=
+	'0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
 
 // Bearer path is out of scope — no token is ever presented in these tests.
 vi.mock('../../api/_lib/auth.js', () => ({

@@ -4,6 +4,10 @@ description: Make a paid API request to an x402 endpoint with automatic USDC pay
 user-invocable: true
 disable-model-invocation: false
 allowed-tools: ["Bash(npx awal@2.10.0 status*)", "Bash(npx awal@2.10.0 balance*)", "Bash(npx awal@2.10.0 x402 pay *)"]
+metadata:
+  category: wallet/payments
+  cross-platform-safe: false
+  pack: three-ws-skills
 ---
 
 # Making Paid x402 Requests

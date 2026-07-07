@@ -1172,6 +1172,12 @@ export function encodePaymentResponseHeader(settleResult, extensions) {
 		transaction: settleResult.transaction,
 		network: settleResult.network,
 		payer: settleResult.payer,
+		// SettleResponse extras the OKX Agent Payments Protocol receipt carries
+		// (specs/okx-agent-payments.md §1.4): `status` ("success"/"pending" —
+		// pending buyers poll /settle/status), `amount` in atomic units. Other
+		// rails' facilitators don't return them; absent stays absent.
+		...(settleResult.status ? { status: settleResult.status } : {}),
+		...(settleResult.amount ? { amount: settleResult.amount } : {}),
 	};
 	if (extensions && Object.keys(extensions).length > 0) {
 		body.extensions = extensions;

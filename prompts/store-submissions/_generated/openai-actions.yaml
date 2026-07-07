@@ -1,0 +1,204 @@
+openapi: 3.1.0
+info:
+  title: three.ws 3D Studio
+  version: 1.0.0
+  description: |
+    Free text-to-3D generation for the "three.ws 3D Studio" custom GPT.
+    Turn a short text prompt into a real, textured, downloadable 3D model (GLB)
+    plus a browser viewer link. No account, no API key, no payment.
+
+    Data handling: the prompt is forwarded to the generation provider solely to
+    produce the model; the finished GLB is stored on a public CDN URL so the
+    user can download and share it. No personal information is collected or
+    returned by these operations. Requests are rate-limited per IP for abuse
+    prevention. Full policy: https://three.ws/legal/privacy.html
+
+    Contract: POST /api/3d/studio either finishes inline (status "done" with
+    glbUrl + viewerUrl) or returns status "pending" with a "job" handle. Poll
+    GET /api/3d/studio?job=... every few seconds until status is "done" or
+    "error". Generation typically takes 20-60 seconds.
+  contact:
+    name: three.ws
+    url: https://three.ws
+servers:
+  - url: https://three.ws
+paths:
+  /api/3d/studio:
+    post:
+      operationId: generate3DModel
+      x-openai-isConsequential: false
+      summary: Generate a 3D model (GLB) from a text prompt
+      description: |
+        Start a free text-to-3D generation. Describe ONE subject concretely
+        (shape, colors, style), e.g. "a low-poly orange fox sitting down".
+        If the response status is "done", present glbUrl (download) and
+        viewerUrl (interactive browser preview) to the user. If it is
+        "pending", poll checkModelJob with the returned "job" value every few
+        seconds until it completes. Prompts describing adult, gory, hateful,
+        or real-weapon content are refused with error "prompt_rejected".
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [prompt]
+              additionalProperties: false
+              properties:
+                prompt:
+                  type: string
+                  minLength: 3
+                  maxLength: 1000
+                  description: >-
+                    A concrete description of one subject to model, e.g.
+                    "a small ceramic robot figurine with round eyes".
+            examples:
+              fox:
+                summary: Low-poly animal
+                value:
+                  prompt: a low-poly orange fox sitting down
+      responses:
+        "200":
+          description: Generation finished inline, or queued with a poll handle.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerationState"
+              examples:
+                done:
+                  summary: Finished inline
+                  value:
+                    status: done
+                    glbUrl: https://pub-2534e921bf9c4314addcd4d8a6e98b7b.r2.dev/forge/anon/04818491-d43e-4576-b245-22743bf125a6.glb
+                    viewerUrl: https://three.ws/viewer?src=https%3A%2F%2Fpub-2534e921bf9c4314addcd4d8a6e98b7b.r2.dev%2Fforge%2Fanon%2F04818491-d43e-4576-b245-22743bf125a6.glb
+                    format: glb
+                pending:
+                  summary: Queued - poll with the job handle
+                  value:
+                    status: pending
+                    job: f1.eyJwIjoibnZpZGlhIn0.c2ln
+                    poll: /api/3d/studio?job=f1.eyJwIjoibnZpZGlhIn0.c2ln
+                    format: glb
+        "400":
+          description: >-
+            Invalid prompt (too short/long) or refused by the content-safety
+            gate (error "prompt_rejected"). Relay the message to the user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Free generation limit reached - ask the user to try again later.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "502":
+          description: The generator could not start the job - safe to retry once.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Generation temporarily unavailable - try again later.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    get:
+      operationId: checkModelJob
+      x-openai-isConsequential: false
+      summary: Check a pending 3D generation job
+      description: |
+        Poll a generation started by generate3DModel. Pass the "job" value from
+        the pending response. Keep polling every few seconds while status is
+        "pending"; stop on "done" (present glbUrl + viewerUrl) or "error"
+        (tell the user it failed and offer to try again - generation is free).
+      parameters:
+        - name: job
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 8
+            maxLength: 1024
+            pattern: "^[A-Za-z0-9._-]+$"
+          description: The job handle returned by generate3DModel.
+      responses:
+        "200":
+          description: Current job state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerationState"
+              examples:
+                done:
+                  summary: Model ready
+                  value:
+                    status: done
+                    job: f1.eyJwIjoibnZpZGlhIn0.c2ln
+                    glbUrl: https://pub-2534e921bf9c4314addcd4d8a6e98b7b.r2.dev/forge/anon/done.glb
+                    viewerUrl: https://three.ws/viewer?src=https%3A%2F%2Fpub-2534e921bf9c4314addcd4d8a6e98b7b.r2.dev%2Fforge%2Fanon%2Fdone.glb
+                    format: glb
+                failed:
+                  summary: Upstream failure - retrying is free
+                  value:
+                    status: error
+                    job: f1.eyJwIjoibnZpZGlhIn0.c2ln
+                    error: 3D generation hit a snag upstream - it costs nothing to try again.
+        "400":
+          description: Missing or malformed job handle.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Polling too fast - wait for retry_after seconds.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+components:
+  schemas:
+    GenerationState:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [done, pending, error]
+          description: done = model ready; pending = keep polling; error = generation failed.
+        glbUrl:
+          type: string
+          format: uri
+          description: Public download URL of the generated GLB model (present when done).
+        viewerUrl:
+          type: string
+          format: uri
+          description: Interactive three.ws browser viewer for the model (present when done).
+        format:
+          type: string
+          const: glb
+          description: Output format - always GLB (binary glTF).
+        job:
+          type: string
+          description: Job handle to pass to checkModelJob (present when pending).
+        poll:
+          type: string
+          description: Relative poll path for the pending job.
+        error:
+          type: string
+          description: Human-readable failure message (present when status is error).
+    ErrorResponse:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+          description: Machine-readable error code (e.g. invalid_prompt, prompt_rejected, rate_limited).
+        message:
+          type: string
+          description: Human-readable explanation to relay to the user.
+        retry_after:
+          type: integer
+          description: Seconds to wait before retrying (rate-limit responses).

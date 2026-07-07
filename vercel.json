@@ -53,7 +53,7 @@
 			"includeFiles": "api/_lib/3d-catalog/**",
 			"maxDuration": 30
 		},
-		"api/3d/generate.js": {
+		"{api/3d/generate,api/3d/studio}.js": {
 			"maxDuration": 120
 		},
 		"api/widgets/[id]/knowledge-process.js": {

@@ -132,8 +132,8 @@ fi
 cat <<EOF
 
 Notes:
-  • Cloud Run Jobs: set SHARD_INDEX=\$CLOUD_RUN_TASK_INDEX in the entrypoint if you
-    want strict per-task sharding (the built-in default shards evenly by env).
+  • Cloud Run Jobs: each task auto-shards — the grinder reads CLOUD_RUN_TASK_INDEX
+    as its SHARD_INDEX, so TASKS parallel tasks split the target list evenly.
   • Cost: c2d spot ≈ \$0.01–0.02 / vCPU-hour. At ~25k keys/sec/vCPU a 4‑char
     address (~11.3M expected) is ~450 vCPU-seconds ≈ \$0.002. Even 5‑char (~656M)
     is a few cents. See docs/gcp-credits.md for the measured \$/address table.

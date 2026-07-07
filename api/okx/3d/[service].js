@@ -380,7 +380,9 @@ async function handleIdentityStudio(req, res) {
 			if (anySuccess) {
 				try {
 					const settled = await settlePayment({ verified: x402Ctx.verified });
-					res.setHeader('x-payment-response', encodePaymentResponseHeader(settled));
+					const receipt = encodePaymentResponseHeader(settled);
+					res.setHeader('PAYMENT-RESPONSE', receipt);
+					res.setHeader('x-payment-response', receipt);
 				} catch (err) {
 					return sendX402Error(
 						res,

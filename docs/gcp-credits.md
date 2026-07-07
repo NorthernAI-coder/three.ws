@@ -5,12 +5,18 @@ project, the credit grant, what's enabled, service accounts, env vars, quota,
 and how to smoke-test Claude on Vertex. Prompts 02–08 append to this file as
 they build on the foundation.
 
-> **Status: foundation partially blocked on one owner action.** Every artifact
-> that does not require live GCP auth is done (smoke test, dev-session helper,
-> this runbook). The live steps — billing/credit confirmation, API enablement,
-> service-account creation, Vercel env, quota, and the actual smoke call —
-> are blocked because `gcloud` in this environment needs an interactive
-> re-login (see **Pending human actions**). They run in minutes once that's done.
+> **Status: foundation live; one owner console action remains for Claude.**
+> `gcloud` is authenticated (`nich@sperax.io`) against `aerial-vehicle-466722-p5`,
+> all APIs are enabled, the `vercel-inference` SA is created with
+> `roles/aiplatform.user`, and — as of 2026-07-07 — the four GCP env vars
+> (`GCP_SERVICE_ACCOUNT_JSON`, `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`,
+> `GOOGLE_CLOUD_LOCATION_CLAUDE`) are set in Vercel across Production, Preview,
+> and Development. The smoke test proves the SA key works: **Gemini on Vertex
+> returns 200** with it. **Claude on Vertex returns 404** ("Publisher model …
+> not found or your project does not have access") — the sole remaining gate is
+> the owner accepting the Anthropic partner-model terms in Model Garden (see
+> **Enable Claude in Model Garden** and **Pending human actions**). Credit
+> balance/expiry and partner-model coverage are console-only reads still owed.
 
 ---
 
@@ -31,18 +37,21 @@ they build on the foundation.
 
 ---
 
-## Credits & partner-model coverage — GO/NO-GO (blocked)
+## Credits & partner-model coverage — GO/NO-GO (billing confirmed; balance console-only)
 
-**Not yet confirmed** — requires live auth. Run these the moment reauth lands:
+**Billing account confirmed live 2026-07-07** (see table below). The remaining
+unknowns — credit **balance, expiry, and partner-model coverage** — are not
+exposed by the `gcloud billing` CLI and must be read from the console. Commands
+used to confirm the account object:
 
 ```bash
 # Billing account linked to the project
 gcloud billing projects describe aerial-vehicle-466722-p5
+#   → billingAccountName: billingAccounts/01B467-A61905-9A97D2, billingEnabled: true
 
 # The billing account object (open/closed, master)
-ACCT=$(gcloud billing projects describe aerial-vehicle-466722-p5 \
-  --format='value(billingAccountName)')
-gcloud billing accounts describe "$ACCT"
+gcloud billing accounts describe billingAccounts/01B467-A61905-9A97D2
+#   → displayName: Sperax, open: true, USD, parent org 530103279143
 ```
 
 Credit **balance and expiry** are not exposed by the `gcloud billing` CLI. Read
@@ -78,9 +87,9 @@ Record here once confirmed:
 
 ---
 
-## APIs to enable (blocked)
+## APIs to enable (✅ all enabled 2026-07-07)
 
-Idempotent — run once auth is restored:
+Idempotent — kept for DR/re-provision:
 
 ```bash
 gcloud services enable \
@@ -121,9 +130,9 @@ Also enabled 2026-07-07: `billingbudgets.googleapis.com`, `pubsub.googleapis.com
 | SA | Purpose | Roles | Status |
 |---|---|---|---|
 | `avatar-reconstruction-sa@aerial-vehicle-466722-p5.iam.gserviceaccount.com` | Cloud Run workers (mesh/rig pipeline), used by `workers/deploy/*.sh` + cloudbuild | run/build identity | ✅ Confirmed valid 2026-07-07 |
-| `vercel-inference@aerial-vehicle-466722-p5.iam.gserviceaccount.com` | Vercel functions → Vertex Claude + Imagen | `roles/aiplatform.user` | ✅ Created + role bound + key minted 2026-07-07 (key held locally, pending Vercel env push) |
+| `vercel-inference@aerial-vehicle-466722-p5.iam.gserviceaccount.com` | Vercel functions → Vertex Claude + Imagen | `roles/aiplatform.user` | ✅ Created + role bound; key minted and **pushed to Vercel (all 3 envs) 2026-07-07**. Key proven working (Gemini 200). Rotate with `gcloud iam service-accounts keys create` → re-push if the local key is ever exposed. |
 
-### Create the Vercel inference SA (blocked)
+### Create the Vercel inference SA (done — commands kept for rotation/DR)
 
 Check-first, then create only if absent:
 
@@ -147,39 +156,44 @@ gcloud iam service-accounts keys create /tmp/vercel-inference-key.json \
   --iam-account "$SA" --project "$PROJECT"
 ```
 
-### Push credentials to Vercel (blocked — needs Vercel auth too)
+### Push credentials to Vercel (✅ done 2026-07-07 — commands kept for rotation)
 
-`vercel` CLI is not installed in this container. Install + link, then set envs
-for **all** environments (production, preview, development):
+All four vars are set for **all** environments (production, preview, development)
+and verified with `vercel env ls`. To rotate the key or re-provision from scratch
+(`npx vercel` is used since the CLI is not globally installed):
 
 ```bash
-npm i -g vercel && vercel login && vercel link   # one-time
+# Mint a fresh key to a path OUTSIDE the repo (scratchpad / /tmp, never commit it)
+gcloud iam service-accounts keys create /tmp/vercel-inference-key.json \
+  --iam-account vercel-inference@aerial-vehicle-466722-p5.iam.gserviceaccount.com
 
 # Value = the raw key file contents. The api/ token parser tolerates the paste.
-vercel env add GCP_SERVICE_ACCOUNT_JSON production   < /tmp/vercel-inference-key.json
-vercel env add GCP_SERVICE_ACCOUNT_JSON preview      < /tmp/vercel-inference-key.json
-vercel env add GCP_SERVICE_ACCOUNT_JSON development   < /tmp/vercel-inference-key.json
-
-printf 'aerial-vehicle-466722-p5' | vercel env add GOOGLE_CLOUD_PROJECT production
-printf 'us-central1'              | vercel env add GOOGLE_CLOUD_LOCATION production
-printf 'global'                   | vercel env add GOOGLE_CLOUD_LOCATION_CLAUDE production
-# …repeat the three non-secret vars for preview + development.
+for E in production preview development; do
+  cat /tmp/vercel-inference-key.json     | npx vercel env add GCP_SERVICE_ACCOUNT_JSON    "$E"
+  printf 'aerial-vehicle-466722-p5'      | npx vercel env add GOOGLE_CLOUD_PROJECT        "$E"
+  printf 'us-central1'                   | npx vercel env add GOOGLE_CLOUD_LOCATION        "$E"
+  printf 'global'                        | npx vercel env add GOOGLE_CLOUD_LOCATION_CLAUDE "$E"
+done
 
 # Then delete the local key file
 shred -u /tmp/vercel-inference-key.json 2>/dev/null || rm -f /tmp/vercel-inference-key.json
 
 # Verify
-vercel env ls
+npx vercel env ls | grep -iE 'GCP_SERVICE_ACCOUNT_JSON|GOOGLE_CLOUD'
 ```
+
+> **Fixes a live production gap:** before this push, `api/_mcp3d/vertex-imagen.js`
+> had no `GCP_SERVICE_ACCOUNT_JSON` in the deployed environment, so the Vertex
+> image lane could only run locally. It now has real credentials in production.
 
 ### Env vars (names only — never values here)
 
 | Name | Value shape | Scope |
 |---|---|---|
-| `GCP_SERVICE_ACCOUNT_JSON` | Vercel inference SA key JSON | all envs |
-| `GOOGLE_CLOUD_PROJECT` | `aerial-vehicle-466722-p5` | all envs |
-| `GOOGLE_CLOUD_LOCATION` | `us-central1` | all envs |
-| `GOOGLE_CLOUD_LOCATION_CLAUDE` | `global` | all envs |
+| `GCP_SERVICE_ACCOUNT_JSON` | Vercel inference SA key JSON | all envs ✅ set 2026-07-07 |
+| `GOOGLE_CLOUD_PROJECT` | `aerial-vehicle-466722-p5` | all envs ✅ set 2026-07-07 |
+| `GOOGLE_CLOUD_LOCATION` | `us-central1` | all envs ✅ set 2026-07-07 |
+| `GOOGLE_CLOUD_LOCATION_CLAUDE` | `global` | all envs ✅ set 2026-07-07 |
 
 ---
 
@@ -206,9 +220,12 @@ Accept the Anthropic terms once; enablement applies project-wide.
 
 ---
 
-## Quota (blocked)
+## Quota (open — file after Model Garden enablement)
 
-Check current Vertex quotas and file increases sized for production chat:
+Partner-model quota can only be inspected/filed once Anthropic is enabled in
+Model Garden (the models don't exist for the project until then — see the 404
+above). Run this the moment enablement lands, then file increases sized for
+production chat:
 
 ```bash
 # Inspect current online-prediction / partner-model quotas
@@ -258,6 +275,15 @@ node scripts/gcp/vertex-smoke.mjs
 
 Optional overrides: `GOOGLE_CLOUD_LOCATION_CLAUDE` (default `global`),
 `VERTEX_SMOKE_MODEL` (default `claude-haiku-4-5@20251001`), `VERTEX_SMOKE_PROMPT`.
+
+**Last run — 2026-07-07:** `404 NOT_FOUND` — *"Publisher model
+`…/publishers/anthropic/models/claude-haiku-4-5@20251001` was not found or your
+project does not have access to it."* The **same SA key returns HTTP 200 against
+Gemini** (`publishers/google/models/gemini-2.5-flash:generateContent`), proving
+auth, billing, and `roles/aiplatform.user` are all good. The 404 is therefore
+purely the Anthropic Model Garden enablement gate — re-run this script the
+instant the owner accepts the terms; no code change is needed and a PASS is
+expected within seconds.
 
 ---
 
@@ -481,34 +507,40 @@ instant rollback stays available via `VERTEX_IMAGEN_ENABLED=0`.
 
 ## Pending human actions (do these, in order)
 
-1. ~~**Restore gcloud auth**~~ — ✅ done 2026-07-07 (`gcloud auth login`,
-   project `aerial-vehicle-466722-p5`). **Still pending:** `gcloud auth
-   application-default login` (ADC) — needed only for Claude Code dev sessions
-   on Vertex and any script that insists on ADC; everything below used the
-   user token / SA key instead.
-2. **Confirm credits + partner-model coverage** — console Credits page; answer
-   the coverage question (see that section). This is the GO/NO-GO for prompt 02.
-3. **Enable Claude in Model Garden** — console, accept Anthropic terms, enable
-   the five model IDs listed above. **Confirmed still missing 2026-07-07:** the
-   smoke test returns `IAM_PERMISSION_DENIED` on
-   `publishers/anthropic/models/*` while the same SA serves Gemini images fine —
-   the terms acceptance is the only remaining gate.
-4. ~~**Run the live setup block**~~ — ✅ done 2026-07-07: APIs enabled (table
-   above), `vercel-inference` SA created + `roles/aiplatform.user` bound, key
-   minted (held locally outside the repo, pending Vercel push). Quota filing
-   still open (partner-model QPM/TPM — console).
-5. **Install + auth the Vercel CLI** (`npm i -g vercel && vercel login`) so
-   `GCP_SERVICE_ACCOUNT_JSON` + the three location vars can be pushed and
-   verified with `vercel env ls`.
-6. **Run the smoke test** — `node scripts/gcp/vertex-smoke.mjs`. Attempted
-   2026-07-07: 403 (Model Garden — step 3). The Gemini image-lane E2E **passed**
-   the same day with the same SA, proving auth, API enablement, and the client
-   code end-to-end. Re-run after step 3; a green PASS closes prompt 01.
-7. **Enable the BigQuery billing export** (prompt 07) — console-only:
-   Billing → Billing export → BigQuery. Confirmed 2026-07-07 that no dataset
-   exists yet (`bq ls` empty; `burn-report.mjs` → "export not configured").
+**✅ Done 2026-07-07 (no owner action needed — recorded for history):**
 
-Update the _pending_ cells in this file as each step completes.
+- ~~Restore gcloud auth~~ — authenticated `nich@sperax.io` on
+  `aerial-vehicle-466722-p5`.
+- ~~Enable all APIs~~ — 8 required + `billingbudgets` + `pubsub` (tables above).
+- ~~Create `vercel-inference` SA + bind `roles/aiplatform.user`~~.
+- ~~Push GCP env vars to Vercel~~ — `GCP_SERVICE_ACCOUNT_JSON`,
+  `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, `GOOGLE_CLOUD_LOCATION_CLAUDE`
+  set across Production/Preview/Development; verified with `npx vercel env ls`.
+- ~~Prove the SA key works~~ — Gemini on Vertex returns 200 with it.
+
+**⏳ Still owed — owner console actions, in order:**
+
+1. **Enable Claude in Model Garden** — the ONE gate for all Vertex Claude
+   traffic (prompt 02). Console → accept Anthropic partner-model terms → enable
+   `claude-haiku-4-5`, `claude-sonnet-4-6`, `claude-opus-4-8`, `claude-sonnet-5`,
+   and `claude-fable-5` (if listed). **Confirmed still missing 2026-07-07:** the
+   smoke test returns `404 NOT_FOUND` on `publishers/anthropic/models/*` while
+   the same SA serves Gemini fine — terms acceptance is the only blocker. The
+   moment it lands, run `node scripts/gcp/vertex-smoke.mjs` for a green PASS
+   (closes prompt 01's smoke criterion) and then file partner-model quota.
+2. **Confirm credits + partner-model coverage** — console Credits page; read the
+   balance + expiry and confirm the grant covers Vertex AI *partner* (Anthropic)
+   models. GO/NO-GO for prompt 02's chain inversion. `gcloud billing` cannot
+   expose balance/expiry — this is console-only.
+3. **`gcloud auth application-default login` (ADC)** — only needed for Claude
+   Code dev sessions on Vertex (`scripts/gcp/claude-code-vertex.sh`) and any
+   ADC-only script. Production `api/` uses the SA key, not ADC, so this does not
+   block anything shipped.
+4. **Enable the BigQuery billing export** (prompt 07) — console-only:
+   Billing → Billing export → BigQuery. Confirmed 2026-07-07 no dataset exists
+   (`bq ls` empty; `burn-report.mjs` → "export not configured").
+
+Update the cells in this file as each step completes.
 
 
 ---
@@ -931,7 +963,7 @@ feeds `mcp3dGenerateFree` + `mcp3dGenerateFreeTiered`):
   and the global paid envelope `FORGE_PAID_GLOBAL_HOURLY`.
 - **Revert:** unset `FORGE_SELFHOST_PRIMARY` → back to 60/h.
 
-### Deploy runbook (run once gcloud reauth lands — step 1 above)
+### Deploy runbook (gcloud auth is live as of 2026-07-07 — ready to run)
 
 ```bash
 # 0. Generate + set the shared worker bearer key (Cloud Run reads it from the

@@ -4,6 +4,10 @@ description: Send tokens (USDC, ETH, POL, or SOL) to an address or ENS name on B
 user-invocable: true
 disable-model-invocation: false
 allowed-tools: ["Bash(npx awal@2.10.0 status*)", "Bash(npx awal@2.10.0 send *)", "Bash(npx awal@2.10.0 balance*)"]
+metadata:
+  category: wallet/payments
+  cross-platform-safe: false
+  pack: three-ws-skills
 ---
 
 # Sending Tokens
