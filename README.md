@@ -2126,7 +2126,7 @@ Access tokens are short-lived JWTs (1 hour). Refresh tokens are opaque strings s
 
 **Endpoint:** `POST /api/mcp` (tools), `GET /api/mcp` (SSE), `DELETE /api/mcp` (session terminate)
 **Auth:** OAuth 2.1 Bearer token with `mcp` scope; some tools additionally require x402 USDC payment
-**Registry:** Listed on the [official MCP Registry](https://registry.modelcontextprotocol.io/?q=three.ws) as `io.github.nirholas/three.ws`
+**Registry:** Listed on the [official MCP Registry](https://registry.modelcontextprotocol.io/?q=io.github.nirholas) as `io.github.nirholas/three.ws` — one of 42 three.ws MCP servers in the registry. Also discoverable on [Smithery](https://smithery.ai/search?q=three.ws), [Glama](https://glama.ai/mcp/servers?query=three.ws), and [PulseMCP](https://www.pulsemcp.com/servers?q=three.ws).
 **x402scan:** [view on x402scan](https://www.x402scan.com/server/17cbd874-52ac-4920-a020-b22ff2489a07) — paid MCP tool calls and revenue
 
 **Available tools:**

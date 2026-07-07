@@ -95,3 +95,32 @@ describe('vanity-grinder WASM', () => {
 		expect(hit).toBeNull();
 	});
 });
+
+describe('grindToCompletion stop signal', () => {
+	// Regression guard: the batch grinder aborts an in-flight target the moment the
+	// shared stop flag flips — NOT only when the (near-impossible) target completes.
+	// grindToCompletion runs a synchronous loop, so it must poll stopRequested()
+	// between batches; if it ignored it, an unlucky worker would hang for minutes.
+	it('returns status "preempted" quickly when stopRequested flips true', async () => {
+		const { grindToCompletion } = await import('../workers/vanity-grinder/wasm-grind.mjs');
+		let batches = 0;
+		const t0 = performance.now();
+		const result = grindToCompletion(
+			{ prefix: 'zzzzzz', suffix: '', ignoreCase: false }, // near-impossible → never a natural hit
+			{ stopRequested: () => batches >= 2, onProgress: () => { batches += 1; } },
+		);
+		expect(result.status).toBe('preempted');
+		expect(result.attempts).toBeGreaterThan(0);
+		expect(performance.now() - t0).toBeLessThan(5000);
+	});
+
+	it('gives up with status "exhausted" at maxAttempts on an unreachable target', async () => {
+		const { grindToCompletion } = await import('../workers/vanity-grinder/wasm-grind.mjs');
+		const result = grindToCompletion(
+			{ prefix: 'zzzzzz', suffix: '', ignoreCase: false },
+			{ stopRequested: () => false, maxAttempts: 50_000 },
+		);
+		expect(result.status).toBe('exhausted');
+		expect(result.attempts).toBeGreaterThanOrEqual(50_000);
+	});
+});

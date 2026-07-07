@@ -46,6 +46,11 @@ CPU="${CPU:-4}"
 INSTANCES="${INSTANCES:-10}"
 MACHINE="${MACHINE:-c2d-highcpu-8}"
 GRINDER_SA="${GRINDER_SA:-vanity-grinder@${PROJECT_ID}.iam.gserviceaccount.com}"
+# This project has no legacy Cloud Build SA (new GCP projects don't auto-create
+# <projectNumber>@cloudbuild.gserviceaccount.com), so `gcloud builds submit` must
+# name a build identity or it fails with "Unknown service account". Reuse the
+# dedicated build SA the other images use (deploy/world/apply-hardening.sh).
+BUILD_SA="${BUILD_SERVICE_ACCOUNT:-three-ws-build@${PROJECT_ID}.iam.gserviceaccount.com}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO_ROOT"
@@ -76,15 +81,25 @@ gcloud iam service-accounts create vanity-grinder --display-name "Vanity batch g
 	--project "$PROJECT_ID" 2>/dev/null || echo "  (SA exists)"
 
 echo "▸ Building + pushing image (build context = repo root)…"
-gcloud builds submit --project "$PROJECT_ID" --region "$REGION" \
-	--tag "$IMAGE_URI" \
-	--config <(cat <<YAML
+# The image uses a non-default Dockerfile path (workers/vanity-grinder/Dockerfile)
+# with the repo root as context, so we drive the build via a cloudbuild config
+# (--config) — NOT --tag, which assumes ./Dockerfile and is mutually exclusive with
+# --config. The repo's .gcloudignore allowlist already keeps the multi-GB asset dirs
+# (animation-sources/dist/public/…) and node_modules out of the upload.
+BUILD_CFG="$(mktemp --suffix=.cloudbuild.yaml)"
+trap 'rm -f "$BUILD_CFG"' EXIT
+cat > "$BUILD_CFG" <<YAML
 steps:
   - name: gcr.io/cloud-builders/docker
     args: ['build','-f','workers/vanity-grinder/Dockerfile','-t','${IMAGE_URI}','.']
 images: ['${IMAGE_URI}']
+options:
+  # A user-specified build SA cannot write to the default (legacy) GCS logs bucket.
+  logging: CLOUD_LOGGING_ONLY
 YAML
-)
+gcloud builds submit --project "$PROJECT_ID" --region "$REGION" \
+	--service-account "projects/${PROJECT_ID}/serviceAccounts/${BUILD_SA}" \
+	--config "$BUILD_CFG" .
 
 # Common env for the grinder. WRITE_DB/VANITY_KMS_KEY flow through from the shell.
 JOB_ENV="RUNNER=cloud-run-job,INCLUDE_5=${INCLUDE_5:-0},IGNORE_CASE=${IGNORE_CASE:-0},WRITE_DB=${WRITE_DB:-1},VANITY_KMS_KEY=${VANITY_KMS_KEY:-}"

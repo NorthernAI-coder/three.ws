@@ -15,6 +15,11 @@ import { Readable } from 'node:stream';
 process.env.PUBLIC_APP_ORIGIN = 'https://three.ws';
 process.env.X402_PAY_TO_BASE ||= '0x0000000000000000000000000000000000000001';
 process.env.X402_ASSET_ADDRESS_BASE ||= '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+// The OKX X Layer rail — the reason this service exists on OKX.AI. With these
+// set, xlayerSettleable() is true and the flagship 402 must lead with eip155:196.
+process.env.X402_PAY_TO_XLAYER ||= '0x75d00a2713565171f33216e5aa2a375e076ecf69';
+process.env.X402_XLAYER_RELAYER_KEY ||=
+	'0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
 process.env.JWT_SECRET ||= 'okx-identity-test-secret';
 
 vi.mock('../../api/_lib/auth.js', () => ({
@@ -273,6 +278,31 @@ describe('402 challenge and pricing', () => {
 			expect(a.maxAmountRequired ?? a.amount ?? a.maxAmount).toBe('1500000');
 		}
 		expect(JSON.stringify(challenge)).toContain('identity-studio');
+	});
+
+	it('the 402 LEADS with the OKX X Layer (eip155:196) accept — the flagship must be OKX-payable', async () => {
+		const res = makeRes();
+		await handler(
+			makeReq({
+				body: {
+					jsonrpc: '2.0',
+					id: 1,
+					method: 'tools/call',
+					params: { name: 'create_identity', arguments: { agent_name: 'X', brief: 'a data agent' } },
+				},
+			}),
+			res,
+		);
+		expect(res.statusCode).toBe(402);
+		const challenge = JSON.parse(res.body);
+		// First accept is the X Layer rail (OKX buyer CLIs auto-select accepts[0]).
+		expect(challenge.accepts[0].network).toBe('eip155:196');
+		expect(challenge.accepts[0].scheme).toBe('exact');
+		expect(challenge.accepts[0].amount).toBe('1500000');
+		expect(challenge.accepts[0].asset.toLowerCase()).toBe('0x779ded0c9e1022225f8e0630b35a9b54be713736');
+		// The legacy rails still follow, so non-OKX agents can pay too (Base here).
+		expect(challenge.accepts.length).toBeGreaterThan(1);
+		expect(challenge.accepts.slice(1).some((a) => a.network !== 'eip155:196')).toBe(true);
 	});
 
 	it('identity_status is free — served anonymously, no 402', async () => {
