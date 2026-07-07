@@ -10,6 +10,7 @@
 import { cors, json, method, wrap } from './_lib/http.js';
 import { countRecentPayments } from './_lib/x402/audit-log.js';
 import { gatherSubsystemHealth } from './_lib/ops/subsystem-health.js';
+import { nvidiaTtsConfigured, nvidiaAsrConfigured } from './_lib/ai-speech.js';
 
 const STARTED_AT = Date.now();
 const VERSION = process.env.VERCEL_GIT_COMMIT_SHA || process.env.npm_package_version || 'dev';
@@ -348,5 +349,16 @@ export default wrap(async (req, res) => {
 		// probe can't see (Redis on memory-fallback, ring half-armed, Helius
 		// throttled, DB slow, world unprotected). See api/_lib/ops/subsystem-health.js.
 		subsystems,
+		// Productized speech package (api/v1/ai/tts, api/v1/ai/asr). Honest env-gate
+		// status so a missing NVIDIA key shows here instead of only surfacing as a
+		// 503 on the endpoint. Sync env reads — no upstream probe, no key material.
+		speech: {
+			tts: { configured: nvidiaTtsConfigured(), route: '/api/v1/ai/tts', requires: ['NVIDIA_API_KEY'] },
+			asr: {
+				configured: nvidiaAsrConfigured(),
+				route: '/api/v1/ai/asr',
+				requires: ['NVIDIA_API_KEY', 'NVIDIA_ASR_FUNCTION_ID'],
+			},
+		},
 	}, { 'cache-control': 'public, max-age=2, s-maxage=2' });
 });

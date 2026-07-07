@@ -61,6 +61,20 @@ export const CATALOG = [
 		params: { prompt: 'string — describe a single object or character (3–1000 chars, required)' },
 	},
 	{
+		id: 'v1.ai.image',
+		method: 'POST',
+		path: '/api/v1/ai/image',
+		auth: 'public',
+		summary:
+			'Text→image for agents over x402 — 5 free images/day per IP, then $0.02 USDC/image, ' +
+			'no API key. Runs on NVIDIA NIM / Google Vertex lanes; returns a durable image URL.',
+		params: {
+			prompt: 'string — image description (required, 3–2000 chars)',
+			aspect_ratio: 'string — 1:1 | 16:9 | 9:16 | 4:3 | 3:4 | 3:2 | 2:3 (default 1:1)',
+			seed: 'number — optional deterministic seed (honored on NIM/Replicate lanes)',
+		},
+	},
+	{
 		id: 'v1.sentiment',
 		method: 'POST',
 		path: '/api/v1/sentiment',
@@ -104,5 +118,48 @@ export const CATALOG = [
 			'Resolve + verify an ERC-8004 / three.ws Card v1 agent by CAIP ref ' +
 			'(eip155:<chainId>:<registry>/<tokenId>, URL-encoded).',
 		params: { caip: 'path — URL-encoded CAIP agent ref (required)' },
+	},
+	{
+		id: 'v1.ai.tts',
+		method: 'POST',
+		path: '/api/v1/ai/tts',
+		auth: 'public',
+		summary:
+			'Text-to-speech (neural Magpie voices) — 10 free calls/day per IP (≤500 chars), ' +
+			'then $0.005 USDC/call via x402. GET ?voices=1 lists voices. Returns base64 WAV/PCM.',
+		params: {
+			text: 'string — text to synthesize (required, ≤4096 chars; free tier ≤500)',
+			voice: 'string — voice id (optional, default nova)',
+			format: 'string — "wav" | "pcm" (optional, default wav)',
+			language: 'string — BCP-47 tag (optional, default en-US)',
+		},
+	},
+	{
+		id: 'v1.ai.asr',
+		method: 'POST',
+		path: '/api/v1/ai/asr',
+		auth: 'public',
+		summary:
+			'Speech-to-text (NVIDIA Riva) — 5 free clips/day per IP (≤60s), then $0.01 USDC/clip ' +
+			'via x402. Accepts base64 JSON or raw audio/* bytes; returns transcript + confidence.',
+		params: {
+			audio: 'string — base64 audio in a JSON body, or raw bytes with an audio/* Content-Type (required)',
+			format: 'string — wav | pcm | flac | ogg (optional)',
+			language: 'string — BCP-47 tag (optional, default en-US)',
+			words: 'string — "1" for word-level timestamps (optional)',
+		},
+	},
+	{
+		id: 'v1.token.security',
+		method: 'GET',
+		path: '/api/v1/token/security',
+		auth: 'public',
+		summary:
+			'Rug-check any Solana token in one free call: authority status, holder concentration, ' +
+			'liquidity depth — on-chain facts, no invented scores. Composes getAccountInfo + ' +
+			'getTokenLargestAccounts + DexScreener into a report agents weigh themselves; 20/min per IP.',
+		params: {
+			address: 'string — base58 Solana mint address (required; EVM 0x… returns 400)',
+		},
 	},
 ];
