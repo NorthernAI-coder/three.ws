@@ -45,6 +45,14 @@
 			"includeFiles": "{node_modules/@img/sharp-libvips-linux-x64/**,node_modules/@img/sharp-linux-x64/**}",
 			"maxDuration": 300
 		},
+		"{api/crypto/index,api/crypto/openapi}.js": {
+			"includeFiles": "api/_lib/crypto-catalog/**",
+			"maxDuration": 30
+		},
+		"{api/3d/index,api/3d/openapi}.js": {
+			"includeFiles": "api/_lib/3d-catalog/**",
+			"maxDuration": 30
+		},
 		"api/widgets/[id]/knowledge-process.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 300
@@ -225,6 +233,22 @@
 			"dest": "/viability.html"
 		},
 		{
+			"src": "/crypto",
+			"dest": "/crypto.html"
+		},
+		{
+			"src": "/crypto/",
+			"dest": "/crypto.html"
+		},
+		{
+			"src": "/3d",
+			"dest": "/3d.html"
+		},
+		{
+			"src": "/3d/",
+			"dest": "/3d.html"
+		},
+		{
 			"src": "/gallery-picker",
 			"dest": "/gallery-picker.html"
 		},
@@ -363,6 +387,18 @@
 		{
 			"src": "/openapi\\.json",
 			"dest": "/api/openapi-json"
+		},
+		{
+			"src": "/api/crypto/openapi\\.json",
+			"dest": "/api/crypto/openapi"
+		},
+		{
+			"src": "/api/3d/openapi\\.json",
+			"dest": "/api/3d/openapi"
+		},
+		{
+			"src": "/docs/3d-api/?",
+			"dest": "/3d.html"
 		},
 		{
 			"src": "/api/features\\.json",

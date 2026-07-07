@@ -422,6 +422,16 @@ export const NAV_GROUPS = [
 				label: 'Developers',
 				items: [
 					{
+						title: 'Crypto Data API',
+						href: '/crypto',
+						desc: 'Free, keyless crypto data for agents — snapshots, rug checks, launches, whales',
+					},
+					{
+						title: '3D API',
+						href: '/3d',
+						desc: 'Free, keyless text→3D + glTF/GLB inspection for agents — with a paid pro ladder',
+					},
+					{
 						title: 'Avatar SDK',
 						href: '/avatar-sdk',
 						desc: 'npm · web component · React · GLB upload',

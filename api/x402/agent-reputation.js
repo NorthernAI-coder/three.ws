@@ -1,27 +1,40 @@
-// GET /api/x402/agent-reputation?agent_id=<uuid>
+// GET /api/x402/agent-reputation?subject=<any identifier>
 //
-// Paid endpoint cataloged by the CDP x402 Bazaar. For $0.01 USDC the server
-// returns a reputation snapshot for a three.ws agent: total USDC paid in
-// to its pump-agent tokens, distinct payer wallets, deployed mint count,
-// distribution success rate, and Solana attestation counts.
+// Cross-chain agent trust primitive, cataloged by the CDP x402 Bazaar. For $0.01
+// USDC the server returns a deterministic 0–100 trust score for ANY counterparty
+// an agent is about to transact with — regardless of which platform it was minted
+// on. Pass a Solana wallet, an EVM wallet, a pump.fun mint, an ERC-8004 agent id,
+// or a three.ws agent_id; the type is auto-detected and scored from the real
+// on-chain evidence available for it.
+//
+// The use-case (a genuine pre-transaction primitive): before Agent A pays, trades,
+// or delegates to Agent B, it calls this once to get B's trust score, tier, and
+// the underlying evidence. Score is built from settled on-chain signals —
+// transaction history, account age, distinct counterparties, holdings, settlement
+// reliability, prior settled agent payments, and ERC-8004 feedback — never a
+// subjective rating. Unknown/unscannable subjects return score:null, tier:'unknown'
+// with an explicit caveat rather than a fabricated number.
 //
 // Why this is defensible: three.ws indexes every pump.fun agent-payments
-// acceptPayment call (pump_agent_payments), every distributePayments cron
-// run (pump_distribute_runs), and every signed Solana memo attestation
-// (solana_attestations) for agents that registered through us. No other
-// service has this combined index, so reputation queries here are the
-// canonical source for any AI agent vetting a three.ws-registered agent.
+// acceptPayment call (pump_agent_payments), every distributePayments cron run
+// (pump_distribute_runs), and every signed Solana memo attestation
+// (solana_attestations), and reads the ERC-8004 reputation registry and live
+// Solana/EVM chain state on demand — one endpoint that scores across all of them.
 
 import { paidEndpoint } from '../_lib/x402-paid-endpoint.js';
 import { buildBazaarSchema } from '../_lib/x402-spec.js';
 import { installAccessControl } from '../_lib/x402/access-control.js';
 import { withService } from '../_lib/x402/bazaar-helpers.js';
 import { priceFor } from '../_lib/x402-prices.js';
-import { isUuid } from '../_lib/validate.js';
-// Shared with /api/x402/agent-bouncer so the raw reputation snapshot and the
-// admit/refuse verdict are computed from one source of truth.
+// The generalized any-subject engine — auto-detect + deterministic scoring.
 import {
-	loadAgentReputation,
+	loadSubjectReputation,
+	scoreSubjectBatch,
+	SUBJECT_TYPES,
+} from '../_lib/trust/subject-reputation.js';
+// Sweep / leaderboard / decay operate over the three.ws indexed active-agent set —
+// the only globally-sweepable subject universe we maintain.
+import {
 	sweepAgentReputation,
 	leaderboardAgentReputation,
 	decayReportAgentReputation,
@@ -31,117 +44,105 @@ import {
 const ROUTE = '/api/x402/agent-reputation';
 
 const DESCRIPTION =
-	'three.ws Agent Reputation — given a three.ws agent_id, return a reputation ' +
-	'snapshot synthesized from on-chain pump.fun agent-payments activity, ' +
-	'distribute/buyback success history, and signed Solana memo attestations. ' +
-	'Use to vet a counterparty before paying, trading, or composing skills. ' +
-	'Reputation is built from real on-chain data three.ws indexes — not a ' +
-	'subjective score. Pay-per-call in USDC on Base or Solana mainnet.';
+	'Cross-chain Agent Reputation — pay $0.01 USDC to get a deterministic 0–100 ' +
+	'trust score for ANY counterparty before you pay, trade, or delegate to it. ' +
+	'Accepts a Solana wallet, an EVM wallet, a pump.fun mint, an ERC-8004 agent id, ' +
+	'or a three.ws agent_id (auto-detected). Scored from real on-chain evidence — ' +
+	'transaction history, age, distinct counterparties, holdings, settlement ' +
+	'reliability, prior settled agent payments, and ERC-8004 feedback — with the ' +
+	'evidence and caveats returned. Unknown subjects return score:null, not a fake ' +
+	'score. Pay-per-call in USDC on Base or Solana mainnet.';
 
-const INPUT_EXAMPLE = { agent_id: '7b9a4f30-2d11-4e2d-9d12-1cdb1f6a3a55' };
+const INPUT_EXAMPLE = { subject: 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump' };
 
 const INPUT_SCHEMA = {
 	$schema: 'https://json-schema.org/draft/2020-12/schema',
 	type: 'object',
-	required: ['agent_id'],
+	required: ['subject'],
 	properties: {
-		agent_id: {
+		subject: {
 			type: 'string',
-			format: 'uuid',
-			description: 'three.ws agent_id (UUID). Returned by /api/agents and /api/agent-page.',
+			description:
+				'Any counterparty identifier: a Solana wallet or mint, an EVM 0x address, ' +
+				'an ERC-8004 agent id (bare integer or erc8004:<chainId>:<id>), or a ' +
+				'three.ws agent_id (UUID). Type is auto-detected.',
+		},
+		chain: {
+			type: ['integer', 'string'],
+			description: 'EVM chain id for a bare EVM address or ERC-8004 agent id (default 8453 / Base).',
 		},
 	},
 };
 
 const OUTPUT_EXAMPLE = {
-	agent_id: '7b9a4f30-2d11-4e2d-9d12-1cdb1f6a3a55',
-	name: 'Helios',
-	wallet_address: 'THREEsynthetic1111111111111111111111111PayTo',
-	deployed_mints: 2,
-	mints: [
-		{ mint: 'C3vQ...', network: 'mainnet', symbol: 'HELIO' },
-		{ mint: 'F7kX...', network: 'mainnet', symbol: 'SUNUP' },
+	subject: 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump',
+	subjectType: 'solana_mint',
+	score: 71,
+	tier: 'high',
+	signals: {
+		dimensions: {
+			activity: { available: true, weight: 25, norm: 0.62, points: 16, value: 124 },
+			age: { available: true, weight: 15, norm: 0.48, points: 7, days: 176 },
+			counterparties: { available: true, weight: 15, norm: 0.72, points: 11, value: 18 },
+			holdings: { available: true, weight: 10, norm: 1, points: 10, usd: 412000 },
+			reliability: { available: true, weight: 15, norm: 0.98, points: 15, failure_rate: 0.02 },
+			attestations: { available: true, weight: 20, norm: 0.6, points: 12, count: 6, avg_feedback: null },
+		},
+		weight_considered: 100,
+	},
+	evidence: [
+		{ kind: 'solana_token', ref: 'https://solscan.io/token/FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump' },
+		{ kind: 'threews_agent', ref: '/agent/7b9a4f30-2d11-4e2d-9d12-1cdb1f6a3a55' },
 	],
-	payments: {
-		confirmed_count: 142,
-		confirmed_amount_atomics: '142000000',
-		distinct_payers: 87,
-		failed_count: 3,
-		failure_rate: 0.021,
+	caveats: [],
+	ts: '2026-07-07T00:00:00Z',
+};
+
+const DIMENSION_SCHEMA = {
+	type: 'object',
+	properties: {
+		available: { type: 'boolean' },
+		weight: { type: 'number' },
+		norm: { type: ['number', 'null'] },
+		points: { type: 'number' },
 	},
-	distributions: {
-		confirmed: 12,
-		failed: 1,
-		success_rate: 0.923,
-	},
-	buybacks: {
-		confirmed: 5,
-		failed: 0,
-		total_burn_atomics: '500000000',
-	},
-	attestations: {
-		feedback_count: 14,
-		validation_count: 8,
-		latest_attested_at: '2026-05-12T08:21:00Z',
-	},
-	indexed_at: '2026-05-14T17:00:00Z',
 };
 
 const OUTPUT_SCHEMA = {
 	$schema: 'https://json-schema.org/draft/2020-12/schema',
 	type: 'object',
-	required: ['agent_id', 'deployed_mints', 'payments', 'distributions', 'buybacks', 'attestations'],
+	required: ['subject', 'subjectType', 'score', 'tier', 'signals', 'evidence', 'caveats', 'ts'],
 	properties: {
-		agent_id: { type: 'string', format: 'uuid' },
-		name: { type: ['string', 'null'] },
-		wallet_address: { type: ['string', 'null'] },
-		deployed_mints: { type: 'integer', minimum: 0 },
-		mints: {
+		subject: { type: 'string' },
+		subjectType: { type: 'string', enum: SUBJECT_TYPES },
+		score: { type: ['integer', 'null'], minimum: 0, maximum: 100 },
+		tier: { type: 'string', enum: ['unknown', 'low', 'medium', 'high', 'elite'] },
+		signals: {
+			type: 'object',
+			properties: {
+				dimensions: {
+					type: 'object',
+					properties: {
+						activity: DIMENSION_SCHEMA,
+						age: DIMENSION_SCHEMA,
+						counterparties: DIMENSION_SCHEMA,
+						holdings: DIMENSION_SCHEMA,
+						reliability: DIMENSION_SCHEMA,
+						attestations: DIMENSION_SCHEMA,
+					},
+				},
+				weight_considered: { type: 'number' },
+			},
+		},
+		evidence: {
 			type: 'array',
 			items: {
 				type: 'object',
-				properties: {
-					mint: { type: 'string' },
-					network: { type: 'string' },
-					symbol: { type: ['string', 'null'] },
-				},
+				properties: { kind: { type: 'string' }, ref: { type: 'string' } },
 			},
 		},
-		payments: {
-			type: 'object',
-			properties: {
-				confirmed_count: { type: 'integer' },
-				confirmed_amount_atomics: { type: 'string' },
-				distinct_payers: { type: 'integer' },
-				failed_count: { type: 'integer' },
-				failure_rate: { type: 'number' },
-			},
-		},
-		distributions: {
-			type: 'object',
-			properties: {
-				confirmed: { type: 'integer' },
-				failed: { type: 'integer' },
-				success_rate: { type: 'number' },
-			},
-		},
-		buybacks: {
-			type: 'object',
-			properties: {
-				confirmed: { type: 'integer' },
-				failed: { type: 'integer' },
-				total_burn_atomics: { type: 'string' },
-			},
-		},
-		attestations: {
-			type: 'object',
-			properties: {
-				feedback_count: { type: 'integer' },
-				validation_count: { type: 'integer' },
-				latest_attested_at: { type: ['string', 'null'] },
-			},
-		},
-		indexed_at: { type: 'string', format: 'date-time' },
+		caveats: { type: 'array', items: { type: 'string' } },
+		ts: { type: 'string', format: 'date-time' },
 	},
 };
 
@@ -170,8 +171,8 @@ const singleEndpoint = paidEndpoint({
 	description: DESCRIPTION,
 	bazaar: BAZAAR,
 	service: withService({
-		serviceName: 'three.ws Agent Reputation',
-		tags: ['reputation', 'agent', 'solana', 'attestation', 'trust'],
+		serviceName: 'Cross-chain Agent Reputation',
+		tags: ['reputation', 'trust', 'cross-chain', 'agent', 'x402'],
 	}),
 	requiredScope: 'x402:bypass',
 	accessControl: installAccessControl({ requiredScope: 'x402:bypass' }),
@@ -184,20 +185,16 @@ const singleEndpoint = paidEndpoint({
 		siwx: true,
 	},
 	async handler({ req }) {
-		const agentId = String(req.query?.agent_id || '').trim().toLowerCase();
-		if (!agentId) {
-			const err = new Error('query param "agent_id" is required');
+		// Accept any counterparty identifier. `subject` is canonical; `agent_id` is
+		// kept as an alias so existing three.ws-agent callers don't break.
+		const subject = String(req.query?.subject || req.query?.agent_id || '').trim();
+		if (!subject) {
+			const err = new Error('query param "subject" is required');
 			err.status = 400;
-			err.code = 'missing_agent_id';
+			err.code = 'missing_subject';
 			throw err;
 		}
-		if (!isUuid(agentId)) {
-			const err = new Error('agent_id must be a UUID');
-			err.status = 400;
-			err.code = 'invalid_agent_id';
-			throw err;
-		}
-		return loadAgentReputation(agentId);
+		return loadSubjectReputation(subject, { chain: req.query?.chain });
 	},
 });
 
@@ -212,15 +209,19 @@ const SWEEP_DEFAULT_LIMIT = 20;
 const SWEEP_MAX_LIMIT = 50;
 const LEADERBOARD_DEFAULT_LIMIT = 10;
 
+const BATCH_MAX_SUBJECTS = 25;
+
 const SWEEP_DESCRIPTION =
-	'three.ws Agent Reputation (Sweep / Leaderboard / Decay Report) — ' +
+	'Cross-chain Agent Reputation (Batch / Sweep / Leaderboard / Decay) — ' +
+	'POST {"mode":"batch","subjects":[...]} to score up to 25 arbitrary counterparties ' +
+	'(any wallet / mint / agent id, any chain) in one paid call. ' +
 	'POST {"mode":"sweep","limit":N} to score the N most recently active three.ws agents. ' +
 	'POST {"mode":"leaderboard","limit":N} to get the top N agents ranked by trust score (highest first). ' +
 	'POST {"mode":"decay_report"} to get agents whose score dropped >10 points since the last snapshot. ' +
 	`Sweep: fleet avg score + flagged agents (score < ${REPUTATION_FLAG_THRESHOLD}). ` +
 	'Leaderboard: ranked list with { agent_id, score, rank }. ' +
 	'Decay report: decayed_count, fastest_decline_agent, avg_decay. ' +
-	'All scores are derived from real on-chain pump.fun activity — not subjective ratings.';
+	'All scores are derived from real on-chain evidence — not subjective ratings.';
 
 const SWEEP_INPUT_EXAMPLE = { mode: 'sweep', limit: 20 };
 
@@ -230,14 +231,26 @@ const SWEEP_INPUT_SCHEMA = {
 	properties: {
 		mode: {
 			type: 'string',
-			enum: ['sweep', 'leaderboard', 'decay_report'],
-			description: '"sweep" scores recent agents; "leaderboard" ranks by score desc; "decay_report" finds score declines >10 pts.',
+			enum: ['batch', 'sweep', 'leaderboard', 'decay_report'],
+			description:
+				'"batch" scores an arbitrary subjects[] list; "sweep" scores recent three.ws agents; ' +
+				'"leaderboard" ranks by score desc; "decay_report" finds score declines >10 pts.',
 		},
 		limit: {
 			type: 'integer',
 			minimum: 1,
 			maximum: SWEEP_MAX_LIMIT,
 			description: `Agents to sweep/rank (sweep mode default ${SWEEP_DEFAULT_LIMIT}, leaderboard default ${LEADERBOARD_DEFAULT_LIMIT}, max ${SWEEP_MAX_LIMIT}).`,
+		},
+		subjects: {
+			type: 'array',
+			items: { type: 'string' },
+			maxItems: BATCH_MAX_SUBJECTS,
+			description: `batch mode: up to ${BATCH_MAX_SUBJECTS} counterparty identifiers to score (any chain, auto-detected).`,
+		},
+		chain: {
+			type: ['integer', 'string'],
+			description: 'batch mode: default EVM chain id for bare EVM / ERC-8004 subjects (default 8453).',
 		},
 	},
 };
@@ -348,8 +361,8 @@ const sweepEndpoint = paidEndpoint({
 	description: SWEEP_DESCRIPTION,
 	bazaar: SWEEP_BAZAAR,
 	service: withService({
-		serviceName: 'three.ws Agent Reputation (Active Sweep)',
-		tags: ['reputation', 'agent', 'solana', 'attestation', 'trust', 'monitoring'],
+		serviceName: 'Agent Reputation (Batch / Sweep)',
+		tags: ['reputation', 'trust', 'cross-chain', 'agent', 'monitoring'],
 	}),
 	requiredScope: 'x402:bypass',
 	accessControl: installAccessControl({ requiredScope: 'x402:bypass' }),
@@ -367,6 +380,34 @@ const sweepEndpoint = paidEndpoint({
 			err.code = 'invalid_json';
 			throw err;
 		}
+		if (body.mode === 'batch') {
+			if (!Array.isArray(body.subjects) || body.subjects.length === 0) {
+				const err = new Error('batch mode requires a non-empty subjects[] array');
+				err.status = 400;
+				err.code = 'invalid_subjects';
+				throw err;
+			}
+			if (body.subjects.length > BATCH_MAX_SUBJECTS) {
+				const err = new Error(`subjects[] is limited to ${BATCH_MAX_SUBJECTS} per call`);
+				err.status = 400;
+				err.code = 'too_many_subjects';
+				throw err;
+			}
+			const results = await scoreSubjectBatch(body.subjects, { chain: body.chain });
+			const scored = results.filter((r) => r.score != null);
+			const avg = scored.length
+				? Math.round(scored.reduce((s, r) => s + r.score, 0) / scored.length)
+				: null;
+			return {
+				mode: 'batch',
+				count: results.length,
+				scored_count: scored.length,
+				unknown_count: results.length - scored.length,
+				avg_score: avg,
+				subjects: results,
+				generated_at: new Date().toISOString(),
+			};
+		}
 		if (body.mode === 'decay_report') {
 			return decayReportAgentReputation();
 		}
@@ -381,7 +422,7 @@ const sweepEndpoint = paidEndpoint({
 			return leaderboardAgentReputation({ limit: Math.min(SWEEP_MAX_LIMIT, Math.floor(limit)) });
 		}
 		if (body.mode !== 'sweep') {
-			const err = new Error('mode must be "sweep", "leaderboard", or "decay_report"');
+			const err = new Error('mode must be "batch", "sweep", "leaderboard", or "decay_report"');
 			err.status = 400;
 			err.code = 'invalid_mode';
 			throw err;

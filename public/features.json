@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-06T21:07:37.673Z",
+	"generated_at": "2026-07-07T01:01:47.616Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -1868,6 +1868,36 @@
 					"showcase": false
 				},
 				{
+					"path": "/crypto",
+					"title": "Crypto Data API",
+					"description": "Free, keyless crypto data for AI agents in one API: token snapshots, security/rug signals, holder concentration, live pump.fun launches, bonding-curve status, whale activity, trending tokens, wallet portfolios and ticker-availability checks. No key, no account, no paywall.",
+					"added": "2026-07-07",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": true
+				},
+				{
+					"path": "/3d",
+					"title": "3D API",
+					"description": "Free, keyless 3D API for AI agents: turn a text prompt into a real GLB model and validate/optimize any glTF/GLB, all from one URL with a live OpenAPI 3.1 spec. Free draft generation and inspection graduate to paid Forge Pro quality tiers and animation-ready Rigged Avatars. No key, no account.",
+					"added": "2026-07-07",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": true
+				},
+				{
+					"path": "/docs/crypto-api",
+					"title": "Docs · Crypto Data API",
+					"description": "Developer reference for the free, keyless Crypto Data API bundle: the one-call discovery endpoint (GET /api/crypto), the generated OpenAPI 3.1 spec, and every endpoint's inputs, outputs, states, and curl examples — token snapshots, bonding status, whales, trending, wallet portfolios, and symbol availability.",
+					"added": "2026-07-07",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
 					"path": "/docs/walk",
 					"title": "Docs · Walk Avatar",
 					"description": "Developer and user documentation for the three.ws walking-avatar system: the /walk page, iframe embeds, the JavaScript SDK, the postMessage event contract, companion mode, analytics, and the Chrome extension.",
@@ -1958,6 +1988,16 @@
 					"showcase": false
 				},
 				{
+					"path": "/docs/trust-primitives",
+					"title": "Docs · Trust Primitives",
+					"description": "Cross-chain Agent Reputation — score any wallet, mint, or agent id (Solana or EVM) 0–100 from real on-chain evidence before your agent pays, trades, or delegates.",
+					"added": "2026-07-07",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
 					"path": "/docs/x402",
 					"title": "Docs · x402 Protocol",
 					"description": "How three.ws implements x402 HTTP 402 paid agent skills — the challenge, verify, and settle mechanics.",
@@ -1982,6 +2022,16 @@
 					"title": "Docs · x402 Revenue & Receipts",
 					"description": "Where settled x402 payments are recorded (x402_audit_log), how to read endpoint revenue, and how signed receipts work.",
 					"added": "2026-06-30",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/docs/pump-launcher",
+					"title": "Docs · Pump Launcher",
+					"description": "Deploy a brand-new pump.fun token in one paid call — no SOL, no wallet, no account. Inputs, outputs, pricing, correctness guarantees, and the free symbol-check → launch → launch-feed funnel.",
+					"added": "2026-07-07",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

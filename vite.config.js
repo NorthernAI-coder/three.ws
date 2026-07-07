@@ -448,6 +448,7 @@ const appConfig = {
 				'pump-dashboard': resolve(__dirname, 'pages/pump-dashboard.html'),
 				autopilot: resolve(__dirname, 'pages/autopilot.html'),
 				'pump-visualizer': resolve(__dirname, 'pages/pump-visualizer.html'),
+				crypto: resolve(__dirname, 'pages/crypto.html'),
 				three: resolve(__dirname, 'pages/three.html'),
 				'three-live': resolve(__dirname, 'pages/three-live.html'),
 				'three-token': resolve(__dirname, 'pages/three-token.html'),

@@ -222,10 +222,59 @@ three.ws agents. Same route, same paid model ($0.01 USDC, Base/Solana).
   disambiguation), score determinism/bounds, available-weighted normalization,
   denylist cap, negative-feedback scaling, unknown path, batch resilience.
 
-**Real scores captured** (live reads):
+**Real scores captured** (live reads, run through an isolated sandbox because six
+concurrent agents' parallel `npm install`/`ci` runs were continuously wiping the
+shared `node_modules` — same install-storm the Prompt 10 note describes):
 
 ```
-<!-- pasted after clean node_modules reinstall completes -->
+# EVM wallet — vitalik.eth on chain 1 (live Ethereum RPC via evmFallbackProvider)
+subject 0xd8da6bf26964af9d7eed9e03e53415d37aa96045  subjectType evm_wallet
+score 100  tier elite   tx_count 5898  native_balance 6.62 ETH  holdings_usd 11919.25
+weight_considered 35 (activity+holdings readable; age/counterparties/reliability/attestations caveated)
+
+# Solana mint — $THREE, external market path (live DexScreener)
+subject FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump  subjectType solana_mint
+score 76  tier high   txns_24h 40043  liquidity_usd 206145.02  volume_24h 407599.22  age 68.7d
+weight_considered 50   caveat: external mint — scored from market signals, not agent behavior
+
+# Solana wallet — a hyperactive exchange wallet (live public Solana RPC)
+subject 5tzFkiKscXHK5ZXCGbXZxdw7gTjjD1mBwuoFbhUvuAi9  subjectType solana_wallet
+score 100 tier elite  signature_count 1000 (cap hit)  sol_balance 928818.6  denylisted false
+weight_considered 25   caveat: activity is a lower bound AND age not derivable (history > 1000-tx scan window)
+# ↑ surfaced + fixed a real bug: for a wallet that fills the 1000-sig page, the oldest
+#   signature is NOT the account age — age is now marked unavailable when the page saturates.
+
+# ERC-8004 agent — id 1 on Base (live Base RPC)
+subject erc8004:8453:1  subjectType erc8004_agent
+score null  tier unknown   caveat: "ERC-8004 registry unreadable on chain 8453"
+# Canonical ERC-8004 mainnet registries have no bytecode on Base yet (getReputation
+# reverts "missing revert data"), so the endpoint correctly degrades to unknown — never a fake score.
+
+# Garbage subject → subjectType unknown, score null, caveat "unrecognized identifier format"
+```
+
+**Tests — `npx vitest run` (window caught between the concurrent install storm):**
+
+```
+tests/subject-reputation.test.js + tests/x402-agent-reputation-sweep.test.js
+ Test Files  2 passed (2)      Tests  50 passed (50)
+# incl. the existing sweep/leaderboard/decay suite → confirms the POST modes still work.
+tests/agent-bouncer.test.js + tests/wallet-reputation.test.js + tests/subject-reputation.test.js
+ Test Files  3 passed (3)      Tests  61 passed (61)
+```
+
+**`scripts/verify-x402-discovery.mjs` (local built doc, X402_PAY_TO_* set):**
+
+```
+--- summary ---
+  ✓ clean:        74
+  ▲ warnings:     0
+  ✗ will be DROPPED by CDP/indexers: 0
+OVERALL_EXIT=0
+# /api/x402/agent-reputation entry:
+#   serviceName "Cross-chain Agent Reputation" (28 chars); tags [reputation,trust,cross-chain,agent,x402]
+#   bazaar.discoverable true; info.input.queryParams {subject:…}; output.example.subjectType solana_mint;
+#   schema present → bazaar.info validates against bazaar.schema (CDP-strict check passes).
 ```
 
 **Adjacent gaps noticed (for other prompts):**
@@ -966,24 +1015,111 @@ The endpoint's full decision logic was exercised end-to-end against the live fee
 via a node harness (the handler's own import chain pulls `db.js`→`@neondatabase`,
 which the shared node_modules was mid-corruption on — see blocker).
 
-**Tests:** `tests/pump-bonding.test.js` (curve math incl. clamp/null; on-curve &
-graduated mapping; raydium/pumpswap venue; `isPumpLaunch` native-vs-indexed) and
-`tests/crypto-bonding-endpoint.test.js` (missing/invalid/not-found→400,
-upstream-down→503, on-curve + graduated 200 shapes, 429). All assertions were
-verified green by re-running the identical logic directly under `node` (below).
+**Tests: green (24/24).** `tests/pump-bonding.test.js` (curve math incl. clamp/null;
+on-curve & graduated mapping; raydium/pumpswap venue; `isPumpLaunch` native-vs-
+indexed) and `tests/crypto-bonding-endpoint.test.js` (missing/invalid/not-found→400,
+upstream-down→503, on-curve + graduated 200 shapes, 429). The oracle suite
+(`tests/oracle`, 109 tests) also stays green, confirming the `market.js` curve-math
+refactor is behavior-preserving.
 
-**Blocker (environment, not code):** `npm test`/vitest could not be run — the
-shared worktree's `node_modules` is being continuously corrupted by concurrent
-agents' `npm install` operations on a corrupted npm cache (persistent `ENOENT
-rename` / `ENOTEMPTY` races; `@vitest/utils` left version-mismatched vs core). This
-is the documented "concurrent agents share this worktree" trap, not a defect in
-the code or tests. All logic was instead validated by direct `node --input-type=
-module` execution against live pump.fun data (curve math, all mapping branches,
-`isPumpLaunch`, and the endpoint decision logic all pass). Re-run `npm test` once
-the workspace install settles.
+```
+Test Files  2 passed (2)      Tests  24 passed (24)      # bonding
+Test Files 11 passed (11)     Tests 109 passed (109)     # tests/oracle (refactor safe)
+```
+
+**Environment note (resolved):** for most of this session the shared worktree's
+`node_modules` was unrunnable — concurrent agents' simultaneous `npm install`s on a
+corrupted npm cache left the vitest tree version-mismatched (`ENOENT rename` /
+`ENOTEMPTY` races; `@vitest/utils` core-vs-utils drift). Logic was validated in the
+interim by direct `node --input-type=module` runs against live pump.fun data; once a
+full `npm install` reconciled the tree, the vitest suite ran clean (above).
 
 **Adjacent gaps noticed (for other streams):**
 - `/api/crypto/whales` (06) is referenced in this endpoint's `related` + docs but is
   owned by prompt 06; already shipped by a sibling (present in the catalog).
 - `data/pages.json` `/docs/crypto-api` + the `STRUCTURE.md` crypto rows were already
   added by the index prompt (10) and list `bonding` — left as-is, no edit needed.
+
+---
+
+## Prompt 18 — Elevate the Vanity Grinder listing (flagship) — 2026-07-07
+
+**What shipped (listing quality; grinding/signing behavior untouched):**
+- **Primary route `api/x402/vanity.js`** — rewrote `ROUTE_DESCRIPTION` to LEAD WITH
+  the use-case (branded token MINT address, recognizable agent/treasury wallet),
+  then both formats (keypair vs importable BIP-39 mnemonic), the char caps + full
+  price ladder ($0.01/$0.05/$0.25 keypair, $0.05/$0.50 mnemonic), the security model
+  (nothing stored; served once over TLS; secret stripped from the replay cache;
+  optional `sealTo` ECIES x25519-hkdf-sha256-aes256gcm), and the keyless/no-account
+  pledge. Input/output discovery schemas were already complete (format, strength,
+  sealTo, certificate, verifyUrl) — verified, left intact.
+- **`api/wk.js` discovery mirror** — the `/api/x402/vanity` entry was stale: its
+  description omitted `format=mnemonic` and `sealTo`, and its inputSchema listed only
+  prefix/suffix/ignoreCase. Brought it into parity with the live handler (added
+  `format`, `strength`, `sealTo` to the schema; mnemonic tier + price ladder + sealTo
+  to the description; enriched the REST output example with mnemonic/verify fields).
+- **`api/x402/vanity-premium.js` was MISSING from discovery entirely** — a paid
+  `send402` route that was neither cataloged nor in the parity test's EXCLUSIONS, so
+  it was invisible to x402scan/Bazaar and made `x402-discovery-parity` red. Added a
+  full resource entry (`routeMeta.vanityPremium` + IIFE, $1 floor tier, address/sealTo
+  schema, custody-honesty copy, cross-ref to the live grinder) and a REST output
+  example. All three vanity tiers now index.
+- **De-confliction:** the three routes now read distinctly — `vanity` (live ≤3-char
+  grind), `vanity-verifiable` (same grind + signed commit–reveal receipt),
+  `vanity-premium` (pre-ground 4–5+ char inventory, sell-from-stock). No merge/removal
+  (correctly deferred per prompt).
+- **Docs:** new `docs/vanity.md` (use-cases, all three tiers, formats, price ladder,
+  security model, discovery); linked from `docs/x402-endpoints.md` (sharpened the three
+  vanity rows) and `docs/start-here.md`. `data/changelog.json` entry (tag
+  `improvement`, link `/docs/vanity`).
+
+**Price ladder check:** vanity endpoints price via local `PRICE_BY_LENGTH` maps, NOT
+`_lib/x402-prices.js` (which has no vanity slug), so there is no drift to fix there.
+The catalog↔handler drift that existed was in `api/wk.js` (fixed above). The catalog
+advertises the 1-char entry tiers (`10000`/`20000`/`1000000`) while each live 402
+quotes the exact pattern price — matches the handlers.
+
+**Real grind captured (1-char prefix, live WASM engine, 2026-07-07):**
+```
+prefix "z" →
+  address : zt5phCsuqGdMJmuGtJjjJoMEEQNBdWwLsPbq6w1gpad   (startsWith "z" ✓)
+  secretKey: 64 bytes; attempts ~20000; durationMs ~278
+Validity proof (Node crypto, no external deps):
+  b58(secretKey[32:64]) == address                          → true
+  ed25519 pubkey re-derived from secretKey[0:32] == pubkey   → true
+```
+The grinder (`src/solana/vanity/grinder-node.js`) imports only local WASM +
+validation — zero node_modules deps — so this ran cleanly despite the corrupted
+shared tree.
+
+**Verify script — PASSES (built in an isolated git worktree with a clean install,
+since the shared node_modules was mid-corruption; my edited `api/wk.js` overlaid):**
+```
+x402 discovery check — /tmp/wt-catalog.json
+service: three.ws   resources: 74
+--- summary ---
+  ✓ clean:        74
+  ▲ warnings:     0
+  ✗ will be DROPPED by CDP/indexers: 0
+```
+All three vanity routes present & clean: `/api/x402/vanity` (10000),
+`/api/x402/vanity-verifiable` (20000), `/api/x402/vanity-premium` (1000000, newly
+indexed). Vanity tests green in the worktree: `x402-vanity-sealed-envelope`,
+`vanity-mnemonic`, `vanity-wasm-grinder`, `vanity-premium-inventory` → 41 passed,
+1 skipped.
+
+**Blocker (environment, not code):** same documented "concurrent agents share this
+worktree" trap — 13–17 simultaneous `npm install` runs from sibling agents kept the
+shared `node_modules` in perpetual `ENOENT rename`/corruption, so `node scripts/
+build-x402-catalog.mjs` and `npx vitest` could not run in-tree. Worked around by
+`git worktree add` + a clean isolated install; all verification above ran there.
+
+**Adjacent gaps noticed (for other streams):**
+- `/api/x402/pipeline` (committed by another agent, e004f2670 — the 3D asset-chain
+  endpoint) is a paid `send402` route MISSING from the `api/wk.js` discovery catalog,
+  so `x402-discovery-parity` flags it. Out of scope for prompt 18 — its owner needs to
+  add a `resources[]` mirror (or an EXCLUSIONS entry). This is the only remaining
+  parity miss after the vanity fix.
+- Consolidation of the three vanity routes (if ever wanted) is a prompt 21/22 call, as
+  this prompt noted — descriptions now make each one's distinct purpose explicit, so no
+  urgency.

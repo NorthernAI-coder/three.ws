@@ -1,6 +1,11 @@
 // GET  /api/x402/symbol-availability?ticker=<symbol>&network=<mainnet|devnet>
 // POST /api/x402/symbol-availability  { symbols: string[], network?: string }
 //
+// DEPRECATED: symbol-availability is now a FREE, keyless discovery utility at
+// GET/POST /api/crypto/symbol (up to 20 symbols/call, exact + fuzzy collisions
+// across live registries). Prefer that route; this paid endpoint is retired in
+// prompts/x402-overhaul/20. See api/crypto/symbol.js.
+//
 // GET: single-ticker collision check ($0.001 USDC) — original endpoint.
 // POST: batch scan of up to 10 symbols ($0.005 USDC) — returns
 //   { scanned_count, available_count, taken_count, available_list,

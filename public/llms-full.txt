@@ -1144,6 +1144,24 @@ URL: https://three.ws/docs
 
 Full documentation: SDKs, API reference, embedding, agent system, smart contracts.
 
+### Crypto Data API
+
+URL: https://three.ws/crypto
+
+Free, keyless crypto data for AI agents in one API: token snapshots, security/rug signals, holder concentration, live pump.fun launches, bonding-curve status, whale activity, trending tokens, wallet portfolios and ticker-availability checks. No key, no account, no paywall.
+
+### 3D API
+
+URL: https://three.ws/3d
+
+Free, keyless 3D API for AI agents: turn a text prompt into a real GLB model and validate/optimize any glTF/GLB, all from one URL with a live OpenAPI 3.1 spec. Free draft generation and inspection graduate to paid Forge Pro quality tiers and animation-ready Rigged Avatars. No key, no account.
+
+### Docs · Crypto Data API
+
+URL: https://three.ws/docs/crypto-api
+
+Developer reference for the free, keyless Crypto Data API bundle: the one-call discovery endpoint (GET /api/crypto), the generated OpenAPI 3.1 spec, and every endpoint's inputs, outputs, states, and curl examples — token snapshots, bonding status, whales, trending, wallet portfolios, and symbol availability.
+
 ### Docs · Walk Avatar
 
 URL: https://three.ws/docs/walk
@@ -1198,6 +1216,12 @@ URL: https://three.ws/docs/agent-reputation
 
 Why autonomous agents need verifiable trust, and how three.ws delivers portable on-chain reputation.
 
+### Docs · Trust Primitives
+
+URL: https://three.ws/docs/trust-primitives
+
+Cross-chain Agent Reputation — score any wallet, mint, or agent id (Solana or EVM) 0–100 from real on-chain evidence before your agent pays, trades, or delegates.
+
 ### Docs · x402 Protocol
 
 URL: https://three.ws/docs/x402
@@ -1215,6 +1239,12 @@ The catalog of three.ws's own paid HTTP endpoints — what each charges, the pri
 URL: https://three.ws/docs/x402-revenue
 
 Where settled x402 payments are recorded (x402_audit_log), how to read endpoint revenue, and how signed receipts work.
+
+### Docs · Pump Launcher
+
+URL: https://three.ws/docs/pump-launcher
+
+Deploy a brand-new pump.fun token in one paid call — no SOL, no wallet, no account. Inputs, outputs, pricing, correctness guarantees, and the free symbol-check → launch → launch-feed funnel.
 
 ### Docs · x402 Buyer Client
 

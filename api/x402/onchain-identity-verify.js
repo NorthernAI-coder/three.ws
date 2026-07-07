@@ -1,97 +1,139 @@
-// GET /api/x402/onchain-identity-verify?agent_id=<uuid>&chain=<caip2>&contract_or_mint=<addr>
+// GET /api/x402/onchain-identity-verify?identity=<id>&address=<addr>&chain=<caip2>
 //
-// Paid endpoint cataloged by the CDP x402 Bazaar. For $0.005 USDC the server
-// returns a verdict on the claim "agent X owns mint/contract Y on chain Z" by
-// looking it up in three.ws's unified meta.onchain index. Returns the on-chain
-// evidence (tx hash, deploy time, wallet) when the claim verifies.
+// Cross-platform on-chain identity-claim verifier. Paid endpoint cataloged by
+// the CDP x402 Bazaar. For $0.005 USDC the server returns cryptographic /
+// on-chain EVIDENCE that a claim "identity X controls address Y" is real — for
+// ANY claimed identity↔address link, not just three.ws agents.
 //
-// Why this is defensible: three.ws maintains a single unified jsonb index
-// (agent_identities.meta.onchain) across Solana SPL mints, ERC-8004 EVM
-// registries, and any future chain family — backed by deploy-time webhooks
-// from three.ws's own /api/agents/onchain/confirm pipeline. AI agents pay
-// to verify counterparty identity claims as a trust primitive: "does this
-// agent really own the contract it claims?"
+// `identity` may be an ENS name (vitalik.eth), an SNS name (bonfida.sol), an EVM
+// wallet (0x…), a Solana wallet (base58), an ERC-8004 agent id
+// (eip155:<chainId>:<agentId>), or a three.ws agent_id (uuid). `address` is the
+// mint / contract / wallet the identity asserts control of.
+//
+// Agent use-case: before Agent A pays / trades / delegates to a counterparty
+// that says "I am the deployer of contract X" or "I own wallet W / name N", A
+// calls this once and gets deploy-tx + signer + ownership / name-resolution
+// proof. It never asserts verified:true without concrete on-chain evidence;
+// when it cannot read enough it returns verified:'unverifiable' with exactly
+// what is missing — never a false positive.
+//
+// Evidence sources are REAL: ENS resolution (Ethereum RPC), SNS resolution
+// (Solana RPC + Bonfida), EVM contract creation + deployer (Etherscan V2),
+// contract owner() reads, Solana SPL mint/metadata authorities, the ERC-8004
+// Identity Registry, and three.ws's canonical meta.onchain deploy index.
+// See api/_lib/x402/identity-claim-verify.js for the full evidence model.
 
 import { paidEndpoint } from '../_lib/x402-paid-endpoint.js';
 import { buildBazaarSchema } from '../_lib/x402-spec.js';
 import { installAccessControl } from '../_lib/x402/access-control.js';
 import { withService } from '../_lib/x402/bazaar-helpers.js';
-import { sql } from '../_lib/db.js';
 import { priceFor } from '../_lib/x402-prices.js';
-import { isUuid } from '../_lib/validate.js';
+import { verifyClaim } from '../_lib/x402/identity-claim-verify.js';
 
 const ROUTE = '/api/x402/onchain-identity-verify';
 
 const DESCRIPTION =
-	'three.ws On-Chain Identity Verifier — given a three.ws agent_id, a CAIP-2 ' +
-	'chain ID, and a contract or mint address, verify whether the agent actually ' +
-	'owns/deployed that address using the canonical meta.onchain unified index. ' +
-	'Returns evidence (tx hash, wallet, deploy time, metadata URI) when verified. ' +
-	'Use as a trust primitive before paying or trading with a counterparty agent.';
+	'Cross-platform On-Chain Identity Verifier — prove any claim that an identity ' +
+	'controls an address. `identity` can be an ENS name, an SNS (.sol) name, an EVM ' +
+	'or Solana wallet, an ERC-8004 agent id, or a three.ws agent_id; `address` is ' +
+	'the contract/mint/wallet it claims. Returns on-chain evidence (deploy tx + ' +
+	'deployer, mint/update authority, ENS/SNS resolution, ERC-8004 registration, ' +
+	'three.ws deploy record) with verified true/false/unverifiable. Use it as a ' +
+	'trust primitive before paying, trading, or delegating to a counterparty agent.';
 
-const INPUT_EXAMPLE = {
-	agent_id: '7b9a4f30-2d11-4e2d-9d12-1cdb1f6a3a55',
-	chain: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
-	contract_or_mint: 'C3vQABCDEFGHJKLMNopqrstuvwxyZ12345abcdefghi',
+export const INPUT_EXAMPLE = {
+	identity: 'vitalik.eth',
+	address: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
+	chain: 'eip155:1',
 };
 
-const INPUT_SCHEMA = {
+export const INPUT_SCHEMA = {
 	$schema: 'https://json-schema.org/draft/2020-12/schema',
 	type: 'object',
-	required: ['agent_id', 'chain', 'contract_or_mint'],
+	required: ['identity', 'address'],
 	properties: {
-		agent_id: { type: 'string', format: 'uuid' },
+		identity: {
+			type: 'string',
+			description:
+				'The claimed identity: an ENS name (vitalik.eth), SNS name (bonfida.sol), ' +
+				'EVM wallet (0x…), Solana wallet (base58), ERC-8004 id (eip155:8453:42), ' +
+				'or three.ws agent_id (uuid).',
+		},
+		address: {
+			type: 'string',
+			description: 'The contract / mint / wallet the identity claims to control.',
+		},
 		chain: {
 			type: 'string',
 			description:
-				'CAIP-2 chain ID. Examples: solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp, eip155:8453.',
-		},
-		contract_or_mint: {
-			type: 'string',
-			description: 'SPL mint pubkey (base58) or EVM contract address (0x…).',
+				'Optional CAIP-2 chain hint. Examples: eip155:1, eip155:8453, ' +
+				'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp. Inferred from the identity/address ' +
+				'shape when omitted.',
 		},
 	},
 };
 
-const OUTPUT_EXAMPLE = {
-	agent_id: '7b9a4f30-2d11-4e2d-9d12-1cdb1f6a3a55',
-	chain: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
-	contract_or_mint: 'C3vQABCDEFGHJKLMNopqrstuvwxyZ12345abcdefghi',
+export const OUTPUT_EXAMPLE = {
+	claim: {
+		identity: 'vitalik.eth',
+		address: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
+		chain: 'eip155:1',
+	},
+	identity_type: 'ens',
 	verified: true,
-	evidence: {
-		family: 'solana',
-		tx_hash: '4kHTPp9...',
-		wallet: 'THREEsynthetic1111111111111111111111111PayTo',
-		metadata_uri: 'https://arweave.net/...',
-		confirmed_at: '2026-04-30T14:08:22Z',
-	},
-	indexed_at: '2026-05-14T17:00:00Z',
+	method: 'ens-resolution',
+	evidence: [
+		{
+			kind: 'ens_forward_resolution',
+			ref: 'vitalik.eth',
+			detail: 'resolves to 0xd8da6bf26964af9d7eed9e03e53415d37aa96045',
+		},
+	],
+	caveats: [],
+	ts: '2026-07-07T00:00:00.000Z',
 };
 
-const OUTPUT_SCHEMA = {
+export const OUTPUT_SCHEMA = {
 	$schema: 'https://json-schema.org/draft/2020-12/schema',
 	type: 'object',
-	required: ['agent_id', 'chain', 'contract_or_mint', 'verified'],
+	required: ['claim', 'verified', 'evidence', 'method', 'ts'],
 	properties: {
-		agent_id: { type: 'string', format: 'uuid' },
-		chain: { type: 'string' },
-		contract_or_mint: { type: 'string' },
-		verified: { type: 'boolean' },
-		evidence: {
-			type: ['object', 'null'],
+		claim: {
+			type: 'object',
+			required: ['identity', 'address'],
 			properties: {
-				family: { type: 'string', enum: ['solana', 'evm'] },
-				tx_hash: { type: ['string', 'null'] },
-				wallet: { type: ['string', 'null'] },
-				metadata_uri: { type: ['string', 'null'] },
-				confirmed_at: { type: ['string', 'null'] },
+				identity: { type: 'string' },
+				address: { type: 'string' },
+				chain: { type: ['string', 'null'] },
 			},
 		},
-		indexed_at: { type: 'string', format: 'date-time' },
+		identity_type: {
+			type: 'string',
+			enum: ['ens', 'sns', 'evm_address', 'solana_address', 'erc8004', 'threews_agent_id', 'unknown'],
+		},
+		verified: {
+			description: 'true (proven), false (disproven), or "unverifiable" (insufficient on-chain data).',
+			oneOf: [{ type: 'boolean' }, { type: 'string', const: 'unverifiable' }],
+		},
+		method: { type: 'string' },
+		evidence: {
+			type: 'array',
+			items: {
+				type: 'object',
+				required: ['kind', 'ref', 'detail'],
+				properties: {
+					kind: { type: 'string' },
+					ref: { type: 'string' },
+					detail: { type: 'string' },
+				},
+			},
+		},
+		caveats: { type: 'array', items: { type: 'string' } },
+		ts: { type: 'string', format: 'date-time' },
 	},
 };
 
-const BAZAAR = {
+export const BAZAAR = {
 	discoverable: true,
 	info: {
 		input: {
@@ -108,64 +150,6 @@ const BAZAAR = {
 	}),
 };
 
-const CAIP2_RE = /^[a-z0-9-]{3,}:[a-zA-Z0-9]{1,64}$/;
-
-function normalizeAddress(addr, chain) {
-	if (chain.startsWith('eip155:')) return addr.toLowerCase();
-	return addr;
-}
-
-async function verifyIdentity({ agentId, chain, address }) {
-	const normalized = normalizeAddress(address, chain);
-	const [row] = await sql`
-		select
-			(meta->'onchain'->>'family')           as family,
-			(meta->'onchain'->>'chain')            as chain,
-			(meta->'onchain'->>'contract_or_mint') as contract_or_mint,
-			(meta->'onchain'->>'tx_hash')          as tx_hash,
-			(meta->'onchain'->>'wallet')           as wallet,
-			(meta->'onchain'->>'metadata_uri')     as metadata_uri,
-			(meta->'onchain'->>'confirmed_at')     as confirmed_at
-		  from agent_identities
-		 where id = ${agentId}
-		   and deleted_at is null
-		   and meta ? 'onchain'
-		   and (meta->'onchain'->>'chain') = ${chain}
-		 limit 1
-	`;
-
-	if (!row) {
-		return {
-			agent_id: agentId,
-			chain,
-			contract_or_mint: address,
-			verified: false,
-			evidence: null,
-			indexed_at: new Date().toISOString(),
-		};
-	}
-
-	const indexedAddr = normalizeAddress(row.contract_or_mint || '', chain);
-	const verified = indexedAddr === normalized;
-
-	return {
-		agent_id: agentId,
-		chain,
-		contract_or_mint: address,
-		verified,
-		evidence: verified
-			? {
-				family: row.family,
-				tx_hash: row.tx_hash || null,
-				wallet: row.wallet || null,
-				metadata_uri: row.metadata_uri || null,
-				confirmed_at: row.confirmed_at || null,
-			}
-			: null,
-		indexed_at: new Date().toISOString(),
-	};
-}
-
 export default paidEndpoint({
 	route: ROUTE,
 	method: 'GET',
@@ -180,27 +164,27 @@ export default paidEndpoint({
 	requiredScope: 'x402:bypass',
 	accessControl: installAccessControl({ requiredScope: 'x402:bypass' }),
 	async handler({ req }) {
-		const agentId = String(req.query?.agent_id || '').trim().toLowerCase();
-		const chain = String(req.query?.chain || '').trim();
-		const address = String(req.query?.contract_or_mint || '').trim();
-		if (!agentId || !chain || !address) {
-			const err = new Error('query params agent_id, chain, contract_or_mint are required');
+		// Accept the generalized params, and stay backward-compatible with the
+		// original three.ws-only shape (agent_id + contract_or_mint).
+		const identity = String(req.query?.identity || req.query?.agent_id || '').trim();
+		const address = String(req.query?.address || req.query?.contract_or_mint || '').trim();
+		const chain = String(req.query?.chain || '').trim() || undefined;
+
+		if (!identity || !address) {
+			const err = new Error('query params identity and address are required');
 			err.status = 400;
 			err.code = 'missing_params';
 			throw err;
 		}
-		if (!isUuid(agentId)) {
-			const err = new Error('agent_id must be a UUID');
+		if (identity.length > 256 || address.length > 128) {
+			const err = new Error('identity or address is unreasonably long');
 			err.status = 400;
-			err.code = 'invalid_agent_id';
+			err.code = 'invalid_input';
 			throw err;
 		}
-		if (!CAIP2_RE.test(chain)) {
-			const err = new Error('chain must be a CAIP-2 ID (e.g. eip155:8453 or solana:5eykt4Us...)');
-			err.status = 400;
-			err.code = 'invalid_chain';
-			throw err;
-		}
-		return verifyIdentity({ agentId, chain, address });
+
+		// verifyClaim never throws — it degrades to verified:'unverifiable' with a
+		// caveat, so this endpoint never 500s on a bad upstream.
+		return verifyClaim({ identity, address, chain });
 	},
 });

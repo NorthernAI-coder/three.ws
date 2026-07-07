@@ -40,16 +40,24 @@ const REQUIRED_SCOPE = 'x402:bypass';
 // Flat fee in USDC atomics (6 decimals). Default $5.00 comfortably covers the
 // ~0.022 SOL deploy cost the launcher fronts plus margin. Tune per unit
 // economics with X402_PRICE_PUMP_LAUNCH=<atomics>.
-const PRICE_ATOMICS = priceFor('pump-launch', '5000000');
+export const PRICE_ATOMICS = priceFor('pump-launch', '5000000');
 
-const DESCRIPTION =
-	'three.ws Pump Launcher — deploy a brand-new pump.fun token in one paid call. ' +
-	'Supply a name, symbol, and either a pre-pinned metadataUri or an imageUrl ' +
-	'(we pin the image + descriptor to pump.fun IPFS for you). The server fronts ' +
-	'the SOL deploy cost and signs the create-coin tx, so you need no SOL and no ' +
-	'account — just USDC. Creator rewards accrue to any Solana wallet you nominate. ' +
-	'Optional vanity prefix/suffix grinds a custom mint address. Returns the mint, ' +
-	'tx signature, and pump.fun URL. Pay-per-call in USDC on Base or Solana mainnet.';
+export const DESCRIPTION =
+	'three.ws Pump Launcher — launch a pump.fun token autonomously in ONE paid call: ' +
+	'no SOL, no wallet, no account. You pay USDC; the server fronts the ~0.022 SOL ' +
+	'deploy cost, optionally grinds a vanity mint, and signs the bonding-curve ' +
+	'create tx for you. ' +
+	'INPUTS: name + symbol (required); metadata as EITHER a pre-pinned "metadataUri" ' +
+	'OR an "imageUrl" we pin to pump.fun IPFS (with optional description / twitter / ' +
+	'telegram / website); "creator" = any Solana pubkey to receive pump.fun creator ' +
+	'rewards (defaults to the launcher); optional "vanityPrefix" / "vanitySuffix" ' +
+	'(≤5 base58 chars each) to brand the mint address. ' +
+	'OUTPUT: mint address, tx signature, metadataUri, solscan explorer link, and the ' +
+	'pump.fun coin URL. ' +
+	'FUNNEL: check your ticker is free first with the FREE GET /api/crypto/symbol, ' +
+	'then confirm the deploy landed on the FREE GET /api/crypto/launches feed. ' +
+	'Idempotent per payment (a retried payment replays the same mint). ' +
+	'Pay in USDC on Base or Solana mainnet; the token deploys on Solana mainnet.';
 
 const INPUT_EXAMPLE = {
 	name: 'Helios',
@@ -60,36 +68,71 @@ const INPUT_EXAMPLE = {
 	twitter: 'https://x.com/heliocoin',
 };
 
-const INPUT_SCHEMA = {
+export const INPUT_SCHEMA = {
 	$schema: 'https://json-schema.org/draft/2020-12/schema',
 	type: 'object',
+	// name + symbol are always required; exactly one of metadataUri / imageUrl
+	// must also be supplied (enforced by the handler — a request with neither is
+	// rejected 400 before payment settles).
 	required: ['name', 'symbol'],
+	oneOf: [{ required: ['metadataUri'] }, { required: ['imageUrl'] }],
 	properties: {
-		name: { type: 'string', maxLength: 32, description: 'Token name.' },
-		symbol: { type: 'string', maxLength: 10, description: 'Token ticker.' },
+		name: { type: 'string', minLength: 1, maxLength: 32, description: 'Token name, e.g. "Helios". 1–32 chars.' },
+		symbol: {
+			type: 'string',
+			minLength: 1,
+			maxLength: 10,
+			description:
+				'Token ticker, e.g. "HELIO". 1–10 chars. Check availability first with the free ' +
+				'GET /api/crypto/symbol?ticker=<symbol> so you do not collide with a live coin.',
+		},
 		metadataUri: {
 			type: 'string',
 			format: 'uri',
-			description: 'Pre-pinned pump.fun metadata descriptor. Provide this OR imageUrl.',
+			maxLength: 2048,
+			description:
+				'Pre-pinned pump.fun metadata descriptor (JSON on IPFS). Provide this OR imageUrl. ' +
+				'When supplied it is used verbatim and no pinning happens server-side.',
 		},
 		imageUrl: {
 			type: 'string',
 			format: 'uri',
+			maxLength: 2048,
 			description:
 				'https URL of the token image. When metadataUri is omitted, the image + a ' +
-				'descriptor are pinned to pump.fun IPFS (png, jpeg, gif, webp; max 5 MB).',
+				'descriptor (name/symbol/description/socials) are pinned to pump.fun IPFS for ' +
+				'you (png, jpeg, gif, webp; max 5 MB).',
 		},
-		description: { type: 'string', maxLength: 2000 },
-		twitter: { type: 'string', maxLength: 2048 },
-		telegram: { type: 'string', maxLength: 2048 },
-		website: { type: 'string', maxLength: 2048 },
+		description: {
+			type: 'string',
+			maxLength: 2000,
+			description: 'Coin description. Used only when we pin metadata for you (imageUrl path).',
+		},
+		twitter: { type: 'string', maxLength: 2048, description: 'Twitter/X URL for the pinned metadata (imageUrl path).' },
+		telegram: { type: 'string', maxLength: 2048, description: 'Telegram URL for the pinned metadata (imageUrl path).' },
+		website: { type: 'string', maxLength: 2048, description: 'Website URL for the pinned metadata (imageUrl path).' },
 		creator: {
 			type: 'string',
-			description: 'Solana pubkey to receive pump.fun creator rewards. Defaults to the launcher.',
+			minLength: 32,
+			maxLength: 44,
+			description:
+				'Solana pubkey (base58) to receive pump.fun creator rewards. Defaults to the ' +
+				'launcher when omitted.',
 		},
-		vanityPrefix: { type: 'string', maxLength: 5, description: 'Base58 prefix for the mint address.' },
-		vanitySuffix: { type: 'string', maxLength: 5, description: 'Base58 suffix for the mint address.' },
-		vanityIgnoreCase: { type: 'boolean' },
+		vanityPrefix: {
+			type: 'string',
+			maxLength: 5,
+			description: 'Base58 prefix to grind into the mint address (≤5 chars; longer = slower).',
+		},
+		vanitySuffix: {
+			type: 'string',
+			maxLength: 5,
+			description: 'Base58 suffix to grind into the mint address (≤5 chars; longer = slower).',
+		},
+		vanityIgnoreCase: {
+			type: 'boolean',
+			description: 'Match vanityPrefix/Suffix case-insensitively (faster grind). Default false.',
+		},
 	},
 };
 
@@ -109,7 +152,7 @@ const OUTPUT_EXAMPLE = {
 	vanity_duration_ms: 190,
 };
 
-const OUTPUT_SCHEMA = {
+export const OUTPUT_SCHEMA = {
 	$schema: 'https://json-schema.org/draft/2020-12/schema',
 	type: 'object',
 	required: ['mint', 'signature', 'metadataUri', 'pumpfun_url'],
@@ -130,7 +173,7 @@ const OUTPUT_SCHEMA = {
 	},
 };
 
-const BAZAAR = {
+export const BAZAAR = {
 	discoverable: true,
 	info: {
 		input: { type: 'http', method: 'POST', body: INPUT_EXAMPLE },
@@ -147,7 +190,7 @@ const BAZAAR = {
 // Base58 (no 0/O/I/l) — used to bound vanity patterns before grinding.
 const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]+$/;
 
-const bodySchema = z
+export const bodySchema = z
 	.object({
 		name: z.string().trim().min(1).max(32),
 		symbol: z.string().trim().min(1).max(10),
