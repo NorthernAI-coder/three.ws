@@ -79,6 +79,14 @@
 			<description>Text-to-3D prompts that name an art style — &quot;a cartoon fox,&quot; &quot;a stylized robot&quot; — now reliably produce a single, cleanly-isolated model instead of one baked into a busy background scene. The image step that seeds every 3D generation was skipping its &quot;isolated subject on a plain white background&quot; instruction whenever a prompt mentioned a style, which let the image model paint a whole illustrated scene the 3D reconstructor then struggled with. It now keeps that isolation instruction for stylized subjects (and no longer trips on unrelated words like &quot;lightsaber&quot;), so stylized characters and props reconstruct as sharp standalone assets.</description>
 		</item>
 		<item>
+			<title>Conversational 3D refinement + a remixable-asset economy with creator royalties</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-07:Conversational 3D refinement + a remixable-asset economy with creator royalties</guid>
+			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>You can now iterate on a generated model by talking to it — say &quot;make it metallic&quot; or &quot;add wings&quot; and the studio re-generates a new version anchored to the last one, with a version strip you can revert or branch. It is free in the 3D Studio and on the paid MCP server. Creators can also publish a model as remixable: when another agent builds on it, a creator-set royalty (up to 20%) of the remix fee routes back to them on-chain in USDC, with provenance recorded on every derived model.</description>
+		</item>
+		<item>
 			<title>Find the wallet grinder from the contract grinder</title>
 			<link>https://three.ws/eth-vanity</link>
 			<guid isPermaLink="false">2026-07-07:Find the wallet grinder from the contract grinder</guid>
@@ -181,6 +189,14 @@
 			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>A new free, keyless endpoint tells an AI agent whether big money is moving before it trades. Call /api/crypto/whales with a token mint to see the large buys of that coin, or without one to see the top whale wallets active across pump.fun right now. Each response carries a plain bullish/bearish/neutral signal derived from net whale flow — the SOL whales bought minus the SOL they sold — with no black-box scoring. No account, no key, no payment.</description>
+		</item>
+		<item>
+			<title>Hire and pay another agent, transparently — the live agent-to-agent commerce loop</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-07:Hire and pay another agent, transparently — the live agent-to-agent commerce loop</guid>
+			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Your agent can now discover a specialist agent, check its on-chain reputation, pay it in USDC, hand off the task, and get the result back with a full receipt — who it hired, the reputation behind the choice, exactly what it cost, and the on-chain settlement reference. The agent_hire_discover tool ranks candidates by task fit, ERC-8004 reputation and real engagement; agent_hire runs the whole thing end to end and renders an inline provenance receipt card. Hard spend guardrails protect you throughout: a per-call cap, a per-session budget, and a confirmation prompt for anything above a threshold — and a blocked or failed hire is never charged. Discovery no longer comes up empty on a plain-language request, and paid hires now complete against a live agent.</description>
 		</item>
 		<item>
 			<title>Mint a generated 3D avatar as an on-chain Solana NFT — with a live 3D viewer as its media</title>
@@ -309,6 +325,14 @@
 			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>You can now turn a text prompt into a real, downloadable 3D model right inside ChatGPT. The three.ws 3D Studio custom GPT is backed by a free, keyless REST endpoint — describe something like &quot;a low-poly fox&quot; or &quot;a ceramic robot figurine&quot; and get back a GLB you can open in Blender, Unity, Godot, or three.js, plus a browser viewer link. No account, no key, no cost. Every prompt is screened by a content-safety filter so it stays appropriate for all ages, and the model file is served from a public URL so it's easy to download and share.</description>
+		</item>
+		<item>
+			<title>three.ws 3D Studio prepped for the OpenAI ChatGPT App Directory</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-07:three.ws 3D Studio prepped for the OpenAI ChatGPT App Directory</guid>
+			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
+			<category>docs</category>
+			<description>We assembled the submission package for our free 3D Studio as a ChatGPT app: text-to-3D, avatars, and one-step rigged characters that render in an interactive viewer right in the chat — no account, no key, no payment. A full policy audit confirmed the app is crypto-free, collects no personal data, ships correct tool labels, and stays age-appropriate with a content-safety filter on every generation.</description>
 		</item>
 		<item>
 			<title>three.ws Agent Skills pack — for any Claude surface</title>

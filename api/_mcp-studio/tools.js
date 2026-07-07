@@ -1,8 +1,11 @@
 // three.ws 3D Studio (free) — tool catalog + handlers.
 //
-// Exactly five generation tools, all FREE (no x402, no wallet, no API key): the
-// platform's server-side keys cover provider cost via /api/forge (the public,
-// auth-free twin of the paid pipeline). Responses carry ONLY what a client needs
+// Six generation tools (five generators + refine_model), all FREE (no x402, no
+// wallet, no API key): the platform's server-side keys cover provider cost via
+// /api/forge (the public, auth-free twin of the paid pipeline). refine_model adds
+// conversational iteration — describe a change and it re-generates a new version
+// anchored to the prior model, returning a revertable/branchable version lineage.
+// Responses carry ONLY what a client needs
 // to show the model — a GLB URL, a viewer link, the kind, and the prompt — with
 // every internal identifier (job id, creation id, prediction id, backend name,
 // trace) stripped, per OpenAI's data-minimization policy. Each tool links the
@@ -31,6 +34,8 @@ import {
 	seedLineage,
 	appendVersion,
 	summarizeLineage,
+	buildLineageChain,
+	branchFrom,
 } from '../../mcp-server/src/tools/_lineage.js';
 
 const VALID_TIER = new Set(['draft', 'standard', 'high']);
@@ -344,27 +349,40 @@ async function handleRefineModel(args, _auth, req) {
 	const composed = composeRefinement(parentPrompt, instruction);
 
 	// Resolve the starting lineage: extend the one the client passed, or seed a
-	// fresh lineage rooted at the parent model. summarizeLineage() emits compact
-	// records; re-hydrate them into full version records for appendVersion.
+	// fresh lineage rooted at the parent model. The client-supplied lineage is
+	// UNTRUSTED — validate its structural integrity (contiguous indices, single
+	// root, no cycles) with buildLineageChain before extending it. A malformed
+	// array (buggy client, tampering) falls back to a fresh lineage rooted at the
+	// parent model rather than corrupting history.
+	const freshLineage = () => seedLineage({ glbUrl, viewerUrl: viewerUrl(base, glbUrl), prompt: parentPrompt || null });
 	const clientLineage = Array.isArray(args.parent_lineage) ? args.parent_lineage : null;
-	const baseLineage =
-		clientLineage && clientLineage.length > 0
-			? clientLineage.map((v, i) => ({
-					index: Number.isInteger(v.index) ? v.index : i,
-					parentIndex: v.parentIndex ?? (i > 0 ? i - 1 : null),
-					glbUrl: v.glbUrl,
-					viewerUrl: v.viewerUrl || null,
-					prompt: v.prompt || null,
-					instruction: v.instruction || null,
-					refKind: v.refKind || (i === 0 ? 'origin' : 'text'),
-				}))
-			: seedLineage({ glbUrl, viewerUrl: viewerUrl(base, glbUrl), prompt: parentPrompt || null });
+	let baseLineage;
+	if (clientLineage && clientLineage.length > 0) {
+		const rehydrated = clientLineage.map((v, i) => ({
+			index: Number.isInteger(v.index) ? v.index : i,
+			parentIndex: v.parentIndex ?? (i > 0 ? i - 1 : null),
+			glbUrl: v.glbUrl,
+			viewerUrl: v.viewerUrl || null,
+			prompt: v.prompt || null,
+			instruction: v.instruction || null,
+			refKind: v.refKind || (i === 0 ? 'origin' : 'text'),
+		}));
+		baseLineage = buildLineageChain(rehydrated).ok ? rehydrated : freshLineage();
+	} else {
+		baseLineage = freshLineage();
+	}
 
-	// Branch point: refine off an earlier version instead of the leaf.
-	const parentIndex =
-		Number.isInteger(args.parent_index) && args.parent_index >= 0 && args.parent_index < baseLineage.length
-			? args.parent_index
-			: undefined;
+	// Branch point: refine off an earlier version instead of the leaf. branchFrom
+	// validates the index against the lineage; an out-of-range index falls back to
+	// the default (extend the leaf) rather than erroring.
+	let parentIndex;
+	if (Number.isInteger(args.parent_index)) {
+		try {
+			parentIndex = branchFrom(baseLineage, args.parent_index);
+		} catch {
+			parentIndex = undefined;
+		}
+	}
 
 	let job;
 	try {

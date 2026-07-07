@@ -32,9 +32,8 @@ import {
 	listRemixable,
 	setRemixable,
 	getLineage,
-	getRemixSource,
 } from './_lib/forge-store.js';
-import { clampRoyaltyBps, atomicsToUsd } from './_lib/remix-royalty.js';
+import { clampRoyaltyBps } from './_lib/remix-royalty.js';
 
 const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const LICENSES = new Set(['remix-cc', 'remix-nc', 'remix-royalty', 'all-rights']);
@@ -151,7 +150,3 @@ export default wrap(async (req, res) => {
 	if (req.method === 'POST') return handlePost(req, res);
 	return handleGet(req, res);
 });
-
-// Re-exported for the paid remix endpoint's pre-remix disclosure (so an agent
-// can inspect a source's terms with getRemixSource before paying).
-export { getRemixSource, atomicsToUsd };

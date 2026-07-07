@@ -13,7 +13,7 @@ Legend: **not-started** | **blocked** | **ready-to-submit** | **submitted** | **
 | **Claude Connectors Directory** | blocked | 03 | `[HUMAN: Team/Enterprise org + Owner role required for in-app portal; OR use public form]` · Privacy policy must be deployed with MCP section (§9 of answer sheet) · Reviewer test account not yet provisioned | — |
 | **Claude plugin marketplace** | not-started | 10 | Plugin install test not yet run end-to-end; `three-ws-3d` plugin not yet created | — |
 | **Claude Agent Skills pack** | not-started | 11 | 3D-creation skills (`generate-3d-model`, `create-3d-avatar`, `rig-a-model`) not yet added | — |
-| **OpenAI App Directory** | not-started | 04–06 | `/api/mcp-studio` free endpoint not yet built (prompt 04); GLB viewer component not yet built (prompt 05); `[HUMAN: OpenAI developer identity verification required]` | — |
+| **OpenAI App Directory** | blocked | 04–06 | Package + audit done (`_generated/openai-submission.md`, 7/7 policy PASS; 3 real-model screenshots). **B1:** limiter store over monthly quota → studio generation 429s; **B2:** `/viewer?src=` route 404s (dead link in tool output). Clear both + redeploy before submit. `[HUMAN: OpenAI identity verification + support contact + final submit]` | — |
 | **OpenAI GPT Store** | ready-to-build | 12 | `/api/3d/studio` free REST Actions lane built + live-verified (real GLB, safety gate, zero crypto/PII); `_generated/openai-actions.yaml` lints clean; `_generated/openai-gpt-config.md` complete; `[HUMAN: paste config into GPT builder, upload icon-512x512.png, verify Builder Profile, submit]` | — |
 | **Official MCP Registry** | ready-to-submit | 13 | `server.json` manifests verified clean; `[HUMAN: Run mcp-publisher commands (staged in prompt 13 output) — do not publish without explicit operator approval]` | https://registry.modelcontextprotocol.io/?q=io.github.nirholas |
 | **Smithery** | not-started | 13 | Listing doc not yet written | — |
@@ -36,7 +36,7 @@ Legend: **not-started** | **blocked** | **ready-to-submit** | **submitted** | **
 | 05 | OpenAI Apps SDK component | ⬜ not started | GLB viewer component; hero screenshot |
 | 06 | OpenAI submission package | ⬜ not started | `_generated/openai-submission.md` |
 | 07 | Embodied live agent avatar | ⬜ not started | Inline avatar component + emote/lip-sync |
-| 08 | Live agent commerce | ⬜ not started | Commerce flow UI + provenance receipt |
+| 08 | Live agent commerce | ✅ verified | Loop live (discover→pay→delegate→receipt) + guardrails; evidence in `_generated/commerce/`. On-chain settle needs funded wallet + `MCP_AGENT_TALK_TOKEN` (owner) |
 | 09 | Conversational remixable 3D | ⬜ not started | Iterate-by-chat + royalty wiring |
 | 10 | Claude plugin marketplace | ⬜ not started | 4 installable plugins |
 | 11 | Agent Skills pack | ⬜ not started | Hardened skills + 3D-creation skills |

@@ -20,7 +20,7 @@
 // neither the @x402 stack nor zod-to-json-schema) unchanged.
 
 import { classifyHumanoidPrompt } from './_humanoid.js';
-import { composeRefinement, seedLineage, appendVersion } from './_lineage.js';
+import { composeRefinement, seedLineage, appendVersion, buildLineageChain, branchFrom } from './_lineage.js';
 
 // Standard tool error envelope — identical shape to payments.js `toolError`, so
 // a core's error is indistinguishable whether it is surfaced through the paid
@@ -1005,15 +1005,25 @@ export async function runRefineModel({
 	const composedPrompt = composeRefinement(parentPromptStr, instructionTrimmed);
 
 	// Resolve starting lineage: extend an existing one, or seed from the parent.
+	// A caller-supplied parent_lineage is UNTRUSTED — validate its structural
+	// integrity (contiguous indices, single root, no cycles) with buildLineageChain
+	// before extending. A malformed array falls back to a fresh lineage rooted at
+	// glb_url rather than corrupting history.
 	const baseLineage =
-		Array.isArray(parent_lineage) && parent_lineage.length > 0
+		Array.isArray(parent_lineage) && parent_lineage.length > 0 && buildLineageChain(parent_lineage).ok
 			? parent_lineage
 			: seedLineage({ glbUrl: glb_url.trim(), prompt: parentPromptStr || null });
 
-	const effectiveParentIndex =
-		Number.isInteger(parent_index) && parent_index >= 0 && parent_index < baseLineage.length
-			? parent_index
-			: undefined;
+	// Branch point: branchFrom validates the index against the lineage; an
+	// out-of-range index falls back to extending the leaf.
+	let effectiveParentIndex;
+	if (Number.isInteger(parent_index)) {
+		try {
+			effectiveParentIndex = branchFrom(baseLineage, parent_index);
+		} catch {
+			effectiveParentIndex = undefined;
+		}
+	}
 
 	const base = apiBaseFrom(['MESH_FORGE_API_BASE']);
 	const started = Date.now();

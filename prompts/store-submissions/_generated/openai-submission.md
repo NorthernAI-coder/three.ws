@@ -1,0 +1,331 @@
+# three.ws 3D Studio — OpenAI ChatGPT App Directory submission package
+
+**Prepared:** 2026-07-07 · **Owning prompt:** 06 · **Endpoint:** `https://three.ws/api/mcp-studio`
+**Prereqs verified live:** prompt 04 (`/api/mcp-studio` deployed), prompt 05 (widget renders real GLBs).
+
+This is the copy-paste-ready answer sheet for submitting the free three.ws 3D Studio to the
+OpenAI ChatGPT App Directory, plus an evidence-backed compliance audit. Every field is filled
+except items marked `[HUMAN: …]` (identity verification, support contact, final submit) and the
+two **blockers** below, which must be cleared before the app can pass review.
+
+---
+
+## 0. Submission verdict — NOT READY (2 blockers)
+
+The app **passes every OpenAI content/privacy/annotation policy** (§2 audit: all PASS). It is **not
+submittable today** because two live-production defects would make a reviewer's test fail:
+
+| # | Blocker | Impact on review | Owner | Fix |
+|---|---------|------------------|-------|-----|
+| **B1** | **Rate-limiter store over monthly quota** → every `tools/call` generation returns HTTP 429 `rate_limiter_unavailable`. | A reviewer's first generation attempt fails. Auto-rejection ("apps must reliably do what they promise"). | ops / owner | Restore Upstash quota (§B1). |
+| **B2** | **`/viewer?src=<glb>` returns 404** — the `viewerUrl` every tool returns (and the widget's "Open in three.ws" button) is a dead link. | Reviewer clicks the returned link → 404 page. Quality/broken-link rejection. | eng | Add the missing route (§B2). |
+
+Discovery (`initialize`, `tools/list`, `resources/list`) works; the generation pipeline itself works
+(proven in §2.4 via the free lane); the widget renders real models (§4 screenshots). The blockers are
+an infra quota and a missing route, not the app logic. **Clear B1 + B2, redeploy, then submit.**
+
+---
+
+### B1 — Rate-limiter store over quota (generation 429s)
+
+**Evidence (live, 2026-07-07):**
+```
+$ curl -s -X POST https://three.ws/api/mcp-studio -H 'content-type: application/json' \
+    -d '{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"forge_free","arguments":{"prompt":"a friendly robot mascot"}}}'
+{"error":"rate_limited","error_description":"generation rate limit — slow down and try again shortly","retry_after":60,"reason":"rate_limiter_unavailable"}   # HTTP 429
+```
+**Root cause:** the shared Upstash/Vercel-KV limiter store is over its **monthly command quota**:
+```
+$ curl -s "$KV_REST_API_URL/ping" -H "authorization: Bearer $KV_REST_API_TOKEN"
+{"error":"ERR max requests limit exceeded. Limit: 500000, Usage: 500002. ..."}
+```
+The studio's generation buckets (`studioGenBurst`, `studioGenHourly`, `studioGenerateGlobal` in
+`api/_lib/rate-limit.js`) are `critical: true`, so on a Redis error in production they **fail closed**
+(deny) rather than allow unbounded operator-funded spend. With the store over quota, every Redis
+command errors → generation is denied with `reason: 'rate_limiter_unavailable'`. This is the recurring
+"500k/mo" incident referenced in the rate-limit code comments.
+
+**Fix (ops — pick one):**
+1. **Restore quota** — upgrade the Upstash plan or reset billing so `Usage < Limit`; the studio recovers
+   the instant commands succeed again. (Fastest; no deploy.)
+2. **Point the limiter at a fresh store** — set `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN`
+   (highest-priority source in `REDIS_REST_SOURCES`) to a new Upstash DB with headroom, then redeploy.
+
+Note: `authIp`/login use `degradeToMemory` and stay up; only cost/money-moving buckets (studio
+generation, chat, x402-verify, auto-rig) fail closed. This is a **site-wide** cost-lane outage, not
+studio-only — worth fixing regardless of the submission.
+
+`[HUMAN: restore Upstash limiter quota, then re-run the §5 reviewer smoke test to confirm 200s.]`
+
+---
+
+### B2 — `/viewer?src=<glb>` returns 404 (broken link in every tool response)
+
+**Evidence (live, 2026-07-07):**
+```
+$ curl -s -o /dev/null -w '%{http_code}' "https://three.ws/viewer?src=<encoded-glb>"
+404          # body: <title>three.ws — 404</title>
+```
+Every studio tool returns `viewerUrl: "https://three.ws/viewer?src=<glb>"` in `structuredContent` and
+in the text ("View it: …/viewer?src=…"), and the widget's primary **"Open in three.ws"** button links
+to it. That path 404s.
+
+**Root cause:** `vercel.json` has **no route** mapping `/viewer`. Neighboring viewers do not substitute:
+- `/app?src=<glb>` → 200 but ignores `?src=` (renders the default agent avatar — verified by screenshot).
+- `/avatar-artifact?src=<glb>` → 200 but ignores `?src=` (renders its own demo artifact — verified).
+- The one standalone GLB viewer, `public/apps-sdk/studio-viewer.html`, reads `?glb=` (not `?src=`) and
+  is served at `/apps-sdk/studio-viewer.html`.
+
+So `/viewer?src=` resolves nowhere. The link is emitted by 7 shipped surfaces
+(`api/_mcp-studio/forge-client.js`, `src/shared/forge-frames.js`, `api/v1/ai/_text-to-3d-lane.js`,
+`api/_lib/tokenize-3d-metadata.js`, `api/_okx3d/identity.js`, `api/_studio/tools.js`, and the
+studio-viewer bundle's own fallback), so this is a platform-wide dead link, not studio-only.
+
+**Recommended fix (smallest correct change — make the standalone viewer serve `/viewer?src=`):**
+1. In `apps-sdk/studio-viewer/src.js` (~line 66), accept `src`/`url` in the standalone param reader:
+   ```js
+   glb: pickUrl({ u: q.get('glb') || q.get('src') || q.get('url') || hashUrl }, ['u']),
+   ```
+2. Rebuild the bundle: `npm run build:apps-sdk-viewer`.
+3. Add one route to `vercel.json` (query string is forwarded automatically):
+   ```json
+   { "src": "/viewer/?", "dest": "/apps-sdk/studio-viewer.html" }
+   ```
+4. Verify: `curl -s -o /dev/null -w '%{http_code}' "https://three.ws/viewer?src=<glb>"` → `200`, and the
+   page renders the model.
+
+> **Not fixed in this task on purpose.** This touches a shared build artifact and the 1047-route
+> `vercel.json` while other agents are actively editing adjacent files (`api/_okx3d/identity.js`,
+> `apps-sdk/…` were dirty in `git status`), and the fix only reaches a reviewer after a deploy that was
+> not requested here. It belongs in its own focused change with owner awareness.
+> `[HUMAN: apply the §B2 fix (or confirm the intended /viewer target), redeploy, re-verify 200.]`
+
+---
+
+## 1. Listing metadata (copy-paste into the submission form)
+
+| Field | Value |
+|-------|-------|
+| **App name** | **three.ws 3D Studio** |
+| **Tagline** | Turn a text prompt into a downloadable, animation-ready 3D model — free, inside ChatGPT. |
+| **Short description** | three.ws 3D Studio generates textured 3D models, avatars, and rigged characters from a text prompt (or a reference image) and renders each result inline in an interactive 3D viewer you can rotate, inspect, and download as a GLB. It can also auto-rig a static model into an animation-ready one. Free to use — no account, no key, no payment. |
+| **Long description** | Describe anything — "a friendly round robot mascot," "a low-poly treasure chest," "a knight character I can animate" — and three.ws 3D Studio builds a real, textured 3D model and shows it in an interactive viewer right in the conversation. Five tools cover the full path from idea to asset: generate a model from text, generate an avatar, generate an art-directed mesh, auto-rig a static model into an animation-ready one, and generate-then-rig a character in a single step. Every result is a standard **GLB** you can download and drop into Blender, Unity, Unreal, three.js, or any glTF pipeline. Generation runs on three.ws's own free 3D lane, so there is nothing to sign up for and nothing to pay. Not natively possible in ChatGPT: turning language into a manipulable, downloadable 3D asset with an inline viewer. |
+| **Category** | Creativity & Design (secondary: Productivity) |
+| **Country availability** | All countries / Global (no geo-restriction; anonymous + free). |
+| **Age suitability** | Suitable for ages 13–17 (content-safety gate on every generation lane — §2.6). |
+| **App icon** | `_generated/assets/icon-512x512.png` (512×512, owned IP). |
+| **Support contact** | `[HUMAN: current support email/URL — e.g. support@three.ws or https://three.ws/support]` |
+| **Privacy policy URL** | `https://three.ws/legal/privacy` `[HUMAN: confirm it is deployed and covers the studio — it collects no personal data; see §2.4]` |
+| **Developer/Publisher** | three.ws · `[HUMAN: verified individual/organization on platform.openai.com]` |
+
+### Example prompts (3–5, all reliably produce a model)
+1. `Make a 3D model of a friendly round robot mascot, glossy white plastic.`
+2. `Generate a low-poly treasure chest with iron bands.`
+3. `Create a 3D avatar of a space explorer in a white-and-orange suit.`
+4. `Make a rigged, animation-ready knight character I can pose.`
+5. `Model a small ceramic teapot with a bamboo handle and a celadon glaze.`
+
+### Tool list (titles as shown to users)
+| Tool | Title | What it does |
+|------|-------|--------------|
+| `forge_free` | Generate a 3D model from text | Text → textured GLB (free NVIDIA lane). |
+| `text_to_avatar` | Generate a 3D avatar | Text or reference image → avatar GLB. |
+| `mesh_forge` | Generate a 3D mesh (art-directed) | Text/image → mesh, prompt refined by an AI art-director first. |
+| `rig_mesh` | Rig a 3D model for animation | Static GLB URL → humanoid-rigged, animation-ready GLB. |
+| `forge_avatar` | Generate a rigged, animation-ready avatar | Text/image → generate + auto-rig in one step. |
+
+---
+
+## 2. Compliance audit (item-by-item, each with a PASS verdict + evidence)
+
+All evidence is from the live production deployment on 2026-07-07. Raw artifacts are in
+`_generated/` (`live-tools-list.json`, `openai-tool-evidence.txt`, `forge-raw-response.json`).
+
+### 2.1 No crypto / token / wallet surface — **PASS**
+The studio endpoint, its handlers, the widget, and every reviewer-facing surface contain **zero**
+coin/token/wallet/x402/pump/aixbt/$THREE/payment strings.
+
+```
+$ grep -rInE 'coin|token|wallet|x402|pump|aixbt|\$THREE|crypto|solana|usdc|mint|payment|checkout|price|fee' \
+    api/mcp-studio.js api/_mcp-studio/ | grep -vE ':[0-9]+:\s*(//|\*)'
+  (no matches in executable code)
+
+# Reviewer-facing JSON — hit counts:
+live-tools-list.json        : 0 crypto/payment hits
+studio-widget-resource.json : 0 crypto/payment hits
+openai-tool-evidence.txt    : 0 crypto/payment hits
+```
+The only matches anywhere are in **source comments** that assert the absence (e.g. `// No coin, token,
+wallet, or payment surface anywhere.`). The paid, crypto-enabled studio is a **separate** endpoint
+(`/api/mcp-3d`) that is not part of this submission.
+
+### 2.2 No payments / no embedded checkout — **PASS**
+`api/mcp-studio.js` header: *"There is no OAuth, no x402, no wallet, no token, and no PaymentRequired
+anywhere in this server — generation runs operator-funded."* No tool returns a price, invoice, or
+checkout; the app charges the user nothing. (If monetization is ever added, OpenAI allows only physical
+goods via external checkout — out of scope here.)
+
+### 2.3 Tool annotations correct on all five tools — **PASS**
+Pulled from the live `tools/list`:
+
+| Tool | readOnlyHint | destructiveHint | idempotentHint | openWorldHint |
+|------|:---:|:---:|:---:|:---:|
+| forge_free | false | false | false | **true** |
+| text_to_avatar | false | false | false | **true** |
+| mesh_forge | false | false | false | **true** |
+| rig_mesh | false | false | false | **true** |
+| forge_avatar | false | false | false | **true** |
+
+Rationale (matches OpenAI guidance): each tool **creates a new hosted asset** → not read-only; it
+**never modifies or deletes** existing data → `destructiveHint: false` (generation is non-destructive);
+same prompt yields a fresh mesh → not idempotent; work runs against **external model APIs** →
+`openWorldHint: true`. Every tool also carries the widget `_meta` (`openai/outputTemplate`,
+`openai/widgetAccessible: true`) and human-readable `invoking`/`invoked` labels.
+
+### 2.4 Data minimization — **PASS** (real request/response captured)
+Each tool response returns **only** what a client needs to show/download the model. The studio
+**strips every internal identifier** from the raw generation record.
+
+**Raw `/api/forge` response (14 fields, internal):**
+```json
+{"job_id":null,"creation_id":"7dac20c7-…","status":"done","glb_url":"…","durable":true,
+ "mode":"text_to_3d","path":"image","tier":"draft","backend":"nvidia","prompt":"…",
+ "preview_image_url":null,"reference_image_urls":[],"eta_seconds":13,"estimated_credits":null}
+```
+**Authentic studio tool response (5 fields — `openai-tool-evidence.txt`):**
+```json
+{"kind":"model",
+ "glbUrl":"https://pub-…r2.dev/forge/anon/456f0f83-…-1d695f.glb",
+ "viewerUrl":"https://three.ws/viewer?src=…",   // ← target route missing, see B2
+ "format":"glb",
+ "prompt":"a small ceramic teapot with a bamboo handle, glossy celadon glaze"}
+```
+**Stripped:** `creation_id`, `job_id`, `status`, `mode`, `path`, `tier`, `backend`, `durable`,
+`eta_seconds`, `estimated_credits`, `preview_image_url`, `reference_image_urls`. **No** session id,
+trace id, user id, auth secret, or PII. `prompt` is the user's own input echoed back (labels the model).
+The only identifier-shaped token is the generated asset's own **anonymous** content path
+(`/forge/anon/<uuid>.glb`) — the public file URL the user needs to download it, not tied to any account
+or session.
+
+### 2.5 Inputs minimal — **PASS**
+No chat-history or "just in case" fields; `additionalProperties: false` on every schema.
+
+| Tool | Inputs | Required |
+|------|--------|----------|
+| forge_free | `prompt`, `tier` | `prompt` |
+| text_to_avatar | `prompt`, `image_url` | — |
+| mesh_forge | `prompt`, `image_url` | — |
+| rig_mesh | `glb_url` | `glb_url` |
+| forge_avatar | `prompt`, `image_url`, `allow_non_humanoid` | — |
+
+### 2.6 Age-appropriate (13–17) — **PASS** (safety gate present + live-tested)
+A synchronous, dependency-free content-safety gate (`api/_mcp-studio/safety.js`) runs **before any
+provider work** on every generation lane, refusing sexual/CSAM, graphic-gore, hate/extremism, and
+real-weapon/drug prompts. Live-tested through the real handler:
+```
+forge_free({prompt:"a nude pornographic figure"})  →  refused in 1ms, no provider call:
+  "This 3D Studio is rated for ages 13+ and cannot generate sexual or adult content.
+   Try describing a character, creature, or object without explicit themes."
+```
+(Full response in `openai-tool-evidence.txt`.) The safety gate is **not** blocked by B1/B2 — it runs in
+the handler, independent of the limiter and the viewer route.
+
+### 2.7 Clear utility not native to ChatGPT — **PASS**
+ChatGPT cannot natively turn language into a manipulable, downloadable 3D asset. The studio produces a
+real **GLB** plus an inline interactive viewer (rotate / spin / recenter / download) — a capability, not
+a chat completion. Value prop: *idea → textured, riggable, downloadable 3D model, free, without leaving
+the conversation.*
+
+**Audit result: 7/7 policy items PASS.** The only things standing between this and a submission are the
+two infrastructure/routing blockers in §0.
+
+---
+
+## 3. MCP connectivity details (for the submission form + reviewer)
+
+| Field | Value |
+|-------|-------|
+| **MCP server URL** | `https://three.ws/api/mcp-studio` |
+| **Transport** | Streamable HTTP / JSON-RPC 2.0 over `POST` (synchronous responses; no server-initiated stream). `GET` → `405`. |
+| **Protocol version** | `2025-06-18` (echoed on `initialize` and the `mcp-protocol-version` response header). |
+| **serverInfo** | `{ "name": "three-ws-3d-studio-free", "version": "1.0.0" }` |
+| **Capabilities** | `tools`, `resources`, `logging`. |
+| **Auth mode** | **None** (anonymous, unauthenticated). No OAuth, no API key, no test credentials required. |
+| **Widget resource** | `ui://widget/three-studio-model.html` (`resources/list` / `resources/read`), MIME `text/html+skybridge`. |
+| **Rate limits** | Per-IP transport cap + per-IP generation burst/hourly + a platform-wide generation circuit breaker (operator-cost protection). A reviewer testing normally will not hit these — **except while B1 is unresolved, when all generation 429s.** |
+
+Because the app is anonymous and free, OpenAI's "provide a fully-featured demo account with test
+credentials" requirement **does not apply** — there is no login. Note this explicitly in the form's auth
+section.
+
+---
+
+## 4. Screenshots (`_generated/openai-screenshots/`)
+
+All three show the interactive viewer widget rendering a **real, freshly generated** model with the
+control bar (Download · Spin · Recenter · Open in three.ws).
+
+| File | Dimensions | Content |
+|------|-----------|---------|
+| `three-ws-3d-studio-1440x1520.png` | 1440×1520 (portrait) | Hero — rigged avatar rendered inline (prompt 05). |
+| `three-ws-3d-studio-widget-1600x1000.png` | 1600×1000 (landscape) | Shipped widget rendering a live-generated celadon teapot. |
+| `three-ws-3d-studio-widget-1280x800.png` | 1280×800 (landscape) | Same, standard 16:10 landscape. |
+
+The landscape shots were captured against the **live** shipped viewer bundle
+(`https://three.ws/apps-sdk/studio-viewer.html?glb=<real-glb>`) rendering the GLB produced by a real
+`forge_free` call this session — not a mockup.
+
+`[HUMAN: confirm the App Directory form's exact required screenshot dimensions/aspect and, if it demands
+a specific size not covered above, capture at that size — the widget renders any GLB at any viewport.]`
+
+---
+
+## 5. Reviewer testing guide
+
+**No credentials needed** (anonymous, free). Prerequisite: **B1 must be cleared** or all generation
+returns 429.
+
+1. **Discover** (works today): `initialize` → `tools/list` → `resources/list` against
+   `https://three.ws/api/mcp-studio`. Expect 5 tools + the `ui://widget/three-studio-model.html` resource.
+2. **Generate** a model that reliably succeeds — say to ChatGPT: *"Make a 3D model of a friendly round
+   robot mascot, glossy white plastic."* Expect, in ~15–60s, an inline interactive 3D viewer with the
+   model plus **Download / Spin / Recenter / Open in three.ws**.
+3. **Expected render behavior:** the widget loads the GLB, frames it, casts a soft ground shadow, and
+   auto-rotates until you drag. WebGL is required (the widget shows a graceful "download / open"
+   fallback if the host can't render WebGL).
+4. **Rig flow:** *"Now make me a rigged knight character I can animate"* → `forge_avatar` returns a
+   rigged GLB (idle animation plays in the viewer).
+5. **Safety check:** an explicit/adult prompt is refused instantly with an age-13+ message and never
+   reaches a generator.
+
+Copy-paste discovery smoke test:
+```bash
+curl -s -X POST https://three.ws/api/mcp-studio -H 'content-type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | head -c 300
+```
+
+---
+
+## 6. Developer verification + support (`[HUMAN]` actions)
+
+1. `[HUMAN: complete developer identity verification for the individual/organization on
+   platform.openai.com — required before any listing can go live.]`
+2. `[HUMAN: provide a current, monitored support contact (email or URL) for the listing.]`
+3. `[HUMAN: confirm https://three.ws/legal/privacy is deployed and states the studio collects no
+   personal data (anonymous, no login, minimal identifier-free responses per §2.4).]`
+4. `[HUMAN: after B1 + B2 are fixed and redeployed, run the §5 smoke test to confirm generation returns
+   200 and the "Open in three.ws" link resolves, then submit.]`
+
+---
+
+## 7. Pre-submit checklist
+
+- [ ] **B1** cleared — `tools/call forge_free` returns 200 with a GLB (not 429).
+- [ ] **B2** cleared — `/viewer?src=<glb>` returns 200 and renders the model.
+- [ ] Developer identity verified on platform.openai.com. `[HUMAN]`
+- [ ] Support contact + privacy policy confirmed live. `[HUMAN]`
+- [ ] Screenshots match the form's required dimensions. `[HUMAN verify]`
+- [x] Compliance audit: 7/7 policy items PASS (§2).
+- [x] Listing metadata drafted (§1).
+- [x] MCP connectivity documented (§3).
+- [x] Reviewer guide written (§5).
