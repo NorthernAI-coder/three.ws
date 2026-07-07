@@ -40,7 +40,6 @@ import {
 	encodePaymentResponseHeader,
 	permit2VariantOf,
 	resolveResourceUrl,
-	buildBazaarSchema,
 } from '../_lib/x402-spec.js';
 import { env } from '../_lib/env.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
@@ -72,6 +71,15 @@ import {
 	preferFreeReconstruct,
 	buildCatalog,
 } from '../_lib/forge-tiers.js';
+import {
+	FORGE_SERVICE_NAME,
+	FORGE_TAGS,
+	FORGE_ASPECT_RATIOS,
+	FORGE_MAX_VIEWS,
+	FORGE_ROUTE_DESCRIPTION,
+	FORGE_INPUT_SCHEMA,
+	FORGE_BAZAAR,
+} from '../_lib/forge-listing.js';
 import { llmComplete } from '../_lib/llm.js';
 
 const ROUTE = '/api/x402/forge';
@@ -79,9 +87,9 @@ const REQUIRED_SCOPE = 'x402:bypass';
 const accessControl = installAccessControl({ requiredScope: REQUIRED_SCOPE });
 const routeConfig = { path: ROUTE, method: 'POST', requiredScope: REQUIRED_SCOPE };
 
-const VALID_ASPECT = new Set(['1:1', '4:3', '3:4', '16:9', '9:16']);
+const VALID_ASPECT = new Set(FORGE_ASPECT_RATIOS);
 const HTTP_URL_RE = /^https:\/\/[^\s]+$/i;
-const MAX_VIEWS = 4;
+const MAX_VIEWS = FORGE_MAX_VIEWS;
 // The reconstruct lane: serves image→3D (NVIDIA's hosted preview can't take user
 // photos) and the text→3D fallback when the free NVIDIA NIM lane is unavailable.
 const BACKEND = 'trellis';
@@ -103,108 +111,13 @@ const HEALTH_CHECK_IMAGE_BUDGET_MS = 30_000;
 const HEALTH_CHECK_DEFAULT_PROMPT = 'Write one sentence about Solana.';
 const HEALTH_CHECK_IMAGE_DEFAULT_PROMPT = 'A simple blue circle.';
 
-const ROUTE_DESCRIPTION =
-	'three.ws Forge — pay-per-call text→3D and image→3D. Submit a prompt (or up ' +
-	'to four reference views of one object) and get back a job token; poll it for ' +
-	'free at GET /api/forge?job=<id> for the finished GLB (draft prompts often ' +
-	'finish inline and return the GLB url with status:"done"). Text→3D runs on the ' +
-	'free NVIDIA NIM TRELLIS lane (native text→mesh); image→3D reconstructs via ' +
-	'TRELLIS. Priced per quality tier in USDC ($0.05 draft / $0.15 standard / ' +
-	'$0.50 high). Pay autonomously in USDC on Solana mainnet — no API key, no account.';
-
-const INPUT_EXAMPLE = {
-	prompt: 'a brass steampunk owl, full body',
-	tier: 'standard',
-	aspect_ratio: '1:1',
-};
-
-const INPUT_SCHEMA = {
-	$schema: 'https://json-schema.org/draft/2020-12/schema',
-	type: 'object',
-	properties: {
-		prompt: {
-			type: 'string',
-			minLength: 3,
-			maxLength: 1000,
-			description: 'Describe one subject for text→3D. Omit when supplying image_urls.',
-		},
-		image_urls: {
-			type: 'array',
-			items: { type: 'string', format: 'uri' },
-			minItems: 1,
-			maxItems: MAX_VIEWS,
-			description: 'Up to four public https reference views of one object for image→3D.',
-		},
-		tier: { type: 'string', enum: [...TIER_IDS], default: DEFAULT_TIER },
-		aspect_ratio: { type: 'string', enum: [...VALID_ASPECT], default: '1:1' },
-		mode: {
-			type: 'string',
-			enum: ['generate', 'health_check'],
-			default: 'generate',
-			description: 'health_check runs a fast text content-generation canary ($0.001) instead of a 3D job — returns { generated, latency_ms, token_count }.',
-		},
-		type: {
-			type: 'string',
-			enum: ['text', 'image'],
-			default: 'text',
-			description: 'Content type for health_check mode: "text" (LLM completion canary) or "image" (text→image + CDN upload canary).',
-		},
-	},
-};
-
-const OUTPUT_EXAMPLE = {
-	job_id: 'f1.eyJwIjoibnZpZGlhIn0.sig',
-	status: 'queued',
-	poll_url: '/api/forge?job=f1.eyJwIjoibnZpZGlhIn0.sig',
-	mode: 'text_to_3d',
-	tier: 'standard',
-	backend: 'nvidia',
-	eta_seconds: 22,
-	price_usdc: '0.15',
-};
-
-const OUTPUT_SCHEMA = {
-	$schema: 'https://json-schema.org/draft/2020-12/schema',
-	type: 'object',
-	// `status` is the only guaranteed field: a queued job carries job_id + poll_url,
-	// while a job that completes inside the submit window (the free NVIDIA NIM lane,
-	// typical for draft) carries glb_url with status:"done" and a null job_id.
-	required: ['status'],
-	properties: {
-		job_id: {
-			type: ['string', 'null'],
-			description: 'Poll this on GET /api/forge?job=<id>. Null when the model finished inline.',
-		},
-		status: { type: 'string', description: '"queued" (poll it) or "done" (glb_url is ready).' },
-		poll_url: {
-			type: ['string', 'null'],
-			description: 'Free, provider-aware status endpoint. Null on inline completion.',
-		},
-		glb_url: {
-			type: 'string',
-			description: 'The finished GLB — present only when status is "done".',
-		},
-		mode: { type: 'string', enum: ['text_to_3d', 'image_to_3d'] },
-		tier: { type: 'string' },
-		backend: { type: 'string' },
-		eta_seconds: { type: 'integer' },
-		price_usdc: { type: 'string' },
-	},
-};
-
-const ROUTE_BAZAAR = {
-	discoverable: true,
-	info: {
-		input: { type: 'http', method: 'POST', bodyType: 'json', body: INPUT_EXAMPLE },
-		output: { type: 'json', example: OUTPUT_EXAMPLE },
-	},
-	schema: buildBazaarSchema({
-		method: 'POST',
-		bodyType: 'json',
-		bodySchema: INPUT_SCHEMA,
-		outputSchema: OUTPUT_SCHEMA,
-	}),
-};
+// Discovery/listing metadata is defined once in ../_lib/forge-listing.js and
+// imported by BOTH this live 402 challenge and the api/wk.js discovery mirror, so
+// the two can never drift. Re-exposed under the endpoint's local names to keep
+// the challenge/handler code below unchanged.
+const ROUTE_DESCRIPTION = FORGE_ROUTE_DESCRIPTION;
+const INPUT_SCHEMA = FORGE_INPUT_SCHEMA;
+const ROUTE_BAZAAR = FORGE_BAZAAR;
 
 function buildRequirements(resourceUrl, priceAtomics) {
 	const amount = String(priceAtomics);
@@ -666,8 +579,8 @@ export default wrap(async (req, res) => {
 	const priceAtomics = parsed.isHealthCheck ? HEALTH_CHECK_PRICE_ATOMIC : priceAtomicsForTier(parsed.tier);
 	const requirements = buildRequirements(resourceUrl, priceAtomics);
 	const service = withService({
-		serviceName: 'three.ws Forge — text/image → 3D',
-		tags: ['3d', 'generation', 'text-to-3d', 'image-to-3d', 'glb', 'mesh'],
+		serviceName: FORGE_SERVICE_NAME,
+		tags: [...FORGE_TAGS],
 	});
 	const challenge = {
 		resourceUrl,
