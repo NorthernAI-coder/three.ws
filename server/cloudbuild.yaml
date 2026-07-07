@@ -1,0 +1,79 @@
+# Fast Cloud Build pipeline for the three-ws-api Cloud Run service.
+# ------------------------------------------------------------------
+# Why not `gcloud run deploy --source`? That path uses the default (small)
+# build VM and the classic Docker builder — no BuildKit, no layer cache, so
+# every deploy re-runs the full workspace `npm ci` (~10 min). This pipeline:
+#   - runs on a 32-vCPU machine (E2_HIGHCPU_32)
+#   - builds with BuildKit + inline cache pulled from the previous image, so
+#     an unchanged package-lock.json skips `npm ci` entirely
+#   - deploys the image to Cloud Run in the same run
+#
+# Usage (repo root):
+#   npm run deploy:gcp
+#   # or directly:
+#   gcloud builds submit --config server/cloudbuild.yaml \
+#     --region us-central1 --project aerial-vehicle-466722-p5
+
+steps:
+    # Warm the layer cache from the last successful image (best-effort).
+    - id: pull-cache
+      name: gcr.io/cloud-builders/docker
+      entrypoint: bash
+      args: ['-c', 'docker pull $_IMAGE || exit 0']
+
+    - id: build
+      name: gcr.io/cloud-builders/docker
+      env: ['DOCKER_BUILDKIT=1']
+      args:
+          [
+              'build',
+              '-t',
+              '$_IMAGE',
+              '--cache-from',
+              '$_IMAGE',
+              '--build-arg',
+              'BUILDKIT_INLINE_CACHE=1',
+              '.',
+          ]
+
+    - id: push
+      name: gcr.io/cloud-builders/docker
+      args: ['push', '$_IMAGE']
+
+    - id: deploy
+      name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+      entrypoint: gcloud
+      args:
+          [
+              'run',
+              'deploy',
+              'three-ws-api',
+              '--image',
+              '$_IMAGE',
+              '--project',
+              '$PROJECT_ID',
+              '--region',
+              'us-central1',
+              '--allow-unauthenticated',
+              '--memory',
+              '2Gi',
+              '--cpu',
+              '2',
+              '--timeout',
+              '900',
+              '--service-account',
+              'three-ws@aerial-vehicle-466722-p5.iam.gserviceaccount.com',
+          ]
+
+substitutions:
+    _IMAGE: us-central1-docker.pkg.dev/aerial-vehicle-466722-p5/cloud-run-source-deploy/three-ws-api:latest
+
+options:
+    machineType: E2_HIGHCPU_32
+    logging: CLOUD_LOGGING_ONLY
+
+serviceAccount: projects/aerial-vehicle-466722-p5/serviceAccounts/three-ws-build@aerial-vehicle-466722-p5.iam.gserviceaccount.com
+
+timeout: 2400s
+
+images: ['$_IMAGE']

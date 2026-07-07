@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-07-07",
+			"title": "three.ws moved to Google Cloud — faster, sturdier, and shutdown-proof",
+			"summary": "The whole platform — every page, every API, all 76 background jobs — now runs on Google Cloud Run instead of Vercel. Why it matters: the previous host disabled the deployment and took the site down; the new home has no such kill switch, longer request limits for live streams, and dedicated capacity for the 3D pipeline that already ran on Google Cloud. Nothing changes in how you use three.ws — same URLs, same APIs, same wallet flows.",
+			"tags": [
+				"infra",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-07",
 			"title": "Symbol-availability check sold honestly — a collision checker, not a market oracle",
 			"summary": "The paid batch symbol-availability endpoint no longer dresses a name-collision check up as a bullish/bearish trading signal. Its listing now describes exactly what it does — check candidate tickers for exact and look-alike collisions — and the response reports a plain availability_ratio (share of scanned symbols with no collision) instead of a fake market signal. For most agents the free, keyless /api/crypto/symbol route covers the whole market and is the better starting point.",
 			"tags": [
