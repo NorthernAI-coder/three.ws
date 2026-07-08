@@ -335,6 +335,16 @@
 
 		/* ───────────────────────── ADVANCED ───────────────────────── */
 		{
+			slug: 'emotion-from-data',
+			tier: 'advanced',
+			title: 'Emotion from data: wire your agent to real APIs and AI',
+			blurb: 'Drive the avatar\'s facial expression from a live data feed — a free lexicon lane to prove the wiring, then a real AI model scoring arbitrary text into structured emotion. The exact pattern that powers /agi in production.',
+			builds: 'An agent whose face tracks a live data feed through real AI',
+			time: '25 min',
+			previewModel: '/animations/robotexpressive.glb',
+			ctaPrimary: { label: 'See it live on /agi', href: '/agi' },
+		},
+		{
 			slug: 'custom-skill',
 			tier: 'advanced',
 			title: 'Build a custom skill',
