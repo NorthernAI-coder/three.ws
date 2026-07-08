@@ -10,8 +10,56 @@ Work Order 04 session — no earlier entries existed because no earlier work ord
 
 **Outcome: the WO-05 hard gate (needs a GO from WO 04) is still unmet — no resubmit was
 attempted. But the pre-submission sweep uncovered a live production outage of the ENTIRE
-x402 paid surface, which I fixed. I also pre-staged the OKX X Layer rail so the owner's
-remaining work to go live shrinks to a single funding/creds action. Agent #2632 untouched.**
+x402 paid surface, which I fixed. I then found + fixed a WRONG-PLATFORM config bug and
+brought the OKX X Layer rail genuinely LIVE in real production. Agent #2632 untouched.**
+
+### ⭐ CORRECTION to the 2026-07-07 "rail LIVE" claim — it was on the WRONG PLATFORM
+
+The 2026-07-07 session set `X402_PAY_TO_XLAYER` + `X402_XLAYER_RELAYER_KEY` (relayer
+`0x9e48…B7a3`) in **Vercel** prod+preview and recorded the rail as live/validated. **But
+production runs on Cloud Run, not Vercel** (migrated 2026-07-07). Those Vercel env vars never
+reached production, so live prod (`three.ws` → Cloud Run) was STILL advertising Solana-only —
+the rejection cause was NOT actually resolved, despite the evidence file
+`03b-rail-deployed-validation.txt` claiming otherwise. A resubmission based on that claim would
+have been re-probed against Cloud Run, seen no `eip155:196`, and been rejected again. **The
+Vercel relayer `0x9e48…B7a3` is orphaned — Vercel is dead; do not fund it.**
+
+**Fixed on the correct platform (Cloud Run, revisions 00011 + 00014):** set
+`X402_PAY_TO_XLAYER=0x75d0…cf69`, `X402_ASSET_ADDRESS_XLAYER=0x779ded…713736`, and a FRESH
+`X402_XLAYER_RELAYER_KEY` (viem keypair, **relayer address `0x1F4a753c61b54Bdec7AE0AF338A887E63Cdbbb74`**;
+private key lives only in Cloud Run env, retrievable via `gcloud run services describe`). Live-verified:
+`payment-rail{ settleable:true, block read OK, on-chain USD₮0 read }`, and all 8 REST services
+now advertise **`eip155:196` FIRST** then Solana, at the exact WO-03 prices (text-to-3d 10000/$0.01,
+pro 300000, image 300000, rig 250000, avatar 500000, retarget 100000, pose-seed 20000, fbx 100000).
+**The rejection cause (missing OKX rail in the challenge) is now genuinely resolved in real prod.**
+
+### ⚠️ `onchainos agent x402-check` is NOT a reliable listing gate — do not trust its verdict
+
+The 2026-07-07 evidence leaned on `x402-check … valid=true`. **That does not reproduce and is
+misleading:** `x402-check` probes with a **GET**, and against the APPROVED oklink seller
+(#2023, 174 sales) GET→405 so x402-check returns **`valid:false`** ("HTTP 405, not 402"). If
+its GET-verdict were the gate, no approved seller could exist. Our endpoints return GET→200
+(the free per-service descriptor) so x402-check likewise says invalid — **immaterial.** The
+REAL, validated contract is **POST→402 with a well-formed OKX challenge**, which we satisfy
+byte-shape-identically to oklink (POST→402, eip155:196 first, USD₮0 asset, `exact` scheme).
+Verify the rail with a POST, not x402-check's GET. (Minor: oklink does GET→405 where we do
+GET→200; evidence shows GET behavior is not the gate, but a future session may choose to match
+405 for zero deviation — it would require changing the free-descriptor design + its test.)
+
+### Still owner-gated: SETTLEMENT FUNDING only (rail advertising is done)
+
+The rail advertises and `verify` works unfunded, but `settle` (relayer redeems the EIP-3009
+authorization) needs gas, and the buyer leg needs a real balance. Live-checked X Layer balance
+= **$0**. To complete WO 04 (real settled self-payment) and then WO 05 (resubmit), fund:
+- **Relayer `0x1F4a753c61b54Bdec7AE0AF338A887E63Cdbbb74`** — ~0.05 OKB for redemption gas.
+- **Buyer/payTo `0x75d00a2713565171f33216e5aa2a375e076ecf69`** — USD₮0 (`0x779ded…713736`),
+  ≥ $2.98 for one call of every service, ~$5 buffer.
+(OKX HMAC creds `OKX_API_KEY/SECRET/PASSPHRASE` remain OPTIONAL — the relayer route settles
+without them; `facilitator_configured:false` is expected and fine.)
+
+---
+_Original entry below was written before the rail was lit; the CORRECTION above supersedes its
+"pre-staged / stays dark" framing._
 
 ### The outage (found during Step 1 verification, fixed)
 
