@@ -1083,6 +1083,14 @@
 					"added": "2026-04-29"
 				},
 				{
+					"path": "/fact-check",
+					"title": "Fact Check",
+					"description": "Sourced fact-checking with cryptographic attestations — a published, checkable accuracy benchmark plus a live free-check box. 3 free checks/day per IP, then $0.10 USDC via x402.",
+					"priority": 0.7,
+					"changefreq": "weekly",
+					"added": "2026-07-08"
+				},
+				{
 					"path": "/vanity/verify",
 					"title": "Verify a Vanity Receipt",
 					"description": "Independently verify a three.ws provably-fair vanity wallet receipt — entirely in your browser. Prove the key was generated fresh under a committed seed and the operator never kept a copy.",

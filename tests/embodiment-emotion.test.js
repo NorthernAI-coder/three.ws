@@ -92,10 +92,10 @@ describe('animation manifest contract', () => {
 	});
 
 	it('every gesture clip the state machine exposes exists in the manifest', () => {
-		// `sitidle` is a known pre-existing gap (registry known_issues) — the new
-		// gestures added for the embodiment work must NOT introduce more of them.
-		const ADDED = ['nod', 'shrug', 'jog', 'celebrate', 'cheer', 'agree', 'disagree', 'talking', 'wave', 'point'];
-		for (const g of ADDED) {
+		// `sitidle` was a known pre-existing gap (registry known_issues:
+		// broken-fidget-slot's sibling) — build-animations.mjs now merges it in
+		// from animations-extra-clips.json, so every declared gesture is covered.
+		for (const g of Object.keys(GESTURES)) {
 			const clip = GESTURES[g]?.clip;
 			expect(clip, `gesture "${g}" has no clip`).toBeTruthy();
 			expect(CLIP_NAMES.has(clip), `gesture "${g}" → "${clip}" missing from manifest`).toBe(true);

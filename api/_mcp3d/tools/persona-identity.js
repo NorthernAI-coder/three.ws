@@ -106,7 +106,7 @@ async function handlePersonaIdentity(args, auth) {
 	return {
 		content: [
 			{ type: 'text', text: lines.join('\n') },
-			embodimentArtifact({ persona, state: 'idle' }),
+			embodimentArtifact({ persona, state: 'idle', wallet: true, network: identity.network }),
 		],
 		structuredContent: { ...identity, identity_card: card, status: 'ok' },
 	};
@@ -119,6 +119,19 @@ async function handlePersonaValueOp(args, auth, { tool, verb }) {
 	const persona = personaPublicView(record);
 
 	const usdc = Number(args.usdc);
+	// Hard per-call cap is checked FIRST — an amount that is already over the cap
+	// must reject with over_call_cap, never confirmation_required (which would
+	// wrongly imply confirm:true is enough to make it succeed). The cumulative
+	// per-session cap still gets its own authoritative check inside
+	// sendPersonaUsdc (it needs the durable session-spend total), but the
+	// per-call ceiling is a pure, immediate comparison — no reason to make a
+	// caller round-trip through the confirmation gate first.
+	if (usdc > PERSONA_SPEND_CAPS.maxPerCallUsdc) {
+		return toolError(
+			`${verb} blocked: $${usdc} exceeds the per-call cap of $${PERSONA_SPEND_CAPS.maxPerCallUsdc} USDC.`,
+			{ status: 'blocked', code: 'over_call_cap', cap_usdc: PERSONA_SPEND_CAPS.maxPerCallUsdc },
+		);
+	}
 	const gateResult = confirmationGate({ confirm: args.confirm, usdc, personaName: persona.name, action: verb });
 	if (gateResult) return gateResult;
 

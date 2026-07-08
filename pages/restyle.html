@@ -6,13 +6,13 @@
 		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
 		<title>Restyle Studio · three.ws</title>
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<meta name="description" content="Re-skin any 3D model in the browser: apply PBR material presets (chrome, gold, glass, wood…), generate seeded colorway variants, fine-tune metalness and roughness, and export a validated GLB — non-destructively." />
+		<meta name="description" content="Re-skin any 3D model in the browser: apply PBR material presets (chrome, gold, glass, wood…), generate seeded colorway variants, AI-restyle from a text instruction, and export a validated GLB — non-destructively, with a real version lineage." />
 		<meta name="theme-color" content="#000000" />
 		<link rel="canonical" href="https://three.ws/restyle" />
 		<meta property="og:type" content="website" />
 		<meta property="og:site_name" content="three.ws" />
 		<meta property="og:title" content="Restyle Studio · three.ws" />
-		<meta property="og:description" content="Apply PBR material presets and seeded variants to any GLB, fine-tune materials live, and export a validated model — non-destructively." />
+		<meta property="og:description" content="Apply PBR material presets, AI restyle from a text instruction, and seeded variants to any GLB, fine-tune materials live, and export a validated model — non-destructively." />
 		<meta property="og:url" content="https://three.ws/restyle" />
 		<meta property="og:image" content="https://three.ws/api/page-og?s=build&amp;t=Restyle+Studio&amp;d=Apply+PBR+material+presets+and+seeded+variants+to+any+GLB%2C+fine-tune+materials%2C+and+export+a+validated+model.&amp;p=%2Frestyle" />
 		<meta name="twitter:card" content="summary_large_image" />
@@ -78,10 +78,15 @@
 			.rs-btn[disabled] { opacity: 0.5; cursor: default; }
 
 			.rs-history { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: var(--text-3); min-height: 18px; }
-			.rs-step { padding: 2px 7px; border-radius: 999px; background: color-mix(in srgb, var(--text) 8%, transparent); }
+			.rs-step { padding: 2px 7px; border-radius: 999px; background: color-mix(in srgb, var(--text) 8%, transparent); cursor: default; border: none; font: inherit; }
 			.rs-step.is-current { color: var(--text); background: color-mix(in srgb, var(--accent, #7aa2ff) 20%, transparent); }
+			.rs-step.is-versioned { cursor: pointer; color: var(--text); }
+			.rs-step.is-versioned:hover { background: color-mix(in srgb, var(--accent, #7aa2ff) 14%, transparent); }
+			.rs-step.is-versioned:focus-visible { outline: 2px solid var(--accent, #7aa2ff); outline-offset: 2px; }
 			.rs-arrow { color: var(--text-3); }
 			.rs-note { font-size: 12px; color: var(--text-3); margin-top: 8px; min-height: 16px; }
+			.rs-note.is-error { color: var(--danger, #e0645a); }
+			.rs-note.is-busy { color: var(--accent, #7aa2ff); }
 			.rs-sources { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 			.rs-file { font-size: 12px; color: var(--text-2); }
 			.rs-hint { font-size: 12px; color: var(--text-3); margin-top: 8px; }
@@ -98,9 +103,9 @@
 			<div class="rs-head">
 				<div>
 					<h1>Restyle Studio</h1>
-					<p>Re-skin any 3D model in your browser — apply a PBR material preset, fan out seeded colorway
-						variants, fine-tune metalness and roughness live, then export a validated GLB. Your original is
-						never touched; Reset restores it instantly.</p>
+					<p>Re-skin any 3D model in your browser — apply a PBR material preset, describe a look in plain
+						language for an AI restyle, fan out seeded colorway variants, fine-tune metalness and roughness
+						live, then export a validated GLB. Your original is never touched; Reset restores it instantly.</p>
 				</div>
 			</div>
 
@@ -137,6 +142,23 @@
 					</div>
 
 					<div class="rs-card">
+						<h2>AI restyle</h2>
+						<div class="rs-row">
+							<input class="rs-input" id="ai-instruction" style="width: 100%; flex: 1 1 auto" type="text"
+								placeholder="e.g. cyberpunk neon, worn copper, glossy ceramic" maxlength="300" />
+						</div>
+						<div class="rs-row" style="margin-top: 8px">
+							<button class="rs-btn rs-btn--primary" id="ai-restyle">Restyle</button>
+							<label class="rs-color" style="font-size: 12px"><input id="ai-texture" type="checkbox" checked /> Generate texture too</label>
+						</div>
+						<div class="rs-note" id="ai-note"></div>
+						<div class="rs-hint">Describe a look in plain language — IBM Granite proposes real PBR values (base
+							color, metalness, roughness, emissive), applied live and checkpointed as a new version below.
+							For a full pixel-level UV repaint (not just flat PBR), use the
+							<a href="/mcp">retexture_model MCP tool</a>.</div>
+					</div>
+
+					<div class="rs-card">
 						<h2>Fine-tune</h2>
 						<div class="rs-slider"><span>Metalness</span><input id="metalness" type="range" min="0" max="1" step="0.01" /></div>
 						<div class="rs-slider"><span>Roughness</span><input id="roughness" type="range" min="0" max="1" step="0.01" /></div>
@@ -156,8 +178,14 @@
 						</div>
 						<div id="variants" hidden>
 							<div class="rs-strip" id="variant-strip"></div>
+							<div class="rs-row" style="margin-top: 10px">
+								<button class="rs-btn" id="save-variants">Save all as versions</button>
+							</div>
+							<div class="rs-note" id="variants-note"></div>
 						</div>
-						<div class="rs-hint">Same seed → same set, every time. Variants fan out from the last preset you applied.</div>
+						<div class="rs-hint">Same seed → same set, every time. Variants fan out from the last preset you applied.
+							Swatches preview instantly in-browser; "Save all as versions" mints each one as its own real,
+							durable GLB in Versions below.</div>
 					</div>
 
 					<div class="rs-card">
@@ -168,8 +196,18 @@
 							<button class="rs-btn rs-btn--primary" id="export">Export GLB</button>
 						</div>
 						<div class="rs-note" id="export-note"></div>
-						<div class="rs-hint">Prompt-driven AI re-texture (UV-preserving) is available via the
-							<a href="/mcp">retexture_model MCP tool</a>.</div>
+					</div>
+
+					<div class="rs-card">
+						<h2>Versions</h2>
+						<p class="rs-hint" style="margin: 0 0 10px">Every AI restyle mints a real, durable GLB — never
+							overwriting the one before it. "Save version" checkpoints your current fine-tune/preset edits
+							the same way. Click a version to revert to it; the original is always version 1.</p>
+						<div class="rs-history" id="lineage-strip"></div>
+						<div class="rs-row" style="margin-top: 12px">
+							<button class="rs-btn" id="save-version">Save version</button>
+						</div>
+						<div class="rs-note" id="lineage-note"></div>
 					</div>
 				</div>
 			</div>

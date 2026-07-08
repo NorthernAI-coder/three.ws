@@ -81,6 +81,10 @@ export const TOOL_PRICING = Object.freeze({
 		amount_usdc: 0.01,
 		description: 'Per call — PBR material parameters from a description',
 	},
+	anchor_provenance: {
+		amount_usdc: 0.05,
+		description: 'Per call — sign a content credential and anchor its hash on Solana',
+	},
 });
 
 export function priceFor(toolName) {

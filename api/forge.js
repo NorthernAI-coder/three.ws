@@ -2211,20 +2211,46 @@ async function pollJob(req, res, jobId) {
 	}
 
 	if (result.status === 'done' && result.resultGlbUrl) {
+		// The compression choice a caller requested at submit time (see
+		// _lib/forge-job-options.js) — this poll is a LATER, separate invocation
+		// with no access to that original request body, so it was bound to the
+		// job handle then and is looked up now. Absent when nothing non-default
+		// was requested, or Redis is unavailable — both fail open to uncompressed.
+		const boundOpts = await optionsForJob(jobId);
 		// Copy the mesh into our own storage so the model is permanent (provider
 		// delivery URLs expire) and serve the durable CDN url. Falls back to the
-		// provider url where the store is unavailable.
+		// provider url where the store is unavailable. Always scored for quality
+		// (glb-quality.js) — free, deterministic, and the signal every lane's
+		// completion should carry regardless of which provider produced it.
 		const durable = await materializeCreation({
 			replicateJobId: upstreamId,
 			clientKey,
 			glbUrl: result.resultGlbUrl,
+			quality: true,
+			compress: boundOpts?.compression || null,
 		});
+		// Populate the result cache this job was bound to at submit time (text→3D,
+		// non-high-tier, platform-keyed lanes only — see forgeResultCacheKey). A
+		// job with no binding (image mode, high tier, BYOK, or no options
+		// requested) is a no-op here.
+		const boundCacheKey = await cacheKeyForJob(jobId);
+		if (boundCacheKey && durable?.glbUrl) {
+			await putCachedForgeResult(boundCacheKey, {
+				glb_url: durable.glbUrl,
+				backend: meta?.backend || null,
+				tier: meta?.tier || null,
+				path: meta?.path || null,
+				quality: durable.quality || null,
+			});
+		}
 		return json(res, 200, {
 			job_id: jobId,
 			creation_id: durable?.id ?? meta?.id ?? null,
 			status: 'done',
 			glb_url: durable?.glbUrl ?? result.resultGlbUrl,
 			durable: Boolean(durable),
+			quality: durable?.quality || null,
+			compression: durable?.compression || null,
 			...metaFields,
 		});
 	}

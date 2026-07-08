@@ -40,6 +40,11 @@
 			const emotion    = q.get('emotion')    || null;
 			const intensity  = parseFloat(q.get('intensity') || '0.8');
 			const gesture    = q.get('gesture')    || null;
+			// Opt-in: only personas bound to a wallet (prompt 17 — persona_identity)
+			// request the live chain-state poll. Everyone else renders exactly as
+			// before — zero extra network calls for a plain embodied body.
+			const showWallet = q.get('wallet') === '1';
+			const walletNetwork = q.get('network') === 'devnet' ? 'devnet' : 'mainnet';
 
 			if (!glbUrl && !personaId) {
 				// Nothing to show — emit a minimal error surface.
@@ -103,6 +108,32 @@
 					stage.listening();
 				}
 				// else: idle is already set by loadPersona
+
+				// ── live on-chain identity → visuals (opt-in, prompt 17) ────────────
+				if (showWallet && personaId) {
+					const applyIdentity = async () => {
+						try {
+							const res = await fetch(
+								`/api/mcp3d/persona-identity?id=${encodeURIComponent(personaId)}&network=${walletNetwork}`,
+								{ credentials: 'same-origin' },
+							);
+							if (!res.ok) return; // transient upstream hiccup — keep the last-known visuals
+							const identity = await res.json();
+							const visuals = stage.setChainState(identity);
+							overlay.setIdentity(visuals);
+						} catch {
+							// Network hiccup — leave the body in its last-known chain state
+							// rather than flashing an error over an otherwise-fine avatar.
+						}
+					};
+					await applyIdentity();
+					const pollMs = 20_000;
+					const poll = setInterval(applyIdentity, pollMs);
+					window.addEventListener('beforeunload', () => clearInterval(poll));
+					document.addEventListener('visibilitychange', () => {
+						if (document.visibilityState === 'visible') applyIdentity();
+					});
+				}
 			})();
 		</script>
 	</body>

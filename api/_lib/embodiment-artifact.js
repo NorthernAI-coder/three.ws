@@ -26,10 +26,10 @@ const escapeHtml = (s) =>
  * always passed inline so the body loads without a round-trip; `persona` is passed
  * too so a bare-id reload (no glb) still resolves via /api/mcp3d/persona.
  *
- * @param {{ persona: object, state?: string, text?: string, emotion?: string, intensity?: number, gesture?: string|null }} args
+ * @param {{ persona: object, state?: string, text?: string, emotion?: string, intensity?: number, gesture?: string|null, wallet?: boolean, network?: string }} args
  * @returns {string}
  */
-export function buildEmbedUrl({ persona, state, text, emotion, intensity, gesture }) {
+export function buildEmbedUrl({ persona, state, text, emotion, intensity, gesture, wallet, network }) {
 	const u = new URL(EMBODIMENT_EMBED_URL);
 	u.searchParams.set('persona', persona.persona_id);
 	if (persona.glb_url) u.searchParams.set('glb', persona.glb_url);
@@ -39,6 +39,13 @@ export function buildEmbedUrl({ persona, state, text, emotion, intensity, gestur
 	if (emotion) u.searchParams.set('emotion', emotion);
 	if (intensity != null) u.searchParams.set('intensity', String(intensity));
 	if (gesture) u.searchParams.set('gesture', gesture);
+	// Opt-in live chain-state visuals (prompt 17 — persona_identity/persona-wallet).
+	// Omitted entirely for plain embodiment so the free/no-wallet path never
+	// gains a network call it didn't ask for.
+	if (wallet) {
+		u.searchParams.set('wallet', '1');
+		if (network) u.searchParams.set('network', network);
+	}
 	return u.toString();
 }
 
@@ -48,11 +55,11 @@ export function buildEmbedUrl({ persona, state, text, emotion, intensity, gestur
  * `openai/outputTemplate` _meta lets Apps SDK hosts that key off a registered
  * template reuse the same embed URL.
  *
- * @param {{ persona: object, state?: string, text?: string, emotion?: string, intensity?: number, gesture?: string|null }} args
+ * @param {{ persona: object, state?: string, text?: string, emotion?: string, intensity?: number, gesture?: string|null, wallet?: boolean, network?: string }} args
  * @returns {{ type: 'resource', resource: object }}
  */
-export function embodimentArtifact({ persona, state = 'idle', text = '', emotion = 'neutral', intensity = 0, gesture = null }) {
-	const embedUrl = buildEmbedUrl({ persona, state, text, emotion, intensity, gesture });
+export function embodimentArtifact({ persona, state = 'idle', text = '', emotion = 'neutral', intensity = 0, gesture = null, wallet = false, network }) {
+	const embedUrl = buildEmbedUrl({ persona, state, text, emotion, intensity, gesture, wallet, network });
 	const name = persona.name || 'Agent';
 	const html =
 		`<!doctype html><html lang="en"><head><meta charset="utf-8">` +

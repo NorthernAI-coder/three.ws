@@ -28,7 +28,11 @@ export const DEFAULT_ANIMATION_MAP = {
 	bow: 'sitclap',
 	point: 'reaction',
 	shrug: 'defeated',
-	fidget: 'Fidget',
+	// Was 'Fidget' — no such clip exists (case mismatch against the lowercase
+	// manifest names too), so the slot silently no-op'd on every agent that hit
+	// it. av-waiting is a real baked idle-fidget loop (see registry.json
+	// known_issues: broken-fidget-slot).
+	fidget: 'av-waiting',
 	dance: 'rumba',
 };
 

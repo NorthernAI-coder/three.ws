@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-08T01:15:13.613Z",
+	"generated_at": "2026-07-08T01:17:07.672Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -79,6 +79,16 @@
 		{
 			"date": "2026-07-08",
 			"type": "launch",
+			"title": "Fact Check",
+			"summary": "Sourced fact-checking with cryptographic attestations — a published, checkable accuracy benchmark plus a live free-check box. 3 free checks/day per IP, then $0.10 USDC via x402.",
+			"link": "/fact-check",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "launch",
 			"title": "glTF / GLB Viewer",
 			"summary": "Paste any public glTF/GLB URL and preview it inline — the lightweight, unauthenticated model viewer every 3D Studio tool's shared asset link opens.",
 			"link": "/viewer",
@@ -129,6 +139,17 @@
 		{
 			"date": "2026-07-08",
 			"type": "update",
+			"title": "/play grew real physics, a drivable district, and day/night",
+			"summary": "The coin-community world stops being a flat clamped plaza: a real Rapier character controller now drives your avatar (collision, ground contact, and jumps against actual geometry), and Downtown is ringed by a full deterministic street grid — asphalt avenues, sidewalks, lit buildings, and streetlights — that every client in a world renders identically and can now walk or drive across instead of hitting an invisible wall at the plaza's edge. A wall-clock-driven day/night cycle sweeps the sun, sky, fog, and the district's window and streetlamp glow in sync for everyone, with zero network chatter. The camera also grew up: press C to cycle Follow, Cinematic, First Person, and Top Down, the same four modes /walk uses, now shared from one module.",
+			"link": "/play",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
 			"title": "<agent-3d> talks out of the box with brain=\"free\"",
 			"summary": "Any embedded avatar can now hold a real conversation with zero setup: add brain=\"free\" to an <agent-3d> tag and it routes through three.ws's host-paid free-tier proxy (OpenRouter, Groq, or NVIDIA NIM, whichever is healthy) — no API key, no backend code, no per-token cost to the embedder. Previously the brain attribute required an exact model id and defaulted to a silent avatar; brain=\"free\" is now a supported alias, and it's honored on both the src= (bare GLB) and body= (ad-hoc agent) embed paths, which is where this fell through before.",
 			"link": "/docs/embedding",
@@ -165,6 +186,27 @@
 			"summary": "Delisted internal-use-only paid endpoints from the public x402 catalog while keeping their in-product functionality live, removed a dead endpoint with no real buyer, dropped a fake bullish/bearish framing from the ticker-collision checker, and re-listed three previously-hidden endpoints (fact-checking, token-to-3D rendering) as honest, discoverable products.",
 			"link": null,
 			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
+			"title": "Embodied on-chain identity — every agent persona now carries a real wallet",
+			"summary": "Personas minted with create_agent_persona are now bound to a real, deterministic Solana wallet — the same persona always re-derives the same address, and its private key is never stored, returned, or logged anywhere. persona_identity reads the wallet's live balance, ERC-8004-style reputation, token holdings, and a resolved SNS name; persona_tip and persona_send move real USDC from the persona's own wallet, hard-capped per call and per session with a confirmation threshold above which the caller must confirm explicitly. The living body now visually reflects its chain state: an aura ring colored by reputation, a cosmetic badge for holdings tier, a muted look on a low balance, and a nameplate for a verified name.",
+			"link": "/docs/mcp-3d-studio",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
+			"title": "Fact Check now has a free daily lane and a public accuracy benchmark",
+			"summary": "Try the Fact Checker without a wallet: 3 free checks a day per IP now run the exact same real search-and-LLM chain as the paid $0.10 USDC checks — never a degraded response — with a lane field on every result so you always know which one you got. A new /fact-check page publishes the accuracy claim instead of just asserting it: a 40-claim benchmark (10 per verdict class, time-stable and non-partisan) scored against the live chain, the claim set and scoring code both linked for anyone to check, plus a live 'try one free check' box right on the page.",
+			"link": "/fact-check",
+			"tags": [
+				"feature",
 				"improvement"
 			]
 		},
@@ -361,6 +403,17 @@
 			"link": "/docs/token-gated-3d-embeds",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
+			"title": "Verify a 3D model's authenticity — free, on-chain content credentials",
+			"summary": "Models generated on three.ws can now carry a signed content credential — who made it, from what prompt, by which model, when, and the model's exact content hash — with that hash anchored on Solana. Anyone can check a model for free at /api/provenance?src=… or with the verify_provenance tool, and get a clear verdict: verified, tampered (a single changed byte is caught), or unverified. The 3D viewer shows a Verified · three.ws badge. It's C2PA-style provenance for 3D — the verify path has no wallet or token surface.",
+			"link": null,
+			"tags": [
+				"feature",
+				"security"
 			]
 		},
 		{

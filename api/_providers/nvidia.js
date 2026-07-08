@@ -89,9 +89,11 @@ const NVCF_POLL_SECONDS = 30;
 // Per-request timeouts so a hung upstream never stalls a serverless function.
 // A completed poll streams the full GLB (can be several MB), so it gets longer.
 // Submit only needs to outlast the NVCF-POLL-SECONDS synchronous window (30 s)
-// plus transfer/handshake slack — at 45 s the gateway has already returned its
-// 202 long before this backstop fires.
-const SUBMIT_TIMEOUT_MS = 45_000;
+// plus transfer/handshake slack — at 35 s the gateway has already returned its
+// 202 long before this backstop fires. (Was 45s; tightened — see
+// SUBMIT_PHASE_DEADLINE_MS below for why a hard hang with zero response now
+// aborts sooner instead of stacking with the retry budget.)
+const SUBMIT_TIMEOUT_MS = 35_000;
 const POLL_TIMEOUT_MS = 60_000;
 
 // NVCF can answer a cold model — or a momentary capacity/routing blip at the
@@ -110,6 +112,28 @@ const GATEWAY_RETRY_STATUSES = new Set([502, 503, 504]);
 const MAX_INVOKE_ATTEMPTS = 3;
 const INVOKE_RETRY_BASE_MS = 1_000;
 const INVOKE_RETRY_MAX_MS = 6_000;
+
+// Overall wall-clock budget for the WHOLE submit-with-retries phase, on top of
+// the per-attempt/per-status bounds above. Root-caused live 2026-07-08: with
+// NVCF's hosted TRELLIS gateway in a degraded state, every invoke attempt
+// returned HTTP 504 (`nvcf-status: errored`, empty body) at ~32s — comfortably
+// under the (then) 45s per-attempt SUBMIT_TIMEOUT_MS, so it was never the
+// per-attempt guard that fired. But MAX_INVOKE_ATTEMPTS retries stack: 3
+// attempts x ~32s + 2 backoff sleeps totalled ~96-108s server-side — LONGER
+// than every downstream client-side submit timeout guarding this call
+// (api/_mcp-studio/forge-client.js `startForge` and
+// mcp-server/src/tools/_studio-core.js `submitForge`, both 90s). So the caller
+// (curl, the `forge_free` MCP tool, `/api/forge` itself) always saw a bare
+// timeout with zero bytes, even though this provider would have correctly
+// reported the lane as down and let forge.js's own "never dead-end" fallback
+// (backendId='trellis' -> Replicate/HuggingFace) run — just too late, after
+// every caller had already given up. This deadline stops the retry loop with
+// enough of that 90s client budget left for the fallback lane to actually run
+// and answer, instead of guaranteeing a client-side timeout on every request
+// while NVCF is in this state. Self-adjusting: if NVCF's real failure latency
+// changes, this still bounds the worst case rather than relying on a
+// hand-tuned attempt count matching today's ~32s number.
+const SUBMIT_PHASE_DEADLINE_MS = 55_000;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Backoff between invoke retries: exponential (base · 2^(n-1), capped) with full
@@ -316,6 +340,13 @@ export function createNvidiaProvider() {
 	// accepted it for async processing (202). Throws normalized provider errors.
 	async function postInvoke(body, extraHeaders) {
 		let lastErr = null;
+		const phaseStart = Date.now();
+		// True once the overall submit-phase budget (SUBMIT_PHASE_DEADLINE_MS) is
+		// spent — checked before every retry so a degraded gateway (each attempt
+		// individually within its per-attempt timeout, but repeatedly failing)
+		// still bails with time left for forge.js's own lane fallback to run,
+		// instead of stacking MAX_INVOKE_ATTEMPTS full attempts unconditionally.
+		const deadlineExceeded = () => Date.now() - phaseStart >= SUBMIT_PHASE_DEADLINE_MS;
 		for (let attempt = 1; attempt <= MAX_INVOKE_ATTEMPTS; attempt++) {
 			let res;
 			try {

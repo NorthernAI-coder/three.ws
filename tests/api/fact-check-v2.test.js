@@ -1,12 +1,13 @@
 /**
- * Tests for the fact-check "v2" funnel work (prompt 20 of prompts/x402-catalog):
+ * Tests for the fact-check "v2" free-daily-lane work (prompt 20 of
+ * prompts/x402-catalog):
  *   • a free daily lane (per-IP quota) that runs the REAL chain and falls
  *     through to the existing x402 402 challenge once exhausted
  *   • the `lane` field on every response ("free" | "paid")
- *   • the benchmark fixture (tests/fixtures/fact-check-benchmark.json): schema,
- *     coverage of all four verdict classes, minimum size
- *   • the benchmark runner's scoring math (scripts/fact-check-benchmark.mjs),
- *     exercised against a synthetic result set so it needs no live chain/env
+ *
+ * The benchmark fixture + runner scoring math (the other half of prompt 20)
+ * are covered separately in tests/api/fact-check-benchmark.test.js — kept
+ * apart so the two layers don't collide.
  *
  * The upstream chain (LLM query generation, web search, image evidence) is
  * fixtured at the module boundary — none of api/x402/fact-check.js's own logic
@@ -14,8 +15,6 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { Readable } from 'node:stream';
 
 const llmState = vi.hoisted(() => ({
@@ -46,7 +45,7 @@ vi.mock('../../agents/fact-checker/src/image-evidence.js', () => ({
 	imageEvidence: vi.fn(async () => null),
 }));
 
-const ENV_KEYS = ['X402_PAY_TO_BASE', 'X402_ASSET_ADDRESS_BASE', 'X402_PAY_TO_SOLANA', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN'];
+const ENV_KEYS = ['X402_PAY_TO_BASE', 'X402_ASSET_ADDRESS_BASE', 'X402_ADVERTISE_BASE', 'X402_PAY_TO_SOLANA', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN'];
 const ORIGINAL_ENV = Object.fromEntries(ENV_KEYS.map((k) => [k, process.env[k]]));
 
 let handler;
@@ -56,6 +55,10 @@ beforeEach(async () => {
 	Object.assign(process.env, {
 		X402_PAY_TO_BASE: '0x0000000000000000000000000000000000000001',
 		X402_ASSET_ADDRESS_BASE: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+		// Base also needs a working facilitator opt-in (CDP creds or this explicit
+		// flag) or buildRequirements() drops the network and 402-quoting itself
+		// throws no_payto_configured — see api/_lib/x402-paid-endpoint.js.
+		X402_ADVERTISE_BASE: 'true',
 	});
 	delete process.env.X402_PAY_TO_SOLANA;
 	// No Redis configured → the idempotency cache and the rate limiter both run
@@ -181,75 +184,5 @@ describe('POST /api/x402/fact-check — free daily lane', () => {
 		req.headers = { ...freshIp() };
 		const res = await callFactCheck(req);
 		expect(res.statusCode).toBe(405);
-	});
-});
-
-describe('fact-check benchmark fixture', () => {
-	const fixturePath = resolve(process.cwd(), 'tests/fixtures/fact-check-benchmark.json');
-	const fixture = JSON.parse(readFileSync(fixturePath, 'utf8'));
-
-	it('has at least 40 claims', () => {
-		expect(Array.isArray(fixture.claims)).toBe(true);
-		expect(fixture.claims.length).toBeGreaterThanOrEqual(40);
-	});
-
-	it('covers all four verdict classes with at least 10 claims each', () => {
-		const counts = { supported: 0, contradicted: 0, mixed: 0, insufficient: 0 };
-		for (const c of fixture.claims) counts[c.expected_verdict] = (counts[c.expected_verdict] || 0) + 1;
-		for (const cls of ['supported', 'contradicted', 'mixed', 'insufficient']) {
-			expect(counts[cls]).toBeGreaterThanOrEqual(10);
-		}
-	});
-
-	it('every claim has the required shape and a non-third-party-coin-promoting body', () => {
-		for (const c of fixture.claims) {
-			expect(typeof c.claim).toBe('string');
-			expect(c.claim.length).toBeGreaterThan(5);
-			expect(['supported', 'contradicted', 'mixed', 'insufficient']).toContain(c.expected_verdict);
-			expect(typeof c.rationale).toBe('string');
-			expect(c.rationale.length).toBeGreaterThan(0);
-			expect(['easy', 'medium', 'hard']).toContain(c.difficulty);
-		}
-	});
-
-	it('claims are unique (no duplicate benchmark entries)', () => {
-		const seen = new Set(fixture.claims.map((c) => c.claim));
-		expect(seen.size).toBe(fixture.claims.length);
-	});
-});
-
-describe('scripts/fact-check-benchmark.mjs — scoring math', () => {
-	it('scores overall + per-class + per-difficulty accuracy against a synthetic result set', async () => {
-		const { scoreBenchmarkRun } = await import('../../scripts/fact-check-benchmark.mjs');
-		const claims = [
-			{ claim: 'a', expected_verdict: 'supported', difficulty: 'easy' },
-			{ claim: 'b', expected_verdict: 'supported', difficulty: 'hard' },
-			{ claim: 'c', expected_verdict: 'contradicted', difficulty: 'easy' },
-			{ claim: 'd', expected_verdict: 'insufficient', difficulty: 'medium' },
-		];
-		const results = [
-			{ claim: 'a', expected_verdict: 'supported', difficulty: 'easy', actual_verdict: 'supported' },
-			{ claim: 'b', expected_verdict: 'supported', difficulty: 'hard', actual_verdict: 'mixed' },
-			{ claim: 'c', expected_verdict: 'contradicted', difficulty: 'easy', actual_verdict: 'contradicted' },
-			{ claim: 'd', expected_verdict: 'insufficient', difficulty: 'medium', actual_verdict: 'insufficient' },
-		];
-		const score = scoreBenchmarkRun(results);
-		expect(score.overall.total).toBe(4);
-		expect(score.overall.correct).toBe(3);
-		expect(score.overall.accuracy).toBeCloseTo(0.75, 5);
-		expect(score.byClass.supported.total).toBe(2);
-		expect(score.byClass.supported.correct).toBe(1);
-		expect(score.byClass.contradicted.accuracy).toBeCloseTo(1, 5);
-		expect(score.byDifficulty.easy.accuracy).toBeCloseTo(1, 5);
-		expect(score.byDifficulty.hard.accuracy).toBeCloseTo(0, 5);
-		// scoreBenchmarkRun is pure — never touches claims fixture directly.
-		expect(claims.length).toBe(4);
-	});
-
-	it('handles an empty result set without dividing by zero', async () => {
-		const { scoreBenchmarkRun } = await import('../../scripts/fact-check-benchmark.mjs');
-		const score = scoreBenchmarkRun([]);
-		expect(score.overall.total).toBe(0);
-		expect(score.overall.accuracy).toBe(0);
 	});
 });

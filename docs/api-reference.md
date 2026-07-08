@@ -1085,6 +1085,95 @@ as any section resolved.
 
 ---
 
+## Fact Check API
+
+Sourced fact-checking with cryptographic attestations you can audit — not just an
+asserted verdict. Submit a claim and get back a verdict (`supported` /
+`contradicted` / `mixed` / `insufficient`) backed by live web search and LLM
+stance analysis, with cited sources, authority weights, a confidence score, and a
+SHA-256 attestation over the result. A published accuracy benchmark (40 claims,
+10 per verdict class) makes the quality claim checkable instead of asserted — see
+[/fact-check](https://three.ws/fact-check) for the live scores and claim set.
+
+### Fact check a claim
+
+```
+POST /api/x402/fact-check
+```
+
+**Free daily lane:** the first **3 checks/day per IP** run the exact same live
+chain as the paid lane — never a degraded or cached-only response — and are
+marked `"lane": "free"`. Once the quota is used, the same request receives the
+x402 `402` payment challenge for the paid lane instead of an error.
+
+**Paid lane:** `$0.10` USDC base price (Base or Solana) once the free quota is
+exhausted, or immediately if the request carries an `X-PAYMENT` header. Marked
+`"lane": "paid"`.
+
+| Body field    | Type   | Description                                                                 |
+| ------------- | ------ | ---------------------------------------------------------------------------- |
+| `claim`       | string | The factual claim to verify. 5–1000 characters. Required.                    |
+| `strictness`  | string | `high` \| `medium` (default) \| `low` — how hard low-authority sources are downweighted. |
+| `imageUrl`    | string | Optional http(s) image evidence (chart, screenshot, photo). Vision-described and weighed alongside web sources when available. |
+
+**Response**
+
+```json
+{
+	"verdict": "contradicted",
+	"confidence": 0.78,
+	"claim": "The Eiffel Tower is 330 meters tall.",
+	"strictness": "high",
+	"sources": [
+		{
+			"url": "https://en.wikipedia.org/wiki/Eiffel_Tower",
+			"title": "Eiffel Tower - Wikipedia",
+			"excerpt": "The tower is 330 m (1,083 ft) tall, including a 24 m (79 ft) antenna.",
+			"stance": "supports",
+			"weight": 0.7,
+			"retrievedAt": "2026-05-27T00:00:00.000Z"
+		}
+	],
+	"costBreakdown": { "searchCalls": 3, "llmTokens": 1420, "totalUsdc": "0.100355" },
+	"attestation": "sha256:abcdef1234567890...",
+	"lane": "free",
+	"free_remaining_today": 2
+}
+```
+
+`free_remaining_today` is present only on `lane: "free"` responses. A repeated
+identical `{ claim, strictness, imageUrl }` within 7 days replays the cached
+verdict on either lane (adds `cachedAt`) rather than re-running the chain.
+
+**Example**
+
+```bash
+curl -s https://three.ws/api/x402/fact-check \
+	-H 'content-type: application/json' \
+	-d '{ "claim": "Solana uses a proof-of-history mechanism to order transactions." }'
+```
+
+**Errors**
+
+| Status | Code               | Meaning                                                    |
+| ------ | ------------------ | ----------------------------------------------------------- |
+| `400`  | `invalid_claim`    | `claim` missing or under 5 characters                       |
+| `400`  | `claim_too_long`   | `claim` over 1000 characters                                 |
+| `400`  | `invalid_image_url`| `imageUrl` present but not a valid http(s) URL               |
+| `400`  | `invalid_json`     | Request body is not valid JSON                               |
+| `402`  | —                  | Free quota exhausted — pay per the returned x402 challenge   |
+| `422`  | `no_results`       | No web results and no usable image evidence for the claim    |
+
+### Accuracy benchmark
+
+The claim set behind the published accuracy score lives at
+`tests/fixtures/fact-check-benchmark.json` (40 claims, 10 per verdict class,
+time-stable and non-partisan) and is scored by `scripts/fact-check-benchmark.mjs`
+against the real chain. [/fact-check](https://three.ws/fact-check) renders the
+latest generated score, the claim set, and a live "try one free check" box.
+
+---
+
 ## Market Intelligence & Sentiment API
 
 Three free `/api/v1` routes: a deterministic text-sentiment classifier (always
@@ -1281,15 +1370,22 @@ curl -s 'https://three.ws/api/v1/resolve?address=0xd8dA6BF26964aF9D7eEd9e03E5341
 
 ---
 
-## Pump Search API
+## Pump.fun Market Data API
 
-Free text search over Solana pump.fun / meme tokens by name, symbol, or mint —
-the versioned, cataloged sibling of the free Crypto Data API's pump.fun
-endpoints (`/api/crypto/trending`, `/bonding`, `/launches`, `/whales` — see
-[docs/crypto-api.md](crypto-api.md)). Search is the one pump.fun read that
-didn't already have a free home under `/api/crypto/*`, so it's registered here
-instead. Both this endpoint and the site's command-palette search
-(`/api/pump/search`) share one implementation
+Free, keyless, versioned pump.fun market data under the cataloged `/api/v1`
+surface (`GET /api/v1` lists all five) — search, trending, bonding-curve
+progress, the three.ws launch directory, and whale activity. Each endpoint is a
+thin wrapper: search shares its engine with the site's command-palette search
+(`/api/pump/search`); trending, curve, and whales share their engines with the
+free Crypto Data API's pump.fun endpoints (`/api/crypto/trending`, `/bonding`,
+`/whales` — see [docs/crypto-api.md](crypto-api.md)); launches shares its query
+with the [/launches](https://three.ws/launches) page. No fork of any upstream
+logic lives here — every /api/v1/pump/\* route imports the same shared module
+its sibling already uses.
+
+### Search
+
+Text search by name, symbol, or mint —
 (`api/_lib/pump-search.js` `searchPumpTokens`) — Birdeye first when
 `BIRDEYE_API_KEY` is configured, falling back to pump.fun's public frontend
 search when Birdeye is unconfigured, rate-limited, or down.
@@ -1342,6 +1438,264 @@ curl -s 'https://three.ws/api/v1/pump/search?q=three.ws'
 | ------ | ------------------- | --------------------------------------------------- |
 | `400`  | `validation_error`  | `q` missing or empty                                |
 | `429`  | `rate_limited`      | Over 60 requests/min from this IP                    |
+
+---
+
+### Trending
+
+Momentum-ranked "what's hot right now" — fuses windowed volume, buy pressure, a
+volume-spike signal, and price change across pump.fun, DexScreener, and
+(best-effort) GMGN smart money into one 0–100 score. Same engine as
+[`GET /api/crypto/trending`](crypto-api.md#get-apicryptotrending--trending--hot-tokens)
+(`api/_lib/crypto-trending.js` `composeTrending`), capped slimmer here (25 vs
+50) to keep this door fast.
+
+```
+GET /api/v1/pump/trending?window=<5m|1h|24h>&limit=<1-25>&source=<pumpfun|all>
+```
+
+Public, CORS-open, no auth, no cost. Rate limited to **60 requests/min per
+IP**. Responses are edge-cached 30s when the ranking is non-empty, 5s when every
+source is temporarily down.
+
+| Query param | Type   | Description                                                              |
+| ----------- | ------ | ------------------------------------------------------------------------- |
+| `window`    | string | Trade window the score measures: `5m` \| `1h` \| `24h` (default `1h`).    |
+| `limit`     | number | Result cap, `1`–`25` (default `20`).                                      |
+| `source`    | string | `pumpfun` restricts to the pump.fun board; `all` fuses every source (default `all`). |
+
+**Response**
+
+```json
+{
+	"data": {
+		"window": "1h",
+		"tokens": [
+			{
+				"mint": "FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump",
+				"symbol": "three",
+				"name": "three.ws",
+				"marketCapUsd": 4200000,
+				"volumeUsd": 120000,
+				"change": 12.4,
+				"score": 87.5,
+				"url": "https://pump.fun/coin/FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump"
+			}
+		],
+		"count": 1,
+		"ts": "2026-07-08T00:00:00.000Z",
+		"sources": ["pumpfun", "dexscreener"]
+	}
+}
+```
+
+Every source failing yields `200` with an empty `tokens` array and a `note` —
+never a `5xx`. A partial outage adds `note` naming which sources are down.
+
+**Example**
+
+```bash
+curl -s 'https://three.ws/api/v1/pump/trending?window=1h&limit=10'
+```
+
+**Errors**
+
+| Status | Code            | Meaning                            |
+| ------ | --------------- | ----------------------------------- |
+| `429`  | `rate_limited`  | Over 60 requests/min from this IP   |
+
+---
+
+### Bonding curve
+
+Bonding-curve / graduation status for one pump.fun mint — % to graduation, SOL
+in the curve, tokens remaining, market cap, and whether it has already migrated
+to an AMM (Raydium / PumpSwap). Same engine as
+[`GET /api/crypto/bonding`](crypto-api.md#get-apicryptobonding--bonding-curve--graduation-status)
+(`api/_lib/pump-bonding.js` `getBondingStatus`).
+
+```
+GET /api/v1/pump/curve?mint=<mint>
+```
+
+Public, CORS-open, no auth, no cost. Rate limited to **60 requests/min per
+IP**. Responses are edge-cached 15s.
+
+| Query param | Type   | Description                                     |
+| ----------- | ------ | ------------------------------------------------ |
+| `mint`      | string | Base58 Solana pump.fun mint address. Required.    |
+
+**Response**
+
+```json
+{
+	"data": {
+		"mint": "FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump",
+		"onCurve": false,
+		"bondingProgressPct": 100,
+		"solInCurve": null,
+		"tokensRemaining": null,
+		"marketCapUsd": 4200000,
+		"graduated": true,
+		"migratedTo": "pumpswap",
+		"source": "pumpfun"
+	}
+}
+```
+
+**Example**
+
+```bash
+curl -s 'https://three.ws/api/v1/pump/curve?mint=FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump'
+```
+
+**Errors**
+
+| Status | Code                  | Meaning                                                                    |
+| ------ | --------------------- | --------------------------------------------------------------------------- |
+| `400`  | `validation_error`    | `mint` missing or not a base58 Solana address                               |
+| `400`  | `not_pumpfun_mint`    | Well-formed mint, but never launched on pump.fun (or isn't indexed)         |
+| `429`  | `rate_limited`        | Over 60 requests/min from this IP                                           |
+| `503`  | `upstream_unavailable`| The pump.fun data source is temporarily unreachable — retry shortly         |
+
+---
+
+### Launches
+
+Every coin launched **through three.ws** (a `pump_agent_mints` row), joined
+with the launching agent — the platform's own launch directory, distinct from
+a generic pump.fun-wide new-mint feed. Same query as the
+[/launches](https://three.ws/launches) page
+(`api/_lib/pump-agent-launches.js` `queryAgentLaunches`).
+
+```
+GET /api/v1/pump/launches?limit=<1-100>&offset=<n>&network=<mainnet|devnet>&agent_id=<uuid>&min_tier=<tier>
+```
+
+Public, CORS-open, no auth, no cost. Rate limited to **60 requests/min per
+IP**. Responses are edge-cached 15s.
+
+| Query param | Type   | Description                                                                         |
+| ----------- | ------ | -------------------------------------------------------------------------------------- |
+| `limit`     | number | Page size, `1`–`100` (default `24`).                                                   |
+| `offset`    | number | Pagination offset (default `0`).                                                       |
+| `network`   | string | `mainnet` \| `devnet` (default `mainnet`).                                             |
+| `agent_id`  | string | Restrict to one launching agent (uuid). Optional.                                      |
+| `min_tier`  | string | Oracle conviction floor: `prime` \| `strong` \| `lean` \| `watch` \| `avoid`. Optional. |
+
+**Response**
+
+```json
+{
+	"data": {
+		"launches": [
+			{
+				"mint": "FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump",
+				"network": "mainnet",
+				"name": "three.ws",
+				"symbol": "three",
+				"buyback_bps": 500,
+				"metadata_uri": "https://...",
+				"quote_mint": null,
+				"created_at": "2026-07-01T00:00:00.000Z",
+				"oracle": { "score": 91, "tier": "prime", "category": "agent" },
+				"agent": {
+					"id": "…",
+					"name": "Launch Bot",
+					"url": "/agents/…",
+					"avatar_thumbnail_url": null,
+					"solana_address": "…",
+					"solana_vanity_prefix": null,
+					"solana_vanity_suffix": null
+				}
+			}
+		],
+		"has_more": true,
+		"offset": 0,
+		"limit": 24,
+		"network": "mainnet",
+		"min_tier": null
+	}
+}
+```
+
+**Example**
+
+```bash
+curl -s 'https://three.ws/api/v1/pump/launches?limit=10'
+```
+
+**Errors**
+
+| Status | Code               | Meaning                                              |
+| ------ | ------------------ | ------------------------------------------------------ |
+| `400`  | `validation_error` | `agent_id` isn't a uuid, or `min_tier` isn't a known tier |
+| `429`  | `rate_limited`      | Over 60 requests/min from this IP                       |
+
+---
+
+### Whales
+
+Whale / large-buy detection across pump.fun — **facts only**: which wallets
+moved how much SOL, and when. This is the read version of the whale-activity
+oracle that otherwise sits behind the paid `GET /api/x402/pump-agent-audit`
+(`"mode":"whale_activity"`) — the invented "bullish/bearish signal +
+confidence" the paid oracle scores is deliberately dropped here, and the same
+scan engine backs the free
+[`GET /api/crypto/whales`](crypto-api.md#get-apicryptowhales--whale--large-buy-activity)
+(`api/_lib/pump-whale-scan.js` `scanTokenWhales` / `scanMarketWhales`).
+
+```
+GET /api/v1/pump/whales?limit=<1-25>[&mint=<mint>][&minSol=<n>]
+```
+
+Public, CORS-open, no auth, no cost. Rate limited to **60 requests/min per
+IP**. Responses are edge-cached 15s. Omit `mint` for the top whale wallets
+active across pump.fun's top coins right now; pass `mint` to scope to one
+token's whale buys.
+
+| Query param | Type   | Description                                                          |
+| ----------- | ------ | ------------------------------------------------------------------------ |
+| `mint`      | string | Base58 Solana mint to scope to. Omit for market-wide. Optional.          |
+| `limit`     | number | Result cap, `1`–`25` (default `5`).                                      |
+| `minSol`    | number | Single-buy SOL threshold to qualify as a whale (default `5`).            |
+
+**Response**
+
+```json
+{
+	"data": {
+		"scope": "market",
+		"mint": null,
+		"wallets": [
+			{ "wallet": "…", "solMoved": 42.5, "txHash": "…", "ts": "2026-07-08T00:00:00.000Z" }
+		],
+		"whale_count": 1,
+		"total_sol_moved": 42.5,
+		"min_sol": 5,
+		"ts": "2026-07-08T00:00:01.000Z",
+		"source": "pump.fun"
+	}
+}
+```
+
+No whales over the threshold, or the pump.fun feed briefly unreachable, both
+answer `200` with an empty `wallets` array — the latter adds a `note`. Never a
+`5xx` for "nothing found."
+
+**Example**
+
+```bash
+curl -s 'https://three.ws/api/v1/pump/whales?limit=5'
+curl -s 'https://three.ws/api/v1/pump/whales?mint=FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump'
+```
+
+**Errors**
+
+| Status | Code               | Meaning                              |
+| ------ | ------------------ | --------------------------------------- |
+| `400`  | `validation_error` | `mint` malformed, or `minSol` not a positive number |
+| `429`  | `rate_limited`      | Over 60 requests/min from this IP       |
 
 ---
 

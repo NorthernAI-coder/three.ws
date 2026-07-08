@@ -1617,8 +1617,16 @@ function showResult(glbUrl, label, meta, { autoSaved = false } = {}) {
 	showState('result');
 	playMaterialize(glbUrl);
 	// Hand the live model to the Stylize panel (src/forge-stylize.js) so its
-	// one-click geometric filters operate on the current source mesh.
-	document.dispatchEvent(new CustomEvent('forge:model-ready', { detail: { glbUrl, label } }));
+	// one-click geometric filters operate on the current source mesh. prompt +
+	// creationId are additive fields (existing listeners only read glbUrl/label)
+	// consumed by the Iterate panel (conversational refinement) and the Remix
+	// panel (publish-as-remixable), both of which need the real prompt to carry
+	// forward and the owned creation id to act on.
+	document.dispatchEvent(
+		new CustomEvent('forge:model-ready', {
+			detail: { glbUrl, label, prompt: lastJob?.prompt || '', creationId: currentCreationId },
+		}),
+	);
 	document.dispatchEvent(
 		new CustomEvent('tws:feature-done', {
 			detail: { feature: 'forge', model: { glbUrl, label } },

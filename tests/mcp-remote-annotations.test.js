@@ -95,7 +95,7 @@ describe.each(CATALOGS)('%s — tools/list catalog', (label, catalog) => {
 });
 
 describe('destructive set across all five servers', () => {
-	it('is exactly { delete_avatar, forget, pay_and_call }', () => {
+	it('is exactly { delete_avatar, forget, pay_and_call, persona_tip, persona_send }', () => {
 		const destructive = new Set();
 		for (const [, catalog] of CATALOGS) {
 			for (const tool of catalog) {

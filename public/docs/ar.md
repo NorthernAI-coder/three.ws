@@ -191,3 +191,25 @@ Alternatively, deploy to Vercel or Netlify — both provide instant HTTPS on pre
 | HTTPS required | Yes (model URL) | Yes (model URL) | Yes (page) |
 | Draco GLBs | May fail | May fail | Yes |
 | Max practical model size | ~15 MB | ~20 MB | No hard limit |
+
+---
+
+## One-tap AR for any GLB — `GET /api/ar` + `export_ar`
+
+Any generated model (or any public https `.glb`/`.gltf`) gets a device-aware "View in your space" link with no setup:
+
+```
+https://three.ws/api/ar?src=<glbUrl>&title=<name>
+```
+
+The endpoint branches on the request's **User-Agent**, server-side:
+
+| Device | What happens |
+|---|---|
+| **iOS** (iPhone/iPad) | Launch page → Apple **Quick Look**. The USDZ is generated from the GLB on the fly by model-viewer (three.js `USDZExporter`) — a real conversion, no server USD tooling. |
+| **Android** | `302` → Google **Scene Viewer** ARCore intent, with a browser fallback to the WebGL viewer. |
+| **Desktop** | Launch page → interactive **WebGL** viewer. |
+
+Bad input (non-https, non-GLB, missing) returns a clean, designed error page — never a crash.
+
+**For agents (MCP):** the free, read-only `export_ar` tool on the 3D Studio server turns a GLB into the AR launch link plus a conformant [Spatial MCP](/docs/spatial-mcp) artifact with the `ar` handoff populated. The response carries no payment, wallet, token, or internal-id surface.

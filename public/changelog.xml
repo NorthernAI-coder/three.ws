@@ -63,6 +63,14 @@
 			<description>Total value locked across decentralized finance, with the top protocols ranked by TVL, their category, chains, and 1-day and 7-day change. Live from DeFiLlama, sortable and filterable by category.</description>
 		</item>
 		<item>
+			<title>Fact Check</title>
+			<link>https://three.ws/fact-check</link>
+			<guid isPermaLink="false">2026-07-08:Fact Check</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Sourced fact-checking with cryptographic attestations — a published, checkable accuracy benchmark plus a live free-check box. 3 free checks/day per IP, then $0.10 USDC via x402.</description>
+		</item>
+		<item>
 			<title>glTF / GLB Viewer</title>
 			<link>https://three.ws/viewer</link>
 			<guid isPermaLink="false">2026-07-08:glTF / GLB Viewer</guid>
@@ -103,6 +111,14 @@
 			<description>/create used to be just the avatar picker. It's now a four-way intent hub — Build an AI agent, Make a 3D avatar, Generate a 3D model, or Launch a token world — so you pick your destination in one click instead of hunting through a flat menu of tools. The avatar picker didn't go anywhere: it's still exactly where it was, now reachable as the 'Make a 3D avatar' path with its photo/scratch/prompt/upload options intact.</description>
 		</item>
 		<item>
+			<title>/play grew real physics, a drivable district, and day/night</title>
+			<link>https://three.ws/play</link>
+			<guid isPermaLink="false">2026-07-08:/play grew real physics, a drivable district, and day/night</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The coin-community world stops being a flat clamped plaza: a real Rapier character controller now drives your avatar (collision, ground contact, and jumps against actual geometry), and Downtown is ringed by a full deterministic street grid — asphalt avenues, sidewalks, lit buildings, and streetlights — that every client in a world renders identically and can now walk or drive across instead of hitting an invisible wall at the plaza's edge. A wall-clock-driven day/night cycle sweeps the sun, sky, fog, and the district's window and streetlamp glow in sync for everyone, with zero network chatter. The camera also grew up: press C to cycle Follow, Cinematic, First Person, and Top Down, the same four modes /walk uses, now shared from one module.</description>
+		</item>
+		<item>
 			<title>&lt;agent-3d&gt; talks out of the box with brain=&quot;free&quot;</title>
 			<link>https://three.ws/docs/embedding</link>
 			<guid isPermaLink="false">2026-07-08:&lt;agent-3d&gt; talks out of the box with brain=&quot;free&quot;</guid>
@@ -133,6 +149,22 @@
 			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>Delisted internal-use-only paid endpoints from the public x402 catalog while keeping their in-product functionality live, removed a dead endpoint with no real buyer, dropped a fake bullish/bearish framing from the ticker-collision checker, and re-listed three previously-hidden endpoints (fact-checking, token-to-3D rendering) as honest, discoverable products.</description>
+		</item>
+		<item>
+			<title>Embodied on-chain identity — every agent persona now carries a real wallet</title>
+			<link>https://three.ws/docs/mcp-3d-studio</link>
+			<guid isPermaLink="false">2026-07-08:Embodied on-chain identity — every agent persona now carries a real wallet</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Personas minted with create_agent_persona are now bound to a real, deterministic Solana wallet — the same persona always re-derives the same address, and its private key is never stored, returned, or logged anywhere. persona_identity reads the wallet's live balance, ERC-8004-style reputation, token holdings, and a resolved SNS name; persona_tip and persona_send move real USDC from the persona's own wallet, hard-capped per call and per session with a confirmation threshold above which the caller must confirm explicitly. The living body now visually reflects its chain state: an aura ring colored by reputation, a cosmetic badge for holdings tier, a muted look on a low balance, and a nameplate for a verified name.</description>
+		</item>
+		<item>
+			<title>Fact Check now has a free daily lane and a public accuracy benchmark</title>
+			<link>https://three.ws/fact-check</link>
+			<guid isPermaLink="false">2026-07-08:Fact Check now has a free daily lane and a public accuracy benchmark</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Try the Fact Checker without a wallet: 3 free checks a day per IP now run the exact same real search-and-LLM chain as the paid $0.10 USDC checks — never a degraded response — with a lane field on every result so you always know which one you got. A new /fact-check page publishes the accuracy claim instead of just asserting it: a 40-claim benchmark (10 per verdict class, time-stable and non-partisan) scored against the live chain, the claim set and scoring code both linked for anyone to check, plus a live 'try one free check' box right on the page.</description>
 		</item>
 		<item>
 			<title>Fixed: the &quot;View it&quot; link on every generated 3D model now opens a real viewer</title>
@@ -285,6 +317,14 @@
 			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Turn an avatar or on-chain agent you own into a holder-only interactive 3D embed. Visitors must prove a real, server-verified on-chain balance — a signed wallet challenge plus a live Solana RPC read, never a number the browser reports — before the live scene renders; below the bar they see a designed locked teaser with a connect-wallet button. Defaults to gating on $THREE, but accepts any SPL token at runtime for other communities. New create_gated_embed MCP tool, plus a REST API and a paste-anywhere &lt;three-d&gt; embed snippet.</description>
+		</item>
+		<item>
+			<title>Verify a 3D model's authenticity — free, on-chain content credentials</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-08:Verify a 3D model's authenticity — free, on-chain content credentials</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Models generated on three.ws can now carry a signed content credential — who made it, from what prompt, by which model, when, and the model's exact content hash — with that hash anchored on Solana. Anyone can check a model for free at /api/provenance?src=… or with the verify_provenance tool, and get a clear verdict: verified, tampered (a single changed byte is caught), or unverified. The 3D viewer shows a Verified · three.ws badge. It's C2PA-style provenance for 3D — the verify path has no wallet or token surface.</description>
 		</item>
 		<item>
 			<title>View any generated model in your room with AR</title>

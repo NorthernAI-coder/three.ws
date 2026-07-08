@@ -3,6 +3,35 @@
 	"entries": [
 		{
 			"date": "2026-07-08",
+			"title": "Fact Check now has a free daily lane and a public accuracy benchmark",
+			"summary": "Try the Fact Checker without a wallet: 3 free checks a day per IP now run the exact same real search-and-LLM chain as the paid $0.10 USDC checks — never a degraded response — with a lane field on every result so you always know which one you got. A new /fact-check page publishes the accuracy claim instead of just asserting it: a 40-claim benchmark (10 per verdict class, time-stable and non-partisan) scored against the live chain, the claim set and scoring code both linked for anyone to check, plus a live 'try one free check' box right on the page.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/fact-check"
+		},
+		{
+			"date": "2026-07-08",
+			"title": "/play grew real physics, a drivable district, and day/night",
+			"summary": "The coin-community world stops being a flat clamped plaza: a real Rapier character controller now drives your avatar (collision, ground contact, and jumps against actual geometry), and Downtown is ringed by a full deterministic street grid — asphalt avenues, sidewalks, lit buildings, and streetlights — that every client in a world renders identically and can now walk or drive across instead of hitting an invisible wall at the plaza's edge. A wall-clock-driven day/night cycle sweeps the sun, sky, fog, and the district's window and streetlamp glow in sync for everyone, with zero network chatter. The camera also grew up: press C to cycle Follow, Cinematic, First Person, and Top Down, the same four modes /walk uses, now shared from one module.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/play"
+		},
+		{
+			"date": "2026-07-08",
+			"title": "Embodied on-chain identity — every agent persona now carries a real wallet",
+			"summary": "Personas minted with create_agent_persona are now bound to a real, deterministic Solana wallet — the same persona always re-derives the same address, and its private key is never stored, returned, or logged anywhere. persona_identity reads the wallet's live balance, ERC-8004-style reputation, token holdings, and a resolved SNS name; persona_tip and persona_send move real USDC from the persona's own wallet, hard-capped per call and per session with a confirmation threshold above which the caller must confirm explicitly. The living body now visually reflects its chain state: an aura ring colored by reputation, a cosmetic badge for holdings tier, a muted look on a low balance, and a nameplate for a verified name.",
+			"tags": [
+				"feature"
+			],
+			"link": "/docs/mcp-3d-studio"
+		},
+		{
+			"date": "2026-07-08",
 			"title": "The free crypto API is now callable as an MCP tool",
 			"summary": "Two new MCP tools on the three.ws server: crypto_data calls any endpoint of the free Crypto Data API (DEX pairs, CoinGecko/DefiLlama market data, Jupiter Solana prices and swap quotes, Solana RPC reads) directly from an MCP client, generated live from the same registry that powers GET /api/v1/x/*; token_snapshot fans out to whichever of those providers are registered to build a one-call market snapshot for any Solana token mint, degrading gracefully around any provider that's absent or down.",
 			"tags": [
@@ -116,6 +145,15 @@
 			"summary": "A zero-context developer guide covering how to pay three.ws endpoints over MPP on BNB Chain, how our agents pay MPP endpoints, and how BNB Chain's block-level gas sponsorship (MegaFuel) lets a plain wallet send a transaction with zero gas — with an honest self-pay fallback for when sponsorship isn't available. Includes a wire-level bridge spec pinning how x402 and MPP map to each other.",
 			"tags": [
 				"docs"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"title": "Verify a 3D model's authenticity — free, on-chain content credentials",
+			"summary": "Models generated on three.ws can now carry a signed content credential — who made it, from what prompt, by which model, when, and the model's exact content hash — with that hash anchored on Solana. Anyone can check a model for free at /api/provenance?src=… or with the verify_provenance tool, and get a clear verdict: verified, tampered (a single changed byte is caught), or unverified. The 3D viewer shows a Verified · three.ws badge. It's C2PA-style provenance for 3D — the verify path has no wallet or token surface.",
+			"tags": [
+				"feature",
+				"security"
 			]
 		},
 		{

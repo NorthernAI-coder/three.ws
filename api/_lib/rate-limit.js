@@ -523,6 +523,13 @@ export const limits = {
 	// image/text→3D inference against the NIM, so cap per principal to keep that
 	// GPU egress bounded. Non-critical: a Redis blip must never block the demo.
 	forgeNim: (key) => getLimiter('forge:nim', { limit: 30, window: '1 h' }).limit(key),
+	// Conversational iteration (api/forge-iterate) — an ownership-preserving
+	// twin of the free studio's refine_model tool, called from the signed-in
+	// Forge Studio UI. Each call is one real regeneration, so cap per principal
+	// like every other forge-adjacent REST endpoint. /api/forge underneath has
+	// its own generation gates; this bounds the composition/lineage wrapper
+	// itself. Non-critical: a Redis blip must never block an iteration.
+	forgeIterate: (key) => getLimiter('forge:iterate', { limit: 60, window: '1 h' }).limit(key),
 	// Free text→3D lane (api/v1/ai/text-to-3d) — each generation drives one real
 	// NVIDIA NIM TRELLIS GPU inference, so the free tier is a per-IP daily quota
 	// (10/day). Above it the endpoint returns 429 + a pointer to the paid
@@ -1075,6 +1082,12 @@ export const limits = {
 		getLimiter('v1:free:min', { limit: Math.max(1, Number(perMin) || 30), window: '1 m' }).limit(key),
 	apiV1FreeDay: (key, perDay) =>
 		getLimiter('v1:free:day', { limit: Math.max(1, Number(perDay) || 1000), window: '1 d' }).limit(key),
+
+	// Gasless ERC-8004 registration relay (api/bnb/register-agent.js). Each call
+	// either consumes a real MegaFuel-sponsored gas slot or broadcasts a real
+	// self-pay tx — tighter than a generic read bucket, keyed per IP since the
+	// whole point is a caller with no wallet history to key on.
+	bnbRegisterIp: (ip) => getLimiter('bnb:register:ip', { limit: 10, window: '10 m', critical: true }).limit(ip),
 };
 
 // Trust only proxy headers that Vercel itself sets and signs. Naively reading

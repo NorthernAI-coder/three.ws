@@ -1,10 +1,19 @@
 // restyle.js — Restyle Studio: apply PBR material presets and seeded colorway
-// variants to any GLB, fine-tune metalness/roughness/color/emissive live, and
-// export a validated GLB — non-destructively (the original is always one click
-// away). Consumes the framework-agnostic PBR preset library shipped in
-// @three-ws/viewer-presets and the shared GLB optimize/validate path used by
-// Avatar Studio, so it reuses the platform's material vocabulary rather than
-// inventing a parallel one.
+// variants to any GLB, restyle from a plain-language AI instruction, fine-tune
+// metalness/roughness/color/emissive live, and export a validated GLB —
+// non-destructively (the original is always one click away). Consumes the
+// framework-agnostic PBR preset library shipped in @three-ws/viewer-presets and
+// the shared GLB optimize/validate path used by Avatar Studio, so it reuses the
+// platform's material vocabulary rather than inventing a parallel one.
+//
+// Two kinds of history live side by side:
+//   - the in-browser breadcrumb (#history) — every preset/slider tweak, purely
+//     cosmetic, never leaves the tab.
+//   - the real version lineage (#lineage-strip) — every AI restyle and every
+//     "Save version" checkpoint mints an actual, durable, gltf-validator-checked
+//     GLB via api/material-studio.js and is recorded with the SAME lineage
+//     shape refine_model uses (mcp-server/src/tools/_lineage.js: parent → child,
+//     revertable, branchable). Clicking a version reloads that exact GLB.
 //
 // Roadmap prompt 06 (material, restyle & variant tools), client surface.
 
@@ -21,6 +30,7 @@ import {
 	materialVariants,
 } from '../packages/viewer-presets/src/materials.js';
 import { optimizeAndValidateGlb } from './avatar-studio-optimize.js';
+import { seedLineage, appendVersion, summarizeLineage } from '../mcp-server/src/tools/_lineage.js';
 
 // A small, always-present local sample so the page is never an empty void — the
 // platform's default humanoid, served from /avatars.
@@ -33,11 +43,18 @@ const state = {
 	controls: null,
 	root: null, // the loaded glTF scene graph
 	originals: new Map(), // material → captured original PBR params (for Reset)
-	lineage: [], // ordered list of applied steps, for the history strip
+	lineage: [], // cosmetic breadcrumb of applied steps, for the #history strip
 	baseName: 'chrome', // which preset variants fan out from
 	manual: { metalness: null, roughness: null, emissiveIntensity: 0 },
 	sourceLabel: '',
 	raf: 0,
+	// Real, durable version lineage (parent → child GLB URLs). null until the
+	// current model has a public https URL — a bare local File has none until
+	// its first checkpoint upload resolves.
+	sourceGlbUrl: null,
+	sourceUrlPending: null, // in-flight upload promise for a local File origin
+	realLineage: null,
+	activeIndex: 0,
 };
 
 const el = {};
@@ -50,7 +67,7 @@ function init() {
 	buildPresetButtons();
 	wireControls();
 	const url = new URL(location.href).searchParams.get('url');
-	loadModel(url || DEFAULT_MODEL, url ? 'from URL' : 'sample');
+	loadModel(url || DEFAULT_MODEL, url ? 'from URL' : 'sample', { originUrl: url || DEFAULT_MODEL });
 	window.addEventListener('resize', onResize);
 }
 
@@ -60,6 +77,8 @@ function cache() {
 		'metalness', 'roughness', 'emissive', 'basecolor', 'emissivecolor',
 		'seed', 'variant-count', 'gen-variants', 'reset', 'export', 'export-note',
 		'file', 'url-input', 'load-url', 'status', 'error', 'error-msg', 'retry',
+		'ai-instruction', 'ai-restyle', 'ai-texture', 'ai-note',
+		'lineage-strip', 'save-version', 'lineage-note',
 	]) {
 		el[id] = document.getElementById(id);
 	}
@@ -128,11 +147,15 @@ function makeLoader() {
 	return loader;
 }
 
-function loadModel(src, label) {
+// `opts.originUrl` — a public https URL for this exact source (seeds the real
+// lineage immediately). `opts.preserveLineage` — set when reverting to an
+// existing version (clicked in #lineage-strip): keep state.realLineage /
+// activeIndex instead of resetting to a fresh single-version thread.
+function loadModel(src, label, opts = {}) {
 	showState('loading');
 	const onLoaded = (gltf) => {
 		try {
-			mountModel(gltf.scene, label);
+			mountModel(gltf.scene, label, opts);
 			showState('ready');
 		} catch (err) {
 			fail(err);
@@ -150,7 +173,7 @@ function loadModel(src, label) {
 	}
 }
 
-function mountModel(newRoot, label) {
+function mountModel(newRoot, label, opts = {}) {
 	if (state.root) {
 		state.scene.remove(state.root);
 		disposeTree(state.root);
@@ -165,6 +188,66 @@ function mountModel(newRoot, label) {
 	state.scene.add(newRoot);
 	pushHistory('Original');
 	syncSlidersFromModel();
+	markPresetActive(null);
+
+	if (!opts.preserveLineage) {
+		state.sourceUrlPending = null;
+		if (opts.originUrl) {
+			state.sourceGlbUrl = opts.originUrl;
+			state.realLineage = seedLineage({ glbUrl: opts.originUrl, prompt: null });
+			state.activeIndex = 0;
+		} else {
+			// Loaded from a local File with no URL yet — checkpoint the ORIGINAL
+			// bytes in the background so AI restyle / Save version have a public
+			// https origin to anchor to the moment it resolves. Never blocks the
+			// live preview; a failure just leaves AI restyle / Save disabled with
+			// an honest note (fail-soft, not fake).
+			state.sourceGlbUrl = null;
+			state.realLineage = null;
+			state.activeIndex = 0;
+			state.sourceUrlPending = uploadOriginBytes(newRoot)
+				.then((url) => {
+					state.sourceGlbUrl = url;
+					state.realLineage = seedLineage({ glbUrl: url, prompt: null });
+					state.activeIndex = 0;
+					renderLineageStrip();
+					setNote(el['lineage-note'], '');
+				})
+				.catch((err) => {
+					setNote(
+						el['lineage-note'],
+						`AI restyle / Save version need a public model URL — checkpoint failed: ${err?.message || err}. Try "Load URL" with a public .glb instead.`,
+						'error',
+					);
+				})
+				.finally(() => {
+					state.sourceUrlPending = null;
+				});
+		}
+	}
+	renderLineageStrip();
+}
+
+// Export the CURRENT root as-is (used only to mint an origin URL for a
+// locally-uploaded File that has none — runs once, right after mount, before
+// any edit, so the "origin" checkpoint really is the original file).
+async function uploadOriginBytes(root) {
+	const exporter = new GLTFExporter();
+	const glb = await new Promise((res, rej) => {
+		exporter.parse(root, (result) => res(result), (err) => rej(err), { binary: true });
+	});
+	return uploadGlbBytes(glb);
+}
+
+async function uploadGlbBytes(arrayBufferOrBlob) {
+	const res = await fetch('/api/material-studio?action=upload', {
+		method: 'POST',
+		headers: { 'content-type': 'model/gltf-binary' },
+		body: arrayBufferOrBlob,
+	});
+	const data = await res.json().catch(() => ({}));
+	if (!res.ok || !data?.url) throw new Error(data?.message || `upload failed (${res.status})`);
+	return data.url;
 }
 
 function captureOriginals(root) {
@@ -180,6 +263,7 @@ function captureOriginals(root) {
 				envMapIntensity: m.envMapIntensity,
 				transparent: m.transparent,
 				opacity: m.opacity,
+				map: m.map || null,
 			});
 		}
 	});
@@ -220,6 +304,67 @@ function applyVariant(config, label) {
 	syncSlidersFromModel();
 }
 
+// Apply a flat glTF PBR factor set (as returned by api/material-studio's AI
+// restyle) onto every standard material — the same shape server-side
+// applyFactorsToDoc uses, translated to THREE's live material API instead of
+// glTF-Transform's document API. Keeps the browser preview and the durable
+// server-exported GLB visually identical.
+function applyFactors(factors) {
+	if (!state.root || !factors) return;
+	state.root.traverse((n) => {
+		for (const m of materialsOf(n)) {
+			if (!isStandardLike(m)) continue;
+			if (Array.isArray(factors.baseColorFactor) && factors.baseColorFactor.length >= 3) {
+				m.color.setRGB(factors.baseColorFactor[0], factors.baseColorFactor[1], factors.baseColorFactor[2]);
+			}
+			if (factors.metallicFactor != null) m.metalness = clamp01(factors.metallicFactor);
+			if (factors.roughnessFactor != null) m.roughness = clamp01(factors.roughnessFactor);
+			if (Array.isArray(factors.emissiveFactor) && factors.emissiveFactor.length >= 3 && m.emissive) {
+				m.emissive.setRGB(factors.emissiveFactor[0], factors.emissiveFactor[1], factors.emissiveFactor[2]);
+				const mag = Math.max(...factors.emissiveFactor);
+				m.emissiveIntensity = mag > 0 ? Math.max(1, mag * 2) : 0;
+			}
+			m.needsUpdate = true;
+		}
+	});
+	syncSlidersFromModel();
+}
+
+// Real pixel texture, not just flat PBR color — generates a seamless material
+// swatch via the platform's live text→image lanes (api/v1/ai/image, the same
+// NIM FLUX / Vertex stack Forge uses) and applies it as every standard
+// material's base color map. Free-quota-then-x402 like every other caller of
+// this endpoint; a 402 past the daily quota surfaces as an honest note rather
+// than a silent failure — flat-PBR restyle above still applied regardless.
+async function generateAndApplyTexture(instruction) {
+	const prompt =
+		`seamless tileable PBR material texture swatch: ${instruction}, physically based rendering, ` +
+		'flat studio lighting, no shadows, no vignette, top-down, high detail, 4k';
+	const res = await fetch('/api/v1/ai/image', {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({ prompt, aspect_ratio: '1:1' }),
+	});
+	const data = await res.json().catch(() => ({}));
+	if (!res.ok || !data?.url) {
+		const msg =
+			res.status === 402
+				? 'texture generation needs payment past the free daily quota — flat PBR restyle still applied'
+				: data?.message || `texture generation failed (${res.status})`;
+		throw new Error(msg);
+	}
+	const tex = await new THREE.TextureLoader().loadAsync(data.url);
+	tex.colorSpace = THREE.SRGBColorSpace;
+	tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+	state.root.traverse((n) => {
+		for (const m of materialsOf(n)) {
+			if (!isStandardLike(m)) continue;
+			m.map = tex;
+			m.needsUpdate = true;
+		}
+	});
+}
+
 // Live manual overrides — set the same property across every standard material.
 function setManual(prop, value) {
 	if (!state.root) return;
@@ -249,6 +394,7 @@ function resetModel() {
 		m.envMapIntensity = o.envMapIntensity;
 		m.transparent = o.transparent;
 		m.opacity = o.opacity;
+		m.map = o.map;
 		m.needsUpdate = true;
 	}
 	state.lineage = [];
@@ -275,6 +421,127 @@ function generateVariants() {
 		el['variant-strip'].appendChild(b);
 	}
 	el.variants.hidden = false;
+}
+
+// ── AI restyle ───────────────────────────────────────────────────────────────
+async function aiRestyle() {
+	const instruction = (el['ai-instruction'].value || '').trim();
+	if (!instruction) {
+		setNote(el['ai-note'], 'Describe a look first — e.g. "cyberpunk neon" or "worn copper".', 'error');
+		return;
+	}
+	if (state.sourceUrlPending) {
+		setNote(el['ai-note'], 'Still checkpointing the model — try again in a moment.', 'busy');
+		return;
+	}
+	if (!state.sourceGlbUrl) {
+		setNote(el['ai-note'], 'AI restyle needs a public model URL — load one via "Load URL", or wait for the upload checkpoint to finish.', 'error');
+		return;
+	}
+	const wantTexture = el['ai-texture']?.checked !== false;
+	el['ai-restyle'].disabled = true;
+	setNote(el['ai-note'], 'Asking IBM Granite for a PBR material…', 'busy');
+	try {
+		const res = await fetch('/api/material-studio?action=restyle', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({
+				glb_url: state.sourceGlbUrl,
+				instruction,
+				parent_lineage: state.realLineage,
+				parent_index: state.activeIndex,
+			}),
+		});
+		const data = await res.json().catch(() => ({}));
+		if (!res.ok || !data?.ok) throw new Error(data?.message || `restyle failed (${res.status})`);
+
+		applyFactors(data.factors);
+		state.realLineage = data.lineage;
+		state.activeIndex = data.activeIndex;
+		state.sourceGlbUrl = data.glbUrl; // anchor further edits to this new checkpoint
+		pushHistory(`AI: ${instruction}`);
+		renderLineageStrip();
+
+		if (wantTexture) {
+			setNote(el['ai-note'], 'PBR applied — generating a texture too…', 'busy');
+			try {
+				await generateAndApplyTexture(instruction);
+				setNote(el['ai-note'], `Restyled "${instruction}" — PBR + texture applied, saved as a new version.`, 'done');
+			} catch (texErr) {
+				setNote(el['ai-note'], `PBR applied and saved as a new version. Texture skipped: ${texErr?.message || texErr}`, 'error');
+			}
+		} else {
+			setNote(el['ai-note'], `Restyled "${instruction}" — applied and saved as a new version.`, 'done');
+		}
+	} catch (err) {
+		setNote(el['ai-note'], `Restyle failed: ${err?.message || err}`, 'error');
+	} finally {
+		el['ai-restyle'].disabled = false;
+	}
+}
+
+// ── versions (real lineage) ───────────────────────────────────────────────────
+async function saveVersion() {
+	if (!state.root) return;
+	if (state.sourceUrlPending) {
+		setNote(el['lineage-note'], 'Still checkpointing the model — try again in a moment.', 'busy');
+		return;
+	}
+	el['save-version'].disabled = true;
+	setNote(el['lineage-note'], 'Saving version…', 'busy');
+	try {
+		const exporter = new GLTFExporter();
+		const glb = await new Promise((res, rej) => {
+			exporter.parse(state.root, (result) => res(result), (err) => rej(err), { binary: true });
+		});
+		const rawBlob = new Blob([glb], { type: 'model/gltf-binary' });
+		const { blob } = await optimizeAndValidateGlb(rawBlob, {
+			onStatus: (s) => setNote(el['lineage-note'], s, 'busy'),
+		});
+		const url = await uploadGlbBytes(blob);
+		if (!state.realLineage) state.realLineage = seedLineage({ glbUrl: url, prompt: null });
+		else {
+			state.realLineage = appendVersion(state.realLineage, {
+				glbUrl: url,
+				instruction: state.lineage[state.lineage.length - 1] || 'Manual edit',
+				refKind: 'material-edit',
+				parentIndex: state.activeIndex,
+			});
+			state.activeIndex = state.realLineage.length - 1;
+		}
+		state.sourceGlbUrl = url;
+		renderLineageStrip();
+		setNote(el['lineage-note'], 'Version saved.', 'done');
+	} catch (err) {
+		setNote(el['lineage-note'], `Save failed: ${err?.message || err}`, 'error');
+	} finally {
+		el['save-version'].disabled = false;
+	}
+}
+
+function renderLineageStrip() {
+	const host = el['lineage-strip'];
+	if (!host) return;
+	if (!state.realLineage || !state.realLineage.length) {
+		host.innerHTML = '<span class="rs-step">No versions saved yet</span>';
+		return;
+	}
+	const summary = summarizeLineage(state.realLineage, state.activeIndex);
+	host.innerHTML = summary
+		.map(
+			(v, i) =>
+				`<button type="button" class="rs-step${v.active ? ' is-current' : ' is-versioned'}" data-index="${v.index}" title="${escapeHtml(v.glbUrl)}">${escapeHtml(v.label)}</button>${i < summary.length - 1 ? '<span class="rs-arrow">→</span>' : ''}`,
+		)
+		.join('');
+	host.querySelectorAll('.rs-step[data-index]').forEach((btn) => {
+		btn.addEventListener('click', () => {
+			const idx = Number(btn.dataset.index);
+			const entry = state.realLineage.find((v) => v.index === idx);
+			if (!entry) return;
+			state.activeIndex = idx;
+			loadModel(entry.glbUrl, entry.label || `Version ${idx}`, { preserveLineage: true });
+		});
+	});
 }
 
 // ── export ─────────────────────────────────────────────────────────────────────
@@ -327,7 +594,12 @@ function wireControls() {
 	el['gen-variants'].addEventListener('click', generateVariants);
 	el.reset.addEventListener('click', resetModel);
 	el.export.addEventListener('click', exportModel);
-	el.retry.addEventListener('click', () => loadModel(DEFAULT_MODEL, 'sample'));
+	el.retry.addEventListener('click', () => loadModel(DEFAULT_MODEL, 'sample', { originUrl: DEFAULT_MODEL }));
+	el['ai-restyle'].addEventListener('click', aiRestyle);
+	el['ai-instruction'].addEventListener('keydown', (e) => {
+		if (e.key === 'Enter') aiRestyle();
+	});
+	el['save-version'].addEventListener('click', saveVersion);
 
 	el.file.addEventListener('change', (e) => {
 		const f = e.target.files?.[0];
@@ -423,14 +695,20 @@ function download(blob, name) {
 	a.click();
 	setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
-function setNote(node, text) {
-	if (node) node.textContent = text;
+function setNote(node, text, kind) {
+	if (!node) return;
+	node.textContent = text;
+	node.classList.toggle('is-error', kind === 'error');
+	node.classList.toggle('is-busy', kind === 'busy');
 }
 function fmtBytes(n) {
 	return n > 1e6 ? (n / 1e6).toFixed(1) + ' MB' : Math.round(n / 1024) + ' KB';
 }
 function clampInt(n, lo, hi) {
 	return Math.min(hi, Math.max(lo, Math.round(n)));
+}
+function clamp01(n) {
+	return Math.min(1, Math.max(0, Number(n) || 0));
 }
 function escapeHtml(s) {
 	return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

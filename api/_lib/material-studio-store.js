@@ -17,17 +17,28 @@
 //
 // Both share one persistence path (validateAndPersistGlb) so every output is a
 // real, gltf-validator-checked, durably-stored https URL — never a blob, never
-// a mock. One implementation; the web Material Studio page calls it over
-// api/material-studio.js for free (rate-limited), and the restyle_material MCP
-// tool (mcp-server/src/tools/restyle-material.js) calls the SAME HTTP endpoint
-// as a thin client, matching the forge_free / refine_model "one core, two
-// transports" convention already used across the 3D stack.
+// a mock. One implementation; the web Restyle Studio page (/restyle) calls it
+// over api/material-studio.js for free (rate-limited), and the restyle_material
+// MCP tool (mcp-server/src/tools/restyle-material.js) calls the SAME HTTP
+// endpoint as a thin client, matching the forge_free / refine_model "one core,
+// two transports" convention already used across the 3D stack.
+//
+// Both operations also record an immutable parent → child version lineage using
+// the SAME lineage core refine_model uses (mcp-server/src/tools/_lineage.js) —
+// a restyle or a variant fan-out is just another kind of version, not a special
+// case. Pass the `lineage` array a previous call returned back in as
+// `parentLineage` to extend one thread; omit it to start fresh, rooted at the
+// source GLB. This is what makes restyle non-destructive in the durable sense
+// (not just "Reset in the browser"): every version is a real, separately
+// addressable asset, and the thread is exactly the shape prompt 09's remix
+// bazaar already consumes for refine_model lineages.
 
 import { randomUUID } from 'node:crypto';
 import { putObject, publicUrl } from './r2.js';
 import { assertPublicHttpsUrl } from './ssrf.js';
 import { watsonxConfig, watsonxChatComplete } from './watsonx.js';
 import { materialVariants, materialPreset, MATERIAL_PRESET_NAMES } from '@three-ws/viewer-presets';
+import { seedLineage, appendVersion, branchFrom, buildLineageChain } from '../../mcp-server/src/tools/_lineage.js';
 
 const MAX_SOURCE_GLB_BYTES = 64 * 1024 * 1024;
 const MAX_VARIANT_COUNT = 12;
@@ -191,6 +202,41 @@ function hexToFactor(hex, fallback = [0.6, 0.6, 0.6]) {
 	return [((int >> 16) & 255) / 255, ((int >> 8) & 255) / 255, (int & 255) / 255];
 }
 
+// ── Lineage ─────────────────────────────────────────────────────────────────
+
+// Resolve the starting lineage: extend the caller-supplied one (validated
+// structurally — contiguous indices, single root, no cycles — with
+// buildLineageChain), or seed a fresh one rooted at the source GLB. A malformed
+// array (buggy client, stale/tampered state) falls back to a fresh lineage
+// rather than corrupting history — mirrors handleRefineModel's contract exactly
+// (api/_mcp-studio/tools.js) so both "kinds" of 3D versioning behave the same.
+function resolveBaseLineage(rootGlbUrl, parentLineage) {
+	const fresh = () => seedLineage({ glbUrl: rootGlbUrl });
+	if (!Array.isArray(parentLineage) || parentLineage.length === 0) return fresh();
+	const rehydrated = parentLineage.map((v, i) => ({
+		index: Number.isInteger(v?.index) ? v.index : i,
+		parentIndex: v?.parentIndex ?? (i > 0 ? i - 1 : null),
+		glbUrl: v?.glbUrl,
+		viewerUrl: v?.viewerUrl || null,
+		prompt: v?.prompt || null,
+		instruction: v?.instruction || null,
+		refKind: v?.refKind || (i === 0 ? 'origin' : 'text'),
+	}));
+	return buildLineageChain(rehydrated).ok ? rehydrated : fresh();
+}
+
+// Branch off an earlier version instead of the lineage's leaf. An out-of-range
+// index falls back to `undefined` (appendVersion then defaults to the leaf)
+// rather than throwing — a stale parent_index should never fail the call.
+function resolveParentIndex(baseLineage, parentIndex) {
+	if (!Number.isInteger(parentIndex)) return undefined;
+	try {
+		return branchFrom(baseLineage, parentIndex);
+	} catch {
+		return undefined;
+	}
+}
+
 // ── Persistence ─────────────────────────────────────────────────────────────
 
 // Validate GLB bytes (magic + gltf-validator) and mirror into R2 under
@@ -296,7 +342,13 @@ export async function generateMaterialFactorsFromInstruction(instruction) {
 // a browser caller (which already has the model loaded) can also apply the
 // SAME factors live to its in-memory THREE.Material for an instant preview
 // while the durable copy is still uploading.
-export async function restyleMaterialFromInstruction({ glbUrl, instruction, materialIndex }) {
+export async function restyleMaterialFromInstruction({
+	glbUrl,
+	instruction,
+	materialIndex,
+	parentLineage,
+	parentIndex,
+}) {
 	const safeUrl = await validateGlbUrl(glbUrl);
 	const factors = await generateMaterialFactorsFromInstruction(instruction);
 	const sourceBytes = await fetchGlbBytes(safeUrl);
@@ -304,6 +356,16 @@ export async function restyleMaterialFromInstruction({ glbUrl, instruction, mate
 	const materialsEdited = applyFactorsToDoc(doc, factors, materialIndex);
 	const outBytes = await writeAndValidate(doc);
 	const persisted = await validateAndPersistGlb(Buffer.from(outBytes), { keyPrefix: 'material-studio/restyle' });
+
+	const baseLineage = resolveBaseLineage(safeUrl, parentLineage);
+	const resolvedParentIndex = resolveParentIndex(baseLineage, parentIndex);
+	const lineage = appendVersion(baseLineage, {
+		glbUrl: persisted.url,
+		instruction: factors.instruction,
+		refKind: 'restyle',
+		...(resolvedParentIndex !== undefined ? { parentIndex: resolvedParentIndex } : {}),
+	});
+
 	return {
 		glbUrl: persisted.url,
 		sourceGlbUrl: safeUrl,
@@ -311,6 +373,8 @@ export async function restyleMaterialFromInstruction({ glbUrl, instruction, mate
 		factors,
 		materialsEdited,
 		bytes: persisted.bytes,
+		lineage,
+		activeIndex: lineage.length - 1,
 	};
 }
 
@@ -321,7 +385,15 @@ export async function restyleMaterialFromInstruction({ glbUrl, instruction, mate
 // base + seed always yields byte-identical factor sets (materialVariants'
 // mulberry32 PRNG) and, downstream, byte-identical GLBs — reproducible in the
 // literal sense, not just "looks similar."
-export async function generateSeededVariants({ glbUrl, preset = 'chrome', seed = 0, count = 6, materialIndex }) {
+export async function generateSeededVariants({
+	glbUrl,
+	preset = 'chrome',
+	seed = 0,
+	count = 6,
+	materialIndex,
+	parentLineage,
+	parentIndex,
+}) {
 	if (!MATERIAL_PRESET_NAMES.includes(preset)) {
 		throw new MaterialStudioError(`unknown preset "${preset}" — known: ${MATERIAL_PRESET_NAMES.join(', ')}`, {
 			status: 400,
@@ -334,6 +406,13 @@ export async function generateSeededVariants({ glbUrl, preset = 'chrome', seed =
 	const base = materialPreset(preset);
 	const variants = materialVariants(base, { seed: seedNum, count: n });
 	const sourceBytes = await fetchGlbBytes(safeUrl);
+
+	// Every variant is an independent sibling branching off the SAME parent (the
+	// source model) — resolve that shared parent once, up front, so appending
+	// variant 2 never accidentally chains off variant 1.
+	const baseLineage = resolveBaseLineage(safeUrl, parentLineage);
+	const sharedParentIndex = resolveParentIndex(baseLineage, parentIndex) ?? baseLineage.length - 1;
+	let lineage = baseLineage;
 
 	const results = [];
 	for (const variant of variants) {
@@ -353,7 +432,27 @@ export async function generateSeededVariants({ glbUrl, preset = 'chrome', seed =
 		const persisted = await validateAndPersistGlb(Buffer.from(outBytes), {
 			keyPrefix: 'material-studio/variants',
 		});
-		results.push({ glbUrl: persisted.url, label: variant.label, seed: variant.seed, config: variant.config });
+		lineage = appendVersion(lineage, {
+			glbUrl: persisted.url,
+			instruction: variant.label,
+			refKind: 'variant',
+			parentIndex: sharedParentIndex,
+		});
+		results.push({
+			glbUrl: persisted.url,
+			label: variant.label,
+			seed: variant.seed,
+			config: variant.config,
+			lineageIndex: lineage.length - 1,
+		});
 	}
-	return { sourceGlbUrl: safeUrl, preset, seed: seedNum, count: n, variants: results };
+	return {
+		sourceGlbUrl: safeUrl,
+		preset,
+		seed: seedNum,
+		count: n,
+		variants: results,
+		lineage,
+		activeIndex: sharedParentIndex,
+	};
 }
