@@ -1517,4 +1517,31 @@ Separately hit — and this one was a real, already-fixed-by-another-agent bug, 
 something to route around — a `main` HEAD that briefly couldn't `npm ci` at all
 (`packages/defi-utils`/`packages/tool-sdk` present on disk but missing from
 `package-lock.json`); resolved upstream by commit `bc60fb2de` before this session's
-redeploy needed it.
+redeploy needed it. Also observed a second agent deploy a new `three-ws-api` revision
+(`00018-kh7`) to the same service mid-session, independent of this work.
+
+**Separate finding, NOT diagnosed to root cause — flag for the next session, do not
+assume it's this program's doing:** every `vercel.json` route whose `dest` differs from
+its `src` and that isn't one of the handful already proven live (home `/` →
+`/home.html`, `/gallery` → `/gallery/index.html`) appears to 404 in production right
+now — reproduced on `/dashboard/*` (all of it, including the bare `/dashboard/`
+entry point and the prompt-07 `/dashboard/spend` page), `/pump-dashboard`, confirmed
+against **both** `https://three.ws/...` and the Cloud Run origin directly (rules out a
+CDN-only cause for this revision). The destination files exist in a from-source
+worktree build (`dist/dashboard-next/*.html`, `dist/pump-dashboard.html`, timestamps
+matching a clean `npm ci` + `npm run build`), and the server's route-matching code
+(`server/index.mjs` `compileRoute`/`resolveStatic`) reads as correct on inspection —
+but the 404 response's `content-length` (8350 bytes) does not match this session's
+locally-built `dist/404.html` (8951 bytes), meaning **the currently-serving container's
+`dist/` does not fully match what this session built and submitted**, for reasons not
+resolved before time ran out (candidates not yet ruled out: a stale Docker layer-cache
+hit on `COPY . .` despite content changing, a `vite build`/`emptyOutDir` interaction
+with the two build attempts in the same worktree this session, or the concurrent
+`00018-kh7` deploy from another agent superseding/interleaving with this one). This
+predates and is independent of this program's own changes (`api/_lib/http.js`,
+`workers/model-triposr/main.py` touch neither routing nor `dist/` generation) — it was
+found while smoke-testing `/dashboard/spend` for prompt 07, not caused by testing it.
+**Action for the next session:** confirm whether this is new (Cloud Run migration
+artifact) or has been silently broken since 2026-07-07, with a stable environment (no
+concurrent deploys), before attempting a fix — the evidence above rules out several
+easy explanations already.
