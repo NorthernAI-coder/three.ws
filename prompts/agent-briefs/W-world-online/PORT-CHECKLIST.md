@@ -91,23 +91,64 @@ real district + real day/night — no mocks. Next: **W02** (vehicles) can now as
 
 ---
 
-## Phase 2 — Vehicles & driving
+## Phase 2 — Vehicles & driving — SHIPPED 2026-07-08
 
 Maps to **W02**. Depends on Phase 1 (needs the Rapier world + terrain colliders).
 
-- [ ] **P2.1 — Wire the orphaned client `VehicleManager`.** Import
-  [src/game/vehicles.js](../../../src/game/vehicles.js) into `/play`, spawn at least one drivable
-  vehicle, and hook enter/exit to proximity (`VEHICLE_ENTER_RANGE_M` already exists server-side).
-- [ ] **P2.2 — Network vehicle state through `WalkRoom`.** The server already has
-  `VEHICLE_WORLD_RADIUS_M` / `vehicleMaxStepM` / `vehicleMaxSpeedMps`. Confirm the room's
-  vehicle schema is sent to `/play` clients via `CommunityNet` and that remote vehicles render
-  via [src/game/vehicle-mesh.js](../../../src/game/vehicle-mesh.js).
-- [ ] **P2.3 — Driving camera + HUD.** Reuse the camera-modes module (P1.4) for a chase cam;
-  add a speed/throttle readout to the existing `WorldHudSystem`
-  ([src/game/hud/](../../../src/game/hud/)).
+- [x] **P2.1 — Wire the orphaned client `VehicleManager`.**
+  [src/game/vehicles.js](../../../src/game/vehicles.js) is imported and instantiated in
+  `coincommunities.js` (`this.vehicles = new VehicleManager({ host: this })`); it spawns the
+  server-seeded fleet (`VEHICLE_SPAWNS` in `multiplayer/src/vehicles.js` — 6 cars across 4 types:
+  coupe/sedan/pickup/buggy) and gates enter/exit on `VEHICLE_ENTER_RANGE_M` proximity, contextual
+  **F** to take the wheel / tap-to-enter on touch.
+- [x] **P2.2 — Network vehicle state through `WalkRoom`.** `WalkRoom.js` seeds the fleet
+  (`_seedVehicles`), handles `venter`/`vexit`/`vsync` (rate-limited via the same `_actionOk` gate
+  every other handler uses, teleport/speed-hack clamped in `_applyVehicleTransform`), and the
+  `Vehicle` schema (`multiplayer/src/schemas.js`) auto-replicates to every `/play` client via
+  `CommunityNet` (`vehicleAdd`/`vehicleChange`/`vehicleRemove`/`vehicle` ack events). Remote
+  vehicles render + interpolate via [src/game/vehicle-mesh.js](../../../src/game/vehicle-mesh.js).
+- [x] **P2.3 — Driving camera + HUD.** The follow camera (P1.4's camera-modes module) hands off
+  to a chase view on entry (`camDist` pulled out to 11m+) and re-centers behind the car's heading
+  each frame; a dedicated speedometer + Exit button + touch pedal/steering cluster
+  (`.veh-hud`/`.veh-speedo` in `vehicles.js`) shows live km/h and brake-light state. This is a
+  self-contained overlay rather than a merge into `WorldHudSystem`
+  ([src/game/hud/world-hud.js](../../../src/game/hud/world-hud.js)) — functionally complete, but
+  folding it into that shared system remains a legitimate follow-up if the HUD grows more panels.
+
+**Real bug found + fixed during verification:** the raycast vehicle controller
+(`createVehicle` in [src/physics/physics-world.js](../../../src/physics/physics-world.js)) was
+correct, but 3 of the 4 vehicle types' `suspension.rest` values in
+[multiplayer/src/vehicles.js](../../../multiplayer/src/vehicles.js) left too little clearance
+between the chassis collider and the wheel-contact line for their chassis height — the hull
+itself rested on/against the ground and its own friction pinned the car almost dead still
+regardless of engine force (sedan and pickup: ~0.00 m/s after 3s of full throttle even at 10x
+their spec'd engine force; coupe: crawled at 0.6 m/s). Root-caused with a standalone real-Rapier
+repro (no browser, no game loop — immune to frame-rate starvation) at
+[scripts/tmp-verify-w02-physics-core.mjs](../../../scripts/tmp-verify-w02-physics-core.mjs).
+Fixed by raising `suspension.rest` (coupe 0.32→0.4, sedan 0.36→0.5, pickup 0.42→0.6; buggy was
+already fine at 0.46) — all four types now accelerate, steer, and are stopped by real wall
+collision correctly.
 
 **Phase 2 done when:** a player walks up to a car, presses to enter, drives it across terrain
-with collision, a second browser sees the car move smoothly, and exit returns to on-foot.
+with collision, a second browser sees the car move smoothly, and exit returns to on-foot. —
+**Verified for real, twice:**
+1. A standalone real-Rapier physics repro (no browser/network — immune to shared-box CPU
+   contention): [scripts/tmp-verify-w02-physics-core.mjs](../../../scripts/tmp-verify-w02-physics-core.mjs)
+   — real acceleration on open ground, a real wall stopping the car (not tunnelling, not a
+   bounds-clamp teleport), real steering-induced lateral displacement, and the handbrake
+   arresting speed. All passing against the production `createVehicle`/`vehicleSpec` code.
+2. A full two-Chromium-context Playwright run against a live Vite dev server + a freshly-started
+   Colyseus `WalkRoom` (no mocked physics, no mocked network):
+   [scripts/tmp-verify-w02-vehicles.mjs](../../../scripts/tmp-verify-w02-vehicles.mjs) — Player A
+   joins, Rapier boots, the 6-vehicle fleet syncs, A walks to a parked car under real on-foot
+   Rapier movement, presses F, the server grants the seat, the driving HUD appears, Player B's
+   independent client sees the `driver` field flip to A's sessionId and sees the car's replicated
+   mesh actually move in lock-step with A's throttle input, A exits, and B sees it parked again —
+   zero console errors/warnings on either client. (Environment note: this shared box runs many
+   concurrent agent build/dev/test processes — load average routinely exceeds its core count —
+   which starves headless Chromium's frame rate; the script's wall-clock timeouts were widened
+   accordingly. This affects wall-clock budget only, not the pass/fail physics or networking
+   assertions.)
 
 ---
 
