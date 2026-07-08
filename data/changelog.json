@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-07-08",
+			"title": "Agents can now generate a body, embody it, and distribute it everywhere — one call each",
+			"summary": "Any agent working through three.ws's MCP tools can now close the full loop autonomously: generate a 3D model, rig it, give an agent a persistent visual body tied to its account identity (new attach_avatar_to_agent tool), and hand out real distribution in one call — a copy-paste embed, a talking @three-ws/page-agent guide, or a walking @three-ws/walk companion, all built from the same GLB. Every Forge creation's share link now unfurls into a live, orbitable 3D viewer when pasted into Notion, Discord, or Slack (real oEmbed support, not just a static preview). See the live end-to-end demo in examples/agent-native-3d.",
+			"tags": [
+				"feature",
+				"sdk"
+			],
+			"link": "/forge"
+		},
+		{
+			"date": "2026-07-08",
 			"title": "A boutique you can walk into: two tailors now live in /play",
 			"summary": "The wardrobe and cosmetics shop in /play now have a physical home in the world. Walk up to Roux the Tailor to browse and buy fits, hats, and paint jobs, or visit Nell's Fitting Room to equip anything you already own — the same real, server-verified shop and wardrobe the HUD buttons already opened, now with a place to stand. Character creation itself — design an avatar from scratch, scan yourself into 3D with the selfie creator, upload your own .glb, or sculpt in the full Avatar Studio — has no sign-in required and drops you straight into the world.",
 			"tags": [

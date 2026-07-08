@@ -1,5 +1,5 @@
 {
-  "started_at": "2026-07-08T08:14:58.777Z",
+  "started_at": "2026-07-08T08:45:04.562Z",
   "mcp_url": "https://three.ws/api/mcp-studio",
   "prompt": "a small friendly round robot mascot, glossy white plastic, blue visor",
   "steps": [
@@ -8,7 +8,7 @@
       "tool": null,
       "request": null,
       "http_status": 200,
-      "duration_ms": 173,
+      "duration_ms": 253,
       "response": {
         "jsonrpc": "2.0",
         "id": 1,
@@ -389,7 +389,7 @@
         "prompt": "a small friendly round robot mascot, glossy white plastic, blue visor"
       },
       "http_status": 429,
-      "duration_ms": 58,
+      "duration_ms": 59,
       "response": {
         "error": "rate_limited",
         "error_description": "generation rate limit — slow down and try again shortly",
@@ -405,7 +405,7 @@
         "source_prompt": "a small friendly round robot mascot, glossy white plastic, blue visor"
       },
       "http_status": 200,
-      "duration_ms": 68,
+      "duration_ms": 74,
       "response": {
         "jsonrpc": "2.0",
         "id": 3,
@@ -433,7 +433,7 @@
         "source_prompt": "a small friendly round robot mascot, glossy white plastic, blue visor"
       },
       "http_status": 200,
-      "duration_ms": 77,
+      "duration_ms": 72,
       "response": {
         "jsonrpc": "2.0",
         "id": 4,
@@ -461,7 +461,7 @@
         "source_prompt": "a small friendly round robot mascot, glossy white plastic, blue visor"
       },
       "http_status": 200,
-      "duration_ms": 83,
+      "duration_ms": 84,
       "response": {
         "jsonrpc": "2.0",
         "id": 5,
@@ -489,7 +489,7 @@
         "source_prompt": "a small friendly round robot mascot, glossy white plastic, blue visor"
       },
       "http_status": 200,
-      "duration_ms": 101,
+      "duration_ms": 72,
       "response": {
         "jsonrpc": "2.0",
         "id": 6,
@@ -517,7 +517,7 @@
         "source_prompt": "a small friendly round robot mascot, glossy white plastic, blue visor"
       },
       "http_status": 200,
-      "duration_ms": 81,
+      "duration_ms": 75,
       "response": {
         "jsonrpc": "2.0",
         "id": 7,
@@ -545,7 +545,7 @@
         "source_prompt": "a small friendly round robot mascot, glossy white plastic, blue visor"
       },
       "http_status": 200,
-      "duration_ms": 119,
+      "duration_ms": 76,
       "response": {
         "jsonrpc": "2.0",
         "id": 8,
@@ -573,7 +573,7 @@
         "source_prompt": "a small friendly round robot mascot, glossy white plastic, blue visor"
       },
       "http_status": 200,
-      "duration_ms": 115,
+      "duration_ms": 80,
       "response": {
         "jsonrpc": "2.0",
         "id": 9,
@@ -601,7 +601,7 @@
         "source_prompt": "a small friendly round robot mascot, glossy white plastic, blue visor"
       },
       "http_status": 200,
-      "duration_ms": 76,
+      "duration_ms": 78,
       "response": {
         "jsonrpc": "2.0",
         "id": 10,
@@ -629,7 +629,7 @@
         "source_prompt": "a small friendly round robot mascot, glossy white plastic, blue visor"
       },
       "http_status": 200,
-      "duration_ms": 78,
+      "duration_ms": 74,
       "response": {
         "jsonrpc": "2.0",
         "id": 11,
@@ -657,7 +657,7 @@
         "source_prompt": "a small friendly round robot mascot, glossy white plastic, blue visor"
       },
       "http_status": 200,
-      "duration_ms": 63,
+      "duration_ms": 66,
       "response": {
         "jsonrpc": "2.0",
         "id": 12,
@@ -685,10 +685,62 @@
         "source_prompt": "a small friendly round robot mascot, glossy white plastic, blue visor"
       },
       "http_status": 200,
-      "duration_ms": 69,
+      "duration_ms": 556,
       "response": {
         "jsonrpc": "2.0",
         "id": 13,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Saved \"Roadmap-10 Demo Agent\" as a living persona.\nPersona ID: persona_HwRDQybHiG7NO2Hyqn0r\nRig: humanoid — full body animation + lip-sync.\nShow the attached view to see the body. Call persona_say with this persona_id to make it speak a reply, or get_agent_persona to bring it back in a future session."
+            },
+            {
+              "type": "resource",
+              "resource": {
+                "uri": "https://three.ws/embodiment/embed?persona=persona_HwRDQybHiG7NO2Hyqn0r&glb=https%3A%2F%2Fpub-2534e921bf9c4314addcd4d8a6e98b7b.r2.dev%2Fpersonas%2Fpersona_HwRDQybHiG7NO2Hyqn0r.glb&name=Roadmap-10+Demo+Agent&state=idle&emotion=neutral&intensity=0",
+                "mimeType": "text/html",
+                "text": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Roadmap-10 Demo Agent — live</title><style>html,body{margin:0;height:100%;background:transparent}.wrap{position:relative;width:100%;height:480px;border-radius:16px;overflow:hidden;background:radial-gradient(120% 120% at 50% 0%,#1a1a24 0%,#0c0c12 70%)}iframe{width:100%;height:100%;border:0;display:block}.fb{position:absolute;inset:auto 0 0 0;padding:8px 12px;font:600 12px system-ui;color:#cbd5e1;text-align:center}.fb a{color:#a78bfa}</style></head><body><div class=\"wrap\"><iframe title=\"Roadmap-10 Demo Agent live avatar\" src=\"https://three.ws/embodiment/embed?persona=persona_HwRDQybHiG7NO2Hyqn0r&amp;glb=https%3A%2F%2Fpub-2534e921bf9c4314addcd4d8a6e98b7b.r2.dev%2Fpersonas%2Fpersona_HwRDQybHiG7NO2Hyqn0r.glb&amp;name=Roadmap-10+Demo+Agent&amp;state=idle&amp;emotion=neutral&amp;intensity=0\" allow=\"autoplay\" sandbox=\"allow-scripts allow-same-origin allow-popups\"></iframe><noscript class=\"fb\">Open <a href=\"https://three.ws/embodiment/embed?persona=persona_HwRDQybHiG7NO2Hyqn0r&amp;glb=https%3A%2F%2Fpub-2534e921bf9c4314addcd4d8a6e98b7b.r2.dev%2Fpersonas%2Fpersona_HwRDQybHiG7NO2Hyqn0r.glb&amp;name=Roadmap-10+Demo+Agent&amp;state=idle&amp;emotion=neutral&amp;intensity=0\">Roadmap-10 Demo Agent</a> in a browser.</noscript></div></body></html>",
+                "_meta": {
+                  "openai/outputTemplate": "https://three.ws/embodiment/embed?persona=persona_HwRDQybHiG7NO2Hyqn0r&glb=https%3A%2F%2Fpub-2534e921bf9c4314addcd4d8a6e98b7b.r2.dev%2Fpersonas%2Fpersona_HwRDQybHiG7NO2Hyqn0r.glb&name=Roadmap-10+Demo+Agent&state=idle&emotion=neutral&intensity=0"
+                }
+              }
+            }
+          ],
+          "structuredContent": {
+            "persona_id": "persona_HwRDQybHiG7NO2Hyqn0r",
+            "name": "Roadmap-10 Demo Agent",
+            "glb_url": "https://pub-2534e921bf9c4314addcd4d8a6e98b7b.r2.dev/personas/persona_HwRDQybHiG7NO2Hyqn0r.glb",
+            "thumbnail_url": null,
+            "voice": null,
+            "emotion_baseline": "neutral",
+            "look": {
+              "style": null,
+              "rigged": true,
+              "mesh_count": 10,
+              "has_visemes": null,
+              "animation_count": 0
+            },
+            "turn_count": 0,
+            "created_at": "2026-07-08T08:46:06.269Z",
+            "last_seen_at": "2026-07-08T08:46:06.269Z",
+            "status": "created"
+          }
+        }
+      }
+    },
+    {
+      "method": "tools/call",
+      "tool": "persona_say",
+      "request": {
+        "persona_id": "persona_HwRDQybHiG7NO2Hyqn0r",
+        "text": "Hello — I generated and embodied myself through three.ws MCP tools, autonomously."
+      },
+      "http_status": 200,
+      "duration_ms": 62,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 14,
         "result": {
           "content": [
             {
@@ -703,8 +755,226 @@
           "isError": true
         }
       }
+    },
+    {
+      "method": "tools/call",
+      "tool": "persona_say",
+      "request": {
+        "persona_id": "persona_HwRDQybHiG7NO2Hyqn0r",
+        "text": "Hello — I generated and embodied myself through three.ws MCP tools, autonomously."
+      },
+      "http_status": 200,
+      "duration_ms": 73,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 15,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Too many requests — slow down and try again shortly."
+            }
+          ],
+          "structuredContent": {
+            "error": true,
+            "message": "Too many requests — slow down and try again shortly."
+          },
+          "isError": true
+        }
+      }
+    },
+    {
+      "method": "tools/call",
+      "tool": "persona_say",
+      "request": {
+        "persona_id": "persona_HwRDQybHiG7NO2Hyqn0r",
+        "text": "Hello — I generated and embodied myself through three.ws MCP tools, autonomously."
+      },
+      "http_status": 200,
+      "duration_ms": 66,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 16,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Too many requests — slow down and try again shortly."
+            }
+          ],
+          "structuredContent": {
+            "error": true,
+            "message": "Too many requests — slow down and try again shortly."
+          },
+          "isError": true
+        }
+      }
+    },
+    {
+      "method": "tools/call",
+      "tool": "persona_say",
+      "request": {
+        "persona_id": "persona_HwRDQybHiG7NO2Hyqn0r",
+        "text": "Hello — I generated and embodied myself through three.ws MCP tools, autonomously."
+      },
+      "http_status": 200,
+      "duration_ms": 72,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 17,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Too many requests — slow down and try again shortly."
+            }
+          ],
+          "structuredContent": {
+            "error": true,
+            "message": "Too many requests — slow down and try again shortly."
+          },
+          "isError": true
+        }
+      }
+    },
+    {
+      "method": "tools/call",
+      "tool": "persona_say",
+      "request": {
+        "persona_id": "persona_HwRDQybHiG7NO2Hyqn0r",
+        "text": "Hello — I generated and embodied myself through three.ws MCP tools, autonomously."
+      },
+      "http_status": 200,
+      "duration_ms": 78,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 18,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Too many requests — slow down and try again shortly."
+            }
+          ],
+          "structuredContent": {
+            "error": true,
+            "message": "Too many requests — slow down and try again shortly."
+          },
+          "isError": true
+        }
+      }
+    },
+    {
+      "method": "tools/call",
+      "tool": "persona_say",
+      "request": {
+        "persona_id": "persona_HwRDQybHiG7NO2Hyqn0r",
+        "text": "Hello — I generated and embodied myself through three.ws MCP tools, autonomously."
+      },
+      "http_status": 200,
+      "duration_ms": 272,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 19,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Roadmap-10 Demo Agent says it with a neutral expression. Show the attached view — the body lip-syncs the reply and emotes."
+            },
+            {
+              "type": "resource",
+              "resource": {
+                "uri": "https://three.ws/embodiment/embed?persona=persona_HwRDQybHiG7NO2Hyqn0r&glb=https%3A%2F%2Fpub-2534e921bf9c4314addcd4d8a6e98b7b.r2.dev%2Fpersonas%2Fpersona_HwRDQybHiG7NO2Hyqn0r.glb&name=Roadmap-10+Demo+Agent&state=speaking&text=Hello+%E2%80%94+I+generated+and+embodied+myself+through+three.ws+MCP+tools%2C+autonomously.&emotion=neutral&intensity=0",
+                "mimeType": "text/html",
+                "text": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Roadmap-10 Demo Agent — live</title><style>html,body{margin:0;height:100%;background:transparent}.wrap{position:relative;width:100%;height:480px;border-radius:16px;overflow:hidden;background:radial-gradient(120% 120% at 50% 0%,#1a1a24 0%,#0c0c12 70%)}iframe{width:100%;height:100%;border:0;display:block}.fb{position:absolute;inset:auto 0 0 0;padding:8px 12px;font:600 12px system-ui;color:#cbd5e1;text-align:center}.fb a{color:#a78bfa}</style></head><body><div class=\"wrap\"><iframe title=\"Roadmap-10 Demo Agent live avatar\" src=\"https://three.ws/embodiment/embed?persona=persona_HwRDQybHiG7NO2Hyqn0r&amp;glb=https%3A%2F%2Fpub-2534e921bf9c4314addcd4d8a6e98b7b.r2.dev%2Fpersonas%2Fpersona_HwRDQybHiG7NO2Hyqn0r.glb&amp;name=Roadmap-10+Demo+Agent&amp;state=speaking&amp;text=Hello+%E2%80%94+I+generated+and+embodied+myself+through+three.ws+MCP+tools%2C+autonomously.&amp;emotion=neutral&amp;intensity=0\" allow=\"autoplay\" sandbox=\"allow-scripts allow-same-origin allow-popups\"></iframe><noscript class=\"fb\">Open <a href=\"https://three.ws/embodiment/embed?persona=persona_HwRDQybHiG7NO2Hyqn0r&amp;glb=https%3A%2F%2Fpub-2534e921bf9c4314addcd4d8a6e98b7b.r2.dev%2Fpersonas%2Fpersona_HwRDQybHiG7NO2Hyqn0r.glb&amp;name=Roadmap-10+Demo+Agent&amp;state=speaking&amp;text=Hello+%E2%80%94+I+generated+and+embodied+myself+through+three.ws+MCP+tools%2C+autonomously.&amp;emotion=neutral&amp;intensity=0\">Roadmap-10 Demo Agent</a> in a browser.</noscript></div></body></html>",
+                "_meta": {
+                  "openai/outputTemplate": "https://three.ws/embodiment/embed?persona=persona_HwRDQybHiG7NO2Hyqn0r&glb=https%3A%2F%2Fpub-2534e921bf9c4314addcd4d8a6e98b7b.r2.dev%2Fpersonas%2Fpersona_HwRDQybHiG7NO2Hyqn0r.glb&name=Roadmap-10+Demo+Agent&state=speaking&text=Hello+%E2%80%94+I+generated+and+embodied+myself+through+three.ws+MCP+tools%2C+autonomously.&emotion=neutral&intensity=0"
+                }
+              }
+            }
+          ],
+          "structuredContent": {
+            "persona_id": "persona_HwRDQybHiG7NO2Hyqn0r",
+            "name": "Roadmap-10 Demo Agent",
+            "glb_url": "https://pub-2534e921bf9c4314addcd4d8a6e98b7b.r2.dev/personas/persona_HwRDQybHiG7NO2Hyqn0r.glb",
+            "text": "Hello — I generated and embodied myself through three.ws MCP tools, autonomously.",
+            "emotion": "neutral",
+            "intensity": 0,
+            "gesture": null,
+            "turn_count": 1,
+            "status": "spoken"
+          }
+        }
+      }
+    },
+    {
+      "method": "tools/call",
+      "tool": "get_agent_persona",
+      "request": {
+        "persona_id": "persona_HwRDQybHiG7NO2Hyqn0r"
+      },
+      "http_status": 200,
+      "duration_ms": 109,
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 20,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Welcome back, Roadmap-10 Demo Agent.\nPersona ID: persona_HwRDQybHiG7NO2Hyqn0r\nTurns spoken so far: 1.\nShow the attached view to see the body; call persona_say to make it speak."
+            },
+            {
+              "type": "resource",
+              "resource": {
+                "uri": "https://three.ws/embodiment/embed?persona=persona_HwRDQybHiG7NO2Hyqn0r&glb=https%3A%2F%2Fpub-2534e921bf9c4314addcd4d8a6e98b7b.r2.dev%2Fpersonas%2Fpersona_HwRDQybHiG7NO2Hyqn0r.glb&name=Roadmap-10+Demo+Agent&state=idle&emotion=neutral&intensity=0",
+                "mimeType": "text/html",
+                "text": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Roadmap-10 Demo Agent — live</title><style>html,body{margin:0;height:100%;background:transparent}.wrap{position:relative;width:100%;height:480px;border-radius:16px;overflow:hidden;background:radial-gradient(120% 120% at 50% 0%,#1a1a24 0%,#0c0c12 70%)}iframe{width:100%;height:100%;border:0;display:block}.fb{position:absolute;inset:auto 0 0 0;padding:8px 12px;font:600 12px system-ui;color:#cbd5e1;text-align:center}.fb a{color:#a78bfa}</style></head><body><div class=\"wrap\"><iframe title=\"Roadmap-10 Demo Agent live avatar\" src=\"https://three.ws/embodiment/embed?persona=persona_HwRDQybHiG7NO2Hyqn0r&amp;glb=https%3A%2F%2Fpub-2534e921bf9c4314addcd4d8a6e98b7b.r2.dev%2Fpersonas%2Fpersona_HwRDQybHiG7NO2Hyqn0r.glb&amp;name=Roadmap-10+Demo+Agent&amp;state=idle&amp;emotion=neutral&amp;intensity=0\" allow=\"autoplay\" sandbox=\"allow-scripts allow-same-origin allow-popups\"></iframe><noscript class=\"fb\">Open <a href=\"https://three.ws/embodiment/embed?persona=persona_HwRDQybHiG7NO2Hyqn0r&amp;glb=https%3A%2F%2Fpub-2534e921bf9c4314addcd4d8a6e98b7b.r2.dev%2Fpersonas%2Fpersona_HwRDQybHiG7NO2Hyqn0r.glb&amp;name=Roadmap-10+Demo+Agent&amp;state=idle&amp;emotion=neutral&amp;intensity=0\">Roadmap-10 Demo Agent</a> in a browser.</noscript></div></body></html>",
+                "_meta": {
+                  "openai/outputTemplate": "https://three.ws/embodiment/embed?persona=persona_HwRDQybHiG7NO2Hyqn0r&glb=https%3A%2F%2Fpub-2534e921bf9c4314addcd4d8a6e98b7b.r2.dev%2Fpersonas%2Fpersona_HwRDQybHiG7NO2Hyqn0r.glb&name=Roadmap-10+Demo+Agent&state=idle&emotion=neutral&intensity=0"
+                }
+              }
+            }
+          ],
+          "structuredContent": {
+            "persona_id": "persona_HwRDQybHiG7NO2Hyqn0r",
+            "name": "Roadmap-10 Demo Agent",
+            "glb_url": "https://pub-2534e921bf9c4314addcd4d8a6e98b7b.r2.dev/personas/persona_HwRDQybHiG7NO2Hyqn0r.glb",
+            "thumbnail_url": null,
+            "voice": null,
+            "emotion_baseline": "neutral",
+            "look": {
+              "style": null,
+              "rigged": true,
+              "mesh_count": 10,
+              "has_visemes": null,
+              "animation_count": 0
+            },
+            "turn_count": 1,
+            "created_at": "2026-07-08T08:46:06.269Z",
+            "last_seen_at": "2026-07-08T08:46:36.892Z",
+            "status": "loaded"
+          }
+        }
+      }
     }
   ],
-  "error": "Error: create_agent_persona failed: {\"content\":[{\"type\":\"text\",\"text\":\"Too many requests — slow down and try again shortly.\"}],\"structuredContent\":{\"error\":true,\"message\":\"Too many requests — slow down and try again shortly.\"},\"isError\":true}\n    at main (file:///workspaces/three.ws/examples/agent-native-3d/run.mjs:181:38)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)",
-  "finished_at": "2026-07-08T08:15:59.986Z"
+  "result": {
+    "ok": true,
+    "generation_used": false,
+    "fallback_used": true,
+    "persona_id": "persona_HwRDQybHiG7NO2Hyqn0r",
+    "body_glb_url": "https://pub-2534e921bf9c4314addcd4d8a6e98b7b.r2.dev/personas/persona_HwRDQybHiG7NO2Hyqn0r.glb",
+    "embodiment_view": "https://three.ws/embodiment/embed?persona=persona_HwRDQybHiG7NO2Hyqn0r&glb=https%3A%2F%2Fpub-2534e921bf9c4314addcd4d8a6e98b7b.r2.dev%2Fpersonas%2Fpersona_HwRDQybHiG7NO2Hyqn0r.glb&name=Roadmap-10+Demo+Agent&state=idle&emotion=neutral&intensity=0",
+    "distribution_snippets": {
+      "standalone_viewer": "https://three.ws/forge/embed?src=https%3A%2F%2Fpub-2534e921bf9c4314addcd4d8a6e98b7b.r2.dev%2Fpersonas%2Fpersona_HwRDQybHiG7NO2Hyqn0r.glb&title=Roadmap-10+Demo+Agent",
+      "iframe": "<iframe src=\"https://three.ws/forge/embed?src=https%3A%2F%2Fpub-2534e921bf9c4314addcd4d8a6e98b7b.r2.dev%2Fpersonas%2Fpersona_HwRDQybHiG7NO2Hyqn0r.glb&amp;title=Roadmap-10+Demo+Agent\"\n        width=\"640\" height=\"360\"\n        style=\"border:0;border-radius:14px;max-width:100%\"\n        allow=\"xr-spatial-tracking; fullscreen\"\n        loading=\"lazy\" title=\"Roadmap-10 Demo Agent\"></iframe>",
+      "web_component": "<!-- once per page -->\n<script type=\"module\"\n  src=\"https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js\"></script>\n\n<model-viewer\n  src=\"https://pub-2534e921bf9c4314addcd4d8a6e98b7b.r2.dev/personas/persona_HwRDQybHiG7NO2Hyqn0r.glb\"\n  alt=\"Roadmap-10 Demo Agent\"\n  camera-controls auto-rotate ar\n  shadow-intensity=\"1\"\n  style=\"width:640px;height:360px;max-width:100%;background:#0b0b0b;border-radius:14px\">\n</model-viewer>",
+      "agent_3d": "<!-- once per page -->\n<script type=\"module\" src=\"https://three.ws/agent-3d/0/agent-3d.js\"></script>\n\n<agent-3d\n  src=\"https://pub-2534e921bf9c4314addcd4d8a6e98b7b.r2.dev/personas/persona_HwRDQybHiG7NO2Hyqn0r.glb\"\n  aria-label=\"Roadmap-10 Demo Agent\"\n  viewer\n  style=\"display:block;width:640px;height:360px;max-width:100%;border-radius:14px;overflow:hidden\">\n</agent-3d>",
+      "page_agent": "<!-- npm i @three-ws/page-agent three -->\n<div id=\"guide\" style=\"width:320px;height:420px\"></div>\n<script type=\"module\">\n  import { AvatarStage, SpeechNarrator } from '@three-ws/page-agent';\n\n  const stage = new AvatarStage(document.getElementById('guide'), { background: 'transparent' });\n  await stage.load('https://pub-2534e921bf9c4314addcd4d8a6e98b7b.r2.dev/personas/persona_HwRDQybHiG7NO2Hyqn0r.glb', { framing: 'upper' });\n\n  const narrator = new SpeechNarrator(stage);\n  narrator.setAgent({ voice: { lang: 'en-US', rate: 1.0, pitch: 1.0 } });\n  await narrator.speak('Hi — I\\'m Roadmap-10 Demo Agent, forged on three.ws.');\n</script>",
+      "walk_companion": "<!-- npm i @three-ws/walk three -->\n<script type=\"module\">\n  import { createWalkCompanion } from '@three-ws/walk';\n\n  const walk = createWalkCompanion({\n    defaultAvatarId: 'mine',\n    avatars: [{\n      id: 'mine', name: 'Roadmap-10 Demo Agent', emoji: '✨', category: 'Yours',\n      asset: 'https://pub-2534e921bf9c4314addcd4d8a6e98b7b.r2.dev/personas/persona_HwRDQybHiG7NO2Hyqn0r.glb', source: 'static', rig: 'shared',\n      clips: { idle: 'idle', walk: 'av-walk-feminine', run: 'av-walk-feminine', wave: 'wave', jump: 'jump' },\n      tags: ['custom'],\n    }],\n  });\n  walk.bootstrap();\n</script>"
+    }
+  },
+  "finished_at": "2026-07-08T08:46:36.966Z"
 }

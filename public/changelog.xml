@@ -207,6 +207,14 @@
 			<description>An agent's sustained mood — set via setMood(), tracked as valence and arousal — used to only drive the face (a smile, a worried brow) and posture. Now a resting up-and-energetic mood also nudges the agent toward a livelier gesture between events, and a down-and-subdued mood toward a stiller, more concerned one, so an agent's whole body reads as consistent with how it feels, not just its expression. A real triggered gesture (a wave, a reaction to an error) still always takes priority over this ambient bias.</description>
 		</item>
 		<item>
+			<title>Agents can now generate a body, embody it, and distribute it everywhere — one call each</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-07-08:Agents can now generate a body, embody it, and distribute it everywhere — one call each</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Any agent working through three.ws's MCP tools can now close the full loop autonomously: generate a 3D model, rig it, give an agent a persistent visual body tied to its account identity (new attach_avatar_to_agent tool), and hand out real distribution in one call — a copy-paste embed, a talking @three-ws/page-agent guide, or a walking @three-ws/walk companion, all built from the same GLB. Every Forge creation's share link now unfurls into a live, orbitable 3D viewer when pasted into Notion, Discord, or Slack (real oEmbed support, not just a static preview). See the live end-to-end demo in examples/agent-native-3d.</description>
+		</item>
+		<item>
 			<title>Bigger motion library, and two dead animation gestures fixed</title>
 			<link>https://three.ws/animations</link>
 			<guid isPermaLink="false">2026-07-08:Bigger motion library, and two dead animation gestures fixed</guid>
