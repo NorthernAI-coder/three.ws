@@ -15,7 +15,10 @@
 //
 // pump.fun creator rewards accrue to `creator` (any Solana pubkey the buyer
 // nominates); default is the launcher. An optional `vanityPrefix`/`vanitySuffix`
-// grinds a custom mint address before deploy.
+// grinds a custom mint address before deploy — or, when a matching address is
+// already sitting in the pre-ground inventory (api/_lib/vanity-inventory-store.js,
+// shared with api/x402/vanity-premium.js), it's claimed and used instantly instead
+// of grinding one live (see claimVanityMintFromInventory in api/_lib/pump-launch.js).
 //
 // The launch runs AFTER payment verification but BEFORE settlement: a bad image
 // URL, IPFS failure, or RPC error throws here and settlement never runs, so a
@@ -31,7 +34,12 @@ import { withService } from '../_lib/x402/bazaar-helpers.js';
 import { priceFor } from '../_lib/x402-prices.js';
 import { readJson } from '../_lib/http.js';
 import { sql } from '../_lib/db.js';
-import { loadLauncherKeypair, uploadPumpMetadata, launchPumpToken } from '../_lib/pump-launch.js';
+import {
+	loadLauncherKeypair,
+	uploadPumpMetadata,
+	launchPumpToken,
+	claimVanityMintFromInventory,
+} from '../_lib/pump-launch.js';
 import pumpLaunchListing from '../_lib/service-catalog/services/pump-launch.js';
 import { z } from 'zod';
 
@@ -113,12 +121,17 @@ export const INPUT_SCHEMA = {
 		vanityPrefix: {
 			type: 'string',
 			maxLength: 5,
-			description: 'Base58 prefix to grind into the mint address (≤5 chars; longer = slower).',
+			description:
+				'Base58 prefix to grind into the mint address (≤5 chars; longer = slower). When a ' +
+				'matching pre-ground address is already in stock, it is delivered instantly instead ' +
+				'of grinding — see vanity_source in the response.',
 		},
 		vanitySuffix: {
 			type: 'string',
 			maxLength: 5,
-			description: 'Base58 suffix to grind into the mint address (≤5 chars; longer = slower).',
+			description:
+				'Base58 suffix to grind into the mint address (≤5 chars; longer = slower). Same ' +
+				'instant-inventory upsell as vanityPrefix.',
 		},
 		vanityIgnoreCase: {
 			type: 'boolean',
@@ -141,6 +154,7 @@ const OUTPUT_EXAMPLE = {
 	vanity_suffix: null,
 	vanity_iterations: 4821,
 	vanity_duration_ms: 190,
+	vanity_source: 'ground',
 };
 
 export const OUTPUT_SCHEMA = {
@@ -161,6 +175,14 @@ export const OUTPUT_SCHEMA = {
 		vanity_suffix: { type: ['string', 'null'] },
 		vanity_iterations: { type: 'integer' },
 		vanity_duration_ms: { type: 'number' },
+		vanity_source: {
+			type: ['string', 'null'],
+			enum: ['inventory', 'ground', null],
+			description:
+				"'inventory': the mint was a pre-ground address served instantly from stock " +
+				"(same price, no grind wait). 'ground': mined fresh for this launch. null: no " +
+				'vanityPrefix/vanitySuffix was requested.',
+		},
 	},
 };
 
@@ -267,17 +289,53 @@ export default paidEndpoint({
 			metadataUri = pinned.metadataUri;
 		}
 
-		const launched = await launchPumpToken({
-			launcher,
-			name: body.name,
-			symbol: body.symbol,
-			uri: metadataUri,
-			creator: body.creator,
-			vanityPrefix: body.vanityPrefix,
-			vanitySuffix: body.vanitySuffix,
-			vanityIgnoreCase: body.vanityIgnoreCase,
-			network: 'mainnet',
-		});
+		// Vanity upsell: check inventory for a pre-ground mint matching the
+		// requested pattern before grinding one live. A hit skips the grind
+		// entirely (instant); a miss (or any inventory failure) falls straight
+		// through to launchPumpToken's own grind, unchanged. Correlation id is
+		// scoped to this single launch attempt — only used to tie the claim's
+		// reserve → decrypt → reveal steps together.
+		let inventoryMint = null;
+		if (body.vanityPrefix || body.vanitySuffix) {
+			inventoryMint = await claimVanityMintFromInventory({
+				prefix: body.vanityPrefix,
+				suffix: body.vanitySuffix,
+				ignoreCase: body.vanityIgnoreCase,
+				paymentId: `pump-launch:${payer || 'x402'}:${Date.now()}:${Math.random().toString(36).slice(2)}`,
+				purchaser: payer,
+			});
+		}
+
+		let launched;
+		try {
+			launched = await launchPumpToken({
+				launcher,
+				name: body.name,
+				symbol: body.symbol,
+				uri: metadataUri,
+				creator: body.creator,
+				vanityPrefix: body.vanityPrefix,
+				vanitySuffix: body.vanitySuffix,
+				vanityIgnoreCase: body.vanityIgnoreCase,
+				mintKeypair: inventoryMint?.mintKeypair,
+				network: 'mainnet',
+			});
+		} catch (err) {
+			// The mint never made it on-chain — release the inventory claim (if
+			// any) back to available so a failed launch doesn't strand stock.
+			if (inventoryMint) await inventoryMint.release().catch(() => {});
+			throw err;
+		}
+
+		// The mint is now live on-chain and irreversibly spent whether we were
+		// grinding or claiming from inventory. If we used inventory, finalize the
+		// claim now: reveal-and-destroy so the ciphertext is gone and this
+		// address can never be served again.
+		if (inventoryMint) {
+			await inventoryMint.reveal().catch((err) => {
+				console.error('[x402/pump-launch] inventory reveal/destroy after launch failed', err?.message || err);
+			});
+		}
 
 		const network = 'mainnet';
 		const result = {
@@ -294,6 +352,7 @@ export default paidEndpoint({
 			vanity_suffix: body.vanitySuffix || null,
 			vanity_iterations: launched.vanityIterations,
 			vanity_duration_ms: launched.vanityDurationMs,
+			vanity_source: launched.vanitySource,
 		};
 
 		// Index the launch for the catalog / analytics. Best-effort: the token is

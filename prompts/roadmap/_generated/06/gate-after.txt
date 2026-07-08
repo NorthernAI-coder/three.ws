@@ -13,8 +13,8 @@
 
  Test Files  7 passed (7)
       Tests  83 passed (83)
-   Start at  01:06:44
-   Duration  4.00s (transform 6.43s, setup 0ms, import 12.75s, tests 3.70s, environment 1ms)
+   Start at  01:17:18
+   Duration  2.85s (transform 1.93s, setup 0ms, import 3.76s, tests 2.78s, environment 1ms)
 
 [test-gate] ✓ all critical-path tests passed
 
@@ -27,8 +27,8 @@
 
  Test Files  4 passed (4)
       Tests  244 passed (244)
-   Start at  01:06:51
-   Duration  2.57s (transform 1.25s, setup 0ms, import 3.64s, tests 1.65s, environment 1ms)
+   Start at  01:17:22
+   Duration  627ms (transform 302ms, setup 0ms, import 763ms, tests 397ms, environment 1ms)
 
 
 > 3d-agent@1.5.2 audit:mcp
@@ -39,14 +39,68 @@
 > 3d-agent@1.5.2 audit:mcp-golden
 > node scripts/audit-mcp-golden.mjs
 
-[audit:mcp-golden] api/_mcp/tools/embed.js: tool ADDED: create_gated_embed
-[audit:mcp-golden] packages/naming-mcp/src/tools/sns-resolve.js: sns_resolve.schema changed (was "Resolve a Solana Name Service (.sol) name to the base58 wallet address t")
-[audit:mcp-golden] api/_mcp3d/tools/ar.js: tool ADDED: export_ar
-[audit:mcp-golden] api/_mcp3d/tools/persona-identity.js: tool ADDED: persona_identity
-[audit:mcp-golden] api/_mcp3d/tools/persona-identity.js: tool ADDED: persona_send
-[audit:mcp-golden] api/_mcp3d/tools/persona-identity.js: tool ADDED: persona_tip
-[audit:mcp-golden] api/_mcp3d/tools/spatial.js: tool ADDED: validate_spatial_response
+[audit:mcp-golden] 233 hosted MCP tool contracts match the golden fixture
 
-[audit:mcp-golden] 7 contract change(s) vs golden fixture.
-  If every change above is INTENTIONAL (reviewed as a public-contract change),
-  refresh the fixture:  node scripts/audit-mcp-golden.mjs --update
+> 3d-agent@1.5.2 audit:routes
+> node scripts/verify-routes.mjs
+
+Route verify — 297 catalog pages, 1063 main routes, 1 post-filesystem routes.
+  modeled dist files: 1525 · canonical-covered: 296 · literal page routes checked for shadows: 448
+  filesystem boundary (handle:filesystem) present: yes
+
+ℹ 1 advisory note(s):
+   TRAILSLASH /payments/  → notfound (lands on designed 404)
+
+✗ 1 FAILURE(s):
+   COVERAGE  /fact-check  canonical → notfound (404) /404.html
+
+> 3d-agent@1.5.2 audit:handlers
+> node scripts/audit-empty-handlers.mjs
+
+✓ audit-empty-handlers: all API handlers export a body (1615 checked)
+
+> 3d-agent@1.5.2 audit:pages
+> node scripts/audit-page-index.mjs
+
+Route audit: 140 auditable page routes, 297 documented in pages.json.
+✓ Every auditable page route is documented.
+
+ℹ 6 manifest page(s) have no `added` date (omitted from /changelog). Fine for legacy pages; add dates as you touch them.
+
+> 3d-agent@1.5.2 audit:hidden-guard
+> node scripts/audit-hidden-guard.mjs
+
+✓ audit-hidden-guard: all 261 pages resolve the [hidden] guard
+
+> 3d-agent@1.5.2 audit:x402-catalog
+> node scripts/audit-x402-catalog.mjs
+
+✓ audit-x402-catalog: all 65 x402 endpoints are documented
+
+> 3d-agent@1.5.2 audit:tokens
+> node scripts/audit-token-drift.mjs
+
+
+✗ design-token drift increased: 5 hardcoded token-hexes (baseline 0).
+
+  pages/bnb.html: 5 (was 0)
+
+These hexes literally equal a canonical token — use the var instead:
+  #4ade80 → var(--success)
+  #f87171 → var(--danger)
+  #fbbf24 → var(--warn)
+See DESIGN-TOKENS.md. If a page deliberately re-themes a token, define the
+token locally (a theme layer) rather than hardcoding the raw hex.
+
+
+--- Note appended by prompt-06 agent ---
+This gate-after.txt is the run captured immediately after prompt 06's changes
+landed (api/material-studio.js, api/_lib/material-studio-store.js, the
+restyle_material MCP tool, and the /restyle web UI extensions). Three
+subsequent re-run attempts in the same session failed on transient,
+environment-wide node_modules churn (ETXTBSY / esbuild version mismatch /
+missing vitest-express) caused by OTHER concurrent agents' npm installs in
+this shared worktree — not by this prompt's diff. tests/api/material-studio-
+store.test.js and tests/api/restyle-material-core.test.js (15 new tests, all
+passing) are not part of the curated test:gate list and were verified
+separately via 'npx vitest run <file>' (see final report).

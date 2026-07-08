@@ -129,6 +129,19 @@ async function verifyWithBackend(identity_token) {
 	location.href = next;
 }
 
+// ── Timeout helper ─────────────────────────────────────────────────────────
+// window.ethereum.request()/Solana provider calls have no network-layer
+// timeout — a dead or reconnecting extension background port can leave the
+// promise permanently unsettled, stranding the button in "Connecting…" with
+// the catch block that resets it never firing.
+function withTimeout(promise, ms, message) {
+	let timer;
+	const timeout = new Promise((_, reject) => {
+		timer = setTimeout(() => reject(new Error(message)), ms);
+	});
+	return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 // ── Solana wallet detection ───────────────────────────────────────────────────
 
 function getSolanaProvider() {
@@ -277,28 +290,41 @@ function mountPrivyUI(privy, captchaConfigPromise) {
 		clearErr();
 
 		try {
-			const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+			const accounts = await withTimeout(
+				window.ethereum.request({ method: 'eth_requestAccounts' }),
+				60_000,
+				'Wallet connection timed out. Check your wallet extension and try again.',
+			);
 			const address  = accounts[0];
 			if (!address) throw new Error('No account returned from wallet.');
 
-			const chainIdHex = await window.ethereum.request({ method: 'eth_chainId' });
+			const chainIdHex = await withTimeout(
+				window.ethereum.request({ method: 'eth_chainId' }),
+				10_000,
+				'Wallet did not respond. Try again.',
+			);
 			const chainId    = parseInt(chainIdHex, 16);
 
 			setWalletStatus('Generating sign-in message…');
-			const { message } = await privy.auth.siwe.init(
-				{ address, chainId },
-				location.hostname,
-				location.origin,
+			const { message } = await withTimeout(
+				privy.auth.siwe.init({ address, chainId }, location.hostname, location.origin),
+				15_000,
+				'Could not reach the sign-in service. Try again.',
 			);
 
 			setWalletStatus('Sign the message in your wallet…');
-			const signature = await window.ethereum.request({
-				method: 'personal_sign',
-				params: [message, address],
-			});
+			const signature = await withTimeout(
+				window.ethereum.request({ method: 'personal_sign', params: [message, address] }),
+				60_000,
+				'Signature timed out. Check your wallet extension and try again.',
+			);
 
 			setWalletStatus('Signing in…');
-			const { identity_token } = await privy.auth.siwe.loginWithSiwe(signature);
+			const { identity_token } = await withTimeout(
+				privy.auth.siwe.loginWithSiwe(signature),
+				15_000,
+				'Could not reach the sign-in service. Try again.',
+			);
 			if (!identity_token) throw new Error('No identity token returned.');
 
 			await verifyWithBackend(identity_token);
@@ -324,7 +350,11 @@ function mountPrivyUI(privy, captchaConfigPromise) {
 		clearErr();
 
 		try {
-			const resp    = await provider.connect();
+			const resp    = await withTimeout(
+				provider.connect(),
+				60_000,
+				'Wallet connection timed out. Check your wallet extension and try again.',
+			);
 			const address = resp.publicKey.toString();
 
 			setWalletStatus('Generating sign-in message…');
@@ -351,9 +381,10 @@ function mountPrivyUI(privy, captchaConfigPromise) {
 			].join('\n');
 
 			setWalletStatus('Sign the message in your wallet…');
-			const { signature: sigBytes } = await provider.signMessage(
-				new TextEncoder().encode(message),
-				'utf8',
+			const { signature: sigBytes } = await withTimeout(
+				provider.signMessage(new TextEncoder().encode(message), 'utf8'),
+				60_000,
+				'Signature timed out. Check your wallet extension and try again.',
 			);
 			const signature = btoa(String.fromCharCode(...sigBytes));
 

@@ -25,6 +25,8 @@ import { sealSecret, openSecret, preferredScheme, SCHEME_SECRETBOX } from '../ap
 import { priceFromRarity, priceForPattern, MIN_PRICE_USD, MAX_PRICE_USD } from '../api/_lib/vanity-inventory-pricing.js';
 import { computeRarity } from '../src/solana/vanity/rarity.js';
 import { grindToCompletion } from '../workers/vanity-grinder/wasm-grind.mjs';
+import { tryInstantFromInventory, priceAtomicsFor } from '../api/x402/vanity.js';
+import { claimVanityMintFromInventory } from '../api/_lib/pump-launch.js';
 
 describe('vanity-vault: seal/open', () => {
 	it('round-trips a secret and never stores plaintext', async () => {
@@ -137,5 +139,182 @@ describe.skipIf(!HAS_DB)('vanity-inventory-store: single-use delivery (needs DAT
 		// The public item is now destroyed and holds no ciphertext.
 		const pub = await store.getPublicItem(address);
 		expect(pub.status).toBe('destroyed');
+	});
+});
+
+// ── DB-gated: instant inventory — live-grind + pump-launch upsell ───────────
+// Covers the wiring in api/x402/vanity.js (tryInstantFromInventory) and
+// api/_lib/pump-launch.js (claimVanityMintFromInventory): an inventory hit is
+// served instantly (no grinding) and consumed exactly once; a miss returns
+// null so the caller falls straight through to its existing live-grind path,
+// unchanged.
+const BASE58_CHARS = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+function randPrefix(n = 2) {
+	let s = '';
+	for (let i = 0; i < n; i++) s += BASE58_CHARS[Math.floor(Math.random() * BASE58_CHARS.length)];
+	return s;
+}
+
+// Grinds a real keypair matching `prefix`, seals it, and inserts it as an
+// available inventory item — the same shape workers/vanity-grinder produces.
+async function seedInventoryItem(store, { prefix, ignoreCase = true, priceUsd = 0.01 }) {
+	const g = grindToCompletion({ prefix, ignoreCase }, { maxAttempts: 5_000_000 });
+	expect(g.status).toBe('found');
+	const kp = Keypair.fromSecretKey(g.secretKey);
+	const address = kp.publicKey.toBase58();
+	const { ciphertext, scheme } = await sealSecret(
+		JSON.stringify({ format: 'keypair', address, secretKeyBase58: bs58.encode(kp.secretKey), secretKey: Array.from(kp.secretKey) }),
+	);
+	await store.upsertInventoryItem({
+		address, patternLabel: prefix, prefix, suffix: null, ignoreCase,
+		difficultyAttempts: g.attempts, rarityBits: 6, rarityTier: 'uncommon', rarityScore: 600,
+		secretCiphertext: ciphertext, secretScheme: scheme, priceUsd, retentionDays: 0,
+	});
+	return address;
+}
+
+describe.skipIf(!HAS_DB)('instant inventory: live-grind + pump-launch upsell (needs DATABASE_URL)', () => {
+	it('claimMatchingPattern: an instant hit is consumed — a second claim of the same pattern gets no_match', async () => {
+		const store = await import('../api/_lib/vanity-inventory-store.js');
+		const prefix = randPrefix(2);
+		const address = await seedInventoryItem(store, { prefix, priceUsd: 0.01 });
+
+		const first = await store.claimMatchingPattern({
+			prefix, ignoreCase: true, format: 'keypair', maxPriceUsd: 0.05, paymentId: 'claim-a-' + prefix, purchaser: 'tester',
+		});
+		expect(first.ok).toBe(true);
+		expect(first.item.address).toBe(address);
+
+		// Same pattern, different payment — the item is already reserved, so no
+		// second buyer can claim (or ever be served) the same address.
+		const second = await store.claimMatchingPattern({
+			prefix, ignoreCase: true, format: 'keypair', maxPriceUsd: 0.05, paymentId: 'claim-b-' + prefix, purchaser: 'tester2',
+		});
+		expect(second.ok).toBe(false);
+		expect(second.reason).toBe('no_match');
+
+		// Finalize like the endpoint does after settle — reveal destroys it.
+		const revealed = await store.reserveAndReveal(address, { paymentId: 'claim-a-' + prefix });
+		expect(revealed.ok).toBe(true);
+		expect(revealed.destroyed).toBe(true);
+	});
+
+	it('claimMatchingPattern: two concurrent claims for the last matching row — exactly one wins', async () => {
+		const store = await import('../api/_lib/vanity-inventory-store.js');
+		const prefix = randPrefix(2);
+		const address = await seedInventoryItem(store, { prefix, priceUsd: 0.01 });
+
+		const [a, b] = await Promise.all([
+			store.claimMatchingPattern({ prefix, ignoreCase: true, format: 'keypair', paymentId: 'race-a-' + prefix, purchaser: 'a' }),
+			store.claimMatchingPattern({ prefix, ignoreCase: true, format: 'keypair', paymentId: 'race-b-' + prefix, purchaser: 'b' }),
+		]);
+		const winners = [a, b].filter((r) => r.ok);
+		const losers = [a, b].filter((r) => !r.ok);
+		expect(winners).toHaveLength(1);
+		expect(losers).toHaveLength(1);
+		expect(winners[0].item.address).toBe(address);
+		expect(losers[0].reason).toBe('no_match');
+
+		// Clean up: finalize the winning reservation so no row is left stranded
+		// in 'reserved' status.
+		const winnerPaymentId = a.ok ? 'race-a-' + prefix : 'race-b-' + prefix;
+		await store.reserveAndReveal(address, { paymentId: winnerPaymentId });
+	});
+
+	it('claimMatchingPattern: no matching item returns no_match without throwing (the grind-fallback signal)', async () => {
+		const store = await import('../api/_lib/vanity-inventory-store.js');
+		const miss = await store.claimMatchingPattern({
+			prefix: randPrefix(4), ignoreCase: true, format: 'keypair', paymentId: 'miss-' + randPrefix(4),
+		});
+		expect(miss.ok).toBe(false);
+		expect(miss.reason).toBe('no_match');
+	});
+
+	it('claimMatchingPattern: maxPriceUsd keeps a premium item out of the cheap live-grind tier', async () => {
+		const store = await import('../api/_lib/vanity-inventory-store.js');
+		const prefix = randPrefix(2);
+		const address = await seedInventoryItem(store, { prefix, priceUsd: 10 });
+
+		// The live-grind tier's ceiling for a 2-char pattern ($0.05) must not match
+		// a $10 item — it stays reserved for the priced premium tier.
+		const capped = await store.claimMatchingPattern({
+			prefix, ignoreCase: true, format: 'keypair', maxPriceUsd: 0.05, paymentId: 'cap-' + prefix,
+		});
+		expect(capped.ok).toBe(false);
+		expect(capped.reason).toBe('no_match');
+
+		// Without (or above) the price ceiling, the same item is claimable.
+		const uncapped = await store.claimMatchingPattern({
+			prefix, ignoreCase: true, format: 'keypair', maxPriceUsd: 10, paymentId: 'uncap-' + prefix,
+		});
+		expect(uncapped.ok).toBe(true);
+		expect(uncapped.item.address).toBe(address);
+
+		// Clean up: finalize the reservation so no row is left stranded.
+		await store.reserveAndReveal(address, { paymentId: 'uncap-' + prefix });
+	});
+
+	it('tryInstantFromInventory (api/x402/vanity.js): serves an inventory hit instantly with source=inventory, then consumes it', async () => {
+		const store = await import('../api/_lib/vanity-inventory-store.js');
+		const prefix = randPrefix(2);
+		const address = await seedInventoryItem(store, { prefix, priceUsd: 0.01 });
+		const pattern = { prefix, suffix: '', ignoreCase: true, format: 'keypair', combinedLength: prefix.length, sealTo: null };
+		expect(priceAtomicsFor('keypair', prefix.length)).toBeGreaterThanOrEqual(10_000); // sanity: $0.01 item is within the tier's ceiling
+
+		const hit = await tryInstantFromInventory(pattern, { paymentId: 'vinv-' + prefix, purchaser: 'tester' });
+		expect(hit).toBeTruthy();
+		expect(hit.result.source).toBe('inventory');
+		expect(hit.result.address).toBe(address);
+		expect(hit.result.secretKeyBase58).toBeTruthy();
+		// The delivered secret key actually reconstructs the vanity address.
+		const restored = Keypair.fromSecretKey(bs58.decode(hit.result.secretKeyBase58));
+		expect(restored.publicKey.toBase58()).toBe(address);
+
+		// Finalize (what the endpoint does after settle) — the item is now gone.
+		await store.reserveAndReveal(address, { paymentId: 'vinv-' + prefix });
+		const again = await tryInstantFromInventory(pattern, { paymentId: 'vinv2-' + prefix, purchaser: 'tester' });
+		expect(again).toBeNull();
+	});
+
+	it('tryInstantFromInventory (api/x402/vanity.js): no match returns null so the caller falls through to grind', async () => {
+		const pattern = { prefix: randPrefix(4), suffix: '', ignoreCase: true, format: 'keypair', combinedLength: 4, sealTo: null };
+		const miss = await tryInstantFromInventory(pattern, { paymentId: 'vmiss-' + pattern.prefix, purchaser: 'tester' });
+		expect(miss).toBeNull();
+	});
+
+	it('claimVanityMintFromInventory (api/_lib/pump-launch.js): delivers a usable mint keypair instantly, then consumes it', async () => {
+		const store = await import('../api/_lib/vanity-inventory-store.js');
+		const prefix = randPrefix(2);
+		const address = await seedInventoryItem(store, { prefix, priceUsd: 0.01 });
+
+		const claim = await claimVanityMintFromInventory({ prefix, ignoreCase: true, paymentId: 'pl-' + prefix, purchaser: 'tester' });
+		expect(claim).toBeTruthy();
+		expect(claim.address).toBe(address);
+		expect(claim.mintKeypair.publicKey.toBase58()).toBe(address);
+
+		// Simulates a successful on-chain launch: finalize the claim.
+		await claim.reveal();
+		const again = await claimVanityMintFromInventory({ prefix, ignoreCase: true, paymentId: 'pl2-' + prefix, purchaser: 'tester' });
+		expect(again).toBeNull();
+	});
+
+	it('claimVanityMintFromInventory: release() puts a failed-launch claim back to available for reuse', async () => {
+		const store = await import('../api/_lib/vanity-inventory-store.js');
+		const prefix = randPrefix(2);
+		const address = await seedInventoryItem(store, { prefix, priceUsd: 0.01 });
+
+		const claim = await claimVanityMintFromInventory({ prefix, ignoreCase: true, paymentId: 'plr-' + prefix, purchaser: 'tester' });
+		expect(claim).toBeTruthy();
+
+		// Simulates a launch failure BEFORE the mint touched the chain.
+		await claim.release();
+		const pub = await store.getPublicItem(address);
+		expect(pub.status).toBe('available');
+
+		// Now claimable again.
+		const retry = await claimVanityMintFromInventory({ prefix, ignoreCase: true, paymentId: 'plr2-' + prefix, purchaser: 'tester' });
+		expect(retry).toBeTruthy();
+		expect(retry.address).toBe(address);
+		await retry.reveal();
 	});
 });

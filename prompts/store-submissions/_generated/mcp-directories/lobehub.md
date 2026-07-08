@@ -42,7 +42,7 @@ LobeHub runs **two** systems — MCP servers go through the **MCP Marketplace**,
 
 - **three.ws Avatars & Agents** — `io.github.nirholas/three.ws@1.0.1` · transport: streamable-http · endpoint https://three.ws/api/mcp · tags: 3d, avatars, gltf, solana, agents
 - **three.ws 3D Studio** — `io.github.nirholas/threews-3d-studio@1.0.1` · transport: streamable-http · endpoint https://three.ws/api/mcp-3d · tags: text-to-3d, image-to-3d, rigging, glb, x402
-- **three.ws 3D Studio (free)** — `io.github.nirholas/threews-3d-studio-free@1.0.0` · transport: streamable-http · endpoint https://three.ws/api/mcp-studio · tags: text-to-3d, free, avatars, rigging, nvidia-nim
+- **three.ws 3D Studio (free)** — `io.github.nirholas/threews-3d-studio-free@1.0.1` · transport: streamable-http · endpoint https://three.ws/api/mcp-studio · tags: text-to-3d, free, avatars, rigging, nvidia-nim
 - **three.ws Agent Wallet** — `io.github.nirholas/threews-agent@1.0.0` · transport: streamable-http · endpoint https://three.ws/api/mcp-agent · tags: x402, wallet, usdc, agent-payments, spend-caps
 - **three.ws x402 Bazaar** — `io.github.nirholas/threews-x402-bazaar@1.0.2` · transport: streamable-http · endpoint https://three.ws/api/mcp-bazaar · tags: x402, discovery, marketplace, agents, usdc
 - **x402 Wallet** — `io.github.nirholas/x402-mcp@0.2.1` · transport: stdio · stdio npx -y @three-ws/x402-mcp · tags: x402, wallet, usdc, self-custodial, payments

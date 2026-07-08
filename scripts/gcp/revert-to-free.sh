@@ -30,10 +30,16 @@
 # THIS script is the planned end-of-program revert: same env-flip mechanism, plus
 # the pre-flight fallback checks and the full keep/kill context in docs/gcp-credits.md.
 #
-# This script does NOT touch Vercel for you (it can't safely read your token from
-# here). It prints the exact `vercel env rm` commands to paste, and — with
-# --apply and gcloud authed — drops every Cloud Run worker to min-instances=0 so
-# no warm GPU bills after the credits die.
+# This script does NOT touch prod env for you (it can't safely read your token/
+# creds from here). It prints the exact `gcloud run services update
+# three-ws-api --remove-env-vars/--remove-secrets` commands to paste — production
+# is Cloud Run (docs/ops/gcp-production.md, migrated 2026-07-07), NOT Vercel; the
+# GCP-credits env vars live on that one Cloud Run service now (see the 2026-07-08
+# audit section in docs/gcp-credits.md) — plus the legacy `vercel env rm`
+# commands for completeness, since some of the Vercel project's env may still be
+# read by anything not yet decommissioned there. And — with --apply and gcloud
+# authed — drops every Cloud Run worker to min-instances=0 so no warm GPU bills
+# after the credits die.
 #
 # The Vertex Claude chat lane (api/_lib/vertex-claude.js, wired into api/chat.js)
 # reverts by unsetting VERTEX_CLAUDE_ENABLED / VERTEX_CLAUDE_PRIMARY: the chat
@@ -127,18 +133,36 @@ dim "  equivalent — reverting simply hides those two options from the forge ca
 dim "  the UI stops advertising them (backendIsConfigured / outputIsConfigured return false)."
 echo
 
-# ── Step 2: the Vercel env removals (printed — run these yourself) ─────────────
-bold "2) Remove the GCP env gates from Vercel (production + preview)"
+# ── Step 2: the prod env removals (printed — run these yourself) ───────────────
+bold "2) Remove the GCP env gates from production (Cloud Run — the live deploy target)"
 echo
-dim "   Paste these. Each 'vercel env rm' prompts for confirm unless you add -y."
-dim "   Removing the gate is the revert — the resolver falls through to the provider it displaced."
+dim "   Primary: Cloud Run env lives on three-ws-api directly — no redeploy needed, a"
+dim "   '--remove-env-vars'/'--remove-secrets' update takes effect on the next revision"
+dim "   immediately (seconds, not a rebuild). Also prints the legacy 'vercel env rm' form"
+dim "   in case anything not yet decommissioned there still reads it."
 echo
 print_rm() {
   local group_label="$1"; shift
-  echo "   # ${group_label}"
+  local env_only=() secret_only=()
   for v in "$@"; do
-    printf '   vercel env rm %s production\n' "$v"
-    printf '   vercel env rm %s preview\n'    "$v"
+    if [ "$v" = "GCP_SERVICE_ACCOUNT_JSON" ] || [ "$v" = "GCP_RECONSTRUCTION_KEY" ] || [ "$v" = "GCP_BUDGET_WEBHOOK_SECRET" ]; then
+      secret_only+=("$v")
+    else
+      env_only+=("$v")
+    fi
+  done
+  echo "   # ${group_label}"
+  if [ "${#env_only[@]}" -gt 0 ]; then
+    printf '   gcloud run services update three-ws-api --region us-central1 --project "$PROJECT_ID" \\\n'
+    printf '     --remove-env-vars=%s\n' "$(IFS=,; echo "${env_only[*]}")"
+  fi
+  if [ "${#secret_only[@]}" -gt 0 ]; then
+    printf '   gcloud run services update three-ws-api --region us-central1 --project "$PROJECT_ID" \\\n'
+    printf '     --remove-secrets=%s\n' "$(IFS=,; echo "${secret_only[*]}")"
+  fi
+  for v in "$@"; do
+    printf '   vercel env rm %s production   # legacy — see note above\n' "$v"
+    printf '   vercel env rm %s preview      # legacy — see note above\n' "$v"
   done
   echo
 }
@@ -148,9 +172,6 @@ print_rm "Vertex Claude chat/LLM lane (reverts to free Groq→OpenRouter→NVIDI
 print_rm "Vertex Imagen text→image (reverts to free NIM FLUX, then Replicate)" "${IMAGEN_VARS[@]}"
 dim "   Note: GOOGLE_CLOUD_PROJECT gates BOTH Imagen and Vertex-Claude config; removing it above"
 dim "   fully de-configures Vertex. The two VERTEX_CLAUDE_* flags alone are enough to revert chat."
-echo
-dim "   After removing, redeploy so the functions pick up the new env:"
-dim "     vercel --prod"
 echo
 
 # ── Step 3: Cloud Run min-instances → 0 (the only ongoing GPU bill) ───────────

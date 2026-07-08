@@ -69,12 +69,14 @@ import { getServiceIdentity } from '../_lib/vanity-service-key.js';
 import { registerCert } from '../_lib/vanity-cert-store.js';
 import {
 	claimMatchingPattern,
+	hasAvailableMatch,
 	peekReservedSecret,
 	reserveAndReveal,
 	releaseReservation,
 	isDbUnavailableError,
 } from '../_lib/vanity-inventory-store.js';
 import { openSecret } from '../_lib/vanity-vault.js';
+import { priceFor } from '../_lib/x402-prices.js';
 import bs58 from 'bs58';
 
 const ROUTE = '/api/x402/vanity';
@@ -114,9 +116,34 @@ const PRICE_BY_LENGTH_MNEMONIC = {
 	2: 500_000, // $0.50
 };
 
-function priceAtomicsFor(format, combinedLength) {
+// 4–5 Base58 chars is past what a single 45s server grind can reach (58^4 ≈
+// 11.3M attempts ≈ 7.5 min at the WASM engine's ~25k/s; 58^5 ≈ 656M ≈ 7+
+// hours) — those lengths are ONLY ever fulfilled from the pre-ground premium
+// inventory (workers/vanity-grinder, api/x402/vanity-premium.js), never
+// ground live. Priced well above the flat per-length grind tiers to reflect
+// the batch-CPU cost of stocking them ahead of time; env-overridable per
+// api/_lib/x402-prices.js so ops can retune without a redeploy. `format=
+// mnemonic` is NOT extended here — the batch grinder only stocks raw
+// keypairs (mnemonic grinding is itself ~100× slower to produce ahead of
+// time), so mnemonic stays capped at MAX_MNEMONIC_PATTERN_LENGTH.
+const PREMIUM_PRICE_BY_LENGTH = {
+	4: () => Number(priceFor('vanity-4', '2500000')), // $2.50 default
+	5: () => Number(priceFor('vanity-5', '10000000')), // $10 default
+};
+
+// Keypair patterns up to this length are OFFERED (priced + quoted), but only
+// ever served from inventory (see hasAvailableMatch gate below) — never
+// ground live. Patterns longer than MAX_SERVER_PATTERN_LENGTH and up to this
+// ceiling are the "premium" band.
+export const INVENTORY_MAX_PATTERN_LENGTH = 5;
+
+export function priceAtomicsFor(format, combinedLength) {
 	if (format === FORMAT_MNEMONIC) {
 		return PRICE_BY_LENGTH_MNEMONIC[combinedLength] ?? PRICE_BY_LENGTH_MNEMONIC[MAX_MNEMONIC_PATTERN_LENGTH];
+	}
+	if (combinedLength > MAX_SERVER_PATTERN_LENGTH) {
+		const premium = PREMIUM_PRICE_BY_LENGTH[Math.min(combinedLength, INVENTORY_MAX_PATTERN_LENGTH)];
+		if (premium) return premium();
 	}
 	return PRICE_BY_LENGTH[combinedLength] ?? PRICE_BY_LENGTH[MAX_SERVER_PATTERN_LENGTH];
 }
@@ -128,8 +155,12 @@ const ROUTE_DESCRIPTION =
 	'you want identifiable at a glance. The server grinds a brand-new keypair to match — ' +
 	'no wallet, account, or SOL required. Two output formats: format=keypair (default) ' +
 	'returns the public address and its secret key (Base58 + 64-byte array), ground in a ' +
-	'Rust/WASM ed25519 engine — capped at 3 Base58 chars, priced $0.01 (1 char) / $0.05 ' +
-	'(2) / $0.25 (3). format=mnemonic returns a BIP-39 seed phrase (12 or 24 words) whose ' +
+	'Rust/WASM ed25519 engine — live-ground up to 3 Base58 chars, priced $0.01 (1 char) / ' +
+	'$0.05 (2) / $0.25 (3). Longer 4–5 char patterns are offered too, priced $2.50 (4) / ' +
+	'$10 (5), but ONLY ever served from the pre-ground premium inventory (never ground ' +
+	'live) — a pattern with no inventory match 404s as not_in_stock instead of quoting a ' +
+	'price you could never redeem; browse stock at GET /api/x402/vanity-premium. ' +
+	'format=mnemonic returns a BIP-39 seed phrase (12 or 24 words) whose ' +
 	"derived key at m/44'/501'/0'/0' lands on the vanity address, importable as a recovery " +
 	'phrase into Phantom / Solflare / the Solana CLI — capped at 2 chars (~100× slower to ' +
 	'grind), priced $0.05 (1 char) / $0.50 (2). Security model: nothing is ever stored — ' +
@@ -137,7 +168,11 @@ const ROUTE_DESCRIPTION =
 	'replay/idempotency cache. Optional sealTo=<X25519 public key> seals the secret to you ' +
 	'(ECIES; x25519-hkdf-sha256-aes256gcm) so the plaintext never appears in the response ' +
 	'or any log — open it client-side with the matching private key. Keyless and ' +
-	'account-free: pay-per-call in USDC on Base or Solana mainnet — no API keys, no signup.';
+	'account-free: pay-per-call in USDC on Base or Solana mainnet — no API keys, no signup. ' +
+	'A matching pre-ground address in the premium inventory is delivered instantly instead ' +
+	"of grinding one — response.source is 'inventory' (pre-generated server-side, never " +
+	"re-served — same one-time delivery guarantee as vanity-premium) or 'ground' (freshly " +
+	'mined this request), and pricing is identical either way.';
 
 // Base58 excludes 0/O/I/l. Note also that an address is 32 random bytes
 // Base58-encoded, so its LEADING characters are not uniformly distributed —
@@ -213,6 +248,7 @@ const DISCOVERY_OUTPUT_EXAMPLE = {
 	expectedAttempts: 3364,
 	network: 'solana',
 	explorerUrl: 'https://solscan.io/account/SoEXAMPLEdoNotUse1111111111111111111111111111',
+	source: 'ground',
 };
 
 const DISCOVERY_OUTPUT_SCHEMA = {
@@ -274,6 +310,14 @@ const DISCOVERY_OUTPUT_SCHEMA = {
 		},
 		network: { type: 'string' },
 		explorerUrl: { type: 'string', format: 'uri' },
+		source: {
+			type: 'string',
+			enum: ['inventory', 'ground'],
+			description:
+				"'inventory': served instantly from a pre-ground address in the premium inventory " +
+				"(delivered once, then destroyed server-side — never re-served). 'ground': mined " +
+				'fresh for this request. Price is the same either way.',
+		},
 		certificate: {
 			type: 'object',
 			description:
@@ -349,14 +393,21 @@ function parsePattern(req) {
 		}
 	}
 
-	const maxLength = format === FORMAT_MNEMONIC ? MAX_MNEMONIC_PATTERN_LENGTH : MAX_SERVER_PATTERN_LENGTH;
+	// Keypair patterns get a second, wider ceiling: MAX_SERVER_PATTERN_LENGTH is
+	// what the live WASM grinder can reach in the 45s budget; anything up to
+	// INVENTORY_MAX_PATTERN_LENGTH is OFFERED but only ever fulfilled from the
+	// premium inventory (checked below, before any 402 is quoted — see
+	// hasAvailableMatch in the handler). Mnemonic format has no inventory
+	// backing, so its ceiling stays the live-grind cap.
+	const maxLength =
+		format === FORMAT_MNEMONIC ? MAX_MNEMONIC_PATTERN_LENGTH : INVENTORY_MAX_PATTERN_LENGTH;
 	const combinedLength = prefix.length + suffix.length;
 	if (combinedLength > maxLength) {
 		const reason =
 			format === FORMAT_MNEMONIC
 				? `seed-phrase grinding is ~100× slower; drop format=mnemonic for up to ${MAX_SERVER_PATTERN_LENGTH} chars, ` +
 					`or grind longer mnemonic patterns on your own machine`
-				: 'grind longer patterns in the browser at /vanity';
+				: 'grind longer patterns in the browser at /vanity, or check /api/x402/vanity-premium for pre-ground stock';
 		throw Object.assign(
 			new Error(
 				`combined pattern length ${combinedLength} exceeds the ${format} server limit of ` +
@@ -365,6 +416,10 @@ function parsePattern(req) {
 			{ status: 400, code: 'pattern_too_long' },
 		);
 	}
+	// 4–5 chars (keypair only) is the premium, inventory-only band — never
+	// ground live. See hasAvailableMatch gate in the handler and the "not in
+	// stock" 404 it returns for a pattern inventory doesn't hold.
+	const premiumOnly = format !== FORMAT_MNEMONIC && combinedLength > MAX_SERVER_PATTERN_LENGTH;
 
 	// Optional confidential delivery: an X25519 public key the secret is sealed
 	// to. Validate the key shape up front so a malformed key is a clean 400
@@ -375,7 +430,7 @@ function parsePattern(req) {
 		parseX25519Key(sealTo, 'sealTo');
 	}
 
-	return { prefix, suffix, ignoreCase, combinedLength, format, strength, sealTo };
+	return { prefix, suffix, ignoreCase, combinedLength, format, strength, sealTo, premiumOnly };
 }
 
 // Confidential delivery: when the caller supplies an X25519 public key, encrypt
@@ -516,11 +571,80 @@ async function grindAndShape({ prefix, suffix, ignoreCase, format, strength, sea
 			expectedAttempts: expectedAttemptsFor(prefix, suffix),
 			network: 'solana',
 			explorerUrl: `https://solscan.io/account/${result.publicKey}`,
+			source: 'ground',
 		};
 	}
 
 	const delivered = sealTo ? await sealSecret(shaped, sealTo) : shaped;
 	return attachCertificate(delivered, { prefix, suffix, ignoreCase });
+}
+
+// ── Instant inventory fast path ──────────────────────────────────────────────
+// Before grinding, check whether a pre-ground address from
+// api/_lib/vanity-inventory-store.js already satisfies the requested
+// prefix/suffix pattern. A hit is claimed atomically (reserve → decrypt →,
+// after settle, reveal-and-destroy) and delivered exactly once — the same
+// sealing/certificate pipeline as a fresh grind, just without the CPU cost or
+// the wait. A miss (no match, or ANY failure along the way — DB down,
+// decrypt error) returns null and the caller falls straight through to
+// grindAndShape() unchanged. Never throws: an inventory outage must degrade
+// to "grind as normal", not break the endpoint.
+export async function tryInstantFromInventory(pattern, { paymentId, purchaser }) {
+	const { prefix, suffix, ignoreCase, format, combinedLength, sealTo } = pattern;
+	if (!paymentId || (!prefix && !suffix) || combinedLength === 0) return null;
+
+	// Guardrail: never hand out an inventory item worth more than the flat
+	// price this pattern length already charges — see claimMatchingPattern's
+	// maxPriceUsd doc for why. Anything pricier stays reserved for the priced
+	// premium tier (/api/x402/vanity-premium).
+	const maxPriceUsd = priceAtomicsFor(format, combinedLength) / 1_000_000;
+
+	let claim;
+	try {
+		claim = await claimMatchingPattern({ prefix, suffix, ignoreCase, format, maxPriceUsd, paymentId, purchaser });
+	} catch (err) {
+		if (!isDbUnavailableError(err)) {
+			console.error('[vanity] inventory claim lookup failed; falling back to grind', err?.message || err);
+		}
+		return null;
+	}
+	if (!claim.ok) return null;
+
+	const item = claim.item;
+	const startedAt = Date.now();
+	let bundle;
+	try {
+		const peek = await peekReservedSecret(item.address, { paymentId });
+		if (!peek.ok) throw new Error(peek.reason);
+		bundle = JSON.parse(await openSecret(peek.ciphertext, peek.scheme));
+	} catch (err) {
+		console.error('[vanity] inventory decrypt failed; releasing + falling back to grind', err?.message || err);
+		await releaseReservation(item.address, { paymentId }).catch(() => {});
+		return null;
+	}
+
+	const shaped = {
+		address: item.address,
+		prefix: prefix || null,
+		suffix: suffix || null,
+		ignoreCase,
+		format: bundle.format || item.format || FORMAT_KEYPAIR,
+		secretKeyBase58: bundle.secretKeyBase58,
+		secretKey: bundle.secretKey,
+		mnemonic: bundle.mnemonic || null,
+		wordCount: bundle.wordCount || null,
+		derivationPath: bundle.derivationPath || null,
+		attempts: item.difficultyAttempts,
+		durationMs: Date.now() - startedAt,
+		expectedAttempts: item.difficultyAttempts,
+		network: 'solana',
+		explorerUrl: `https://solscan.io/account/${item.address}`,
+		source: 'inventory',
+	};
+
+	const delivered = sealTo ? await sealSecret(shaped, sealTo) : shaped;
+	const withCert = await attachCertificate(delivered, { prefix, suffix, ignoreCase });
+	return { result: withCert, item };
 }
 
 export default wrap(async (req, res) => {
@@ -542,6 +666,35 @@ export default wrap(async (req, res) => {
 		pattern = parsePattern(req);
 	} catch (err) {
 		return error(res, err.status || 400, err.code || 'validation_error', err.message);
+	}
+
+	// Premium 4–5 char band: only ever fulfilled from inventory, so check stock
+	// BEFORE quoting a price — a buyer must never be asked to pay for a pattern
+	// that isn't sitting in the warehouse. A DB outage here degrades to "not in
+	// stock" (honest, refundable-nothing failure) rather than a false quote.
+	if (pattern.premiumOnly) {
+		let inStock = false;
+		try {
+			inStock = await hasAvailableMatch({
+				prefix: pattern.prefix,
+				suffix: pattern.suffix,
+				ignoreCase: pattern.ignoreCase,
+				format: pattern.format,
+			});
+		} catch (err) {
+			if (!isDbUnavailableError(err)) console.error('[vanity] premium stock check failed', err?.message || err);
+		}
+		if (!inStock) {
+			return error(
+				res,
+				404,
+				'not_in_stock',
+				`pattern not in stock — the live grinder's grindable range is 1–${MAX_SERVER_PATTERN_LENGTH} ` +
+					`Base58 chars; ${pattern.combinedLength}-char patterns are served only from the premium ` +
+					`inventory when a match exists. Browse current stock at GET /api/x402/vanity-premium` +
+					`?prefix=${encodeURIComponent(pattern.prefix || '')}.`,
+			);
+		}
 	}
 
 	const resourceUrl = resolveResourceUrl(req, ROUTE);
@@ -628,13 +781,38 @@ export default wrap(async (req, res) => {
 		return error(res, err.status || 502, err.code || 'verify_failed', err.message);
 	}
 
-	// Grind AFTER verify but BEFORE settle: an invalid pattern or exhausted
-	// budget throws here, and settlement never runs, so the buyer isn't charged.
-	// grindAndShape is async (it may seal the secret to the buyer's key), so it
-	// must be awaited — otherwise the body serializes an unresolved Promise.
+	// Instant path FIRST: a matching pre-ground address in inventory is
+	// claimed and decrypted here (still before settle, so a claim/decrypt
+	// failure costs the buyer nothing — see tryInstantFromInventory). No
+	// match (or any failure) returns null and falls straight through to the
+	// live grind, unchanged from before this endpoint knew inventory existed.
+	const purchaser = verified?.payer || verified?.from || clientPaymentId || 'x402';
 	let result;
+	let inventoryClaim = null;
 	try {
-		result = await grindAndShape(pattern);
+		const instant = paymentId ? await tryInstantFromInventory(pattern, { paymentId, purchaser }) : null;
+		if (instant) {
+			result = instant.result;
+			inventoryClaim = instant.item;
+		} else if (pattern.premiumOnly) {
+			// The pre-payment hasAvailableMatch check above found stock, but
+			// between the 402 quote and this settle another buyer won the race for
+			// the (possibly only) matching item. This band is NEVER ground live
+			// (58^4-58^5 attempts is hours, far past the 45s budget) — fail clean
+			// instead of falling through to an infeasible grind. Settlement has not
+			// run, so the buyer is charged nothing and can retry.
+			throw Object.assign(
+				new Error('the matching inventory item was claimed by another buyer between quote and payment — retry'),
+				{ status: 409, code: 'sold_out' },
+			);
+		} else {
+			// Grind AFTER verify but BEFORE settle: an invalid pattern or exhausted
+			// budget throws here, and settlement never runs, so the buyer isn't
+			// charged. grindAndShape is async (it may seal the secret to the
+			// buyer's key), so it must be awaited — otherwise the body serializes
+			// an unresolved Promise.
+			result = await grindAndShape(pattern);
+		}
 	} catch (err) {
 		return error(res, err.status || 500, err.code || 'grind_failed', err.message);
 	}
@@ -643,7 +821,25 @@ export default wrap(async (req, res) => {
 	try {
 		settled = await settlePayment({ verified });
 	} catch (err) {
+		if (inventoryClaim) {
+			// Settlement failed after we reserved (but did not yet reveal/destroy)
+			// the inventory item — release it back to available so a transient
+			// payment failure never strands sellable stock.
+			await releaseReservation(inventoryClaim.address, { paymentId }).catch(() => {});
+		}
 		return error(res, err.status || 502, err.code || 'settle_failed', err.message);
+	}
+
+	if (inventoryClaim) {
+		// One-shot reveal AFTER settle: flips reserved→destroyed and nulls the
+		// stored ciphertext atomically, so this address can never be served
+		// again. We already hold the plaintext (delivered above), so a hiccup
+		// here is logged, not fatal to delivery.
+		try {
+			await reserveAndReveal(inventoryClaim.address, { paymentId });
+		} catch (err) {
+			console.error('[vanity] inventory reveal/destroy after settle failed', err?.message || err);
+		}
 	}
 
 	const paymentResponseHeader = encodePaymentResponseHeader(settled);

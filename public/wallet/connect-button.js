@@ -23,6 +23,17 @@ const ASYNC_STATES = new Set([
 	STATES.VERIFYING,
 ]);
 
+// window.ethereum.request() has no network-layer timeout — a dead or
+// reconnecting extension background port can leave the promise permanently
+// unsettled, stranding the button in its connecting state forever.
+function withTimeout(promise, ms, message) {
+	let timer;
+	const timeout = new Promise((_, reject) => {
+		timer = setTimeout(() => reject(new Error(message)), ms);
+	});
+	return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 function defaultMessageBuilder(address, chainId, nonce, { domain, uri, issuedAt, expirationTime }) {
 	return [
 		`${domain} wants you to sign in with your Ethereum account:`,
@@ -148,7 +159,11 @@ export class ConnectWalletController extends EventTarget {
 
 		try {
 			const provider = new BrowserProvider(window.ethereum);
-			await provider.send('eth_requestAccounts', []);
+			await withTimeout(
+				provider.send('eth_requestAccounts', []),
+				60_000,
+				'Wallet connection timed out. Check your wallet extension and try again.',
+			);
 			const signer = await provider.getSigner();
 			const address = await signer.getAddress();
 			const network = await provider.getNetwork();
@@ -287,6 +302,25 @@ export class ConnectWalletController extends EventTarget {
 	}
 }
 
+/**
+ * Live connect buttons, tracked so we can dispose controllers whose mount
+ * element has left the DOM. Without this, each remount on a fresh element
+ * leaks two `window.ethereum` listeners, which eventually trips MetaMask's
+ * MaxListenersExceededWarning (warns at 10+).
+ * @type {Set<{ ctrl: ConnectWalletController, mountEl: HTMLElement }>}
+ */
+const _liveButtons = new Set();
+
+/** Dispose controllers whose mount element is no longer in the document. */
+function disposeDetachedButtons() {
+	for (const rec of _liveButtons) {
+		if (!rec.mountEl.isConnected) {
+			rec.ctrl.dispose();
+			_liveButtons.delete(rec);
+		}
+	}
+}
+
 const LABEL_DEFAULTS = {
 	idle: 'Connect wallet',
 	detecting: 'Detecting…',
@@ -395,13 +429,23 @@ function showWalletPicker(anchorEl, onBrowser, onWC) {
 }
 
 export function createConnectWalletButton(mountEl, opts = {}) {
-	mountEl._cwbCtrl?.dispose();
+	// Dispose any previous controller on this mount point (handles remounts)
+	// and sweep controllers whose mount element has left the DOM (SPA
+	// navigations) so their window.ethereum listeners can't accumulate.
+	if (mountEl._cwbCtrl) {
+		mountEl._cwbCtrl.dispose();
+		for (const rec of _liveButtons) {
+			if (rec.ctrl === mountEl._cwbCtrl) _liveButtons.delete(rec);
+		}
+	}
+	disposeDetachedButtons();
 
 	const labels = { ...LABEL_DEFAULTS, ...(opts.labels || {}) };
 	const allowedChainIds = opts.allowedChainIds || DEFAULT_CHAIN_IDS;
 	const wcProjectId = opts.wcProjectId || null;
 	const ctrl = new ConnectWalletController({ ...opts, allowedChainIds, wcProjectId });
 	mountEl._cwbCtrl = ctrl;
+	_liveButtons.add({ ctrl, mountEl });
 
 	const btn = document.createElement('button');
 	btn.type = 'button';

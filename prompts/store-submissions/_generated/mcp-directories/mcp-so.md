@@ -87,7 +87,7 @@ Fields mcp.so expects per server: **name, GitHub repo, description, website, tra
 - **Repo:** https://github.com/nirholas/three.ws  ·  **Website:** https://three.ws  ·  **Icon:** https://three.ws/three-ws-mcp-icon.svg
 - **Transport:** streamable-http
 - **Endpoint URL:** `https://three.ws/api/mcp-studio`
-- **Description:** Free text/image → 3D. Five tools, no auth, no payment: forge_free (text → textured GLB), text_to_avatar (text/image → avatar), mesh_forge (art-directed mesh), rig_mesh (auto-rig a GLB for animation), forge_avatar (one-call text → rigged avatar). Results render in an interactive viewer.
+- **Description:** Free text/image → 3D: generate, rig, avatar-ify, and refine GLB models. No auth, no payment.
 - **Tags:** text-to-3d, free, avatars, rigging, nvidia-nim
 - **Claude/Cursor config:**
 ```json

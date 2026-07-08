@@ -352,6 +352,41 @@ export async function claimMatchingPattern({
 }
 
 /**
+ * Read-only stock check: does an AVAILABLE item exist whose real address
+ * satisfies this prefix/suffix pattern? Never reserves — used to quote the
+ * premium long-pattern tier in api/x402/vanity.js honestly BEFORE issuing a
+ * 402 (so a buyer is never asked to pay for a pattern that isn't in stock).
+ * The actual claim (with claimMatchingPattern's FOR UPDATE SKIP LOCKED race
+ * safety) only happens after payment verifies.
+ *
+ * @param {object} opts
+ * @param {string} [opts.prefix]
+ * @param {string} [opts.suffix]
+ * @param {boolean} [opts.ignoreCase]
+ * @param {string} [opts.format='keypair']
+ * @returns {Promise<boolean>}
+ */
+export async function hasAvailableMatch({ prefix = '', suffix = '', ignoreCase = false, format = 'keypair' }) {
+	const pfx = String(prefix || '');
+	const sfx = String(suffix || '');
+	if (!pfx && !sfx) return false;
+
+	let where = sql`status = 'available' AND format = ${format}`;
+	if (pfx) {
+		where = ignoreCase
+			? sql`${where} AND lower(left(address, ${pfx.length})) = ${pfx.toLowerCase()}`
+			: sql`${where} AND left(address, ${pfx.length}) = ${pfx}`;
+	}
+	if (sfx) {
+		where = ignoreCase
+			? sql`${where} AND lower(right(address, ${sfx.length})) = ${sfx.toLowerCase()}`
+			: sql`${where} AND right(address, ${sfx.length}) = ${sfx}`;
+	}
+	const [row] = await sql`SELECT 1 FROM vanity_inventory WHERE ${where} LIMIT 1`;
+	return Boolean(row);
+}
+
+/**
  * Non-destructive read of the sealed ciphertext for a row reserved by THIS
  * payment. The delivery endpoint calls this AFTER reserve but BEFORE settle to
  * prove it can actually decrypt (e.g. KMS reachable) before charging the buyer —

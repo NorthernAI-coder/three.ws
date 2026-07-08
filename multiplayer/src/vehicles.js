@@ -101,6 +101,19 @@ export function vehicleSpec(type) {
 	return VEHICLE_TYPES[type] || VEHICLE_TYPES.sedan;
 }
 
+// The chassis-centre height a parked/resting vehicle sits at, derived from the
+// same geometry `PhysicsWorld.createVehicle` uses for its wheel connection
+// points (src/physics/physics-world.js): the connection sits `hy*0.2` below the
+// chassis centre, the suspension extends `rest` further, and the wheel radius
+// carries the rest of the way to the ground. Used to seed parked vehicles
+// (so they don't spawn sunk into the asphalt) and to place the chassis when a
+// driver takes the wheel.
+export function vehicleRestHeight(type) {
+	const spec = vehicleSpec(type);
+	const hy = spec.dims.h / 2;
+	return hy * 0.2 + spec.suspension.rest + spec.wheel.radius;
+}
+
 // The fleet every world spawns with. The avenue bays mirror W01's vehicle
 // spawn-points (src/game/world-zones.js SPAWN_POINTS, type:'vehicle') so cars
 // park on the open cross-avenues the district keeps clear of buildings; two
@@ -120,9 +133,12 @@ export const VEHICLE_SPAWNS = [
 
 // --- Anti-cheat limits (server-enforced) ----------------------------------
 
-// World bounds must match WalkRoom's player clamp so a car can't be driven past
-// the visible arena.
-export const VEHICLE_WORLD_RADIUS_M = 60;
+// World bounds must match WalkRoom's own square player clamp (WORLD_BOUND_M =
+// world-zones.js WORLD_BOUND = DISTRICT.half - 2 = 198) so a car can't be
+// driven past the visible arena — and, just as importantly, so the avenue
+// vehicle spawns at x/z=±90 (VEHICLE_SPAWNS below) aren't clamped away by a
+// stale, smaller radius the first time they sync.
+export const VEHICLE_WORLD_BOUND_M = 198;
 
 // How close a player must stand to a parked vehicle to take the wheel.
 export const VEHICLE_ENTER_RANGE_M = 3.4;

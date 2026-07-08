@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-08T01:25:30.586Z",
+	"generated_at": "2026-07-08T01:33:47.056Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -32,6 +32,16 @@
 			"title": "BNB Chain Live Block Race — 0.45s vs Base, Ethereum, Solana",
 			"summary": "A live, honest race: BNB Chain, Base, Ethereum, and Solana block times measured fresh off real public RPCs every few seconds, with a rolling sparkline per lane. No wallet, no payment, no hardcoded numbers — a lane that goes quiet shows 'reconnecting' while the others keep racing.",
 			"link": "/bnb-latency",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "launch",
+			"title": "Crypto API",
+			"summary": "One free, keyless API for on-chain and market data: DEX pairs, prices, swap quotes, TVL, Solana RPC reads, and ENS/SNS name resolution — CoinGecko, DefiLlama, Jupiter, DexScreener and Solana RPC bundled behind one bill. Live provider table rendered from the real registry, generated OpenAPI 3.1 spec, free tier then BYOK, plan, or x402 pay-per-call.",
+			"link": "/crypto-api",
 			"tags": [
 				"launch"
 			]
@@ -377,6 +387,16 @@
 		{
 			"date": "2026-07-08",
 			"type": "update",
+			"title": "Restyle Studio can now AI-restyle any model and remembers every version",
+			"summary": "Restyle Studio (/restyle) now takes a plain-language instruction — \"make it chrome\", \"worn copper\", \"cyberpunk neon\" — and asks IBM Granite for a real PBR material plus a generated seamless texture, applied live to any GLB. Seeded colorway variants can now be saved as real, separately downloadable models instead of just a browser preview: one click mints all N as durable, glTF-validated GLBs. Every AI restyle and every saved variant is recorded in an immutable parent → child version lineage — the same versioning refine_model uses — so you can click back to any earlier look without losing your place; the original is never touched. The restyle_material MCP tool exposes the same engine to agents.",
+			"link": "/restyle",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
 			"title": "Sentiment and narrative intel are now part of the free API",
 			"summary": "POST /api/v1/sentiment (deterministic text classification), GET /api/v1/market/intel, and GET /api/v1/market/projects (aixbt-backed narrative + momentum intelligence) are now documented, publicly readable with no API key, and degrade honestly with a real 503 when the deployment's aixbt key isn't set — instead of a silent internal error.",
 			"link": "/docs/api-reference",
@@ -394,6 +414,16 @@
 			"tags": [
 				"feature",
 				"docs"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
+			"title": "Talk to your model, and remix the bazaar — right in Forge Studio",
+			"summary": "Conversational iteration and the remix economy are now live in the Forge Studio UI, not just over the API and MCP tools. After any generation, an Iterate panel lets you describe a change — \"make it metallic\", \"bigger helmet\" — and Apply regenerates a new version anchored to the one you see, with a version-strip you can click to revert instantly or branch a new line of changes from any earlier point; the viewer cross-fades in the new version, never a pop or a frozen frame. A new Remix economy panel lets you publish a model you made as remixable — pick a license, a royalty rate up to 20%, and the Solana wallet that collects it — and browse everyone else's published, remixable models with their provenance and royalty terms shown up front. Remixing one is a real $0.25 USDC payment; the platform generates the new version and automatically routes the source creator's royalty on-chain, with the settlement receipt shown inline. Iteration stays free and payment-free on every track; publishing and remixing are Claude/paid-track only.",
+			"link": "/forge-studio",
+			"tags": [
+				"feature"
 			]
 		},
 		{

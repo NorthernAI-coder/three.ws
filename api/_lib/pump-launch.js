@@ -19,6 +19,14 @@ import { solanaConnection } from './agent-pumpfun.js';
 import { submitProtected } from './execution-engine.js';
 import { grindMintKeypair } from './pump-vanity.js';
 import { fetchSafePublicUrlPinned, SsrfBlockedError } from './ssrf-guard.js';
+import {
+	claimMatchingPattern,
+	peekReservedSecret,
+	releaseReservation,
+	reserveAndReveal,
+	isDbUnavailableError,
+} from './vanity-inventory-store.js';
+import { openSecret } from './vanity-vault.js';
 
 const PUMP_IPFS_ENDPOINT = 'https://pump.fun/api/ipfs';
 
@@ -176,9 +184,13 @@ export async function uploadPumpMetadata({
  * @param {string}  [opts.vanityPrefix]
  * @param {string}  [opts.vanitySuffix]
  * @param {boolean} [opts.vanityIgnoreCase]
+ * @param {Keypair} [opts.mintKeypair]     pre-resolved mint (e.g. claimed from
+ *                                         inventory) — skips grinding entirely
+ *                                         when supplied.
  * @param {('mainnet'|'devnet')} [opts.network]
  * @returns {Promise<{ mint:string, signature:string, creator:string,
- *                      vanityIterations:number, vanityDurationMs:number }>}
+ *                      vanityIterations:number, vanityDurationMs:number,
+ *                      vanitySource:('inventory'|'ground'|null) }>}
  */
 export async function launchPumpToken({
 	launcher,
@@ -189,6 +201,7 @@ export async function launchPumpToken({
 	vanityPrefix,
 	vanitySuffix,
 	vanityIgnoreCase = false,
+	mintKeypair = null,
 	network = 'mainnet',
 }) {
 	let creatorPk;
@@ -202,12 +215,23 @@ export async function launchPumpToken({
 		creatorPk = launcher.publicKey;
 	}
 
-	const { keypair: mint, iterations: vanityIterations, durationMs: vanityDurationMs } =
-		await grindMintKeypair({
-			prefix: vanityPrefix,
-			suffix: vanitySuffix,
-			ignoreCase: vanityIgnoreCase,
-		});
+	let mint, vanityIterations, vanityDurationMs, vanitySource;
+	if (mintKeypair) {
+		// Instant path: a pre-ground address from vanity inventory already
+		// matches the requested pattern — no grinding needed.
+		mint = mintKeypair;
+		vanityIterations = 0;
+		vanityDurationMs = 0;
+		vanitySource = 'inventory';
+	} else {
+		({ keypair: mint, iterations: vanityIterations, durationMs: vanityDurationMs } =
+			await grindMintKeypair({
+				prefix: vanityPrefix,
+				suffix: vanitySuffix,
+				ignoreCase: vanityIgnoreCase,
+			}));
+		vanitySource = vanityPrefix || vanitySuffix ? 'ground' : null;
+	}
 
 	const { PumpSdk } = await import('@pump-fun/pump-sdk');
 	const sdk = new PumpSdk();
@@ -250,5 +274,71 @@ export async function launchPumpToken({
 		creator: creatorPk.toBase58(),
 		vanityIterations,
 		vanityDurationMs,
+		vanitySource,
 	};
+}
+
+/**
+ * Instant vanity-mint upsell: try to fulfill a vanityPrefix/vanitySuffix
+ * request for pump-launch from the pre-ground inventory instead of grinding
+ * live. Shares the exact same atomic claim + single-use reveal path premium
+ * buys use (api/_lib/vanity-inventory-store.js) — a hit is reserved,
+ * decrypted, and (once the caller has actually used the key to launch the
+ * token — i.e. it's committed on-chain no matter what) revealed and
+ * destroyed so it can never be handed out again. No price ceiling is applied
+ * here (unlike vanity.js's live-grind tier): pump-launch already charges one
+ * flat fee regardless of how hard the requested vanity pattern is to grind,
+ * so serving from inventory is strictly cheaper for the server and no worse
+ * for the buyer than the live grind it replaces.
+ *
+ * Returns null on any miss or failure — DB down, no match, decrypt error —
+ * so the caller falls straight through to launchPumpToken()'s live grind,
+ * unchanged.
+ *
+ * @param {object} opts
+ * @param {string} [opts.prefix]
+ * @param {string} [opts.suffix]
+ * @param {boolean} [opts.ignoreCase]
+ * @param {string} opts.paymentId  unique per launch attempt (any locally
+ *                                 unique string — only used to correlate this
+ *                                 claim's reserve → decrypt → reveal steps).
+ * @param {string} [opts.purchaser]
+ * @returns {Promise<{ mintKeypair:Keypair, address:string, reveal:Function, release:Function } | null>}
+ */
+export async function claimVanityMintFromInventory({ prefix, suffix, ignoreCase = false, paymentId, purchaser }) {
+	if ((!prefix && !suffix) || !paymentId) return null;
+
+	let claim;
+	try {
+		claim = await claimMatchingPattern({ prefix, suffix, ignoreCase, format: 'keypair', paymentId, purchaser });
+	} catch (err) {
+		if (!isDbUnavailableError(err)) {
+			console.error('[pump-launch] inventory claim lookup failed; falling back to grind', err?.message || err);
+		}
+		return null;
+	}
+	if (!claim.ok) return null;
+
+	const item = claim.item;
+	try {
+		const peek = await peekReservedSecret(item.address, { paymentId });
+		if (!peek.ok) throw new Error(peek.reason);
+		const bundle = JSON.parse(await openSecret(peek.ciphertext, peek.scheme));
+		const mintKeypair = Keypair.fromSecretKey(Uint8Array.from(bundle.secretKey));
+		if (mintKeypair.publicKey.toBase58() !== item.address) {
+			throw new Error('decrypted key does not match the claimed inventory address');
+		}
+		return {
+			mintKeypair,
+			address: item.address,
+			// The caller invokes these AFTER using (or failing to use) the key,
+			// so the reservation is only ever finalized once the outcome is known.
+			reveal: () => reserveAndReveal(item.address, { paymentId }),
+			release: () => releaseReservation(item.address, { paymentId }),
+		};
+	} catch (err) {
+		console.error('[pump-launch] inventory decrypt failed; releasing + falling back to grind', err?.message || err);
+		await releaseReservation(item.address, { paymentId }).catch(() => {});
+		return null;
+	}
 }

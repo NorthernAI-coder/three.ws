@@ -1,5 +1,6 @@
 // Multi-source web search with fallback chain.
-// Priority: Brave → Tavily → Exa → Serper → DuckDuckGo instant answer.
+// Priority: Brave → Tavily → Exa → Serper → Wikipedia full-text search →
+// DuckDuckGo instant answer.
 // At least 3 results are always returned (or a descriptive error thrown).
 
 const TIMEOUT_MS = 10_000;
@@ -131,6 +132,44 @@ async function searchSerper(query) {
 	}));
 }
 
+// ── Wikipedia full-text search (free, keyless fallback) ───────────────────────
+//
+// No BRAVE_API_KEY/TAVILY_API_KEY/EXA_API_KEY/SERPER_API_KEY is configured
+// anywhere in this deployment (verified against the production Cloud Run env
+// on 2026-07-08), so DuckDuckGo's Instant Answer API — which only resolves a
+// near-exact entity name to a single Wikipedia abstract, not general full-text
+// search — was the ONLY source, and it returns nothing for most LLM-generated,
+// full-sentence search queries ("Does cracking your knuckles cause arthritis"
+// finds no Instant Answer, even though English Wikipedia has directly relevant
+// coverage). Wikipedia's own search API (`list=search`) does real full-text
+// ranking over sentence-shaped queries and needs no API key or account, so it
+// sits ahead of the DDG fallback: strictly more capable, same zero-config cost.
+async function searchWikipedia(query) {
+	const url = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&srlimit=5&format=json&origin=*`;
+	const res = await withTimeout(
+		fetch(url, { headers: { accept: 'application/json', 'user-agent': 'three.ws-fact-checker/1.0 (+https://three.ws)' } }),
+		TIMEOUT_MS,
+	);
+	if (!res.ok) {
+		throw new Error(`Wikipedia search HTTP ${res.status}`);
+	}
+	const data = await res.json();
+	const results = data?.query?.search || [];
+	return results.map((r) => ({
+		url: `https://en.wikipedia.org/wiki/${encodeURIComponent(String(r.title || '').replace(/ /g, '_'))}`,
+		title: r.title || '',
+		// Strip the <span class="searchmatch"> highlight markup and decode the
+		// standard XML-safe entities MediaWiki escapes snippets with.
+		snippet: decodeXmlEntities(String(r.snippet || '').replace(/<[^>]+>/g, '')),
+	}));
+}
+
+function decodeXmlEntities(s) {
+	return s.replace(/&(amp|lt|gt|quot|#0?39);/g, (_, e) =>
+		({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'", '#039': "'" })[e],
+	);
+}
+
 // ── DuckDuckGo instant answer (fallback) ──────────────────────────────────────
 
 async function searchDuckDuckGo(query) {
@@ -234,7 +273,18 @@ export async function searchWeb(query) {
 		}
 	}
 
-	// Final fallback: DuckDuckGo.
+	// Free, keyless fallback #1: Wikipedia full-text search — tried whenever the
+	// configured (or absent) paid providers haven't reached 3 results yet.
+	if (deduplicate(combined).length < 3) {
+		try {
+			const wiki = await searchWikipedia(query);
+			combined.push(...wiki);
+		} catch (err) {
+			errors.push(err.message);
+		}
+	}
+
+	// Free, keyless fallback #2: DuckDuckGo Instant Answer.
 	if (deduplicate(combined).length < 3) {
 		try {
 			const ddg = await searchDuckDuckGo(query);

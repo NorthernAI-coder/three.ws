@@ -67,7 +67,7 @@ function init() {
 	buildPresetButtons();
 	wireControls();
 	const url = new URL(location.href).searchParams.get('url');
-	loadModel(url || DEFAULT_MODEL, url ? 'from URL' : 'sample', { originUrl: url || DEFAULT_MODEL });
+	loadModel(url || DEFAULT_MODEL, url ? 'from URL' : 'sample', { originUrl: absoluteUrl(url || DEFAULT_MODEL) });
 	window.addEventListener('resize', onResize);
 }
 
@@ -649,7 +649,7 @@ function wireControls() {
 	el['save-variants'].addEventListener('click', persistVariants);
 	el.reset.addEventListener('click', resetModel);
 	el.export.addEventListener('click', exportModel);
-	el.retry.addEventListener('click', () => loadModel(DEFAULT_MODEL, 'sample', { originUrl: DEFAULT_MODEL }));
+	el.retry.addEventListener('click', () => loadModel(DEFAULT_MODEL, 'sample', { originUrl: absoluteUrl(DEFAULT_MODEL) }));
 	el['ai-restyle'].addEventListener('click', aiRestyle);
 	el['ai-instruction'].addEventListener('keydown', (e) => {
 		if (e.key === 'Enter') aiRestyle();
@@ -764,6 +764,18 @@ function clampInt(n, lo, hi) {
 }
 function clamp01(n) {
 	return Math.min(1, Math.max(0, Number(n) || 0));
+}
+// Resolve a possibly-relative URL (e.g. the local /avatars/*.glb sample) to an
+// absolute https URL against the current origin — api/material-studio.js's SSRF
+// guard requires a real, publicly resolvable https URL, so a bare path like
+// "/avatars/realistic-female.glb" must become "https://three.ws/avatars/..."
+// before it's ever sent as glb_url.
+function absoluteUrl(u) {
+	try {
+		return new URL(u, location.href).href;
+	} catch {
+		return u;
+	}
 }
 function escapeHtml(s) {
 	return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

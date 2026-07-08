@@ -76,6 +76,7 @@ Need only a 3D preview — no chat, no voice, no 3 MB runtime? Use the light vie
   src="https://example.com/my-avatar.glb"
   alt="My avatar"
   background="transparent"
+  ar
 ></three-ws-viewer>
 ```
 
@@ -95,16 +96,31 @@ The package exposes focused subpath exports so you only ship what you use.
 ### `<three-ws-viewer>`
 
 A minimal viewer element: loads a GLB at `src`, frames it, and renders with
-`OrbitControls` and a `RoomEnvironment` image-based light.
+`OrbitControls` and a `RoomEnvironment` image-based light. Supports
+`EXT_meshopt_compression` and `KHR_draco_mesh_compression` GLBs transparently
+(both decoders are lazy-loaded on first use).
 
 | Attribute | Description |
 |---|---|
 | `src` | GLB URL to load. |
-| `alt` | Accessibility label; also rendered as an on-canvas caption. |
+| `alt` | Accessibility label; also rendered as an on-canvas caption. Defaults to `"3D model viewer"` when unset. |
 | `background` | CSS color, or `transparent` (default) for an alpha canvas. |
+| `ar` | Opt-in boolean. Adds a "View in AR" button that opens `three.ws/api/ar` in a new tab — device-aware AR (Android Scene Viewer / iOS Quick Look / desktop viewer fallback). Absent by default. |
 
-It dispatches a `load` event (`detail: { url }`) on success and an `error` event
-(`detail: { url, error }`) on failure.
+It dispatches a `load` event (`detail: { url }`) on success, an `error` event
+(`detail: { url, error }`) on failure, and an `ar-launch` event
+(`detail: { src, launchUrl }`) when the AR button is activated.
+
+**Accessibility.** The canvas is keyboard-focusable (`role="img"`, matching
+`<model-viewer>`'s own convention) — Arrow keys orbit, `+`/`-`/PageUp/PageDown
+zoom, and a visible focus ring appears on `:focus-visible`. Orbit damping is
+disabled under `prefers-reduced-motion: reduce`.
+
+**Performance.** On a detected low-power device (coarse pointer + ≤4 CPU cores
+or ≤4GB `deviceMemory`) the viewer starts at pixel ratio 1 and skips MSAA and
+the PMREM environment prefilter. Independently, if live frame time shows
+sustained <~24fps for about 1.5s, pixel ratio is stepped down once at runtime.
+Both are transparent — no attribute needed, and desktop behavior is unchanged.
 
 ### `<agent-3d>`
 

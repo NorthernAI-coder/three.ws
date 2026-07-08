@@ -395,3 +395,219 @@ not_found + SP-failover + all-SPs-down, and XML/JSON list parsing.
   which is prompt 09's funded upload (same tBNB-faucet blocker noted in prompts 01/02).
 
 **Status: DONE (code + tests, live-wire proven).** Upload (09) + unlock (11) can import it.
+
+---
+
+## 2026-07-08 — Prompt 10: GreenfieldVault.sol (pay → PermissionHub grant) — SHIPPED, deploy BLOCKED
+
+**Outcome: `contracts/src/GreenfieldVault.sol` + real interface stubs + full Foundry
+test suite done and compiling/passing. Live BSC testnet deploy is blocked on a funded
+deployer key (same as items 13/18) — everything else is deploy-ready.**
+
+- **Real interfaces, not invented ones.** `contracts/src/greenfield/{IPermissionHub,
+  ICrossChain,IGnfdAccessControl,IApplication}.sol` reproduce the exact ABIs from
+  `bnb-chain/greenfield-contracts` (`contracts/interface/*.sol` +
+  `middle-layer/resource-mirror/storage/{PermissionStorage,CmnStorage}.sol` +
+  `storage/PackageQueue.sol`), fetched and verified against `master` on 2026-07-08 —
+  every function signature, the `ExtraData`/`FailureHandleStrategy` types, and every
+  address are sourced, not guessed. Kept as minimal self-contained interfaces (not the
+  full upgradeable implementation tree) so this workspace doesn't need to add
+  `@openzeppelin/contracts-upgradeable` as a new dependency.
+- **Real addresses, cross-checked two ways.** Mainnet CrossChain/ObjectHub from
+  `00-CONTEXT.md`'s bytecode-verified list; PermissionHub mainnet + all four testnet
+  hub addresses read live from `bnb-chain/greenfield-contracts`' README "Contract
+  Entrypoint" tables (testnet PermissionHub `0x25E1eeDb5CaBf288210B132321FBB2d90b4174ad`,
+  CrossChain `0xa5B2c9194131A4E0BFaCbF9E5D6722c873159cb7`, ObjectHub
+  `0x1b059D8481dEe299713F18601fB539D066553e39`) — full table in `DEPLOYMENTS.md`.
+- **`list`/`buy`/`revoke` exactly as specced, plus what "the vault must control its
+  permissions" actually means on-chain:** `list()` requires the seller to have already
+  called the real `IGnfdAccessControl.grantRole(ROLE_CREATE, vaultAddress, expiry)` on
+  ObjectHub — checked live via `hasRole`, not merely asserted. `buy()` takes an
+  off-chain-built GNFD permission payload (`policyData`, opaque bytes — no EVM contract
+  encodes GNFD protobuf on-chain, real PermissionHub doesn't either), validates
+  `price + live crossChain.getRelayFees()` atomically (no half-execution on
+  underpayment or an uncovered relay fee), forwards the real relay fee to
+  `PermissionHub.createPolicy`, and emits `Purchased`. Because `createPolicy` is
+  genuinely asynchronous (00-CONTEXT: "poll for effect, never assume same-block"), the
+  vault implements `IApplication.greenfieldCall` to receive the real minted policy id
+  when Greenfield's ack settles, emitting `PolicyGranted`/`PolicyGrantFailed` — the
+  "surface pending honestly" pattern the rest of this campaign uses, not a fabricated
+  synchronous policyId. `revoke()` is seller-gated, calls the real
+  `PermissionHub.deletePolicy`, documented as permanent-grants-by-default with an
+  explicit escape hatch (spec left this a documented choice). Multiple buyers can each
+  hold an independent grant on the same object (content-access marketplace, not
+  ownership transfer); double-buy by the same buyer is idempotent-by-design
+  (`AlreadyPurchased`, cleared on revoke/failed-settlement so a retry/resell works).
+  Pull-payment `withdraw()` for seller proceeds; `nonReentrant` on every state-changing
+  external-payment path.
+- **Tests:** `contracts/test/GreenfieldVault.t.sol` (34 tests) +
+  `contracts/test/mocks/{MockGreenfield.sol,Reentrant.sol}` — mocked
+  PermissionHub/CrossChain/IGnfdAccessControl faithful to the real two-phase syn/ack
+  flow (a `settleCreatePolicy(policyId, status)` harness call plays the Greenfield
+  relayer). Covers: list requires role grant, only-seller list/delist, relist repricing,
+  listed-by-another-seller, buy happy path + settlement, unlisted/empty-data/underpayment/
+  missing-relay-fee reverts (atomic, no partial state), excess-payment refund, double-buy
+  reverts and clears on failed-settlement/revoke, `greenfieldCall` access control (only
+  PermissionHub, only the real channel id, unknown-sale guard), full revoke lifecycle
+  (only sale's seller, requires `Granted` status, insufficient-fee revert, excess-fee
+  refund), withdraw pull-payment, `quoteRelayFee` view, and two dedicated
+  cross-function re-entrancy proofs (a `buy()` refund trying to re-enter `buy()` on a
+  separate valid listing; a `withdraw()` payout trying to re-enter `withdraw()`) —
+  both assert the nested low-level call fails with OpenZeppelin's
+  `ReentrancyGuardReentrantCall` specifically, not just "nothing happened to steal".
+- **`contracts/script/DeployGreenfieldVault.s.sol`** — selects real hub addresses by
+  `block.chainid` (56/97), env-overridable. Dry-run proof below.
+
+**Real build/test proof:**
+```
+$ forge build
+Compiler run successful!
+
+$ forge test --match-path test/GreenfieldVault.t.sol
+Ran 34 tests for test/GreenfieldVault.t.sol:GreenfieldVaultTest
+Suite result: ok. 34 passed; 0 failed; 0 skipped
+
+$ forge test   # full contracts/ workspace, nothing else touched
+Ran 6 test suites: 94 tests passed, 0 failed, 0 skipped
+```
+
+**Deploy: BLOCKED on a funded deployer key (owner-only, same as items 13/18).**
+`forge script script/DeployGreenfieldVault.s.sol:DeployGreenfieldVault --rpc-url
+https://data-seed-prebsc-1-s1.bnbchain.org:8545 -vvvv` (no `--broadcast`) simulated
+successfully end-to-end against the LIVE BSC testnet RPC: constructor executes with the
+real testnet PermissionHub/CrossChain/ObjectHub addresses baked in, ~1.16M gas estimated
+at 0.1 gwei ≈ 0.000170 BNB. Checked (presence only, no secret values read):
+`DEPLOYER_PK`/`BNB_TESTNET_DEPLOYER_KEY` absent from shell env, no root `.env`, no
+`contracts/.env`, `cast wallet list` empty. Full dry-run trace + constructor args
+recorded in `DEPLOYMENTS.md`'s new GreenfieldVault section.
+
+**Other changes:** added `BSC_TESTNET_RPC_URL`/`BSCSCAN_API_KEY` to
+`contracts/.env.example` and `bsc_testnet`/`bsc` entries to `contracts/foundry.toml`
+`[rpc_endpoints]`/`[etherscan]` (additive only — did not touch `AgentPayments.sol`,
+the ERC-8004 registries, or `api/_lib/bnb/`, per this prompt's file boundaries).
+
+**Gap for prompt 11 (unlock API) / 13 (e2e proof):** the real end-to-end proof (a real
+`buy()` tx, a real `createPolicy` ack settling, a real `PolicyGranted` with a real
+Greenfield policy id, cross-checked on GreenfieldScan) needs both this contract deployed
+AND a real uploaded+listed object (prompt 09, same funding blocker) — same single root
+cause blocking 07/08/09/13/14/18 in this campaign.
+
+**Status: DONE (code + tests). Deploy BLOCKED on funded deployer key — owner action
+needed.**
+
+---
+
+## 2026-07-08 — Prompt 03: Gas-free ERC-8004 agent registration on BSC — SHIPPED, verified live end-to-end with real mints
+
+**Outcome: `api/_lib/bnb/erc8004-gasless.js`, `api/bnb/register-agent.js`,
+`src/erc8004/gasless-register.js`, and the `/deploy` wizard's new gasless panel are done
+and proven with REAL BSC testnet mints — not simulations.** Prereqs 01/02 confirmed
+committed (`92bab1faf`, `c61c96452`) and imported as-is; `megafuel.js` gained one small
+additive export (`submitRawTx`, a low-level "relay bytes I was handed" primitive — see
+below for why `sendGasless()` didn't fit this prompt's signing model).
+
+**Architecture decision — why this ISN'T `sendGasless()`:** the spec's phrasing ("server
+relays via `sendGasless`") assumes a server-held signer. That's right for prompt 02's
+demo/ops account, but wrong here: this endpoint must never see a private key. Real
+design: the CLIENT (browser wallet or, for the true "zero-balance wallet" demo, an
+in-page ephemeral viem account whose key lives in `sessionStorage` only) signs a
+*legacy* `register(agentURI)` transaction entirely itself — with `gasPrice: 0` for a
+gasless attempt, or a real `gasPrice` for a self-pay attempt — and POSTs only the raw
+signed bytes. The server (`relayGaslessRegistration`) parses them (`viem.parseTransaction`
++ `recoverTransactionAddress`), validates the target is the real Identity Registry, and
+either relays the EXACT bytes to MegaFuel's `eth_sendRawTransaction` (gasless branch) or
+broadcasts them as-is via the public RPC (self-pay branch) — it never constructs or signs
+anything. A `gasPrice: 0` tx that MegaFuel declines is mechanically unbroadcastable on any
+normal node (guaranteed underpriced-tx rejection outside the paymaster path), so a decline
+returns `{ mode: 'declined', reason, hint }` instead of attempting a doomed send — the
+caller re-signs with a real gasPrice and POSTs again to self-pay.
+
+**Two real bugs found and fixed by live testing (would have shipped broken from mocks alone):**
+1. **Already-registered guard crashed on the real contract.** The live BSC Testnet
+   Identity Registry (`0x8004A818BFB912233c491871b3d84c89A494BD9e`) declares
+   `tokenOfOwnerByIndex` in its ABI but **reverts** on every call to it (no
+   ERC721Enumerable storage wired) — confirmed live 2026-07-08. The original guard did
+   `.catch(() => null)` around the whole already-registered check, which silently treated
+   a revert as "not registered" and would have let an already-registered address slip
+   into a duplicate mint attempt. Fixed: `balanceOf` alone (which works) now
+   short-circuits registration; `tokenOfOwnerByIndex` is best-effort enrichment only —
+   `agentId: null` with `alreadyRegistered: true` when it can't be resolved, never a
+   silent false negative.
+2. **agentId decoded from the wrong topic when both `Transfer` and `Registered` logs are
+   present.** Every real mint emits BOTH events in the same receipt, with `Transfer`
+   logged first. `Transfer(from, to, tokenId)` puts `tokenId` at `topics[3]`, not
+   `topics[1]` (that's `from`, which is `0x0` on a mint) — a naive "first
+   Registered-or-Transfer match, read `topics[1]`" decoder silently returned `"0"` as the
+   agentId on every real registration. Live testing caught it immediately (a real mint
+   returning agentId `"0"` was an obvious tell). Fixed: `Registered`'s `topics[1]` is
+   preferred when present; `Transfer` fallback now correctly reads `topics[3]`. Regression
+   tests added for both bugs (`tests/bnb-erc8004-gasless.test.js`).
+
+**Tests:** `tests/bnb-erc8004-gasless.test.js` (17 cases) — real legacy-tx signing +
+parsing with synthetic per-test viem accounts (never a real key), injected
+publicClient/megafuelOpts mocks for sponsored/self-pay/declined/pending/reverted paths,
+both regression tests above, input validation (malformed tx, wrong target, non-legacy
+type). `tests/bnb-register-agent.test.js` (10 cases) — HTTP boundary only (validation,
+status/body shaping, rate limiting via new `limits.bnbRegisterIp`, method/CORS), mirrors
+`tests/bnb-babt-check-endpoint.test.js`'s mock-the-lib pattern. `npx vitest run
+tests/bnb-erc8004-gasless.test.js tests/bnb-register-agent.test.js tests/bnb-megafuel.test.js`
+→ 36/36 passed.
+
+**REAL testnet proof — four independent layers, zero mocks, all cross-verified against
+three public RPCs (`data-seed-prebsc-1-s1.bnbchain.org`, `bsc-testnet.drpc.org`,
+`bsc-testnet-rpc.publicnode.com`):**
+
+1. **Library-direct** (`relayGaslessRegistration()` called with zero overrides — real
+   `getPublicClient('bscTestnet')`, real MegaFuel fetch): fresh account
+   `0xfb35130d94D80437eb3350c71e2c62898e9c57E3`, balance **0 wei both before and after**.
+   ```json
+   {"mode":"sponsored","agentId":"1593",
+    "hash":"0x29b2999e1543d7e6d4eba21b41b33718d8e0196e18c1510d39e4cffcfe52bc95",
+    "blockNumber":117842997,
+    "sponsor":{"sponsorable":true,"sponsorName":"Yolin","sponsorIcon":"Yolin"}}
+   ```
+   Receipt independently fetched: `status:0x1, effectiveGasPrice:0x0` — genuinely free.
+   Same account re-registered a second time → `{"alreadyRegistered":true,"agentId":null}`,
+   no second broadcast (proves bug-fix #1 above against real state).
+2. **HTTP-layer** (`curl` → real `server/index.mjs` on a local port, the actual
+   production Express routing/CORS/rate-limit/JSON-parse stack, not a reimplementation):
+   fresh account `0x693E0892C9970055e599fB286FA9116039bCbE00` → `{"mode":"sponsored",
+   "agentId":"1594","hash":"0xa51be73cc33f9336e5527fc500cbb651228013f491fe071b336d849dc1be6687"}`,
+   independently confirmed `status:0x1, effectiveGasPrice:0x0` on-chain.
+3. **Real browser UI** (Playwright driving the actual `/deploy` page: select BSC Testnet,
+   fill the wizard, click **⚡ Register gasless (0 tBNB wallet)**): ephemeral wallet
+   `0xC101347Ef63059F346026eA338c1dd48C58937BB` generated client-side, log output "Relayed
+   via MegaFuel — mode: sponsored. Tx: 0x9d5ba2b1...  Confirmed. Agent ID: 1595."
+   Independently confirmed on-chain: `status:0x1, effectiveGasPrice:0x0,
+   from:0xc101347ef63059f346026ea338c1dd48c58937bb`.
+4. **Self-pay branch** (public testnet faucet still reCAPTCHA-gated — same blocker prompt
+   02 documented — so funded via `anvil --chain-id 97 --fork-url
+   https://bsc-testnet.drpc.org` + `anvil_setBalance`, same pattern prompt 02 used,
+   `relayGaslessRegistration()` run unmodified against the fork): funded 0.1 tBNB, minted
+   agentId `"1594"` (fork-local counter), real gas charged
+   (`0.1 → 0.099867272 tBNB`), confirming the self-pay branch's decode/broadcast path is
+   correct too (this is where bug #2 was originally caught, before being confirmed live).
+
+**MegaFuel sponsor-policy finding — the prompt-02 gap is narrower than recorded:** prompt
+02's PROGRESS entry noted "no NodeReal sponsor policy exists for our sender (or any
+unregistered sender)" as of 2026-07-08 T00:xx. Re-probed the same live
+`pm_isSponsorable` endpoint a few hours later in this session and got
+`{"sponsorable":true,"sponsorName":"Yolin","sponsorIcon":"Yolin"}` for multiple freshly
+generated, never-before-seen addresses — MegaFuel's BSC testnet policy currently sponsors
+arbitrary senders by default (a testnet-only "Yolin" default policy, not one we
+provisioned). This is exactly what makes the zero-balance-wallet demo work live right
+now; it's a MegaFuel-operator decision that could change without notice (per 00-CONTEXT's
+"sponsor policies are whitelisted" caveat), so the self-pay fallback documented above
+remains load-bearing, not decorative.
+
+**Docs/changelog:** `docs/erc8004.md` — new "Gasless agent registration on BNB" section
+(architecture, curl example with a real captured response, response-shape table, known
+limits) linked implicitly via the existing `## Registering an agent` flow.
+`data/changelog.json` — holder-readable entry (`feature`, `sdk` tags) linking `/deploy`.
+
+**Status: DONE.** No blockers — the flow works end-to-end today, live, for a genuinely
+zero-balance wallet. Only soft gap: this mints with a seed URI (GLB/image URL) only, same
+as the standard flow's first transaction; pointing the token at the full agent-card JSON
+still needs a follow-up `setAgentURI` call this gasless path doesn't perform (documented
+in docs/erc8004.md "Known limits" — an explicit scope cut, not an oversight, to keep the
+relay to one signed transaction). Ready for prompt 04 (mpp-server-adapter) to build on.

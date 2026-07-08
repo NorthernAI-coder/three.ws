@@ -115,7 +115,7 @@ function renderHeadline(bnbLane) {
 	const sub = $('bnbl-headline-sub');
 	if (!el) return;
 	if (bnbLane?.ok && bnbLane.avgBlockTimeMs > 0) {
-		el.innerHTML = `${esc(formatBlockTime(bnbLane.avgBlockTimeMs))}<span class="unit">avg block time, live</span>`;
+		el.innerHTML = `${esc(formatBlockTime(bnbLane.avgBlockTimeMs))}<span class="unit">avg block time</span>`;
 		const base = laneStore.base.last;
 		const eth = laneStore.ethereum.last;
 		const bits = [];

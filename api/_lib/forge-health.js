@@ -29,7 +29,13 @@ import { providersInCooldown } from './provider-health.js';
 const PROBE_TIMEOUT_MS = 4_000;
 const CACHE_TTL_MS = 60_000;
 
-const REPLICATE_PREDICTIONS_URL = 'https://api.replicate.com/v1/predictions';
+// A real, stable, cheap model — this pipeline's own default text→image model
+// (see text-to-image.js DEFAULT_TXT2IMG_MODEL) — used to probe Replicate's
+// actual billing/quota gate. See the long comment on probeReplicate() below
+// for why a real model is required here (a fake version/model short-circuits
+// on request-shape or version-lookup validation before billing is ever
+// checked, hiding a real out-of-credit account behind a false "ok").
+const REPLICATE_PROBE_MODEL_URL = 'https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions';
 const NVCF_STATUS_URL = 'https://api.nvcf.nvidia.com/v2/nvcf/pexec/status';
 // Valid UUID shape that no real NVCF request will ever have — auth is checked
 // before the id is resolved, so 404 proves the key works.
@@ -59,17 +65,35 @@ async function probeFetch(url, options = {}) {
 }
 
 // Replicate (the `trellis` lane): an invalid-version prediction submit clears
-// the auth and account-quota gates without creating billable work — 4xx
-// validation means a real submit would have been accepted.
+// the auth and account-quota gates without creating billable work — a REAL
+// model reference rejected on its input schema (422) means a real submit
+// would have been accepted; that same rejection arrives instead as 402 when
+// the account is out of credit, which is the signal this probe is for.
+//
+// Bug fixed 2026-07-08 (found live during a forge_free outage investigation):
+// the previous probe posted `{ version: 'forge-health-probe-invalid-version' }`
+// with NO `model`/`input` — Replicate's own request-shape validation ("input is
+// required") rejects that with 422 BEFORE the billing/quota gate is ever
+// reached, so a genuinely out-of-credit account still probed `ok`. Verified
+// live against the real (currently out-of-credit) production token: the old
+// probe body returned 422 "input is required"; the SAME token against a real
+// model (`black-forest-labs/flux-schnell`, this pipeline's own default
+// text→image model — see text-to-image.js DEFAULT_TXT2IMG_MODEL) with a
+// deliberately-empty `input: {}` returned 402 "Insufficient credit" instantly,
+// with no prediction id in the body — i.e. billing IS checked before input
+// validation for a real model, and rejection there creates no billable work
+// (confirmed: neither response contains a prediction id). So probing a real
+// model with empty input reaches the actual gate this health check exists to
+// verify, at zero cost either way.
 async function probeReplicate() {
 	const id = 'trellis';
 	const token = readEnv('REPLICATE_API_TOKEN');
 	if (!token) return result(id, 'unconfigured', 'REPLICATE_API_TOKEN is not set on this deployment.');
 	const started = Date.now();
-	const res = await probeFetch(REPLICATE_PREDICTIONS_URL, {
+	const res = await probeFetch(REPLICATE_PROBE_MODEL_URL, {
 		method: 'POST',
 		headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-		body: JSON.stringify({ version: 'forge-health-probe-invalid-version' }),
+		body: JSON.stringify({ input: {} }),
 	});
 	const latency = Date.now() - started;
 	if (!res) return result(id, 'down', 'Replicate is unreachable.', { latency_ms: latency });
@@ -82,8 +106,8 @@ async function probeReplicate() {
 	if (res.status === 429) {
 		return result(id, 'degraded', 'Replicate is throttling this account — generations will be rejected until the quota clears (check billing).', { http_status: res.status, latency_ms: latency });
 	}
-	// 400/404/422 — the fake version was rejected AFTER auth and quota, which is
-	// exactly what the probe wants to see.
+	// 400/404/422 — the empty input was rejected on schema AFTER auth and
+	// billing/quota, which is exactly what the probe wants to see.
 	if (res.status >= 400 && res.status < 500) {
 		return result(id, 'ok', 'Replicate accepted authentication; generations should start.', { latency_ms: latency });
 	}

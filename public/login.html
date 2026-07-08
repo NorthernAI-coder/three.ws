@@ -1129,20 +1129,32 @@
 					if (captchaToken) loginHeaders['x-captcha-token'] = captchaToken;
 
 					let res;
+					const loginTimeout = new AbortController();
+					const loginTimer = setTimeout(() => loginTimeout.abort(), 20_000);
 					try {
 						res = await fetch('/api/auth/login', {
 							method: 'POST',
 							credentials: 'include',
 							headers: loginHeaders,
 							body: JSON.stringify({ email, password, remember: document.getElementById('remember')?.checked || false }),
+							signal: loginTimeout.signal,
 						});
-					} catch {
-						// Transport failure — the request never reached the server.
-						setFieldError(passwordInput, passwordErr, 'Network error — check your connection and try again.');
+					} catch (err) {
+						// Transport failure or timeout — the request never reached the server
+						// (or never got a response), so the button must not stay stuck.
+						setFieldError(
+							passwordInput,
+							passwordErr,
+							err?.name === 'AbortError'
+								? 'Sign-in timed out — check your connection and try again.'
+								: 'Network error — check your connection and try again.',
+						);
 						btn.disabled = false;
 						btn.textContent = 'Sign in';
 						window.__avatarFall?.();
 						return;
+					} finally {
+						clearTimeout(loginTimer);
 					}
 
 					const data = await res.json().catch(() => ({}));
