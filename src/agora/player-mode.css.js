@@ -235,4 +235,90 @@ const PLAYER_CSS = `
 	.agora-p-prompt, .agora-p-chat-line, .agora-p-bubble { animation: none; transition: none; }
 	.agora-p-presence[data-state="connecting"] .dot { animation: none; }
 }
+
+/* ── On-chain (BNB) presence toggle — prompt 16 ───────────────────────────
+   Sits just under the humans-presence pill, top-right. OFF by default;
+   .agora-oc-confirm is the "gracefully cancelable" opt-in prompt shown only
+   the first time a browser turns this on (no stored session key yet). */
+.agora-oc-wrap {
+	position: absolute;
+	top: 58px;
+	right: 14px;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 8px;
+	pointer-events: auto;
+	max-width: min(86vw, 300px);
+}
+.agora-oc-toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 13px;
+	background: var(--p-bg);
+	border: 1px solid var(--p-border);
+	border-radius: 999px;
+	backdrop-filter: blur(10px);
+	font: 600 12px Inter, system-ui, sans-serif;
+	color: var(--p-text);
+	cursor: pointer;
+	transition: border-color 0.15s ease, background 0.15s ease;
+}
+.agora-oc-toggle:hover:not(:disabled) { border-color: var(--p-accent); }
+.agora-oc-toggle:active:not(:disabled) { background: rgba(110, 168, 255, 0.18); }
+.agora-oc-toggle:focus-visible { outline: 2px solid var(--p-accent); outline-offset: 2px; }
+.agora-oc-toggle:disabled { cursor: not-allowed; opacity: 0.55; }
+.agora-oc-toggle .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--p-dim); flex: none; }
+.agora-oc-toggle[data-state="off"] .dot { background: var(--p-dim); }
+.agora-oc-toggle[data-state="connecting"] .dot { background: var(--p-accent); animation: agora-p-pulse 1.1s ease-in-out infinite; }
+.agora-oc-toggle[data-state="on"] .dot { background: var(--p-ok); box-shadow: 0 0 8px var(--p-ok); }
+.agora-oc-toggle[data-state="on-selfpay"] .dot { background: #f5b942; box-shadow: 0 0 8px #f5b942; }
+.agora-oc-toggle[data-state="on-nofunds"] .dot { background: var(--p-err); }
+.agora-oc-toggle[data-state="unavailable"] .dot { background: var(--p-dim); }
+.agora-oc-confirm {
+	width: 100%;
+	padding: 12px;
+	background: var(--p-bg);
+	border: 1px solid var(--p-border);
+	border-radius: 14px;
+	backdrop-filter: blur(10px);
+	box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+	animation: agora-p-rise 0.18s ease;
+}
+.agora-oc-confirm p { margin: 0 0 10px; font-size: 12px; line-height: 1.5; color: var(--p-dim); }
+.agora-oc-confirm-row { display: flex; gap: 8px; justify-content: flex-end; }
+.agora-oc-btn {
+	padding: 7px 13px;
+	border-radius: 9px;
+	border: 1px solid var(--p-border);
+	background: transparent;
+	color: var(--p-text);
+	font: 600 12px Inter, system-ui, sans-serif;
+	cursor: pointer;
+	transition: border-color 0.12s ease, background 0.12s ease;
+}
+.agora-oc-btn:hover { border-color: var(--p-accent); }
+.agora-oc-btn:focus-visible { outline: 2px solid var(--p-accent); outline-offset: 2px; }
+.agora-oc-btn-primary { background: var(--p-accent); border-color: var(--p-accent); color: #0b1220; }
+.agora-oc-btn-primary:hover { filter: brightness(1.08); }
+.agora-oc-hint {
+	width: 100%;
+	padding: 9px 12px;
+	background: var(--p-bg);
+	border: 1px solid var(--p-border);
+	border-radius: 11px;
+	backdrop-filter: blur(10px);
+	font-size: 11.5px;
+	line-height: 1.45;
+	color: var(--p-dim);
+	animation: agora-p-rise 0.2s ease;
+}
+@media (hover: none), (max-width: 640px) {
+	.agora-oc-wrap { top: auto; bottom: 128px; right: 8px; max-width: 62vw; }
+}
+@media (prefers-reduced-motion: reduce) {
+	.agora-oc-confirm, .agora-oc-hint { animation: none; }
+	.agora-oc-toggle[data-state="connecting"] .dot { animation: none; }
+}
 `;

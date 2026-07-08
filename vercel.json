@@ -822,6 +822,10 @@
 			"dest": "/launches.html"
 		},
 		{
+			"src": "/minted/?",
+			"dest": "/minted.html"
+		},
+		{
 			"src": "/pulse/?",
 			"dest": "/pulse.html"
 		},

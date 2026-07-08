@@ -357,8 +357,142 @@ function wireSearch() {
 	});
 }
 
+// ── Liquidations pulse strip ────────────────────────────────────────────────
+// Real-time long/short liquidation pain across Binance, Bybit, and OKX
+// futures, fed by /api/coin/liquidations (proxying the standalone
+// services/liquidation-collector). Optional enrichment: an offline collector
+// degrades to a quiet single line, never fabricated numbers.
+
+const LIQ_POLL_MS = 30_000;
+const LIQ_1H_MS = 60 * 60 * 1000;
+let liqTimer = null;
+let liqLoaded = false;
+
+// Resolve a liquidation's ticker symbol to a /coin/:id detail page — only for
+// symbols present in the currently loaded markets table (state.coins), per
+// the page's design: we don't guess at an id the table hasn't confirmed.
+function resolveCoinId(symbol) {
+	const hit = state.coins.find((c) => (c.symbol || '').toUpperCase() === symbol);
+	return hit ? hit.id : null;
+}
+
+function liqBadgeClass(side) {
+	if (side === 'LONG PAIN') return 'pain';
+	if (side === 'SHORT SQUEEZE') return 'squeeze';
+	return 'balanced';
+}
+
+function renderLiqSkeleton() {
+	const el = $('cv-liq');
+	if (!el) return;
+	el.innerHTML =
+		'<div class="cv-liq-skel">' +
+		'<div class="cv-skel" style="height:1.5rem;width:8rem;border-radius:999px"></div>' +
+		'<div class="cv-skel" style="height:2.5rem;flex:1;max-width:280px"></div>' +
+		'<div class="cv-skel" style="height:1.75rem;flex:2"></div>' +
+		'</div>';
+}
+
+function renderLiqOffline() {
+	const el = $('cv-liq');
+	if (!el) return;
+	el.innerHTML =
+		'<p class="cv-liq-offline" role="status"><span class="dot" aria-hidden="true"></span>Liquidation feed offline — showing the rest of the markets page as usual.</p>';
+}
+
+function renderLiqPopulated(data) {
+	const el = $('cv-liq');
+	if (!el) return;
+	const { summary, liquidations } = data;
+	const recent = Array.isArray(liquidations) ? liquidations : [];
+
+	// 1h long vs short liquidated USD, derived from the real recent-liquidations
+	// list (already timestamped) rather than the collector's 4h window total.
+	const cutoff1h = Date.now() - LIQ_1H_MS;
+	let long1h = 0;
+	let short1h = 0;
+	for (const l of recent) {
+		if (l.time < cutoff1h) continue;
+		if (l.side === 'LONG') long1h += l.value;
+		else if (l.side === 'SHORT') short1h += l.value;
+	}
+	const maxBar = Math.max(long1h, short1h, 1);
+
+	const top3 = [...recent].sort((a, b) => b.value - a.value).slice(0, 3);
+
+	const badge = summary?.dominantSide || 'BALANCED';
+	const badgeCls = liqBadgeClass(badge);
+
+	const bars = `
+		<div class="cv-liq-bars">
+			<div class="cv-liq-bar-row">
+				<span class="lbl">1h Long</span>
+				<span class="cv-liq-bar-track"><span class="cv-liq-bar-fill long" style="width:${((long1h / maxBar) * 100).toFixed(1)}%"></span></span>
+				<span class="amt cv-mono">${esc(formatUsd(long1h))}</span>
+			</div>
+			<div class="cv-liq-bar-row">
+				<span class="lbl">1h Short</span>
+				<span class="cv-liq-bar-track"><span class="cv-liq-bar-fill short" style="width:${((short1h / maxBar) * 100).toFixed(1)}%"></span></span>
+				<span class="amt cv-mono">${esc(formatUsd(short1h))}</span>
+			</div>
+		</div>`;
+
+	const items = top3.length
+		? top3
+				.map((l) => {
+					const sideCls = l.side === 'LONG' ? 'long' : 'short';
+					const inner = `
+						<span class="sym">${esc(l.symbol)}</span>
+						<span class="side ${sideCls}">${esc(l.side)}</span>
+						<span class="bucket">${esc(l.severity)}</span>
+						<span class="usd">${esc(formatUsd(l.value))}</span>`;
+					const id = resolveCoinId(l.symbol);
+					return id
+						? `<a class="cv-liq-item" href="/coin/${encodeURIComponent(id)}">${inner}</a>`
+						: `<span class="cv-liq-item">${inner}</span>`;
+				})
+				.join('')
+		: '<span class="cv-liq-item" style="color:var(--cv-text-3)">No liquidations in the last 4h — quiet market.</span>';
+
+	el.innerHTML = `
+		<span class="cv-liq-badge ${badgeCls}">${esc(badge)}</span>
+		${bars}
+		<div class="cv-liq-top" aria-label="Largest recent liquidations">${items}</div>`;
+}
+
+async function pollLiquidations() {
+	if (document.hidden) return;
+	try {
+		const data = await getJson('/api/coin/liquidations');
+		renderLiqPopulated(data);
+	} catch {
+		// 503 collector_offline (or any other failure) → quiet offline line, never
+		// fabricated numbers. First load shows the offline state; subsequent polls
+		// that fail after a populated render just leave the last-good data up.
+		if (!liqLoaded) renderLiqOffline();
+	} finally {
+		liqLoaded = true;
+	}
+}
+
+function scheduleLiquidations() {
+	clearInterval(liqTimer);
+	liqTimer = setInterval(pollLiquidations, LIQ_POLL_MS);
+}
+
+function loadLiquidations() {
+	if (!$('cv-liq')) return;
+	renderLiqSkeleton();
+	pollLiquidations();
+	scheduleLiquidations();
+	document.addEventListener('visibilitychange', () => {
+		if (!document.hidden) pollLiquidations();
+	});
+}
+
 // ── Boot ────────────────────────────────────────────────────────────────────
 
 loadStats();
 loadCoins();
+loadLiquidations();
 wireSearch();

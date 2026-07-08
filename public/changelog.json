@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-08T06:27:11.377Z",
+	"generated_at": "2026-07-08T06:28:20.185Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -372,6 +372,16 @@
 			"title": "Live DeFi yield and market-sentiment data: new fear/greed and yield-pool APIs",
 			"summary": "A new market-data layer pulls real-time DeFi yield pools and protocol TVL from DeFiLlama, backing a new GET /api/intel/yields endpoint that returns live yield pools filterable by chain, project, and stablecoin status, sorted by TVL. This lays the groundwork for yield-discovery features and a smarter trading copilot on top of real, cached, non-fabricated market data.",
 			"link": "/docs/api-reference",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
+			"title": "Live liquidations pulse on the markets page — real-time long/short pain across Binance, Bybit, and OKX",
+			"summary": "A new standalone collector subscribes to the public futures liquidation WebSocket streams of Binance, Bybit, and OKX, classifies each liquidation by size, and keeps a rolling 4-hour window. /coins now shows a live strip under the global stats bar: a LONG PAIN / SHORT SQUEEZE / BALANCED badge, 1h long-vs-short liquidated USD bars, and the three largest recent liquidations — each linking to its coin page. It polls every 30 seconds, pauses when the tab isn't visible, and quietly shows an offline line (never fake numbers) if the collector is unreachable.",
+			"link": "/coins",
 			"tags": [
 				"feature"
 			]

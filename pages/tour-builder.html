@@ -108,6 +108,19 @@
 
 	.empty-stops { text-align: center; padding: 22px 12px; color: var(--faint); border: 1px dashed var(--line); border-radius: var(--r); font-size: 13.5px; line-height: 1.6; }
 
+	/* templates */
+	.tpl-open-btn { width: 100%; padding: 11px; border-radius: var(--r); border: 1.5px solid var(--accent-2); background: rgba(52,211,153,.1); color: var(--accent); font-weight: 700; transition: .15s; }
+	.tpl-open-btn:hover { background: rgba(52,211,153,.18); border-color: var(--accent); }
+	.template-note { margin-top: 9px; padding: 10px 12px; border-radius: var(--r-sm); border: 1px solid rgba(251,191,36,.35); background: rgba(251,191,36,.08); color: #f2d097; font-size: 12px; line-height: 1.55; }
+	.tpl-card { display: flex; flex-direction: column; gap: 8px; padding: 16px 18px; border: 1px solid var(--line); border-radius: var(--r); background: var(--edge-2); margin-bottom: 12px; transition: .15s; }
+	.tpl-card:hover { border-color: var(--line-2); background: var(--edge-3); }
+	.tpl-card:last-child { margin-bottom: 0; }
+	.tpl-card h3 { font-size: 15px; }
+	.tpl-card p { color: var(--muted); font-size: 13px; line-height: 1.5; }
+	.tpl-card button { align-self: flex-start; padding: 8px 16px; border-radius: var(--r-sm); border: 1px solid var(--accent-2); background: rgba(52,211,153,.12); color: var(--accent); font-weight: 600; font-size: 13px; transition: .15s; }
+	.tpl-card button:hover { background: rgba(52,211,153,.22); }
+	.tpl-card.sel { border-color: var(--accent); background: rgba(52,211,153,.08); }
+
 	/* drawer footer actions */
 	.dr-foot { padding: 13px 18px; border-top: 1px solid var(--line); display: flex; gap: 9px; background: var(--edge); }
 	.btn { flex: 1; padding: 11px; border-radius: var(--r-sm); font-weight: 700; border: 1px solid var(--line-2); background: var(--edge-3); transition: .15s; display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
@@ -135,8 +148,8 @@
 	#exit-preview:hover { border-color: var(--danger); color: var(--danger); }
 
 	/* ─────────────────────────── export modal ─────────────────────────── */
-	#modal-scrim { position: fixed; inset: 0; z-index: 2147483610; background: rgba(4,6,10,.66); backdrop-filter: blur(3px); display: none; align-items: center; justify-content: center; padding: 24px; }
-	#modal-scrim.open { display: flex; }
+	#modal-scrim, #templates-scrim { position: fixed; inset: 0; z-index: 2147483610; background: rgba(4,6,10,.66); backdrop-filter: blur(3px); display: none; align-items: center; justify-content: center; padding: 24px; }
+	#modal-scrim.open, #templates-scrim.open { display: flex; }
 	.modal { width: min(720px, 100%); max-height: 88vh; overflow-y: auto; background: var(--edge); border: 1px solid var(--line-2); border-radius: 16px; box-shadow: 0 30px 80px rgba(0,0,0,.6); }
 	.modal-head { padding: 20px 24px 16px; border-bottom: 1px solid var(--line); display: flex; align-items: flex-start; gap: 12px; }
 	.modal-head h2 { font-size: 20px; margin-bottom: 3px; }
@@ -232,6 +245,12 @@
 	</div>
 
 	<div class="dr-body">
+		<div class="sec">
+			<label class="h">Start from a template</label>
+			<button class="tpl-open-btn" id="templates-open">🧩 Browse templates</button>
+			<p id="template-note" class="template-note" hidden></p>
+		</div>
+
 		<div class="sec">
 			<label class="h" for="tour-title">Tour name</label>
 			<input type="text" id="tour-title" placeholder="Store tour" value="Store tour" />
@@ -340,25 +359,39 @@
 	</div>
 </main>
 
+<!-- ══════════════════ TEMPLATES MODAL ══════════════════ -->
+<div id="templates-scrim">
+	<div class="modal" role="dialog" aria-modal="true" aria-labelledby="templates-title">
+		<div class="modal-head">
+			<div style="flex:1">
+				<h2 id="templates-title">Start from a template</h2>
+				<p>Load a ready-made tour, then edit it exactly like your own.</p>
+			</div>
+			<button class="icon-btn" id="templates-close" aria-label="Close">✕</button>
+		</div>
+		<div class="modal-body" id="templates-list"></div>
+	</div>
+</div>
+
 <!-- ══════════════════ EXPORT MODAL ══════════════════ -->
 <div id="modal-scrim">
 	<div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
 		<div class="modal-head">
 			<div style="flex:1">
 				<h2 id="modal-title">Ship it to Shopify</h2>
-				<p>Three copy-pastes and your store has a walking 3D guide. Everything below is generated from the tour you just built.</p>
+				<p id="modal-sub">Three copy-pastes and your store has a walking 3D guide. Everything below is generated from the tour you just built.</p>
 			</div>
 			<button class="icon-btn" id="modal-close" aria-label="Close">✕</button>
 		</div>
 		<div class="modal-body">
 			<div class="step">
-				<h3><span class="n">1</span> Upload your tour script</h3>
-				<p>In Shopify admin → <b>Content → Files</b>, upload this file, then copy the URL Shopify gives it.</p>
+				<h3><span class="n">1</span> <span id="modal-step1-title">Upload your tour script</span></h3>
+				<p id="modal-step1-desc">In Shopify admin → <b>Content → Files</b>, upload this file, then copy the URL Shopify gives it.</p>
 				<div class="dl-row"><button class="btn" id="dl-json" style="flex:none; padding:9px 16px;">⬇ Download curriculum.json</button></div>
 			</div>
 			<div class="step">
-				<h3><span class="n">2</span> Add the guide to your theme</h3>
-				<p>Online Store → Themes → <b>⋯ → Edit code</b> → <b>layout/theme.liquid</b>. Paste this right before <code>&lt;/body&gt;</code>, and swap the URL for the one from step 1.</p>
+				<h3><span class="n">2</span> <span id="modal-step2-title">Add the guide to your theme</span></h3>
+				<p id="modal-step2-desc">Online Store → Themes → <b>⋯ → Edit code</b> → <b>layout/theme.liquid</b>. Paste this right before <code>&lt;/body&gt;</code>, and swap the URL for the one from step 1.</p>
 				<div class="code" id="snippet-embed"><button class="copybtn" data-copy="snippet-embed">Copy</button></div>
 			</div>
 			<div class="step">
@@ -368,7 +401,7 @@
 			</div>
 		</div>
 		<div class="modal-foot">
-			<a class="btn" href="/tutorials/shopify-store-guide" style="flex:none; padding:10px 16px; text-decoration:none;">Full written guide →</a>
+			<a class="btn" href="/tutorials/shopify-store-guide" id="modal-guide-link" style="flex:none; padding:10px 16px; text-decoration:none;">Full written guide →</a>
 			<button class="btn primary" id="modal-done" style="flex:none; padding:10px 20px;">Done</button>
 		</div>
 	</div>

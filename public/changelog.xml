@@ -295,6 +295,14 @@
 			<description>A new market-data layer pulls real-time DeFi yield pools and protocol TVL from DeFiLlama, backing a new GET /api/intel/yields endpoint that returns live yield pools filterable by chain, project, and stablecoin status, sorted by TVL. This lays the groundwork for yield-discovery features and a smarter trading copilot on top of real, cached, non-fabricated market data.</description>
 		</item>
 		<item>
+			<title>Live liquidations pulse on the markets page — real-time long/short pain across Binance, Bybit, and OKX</title>
+			<link>https://three.ws/coins</link>
+			<guid isPermaLink="false">2026-07-08:Live liquidations pulse on the markets page — real-time long/short pain across Binance, Bybit, and OKX</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>A new standalone collector subscribes to the public futures liquidation WebSocket streams of Binance, Bybit, and OKX, classifies each liquidation by size, and keeps a rolling 4-hour window. /coins now shows a live strip under the global stats bar: a LONG PAIN / SHORT SQUEEZE / BALANCED badge, 1h long-vs-short liquidated USD bars, and the three largest recent liquidations — each linking to its coin page. It polls every 30 seconds, pauses when the tab isn't visible, and quietly shows an offline line (never fake numbers) if the collector is unreachable.</description>
+		</item>
+		<item>
 			<title>Markets goes deep — Screener, Categories, Exchanges, Derivatives, Converter, DeFi, Chains, Stablecoins</title>
 			<link>https://three.ws/screener</link>
 			<guid isPermaLink="false">2026-07-08:Markets goes deep — Screener, Categories, Exchanges, Derivatives, Converter, DeFi, Chains, Stablecoins</guid>

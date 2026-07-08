@@ -1007,6 +1007,28 @@ export const env = {
 		return opt('BSC_OPERATOR_KEY');
 	},
 
+	// Greenfield vault platform account (BNB vault track, prompts 09/11). This
+	// key creates buckets/objects on Greenfield on behalf of sellers — a
+	// managed-storage model where sellers hold only a BSC address for payment
+	// (recorded as `sellerAddress` in the vault manifest), never a Greenfield
+	// keypair. Same secp256k1 curve/derivation as a BSC EOA, so it falls back to
+	// BNB_TESTNET_DEPLOYER_KEY: one funded throwaway key can drive both the BSC
+	// and Greenfield legs of this campaign's testnet proofs. UNLIKE
+	// BSC_OPERATOR_KEY above, this IS read by a request handler
+	// (api/bnb/vault-upload.js) — when unset, that endpoint returns a typed 503
+	// rather than silently mocking a signer.
+	get GREENFIELD_VAULT_OPERATOR_KEY() {
+		return opt('GREENFIELD_VAULT_OPERATOR_KEY') || opt('BNB_TESTNET_DEPLOYER_KEY');
+	},
+	// Bucket that hosts every vault object, per network. Defaults match the
+	// example bucket name in specs/vault-manifest.md.
+	get GREENFIELD_VAULT_BUCKET_TESTNET() {
+		return opt('GREENFIELD_VAULT_BUCKET_TESTNET', 'three-ws-vault-testnet');
+	},
+	get GREENFIELD_VAULT_BUCKET_MAINNET() {
+		return opt('GREENFIELD_VAULT_BUCKET_MAINNET', 'three-ws-vault-mainnet');
+	},
+
 	// ── x402 Offer & Receipt extension (USE-17) ─────────────────────────────
 	// DEDICATED signing key for the offer-receipt extension. MUST NOT be any
 	// X402_PAY_TO_* key — those receive funds; this one only signs commitments.
