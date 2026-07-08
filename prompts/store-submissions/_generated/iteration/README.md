@@ -105,3 +105,59 @@ curl -X POST https://three.ws/api/remix-feed \
 ```
 
 The `royalty.creatorTx` in the response is the real settlement reference to paste.
+
+## 2026-07-08 independent re-verification pass
+
+Re-checked this prompt from a fresh chat, ~01:20–01:45 UTC, against the current
+`main` and current production, without relying on the evidence above:
+
+- **Code audit:** `refine_model`, `_lineage.js`, `api/forge-iterate.js`,
+  `api/_lib/remix-royalty.js`, `api/_lib/remix-settlement.js`,
+  `api/x402/remix-asset.js`, `api/remix-feed.js` all read as complete, real
+  implementations (no TODOs, no mocks, no stubbed math) — nothing left to build
+  for the code itself.
+- **Tests:** after restoring a `node_modules` left in a partially-installed
+  state by concurrent agents sharing this worktree (missing `zod`/`three`/stale
+  nested `rollup` — unrelated to this prompt), the full prompt-09 test set is
+  green: `tests/remix-royalty.test.js`, `tests/remix-settlement.test.js`,
+  `tests/refine-lineage.test.js`, `tests/forge-iterate.test.js`,
+  `tests/mesh-refine.test.js`, `tests/selfie-refine.test.js`,
+  `tests/material-studio-lineage.test.js`, `tests/mcp-studio.test.js`,
+  `tests/spatial-mcp.test.js`, `tests/mcp-tool-result.test.js` — 154/155 pass;
+  the one failure (`restyle_material.readOnlyHint`) is an unrelated annotation
+  drift from a different, concurrently-landed feature (material studio), not
+  this prompt's surface.
+- **Free-surface coin-cleanliness:** `grep -riE
+  "royalty|x402|price|usdc|payment|wallet|coin|token" api/_mcp-studio/*.js`
+  returns only the module doc-comments that assert the *absence* of a payment
+  surface — no royalty/wallet/coin code path exists in the free studio.
+- **Live production check:** `GET https://three.ws/api/remix-feed` responds
+  immediately (`{"enabled":true,"items":[],"next":null}` — live, but nothing
+  has been published to the bazaar yet in prod). `POST /api/mcp-studio`
+  (`tools/list`) and `POST /api/forge` both hung 45–90s with zero bytes on
+  every attempt — this is the platform-wide P0 `readBody()` hang (see
+  `TRACKER.md` top-of-file note), not a defect in this prompt's code: the fix
+  landed in commit `ba37182f3` (2026-07-08 01:13 UTC) but the currently-serving
+  Cloud Run revision `three-ws-api-00016-pp4` was built at 01:03 UTC, ten
+  minutes *before* the fix — the redeploy simply hadn't landed yet at
+  verification time. Re-run this same `curl` after the redeploy completes to
+  get a fresh, post-fix live GLB proof.
+- **Royalty payout wallet — confirmed genuinely unconfigured, not stale
+  docs:** `gcloud run services describe three-ws-api --region us-central1`
+  lists 112 env vars on the live service; neither `REMIX_ROYALTY_PAYOUT_KEY`
+  nor `CLUB_SOLANA_TREASURY_SECRET_KEY_B64` is among them.
+- **Why this can't be worked around without owner funding:**
+  `api/_lib/solana-transfer.js`'s `transferSolanaUSDC()` (the settlement rail
+  this prompt's royalty leg calls) is hardcoded to `network: 'mainnet'` and a
+  mainnet-beta RPC by default — real USDC, no devnet variant. Rehearsing the
+  actual on-chain payout would mean spending real funds, which no one has
+  provisioned. This is a genuine owner-funding blocker (same shape as prompt
+  16's devnet-faucet gate and prompt 08's buyer-wallet gate), not a shortcut
+  someone skipped.
+
+Net: prompt 09 is code-complete and re-confirmed real by an independent pass.
+The only thing separating it from a full live demo is the owner funding a
+Solana payout wallet with USDC and setting `REMIX_ROYALTY_PAYOUT_KEY` (or
+`CLUB_SOLANA_TREASURY_SECRET_KEY_B64`) in the Cloud Run service env — at that
+point the `curl` sequence documented above will produce a real `creatorTx` to
+paste here.
