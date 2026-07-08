@@ -12,6 +12,46 @@
 //   const r = getRedis();
 //   if (!r) { /* fallback */ }
 //
+// Command-level timeout
+// ---------------------
+// The Upstash REST client's own retry/abort layer has been observed in prod to
+// take far longer than any caller can wait (live-verified 2026-07-08: POST
+// requests to fresh rate-limited routes — /api/v1/ai/tts, /api/v1/ai/text-to-3d,
+// /api/v1/sentiment — hung with ZERO bytes returned for 55s+ against
+// three.ws, while a warm-limiter route like /api/tts/speak answered in
+// <200ms). A network-level stall (as opposed to a fast WRONGPASS the auth
+// breaker above already handles) never throws, so `await rl.limit(id)` just
+// hangs — and every consumer's carefully-designed fail-closed/fail-open
+// fallback (resilientLimiter, cache.js, usage.js) never gets the chance to run
+// because the promise it awaits never settles. Race every command against a
+// bounded timeout so a stalled network call surfaces as a normal (non-auth)
+// rejection within seconds, letting those existing fallbacks do their job.
+function commandTimeoutMs() {
+	return Math.max(1_000, Number(process.env.REDIS_COMMAND_TIMEOUT_MS) || 5_000);
+}
+
+class RedisCommandTimeoutError extends Error {
+	constructor(ms) {
+		super(`redis command timed out after ${ms}ms`);
+		this.name = 'RedisCommandTimeoutError';
+		this.timedOut = true;
+	}
+}
+
+// Not exported as part of the public timeout contract, but resilientLimiter /
+// other consumers can recognize it the same way they recognize any transient
+// error — this is deliberately NOT an auth error, so it never trips the
+// permanent auth breaker above (a stalled network path is worth retrying next
+// request; a bad token is not).
+function raceCommand(promise) {
+	const ms = commandTimeoutMs();
+	let timer;
+	const timeout = new Promise((_, reject) => {
+		timer = setTimeout(() => reject(new RedisCommandTimeoutError(ms)), ms);
+	});
+	return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 // Auth-failure fast-fail breaker
 // ------------------------------
 // A WRONGPASS / "invalid or missing auth token" / NOPERM / NOAUTH response is a
@@ -126,7 +166,7 @@ function wrapCommand(fn, target) {
 			return Promise.reject(err);
 		}
 		if (!out || typeof out.then !== 'function') return out; // non-promise: pass through
-		return Promise.resolve(out).then(
+		return raceCommand(Promise.resolve(out)).then(
 			(res) => {
 				breakerRecordSuccess();
 				return res;
@@ -142,12 +182,13 @@ function wrapCommand(fn, target) {
 
 // pipeline()/multi() return a chainable builder whose commands run on .exec(). We
 // don't short-circuit these (low-volume write paths), but we DO let their exec()
-// trip/heal the breaker so a bad token is still detected from those paths.
+// trip/heal the breaker so a bad token is still detected from those paths, and
+// race it against the same stall guard as single commands.
 function wrapPipeline(pipe) {
 	const exec = pipe.exec;
 	if (typeof exec === 'function') {
 		pipe.exec = function (...args) {
-			return Promise.resolve(exec.apply(pipe, args)).then(
+			return raceCommand(Promise.resolve(exec.apply(pipe, args))).then(
 				(res) => {
 					breakerRecordSuccess();
 					return res;
