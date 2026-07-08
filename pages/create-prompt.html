@@ -215,6 +215,16 @@
 			.counter.warn {
 				color: var(--danger);
 			}
+			/* Voice dictation mic slot — mounted by src/voice/prompt-dictation.js.
+			   Empty until JS resolves a usable STT path; collapses to nothing so no
+			   dead button ships when voice input isn't available in this browser. */
+			.pd-slot {
+				display: inline-flex;
+				align-items: center;
+			}
+			.pd-slot:empty {
+				display: none;
+			}
 
 			.examples {
 				display: flex;
@@ -615,6 +625,7 @@
 							>Single subject, full body works best.</span
 						>
 						<span class="counter" id="counter">0 / 600</span>
+						<span class="pd-slot" id="prompt-dictate-slot"></span>
 					</div>
 				</div>
 
