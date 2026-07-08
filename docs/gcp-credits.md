@@ -1410,7 +1410,25 @@ until today.
   (had to run from a clean `git worktree`, not the shared repo root — see hazard note
   below — and pass `--service-account=three-ws-build@…` + `--substitutions=SHORT_SHA=…`,
   neither of which the bare command from the doc's deploy runbook supplies for a local
-  submit). [Fill in final health-check result once the build in flight completes.]
+  submit; also needed `roles/iam.serviceAccountUser` for `three-ws-build@` on
+  `avatar-reconstruction-sa@`, missing until this session). **Healthy and inference-
+  tested**: `/health` returns `model_loaded:true, gpu_available:true` on an L4; a real
+  `/infer` call (HTTPS image → background removal → mesh) hit a **second real bug**,
+  also fixed this session — TripoSR's tokenizer normalizes with a 3-channel mean/std
+  and the rembg background-removal step was handing it a 4-channel RGBA image
+  (`RuntimeError: size of tensor a (4) must match ... b (3)`). Fixed in
+  `workers/model-triposr/main.py`: matte the cutout onto mid-gray (127,127,127) and
+  flatten to RGB before the model call, matching upstream TripoSR's own demo
+  preprocessing. Rebuilt + redeployed; re-verify with a fresh `/infer` call once the
+  redeploy in flight lands. **Not wired into the router**: `api/forge.js` /
+  `api/_providers/gcp.js` have no `MODEL_TRIPOSR_URL`/`GCP_TRIPOSR_URL` reference at
+  all — this worker isn't part of any lane `forge.js` selects (the prompt-04 context's
+  "TripoSG/TripoSR" pairing reads as one conceptual role; `GCP_TRIPOSG_URL` is the one
+  actually wired, for TripoSG). Fixing and deploying it was still worth doing (proves
+  the CUDA build pipeline and the L4 fleet both work end-to-end, and it's a real,
+  healthy, inference-capable service now), but it does not change user-facing behavior
+  until/unless a lane is added to point at it — flag this to the owner as a scope
+  question for prompt 04/05 rather than assuming and wiring a new lane unasked.
 - **Found and fixed a real production bug while wiring the budget-webhook path**:
   `api/webhooks/gcp-budget-alert.js` (and `api/webhooks/replicate.js`, same pattern)
   called `readJson()`/`readBody()` past their auth check and **hung until the request
@@ -1431,13 +1449,17 @@ until today.
   15s) timeout so any future stream stall fails fast and diagnosably instead of pinning
   a Cloud Run concurrency slot for the full request timeout. Committed
   (`ba37182f3`), covered by the existing `tests/api/gcp-budget-alert.test.js` +
-  `tests/api-validate.test.js` (both green). **Deploy status:** see hazard note — this
-  needs the next full `three-ws-api` image rebuild to reach production; it is not yet
-  live as of this writing.
+  `tests/api-validate.test.js` (both green). **Deployed and confirmed live** —
+  `three-ws-api-00017-kgs`: direct curl with the correct token now returns `200` in
+  ~0.1s (was an unconditional hang before); `api/webhooks/replicate.js` (same
+  `readBody` fallback) now returns its normal `401` fast instead of hanging too.
 - Verified the synthetic-notification test from the prompt-07 section above end to end
-  against the *current* infra: `gcloud pubsub topics publish gcp-budget-alerts …` →
-  delivered to the webhook → 401 (stale token) → fixed the secret to match the live
-  subscription's token → still hangs (the bug above) → fixed and redeploying.
+  against the *current* infra, post-fix: `gcloud pubsub topics publish gcp-budget-alerts
+  …` → delivered to the webhook → **`200` in the Cloud Run request log** (was 401 →
+  then hung → now clean). The budget-alert pipe is genuinely live end to end as of this
+  session; the only remaining gap is the last hop, `sendOpsAlert` no-op'ing because
+  `TELEGRAM_BOT_TOKEN`/`TELEGRAM_ALERTS_CHAT_ID` aren't set (owner credentials, listed
+  above).
 
 **Confirmed still genuinely blocked (owner console action or missing credentials —
 no workaround attempted):**
