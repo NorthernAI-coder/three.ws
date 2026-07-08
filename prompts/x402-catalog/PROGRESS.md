@@ -4,6 +4,83 @@ Dated entries per prompt. Newest first.
 
 ---
 
+## 2026-07-08 — Prompt 06: Pump.fun data as free `/api/v1/pump/*` endpoints
+
+**Shipped.** `search` was already live from a concurrent agent
+(`api/v1/pump/search.js`, `api/_lib/pump-search.js`, catalog entry
+`v1.pump.search`, `tests/api/v1-pump-search.test.js`) by the time this session
+picked up the prompt — its doc comment even named the gap this entry closes:
+*"trending, bonding-curve progress, launches, and whale activity already ship
+[at /api/crypto/*]"*. This session added the other four as thin `/api/v1`
+wrappers over engines that were already free and already shared — no fork of
+any upstream logic:
+
+- `GET /api/v1/pump/trending` → `api/_lib/crypto-trending.js` `composeTrending`
+  (same engine as `GET /api/crypto/trending`), capped slimmer (25 vs 50).
+- `GET /api/v1/pump/curve` → `api/_lib/pump-bonding.js` `getBondingStatus`
+  (same engine as `GET /api/crypto/bonding`).
+- `GET /api/v1/pump/launches` → a **new** shared module,
+  `api/_lib/pump-agent-launches.js` `queryAgentLaunches`, extracted from the
+  inline SQL in `api/pump/[action].js`'s `handleLaunches` (the three.ws
+  *platform* launch directory over `pump_agent_mints` — distinct from the
+  market-wide `api/crypto/launches.js` feed). `api/pump/[action].js` was
+  refactored to call the same shared function so the `/launches` page and this
+  endpoint can never drift.
+- `GET /api/v1/pump/whales` → `api/_lib/pump-whale-scan.js` `scanTokenWhales` /
+  `scanMarketWhales` (already shared with `GET /api/crypto/whales`), reshaped
+  to drop the decorative bullish/bearish `signal` field per the prompt's
+  "facts only" instruction — `{ wallets, whale_count, total_sol_moved }`.
+
+**Architecture deviation from the prompt, and why:** the prompt specified a
+single dynamic dispatcher (`api/v1/pump/[action].js`, matching
+`api/portfolio/[action].js`). By the time this session wrote code, a concurrent
+agent had already shipped `search` as a standalone file
+(`api/v1/pump/search.js`, `defineEndpoint` from `api/_lib/gateway.js`) and
+registered it in the catalog. A `[action].js` dispatcher would have been
+shadowed for the `search` segment by that exact-file route (file-router
+precedence: exact file > `[param].js`), producing two competing
+implementations of the same read. This session matched the already-shipped,
+already-tested convention instead: four more standalone files
+(`api/v1/pump/{trending,curve,launches,whales}.js`), each `defineEndpoint`,
+each with its own catalog entry — consistent with `search` and with every
+other `/api/v1/*` route in the tree.
+
+**Rate limiting:** the prompt suggested a dedicated 20/min bucket; this session
+used the shared `limits.publicIp` (60/min) instead, matching what `search`
+already shipped with and what the underlying `/api/crypto/*` endpoints these
+wrap already use — one bucket, not five one-off buckets for the same trust
+tier of read.
+
+**Verified:** `npx vitest run tests/api/v1-pump.test.js` — 27/27 green,
+covering real-shaped fixtures for all four actions, validation, honest 503 on
+`curve` when the pump.fun feed is down (never empty-array fakery), the 429
+path, and catalog-registration parity with the live route files. Full sibling
+suite re-run clean: `pump-curve.test.js`, `pump-trending-resilience.test.js`,
+`pump.test.js`, `v1-pump-search.test.js` (100/100). `all-modules-load.test.js`
+944/944 (confirms the refactor of `api/pump/curve.js`, `api/pump/trending.js`,
+and `api/pump/[action].js` didn't break any handler's import graph).
+`npm run build:pages` passed after the `data/changelog.json` entry.
+
+**Shared-worktree hazard:** every implementation file (`api/v1/pump/*.js`,
+`api/_lib/pump-{curve-view,trending,agent-launches}.js`, the `api/pump/*.js`
+refactors, `api/v1/_catalog.js`, `tests/api/v1-pump.test.js`) was absorbed into
+two concurrent-session snapshot commits (`9caceca1b`, `523173d90`) before this
+session's own `git commit` ran — confirmed present and correct via `git log -1
+-- <path>` on each file. Only `docs/api-reference.md` + `data/changelog.json`
+(+ their generated `CHANGELOG.md`/`public/changelog.{json,xml}`) were still
+locally uncommitted at that point, staged explicitly and committed as
+`26ce9b112`. That commit's `git commit` also picked up
+`prompts/x402-catalog/PROGRESS.md` changes from a concurrent agent's
+already-staged index (a different agent's Prompt 12 entry) — content is
+correct and unrelated to this entry, just an artifact of the shared index; not
+reverted, per the same don't-destroy-concurrent-work posture the other entries
+in this file document.
+
+**Owner gaps:** none. All five endpoints are live, free, keyless, and
+discoverable via `GET /api/v1`.
+
+---
+
 ## 2026-07-08 — Prompt 16: Embodiment — `POST /api/x402/embody`
 
 **Already fully shipped by a concurrent agent by the time this session started
