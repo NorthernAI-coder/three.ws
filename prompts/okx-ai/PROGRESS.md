@@ -6,6 +6,77 @@ Work Order 04 session — no earlier entries existed because no earlier work ord
 
 ---
 
+## 2026-07-08 — Work Order 05 session #2: found + fixed a live PROD OUTAGE; OKX rail pre-staged; WO 04/05 still owner-gated
+
+**Outcome: the WO-05 hard gate (needs a GO from WO 04) is still unmet — no resubmit was
+attempted. But the pre-submission sweep uncovered a live production outage of the ENTIRE
+x402 paid surface, which I fixed. I also pre-staged the OKX X Layer rail so the owner's
+remaining work to go live shrinks to a single funding/creds action. Agent #2632 untouched.**
+
+### The outage (found during Step 1 verification, fixed)
+
+Probing the catalog endpoints against production, **every `/api/okx/3d/*` endpoint returned
+HTTP 500** — including the free `health`/`catalog` — and so did **every `/api/x402/*`
+endpoint** (`dance-tip`, `model-check`, `onchain-identity-verify`, …). Cloud Run logs showed
+the root cause: `api/_lib/x402/idempotency-cache.js` **hard-throws at module import** in
+production when Upstash is unconfigured (the deliberate fail-closed guard from commit
+`88e2bad5f`). Upstash creds are absent from the Cloud Run service entirely (Secret Manager
+has none; `.env.example` only documents the names). So the whole paid surface was 500ing at
+module load — a regression from the "Solana-only 402" state the 2026-07-07 sessions saw.
+
+**Fix (revision `three-ws-api-00010-kkb`):** set `X402_ALLOW_MEMORY_FALLBACK=1` on the
+Cloud Run service — the author-sanctioned escape hatch (docs/ops/gcp-production.md line 218).
+Financial safety is unaffected: EIP-3009 nonces are single-use on-chain, so no double-charge;
+the flag only degrades cross-replica work/response dedup to per-instance. **Verified restored:**
+`/api/okx/3d/health` → 200 (all subsystems ok), `catalog` → 200, `text-to-3d` unpaid POST →
+402, and the three sampled `/api/x402/*` endpoints → 402. Proper fix (real Upstash creds) is
+an owner action; flagged in the ops runbook, which now also documents the crash-not-degrade
+failure mode.
+
+### OKX X Layer rail — pre-staged, honestly dark (revision `three-ws-api-00011-mcf`)
+
+Set the two **public** address vars on the service:
+`X402_PAY_TO_XLAYER=0x75d00a2713565171f33216e5aa2a375e076ecf69`,
+`X402_ASSET_ADDRESS_XLAYER=0x779ded0c9e1022225f8e0630b35a9b54be713736`. These alone keep
+`xlayerSettleable()` **false** (it also requires OKX facilitator creds OR
+`X402_XLAYER_RELAYER_KEY`), so the live 402 still advertises **Solana-only** — the honest
+"not yet live" state, no half-working rail exposed. Health probe confirms:
+`payment-rail{ settleable:false, facilitator_configured:false, block read OK, token:"USD₮0" }`.
+
+### Why WO 04/05 remain genuinely blocked (not laziness — a hard no-mocks dependency)
+
+Live-checked the wallet's **X Layer balance = $0** (no OKB, no USD₮0). The onchainos TEE
+buyer wallet == seller `payTo` == `0x75d0…cf69`, so WO 04's E2E is a self-payment — but even
+a self-payment's EIP-3009 authorization fails on-chain `verify` (`insufficient_balance`)
+with a zero balance. There is **no way to run a real settlement without real USD₮0 in the
+wallet** — fabricating one would violate the no-mocks rule. So the WO-04 GO that gates WO-05
+cannot be produced this session.
+
+### The single owner action that unblocks the whole tail
+
+Fund/provision ONE of these, then WO 04 → (its GO) → WO 05 resubmit proceed:
+- **Settlement authority** — EITHER OKX facilitator creds (`OKX_API_KEY`/`OKX_SECRET_KEY`/
+  `OKX_PASSPHRASE`, facilitator-paid gas, no relayer to manage) OR a
+  `X402_XLAYER_RELAYER_KEY` funded with a little OKB for gas. With either set, the X Layer
+  accept auto-advertises (rejection cause fixed at the challenge level).
+- **Buyer funds for the E2E test** — USD₮0 (`0x779ded…713736`) to `0x75d0…cf69` on X Layer
+  (chainId 196). ≥ ~$3 covers one paid call of every catalog service; ~$5 for buffer.
+
+### State captured (Step 3 "before")
+
+Agent #2632 approval status unchanged — `approvalDisplayStatus: 5` ("Listing rejected"),
+`status: 2` ("not listed"), `soldCount: 0`. No update/activate CLI write was issued. The
+"after" is deferred to the resubmission session once settlement is funded.
+
+### Next
+
+1. Owner provisions settlement authority + USD₮0 funding above.
+2. Run WO 04 (`04-e2e-real-payment-test.md`) → capture its GO.
+3. Re-dispatch this WO 05; on the update, the pre-staged X Layer vars mean the rail lights up
+   with only the one remaining var.
+
+---
+
 ## 2026-07-07 — Work Order 02 session: COMPLETE — OKX/X Layer rail gaps closed, verified, documented
 
 **Outcome: our A2MCP/MCP endpoints are first-class OKX Agent Payments Protocol sellers.**
@@ -792,3 +863,160 @@ listed in the WO-03 entry's table (#11).
 `1fea93873` (director), `d4c27246b` (X Layer rail, mis-titled), `ad247715f` (fallback + tests). All
 are on `main`; HEAD is coherent (tests green). This entry is the authoritative record of what those
 commits actually contain.
+
+---
+
+## 2026-07-08 — Verification-only pass: re-audited both blockers against LIVE production; one root
+cause corrected, one new same-day incident found (fixed mid-session, not by this agent), core
+blockers CONFIRMED STILL OPEN with precise unblock instructions
+
+**No code was shipped in this session beyond a documentation fix.** Scope was explicitly
+verify-only per the dispatching instruction — do not touch credentials/funding, re-establish
+ground truth since the two 2026-07-07 blockers might have resolved on their own.
+
+### Important context shift since the last entries: production moved off Vercel
+
+Commit `d7f69ada9` ("feat(infra): migrate production to Google Cloud Run") landed 2026-07-07,
+same day as the WO-06 entry above that told the next session to "rotate the Vercel KV token."
+**That instruction is now stale** — there is no Vercel KV in the production path anymore.
+Production env lives on Cloud Run service `three-ws-api` (`gcloud run services describe
+three-ws-api --region us-central1`), and `docs/ops/gcp-production.md` is the authoritative ops
+doc for this (per `CLAUDE.md`'s stack notes). All findings below were re-derived from that
+service's actual env vars and live HTTP probes, not from old assumptions.
+
+### 1. Rigging repro — STILL 429, root cause refined
+
+```
+curl -X POST 'https://three.ws/api/forge?action=rig' -H 'content-type: application/json' \
+  -d '{"glb_url":"https://three.ws/models/duck.glb"}'
+→ HTTP 429 {"error":"rate_limited","error_description":"Rigging limit reached. Try again shortly.",
+             "retry_after":3600,"reason":"rate_limiter_unavailable"}
+```
+Unchanged from the 2026-07-07 entry. Root cause is **not** a stale/rotatable token — `gcloud run
+services describe three-ws-api --region us-central1` shows the Cloud Run service has **no**
+`UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` env vars at all (grepped the full env list;
+zero matches). `/api/healthz` confirms: `subsystems.cache = {"status":"ok","detail":"in-memory (no
+Redis configured)","backend":"memory"}`. `api/_lib/rate-limit.js` fails the `critical:true`
+cost-limiter bucket closed by design when Redis is absent (correct posture for a money/GPU-spend
+gate — do not weaken it). **This blocks all rigging platform-wide, unchanged from 2026-07-07.**
+
+### 2. NEW same-day incident (found mid-session, already fixed by the time I finished — not my fix)
+
+While probing, `/api/mcp-3d`, `/api/mcp`, and every `/api/okx/3d/*` route returned **HTTP 500
+`{"error":"internal_error","message":"The request failed unexpectedly."}`** — not 429, an outright
+crash. Cloud Run stderr logs (`gcloud logging read ... run.googleapis.com%2Fstderr`) showed the
+cause: `api/_lib/x402/idempotency-cache.js` **hard-throws at module import** in production when
+Redis is unset and `X402_ALLOW_MEMORY_FALLBACK` isn't `1` — `Error: [x402-idempotency] refusing to
+boot in production without Upstash...`. Because every paid route imports this module, the entire
+paid API surface (not just rigging) was down. Revision `three-ws-api-00007-trd` had this crash;
+revision `three-ws-api-00008-5dg` (created `2026-07-08T00:38:49Z`, ~seconds after I first hit the
+500s) has `X402_ALLOW_MEMORY_FALLBACK=1` set and boots clean — **someone (owner or a concurrent
+agent) fixed this live while I was mid-probe.** Re-tested after the rollout: `/api/mcp-3d` GET,
+`/api/okx/3d/health`, `/api/okx/3d/catalog`, `/api/okx/3d/identity-studio` GET/POST-unpaid all
+return correctly now (402 or 200, no more 500s). I found `docs/ops/gcp-production.md` already had
+a row documenting this exact incident + fix by the time I went to write one — so no doc gap there;
+I left it as found. **This incident and its fix are unrelated to the OKX/rigging blockers below
+and are already resolved; flagging only so the next session doesn't waste time re-diagnosing it.**
+One residual oddity: `POST /api/mcp` and `POST /api/mcp-3d` with a `tools/call` or `tools/list`
+JSON-RPC body now hang (curl times out at 30-60s, 0 bytes) even though `GET` on the same URL
+returns instantly. Not investigated further (out of this session's scope) — note for whoever picks
+up MCP-surface work next; `GET`-based 402 probes (used throughout this campaign) are unaffected.
+
+### 3. X Layer rail in the 402 challenge — STILL NOT ADVERTISED, but for a different, now-precise
+reason than "needs a deploy"
+
+The 2026-07-07 WO-06 entry said a deploy was needed to pick up `X402_PAY_TO_XLAYER`. **That deploy
+has since happened** — `gcloud run services describe three-ws-api` confirms both
+`X402_PAY_TO_XLAYER=0x75d00a2713565171f33216e5aa2a375e076ecf69` and
+`X402_ASSET_ADDRESS_XLAYER=0x779ded0c9e1022225f8e0630b35a9b54be713736` are live in prod env. But
+the X Layer accept still does not appear:
+
+```
+curl -i -X POST https://three.ws/api/okx/3d/identity-studio     # unpaid probe
+curl -i -X POST https://three.ws/api/okx/3d/pose-seed           # unpaid probe
+```
+Both return a valid 402 with `accepts[]` containing Solana (USDC + THREE) and Base (USDC) entries
+only — **no `eip155:196` entry, on any endpoint, confirmed across identity-studio (the flagship)
+and pose-seed (cheapest paid service)**. `curl https://three.ws/api/okx/3d/health` makes the exact
+gap explicit:
+```
+"payment-rail": {"ok": true, "settleable": false, "facilitator_configured": false, "token": "USD₮0"}
+```
+Traced to `xlayerSettleable()` in `api/_lib/x402-xlayer-okx.js:179`:
+```js
+export function xlayerSettleable() {
+  return Boolean(
+    env.X402_PAY_TO_XLAYER &&
+      env.X402_ASSET_ADDRESS_XLAYER &&
+      (okxFacilitatorConfigured() || env.X402_XLAYER_RELAYER_KEY),
+  );
+}
+```
+The first two conditions are now true (confirmed above); the third is **not** —
+`gcloud run services describe three-ws-api` has no `OKX_API_KEY`, `OKX_SECRET_KEY`,
+`OKX_PASSPHRASE`, or `X402_XLAYER_RELAYER_KEY` among its env vars. **This, not a missing deploy, is
+now the sole blocker for the X Layer rail appearing at all** — the exact rail OKX's review flagged
+as missing when it rejected agent #2632. Documented as a new row in
+`docs/ops/gcp-production.md`'s "Known-missing (blocked on owner)" table (commit in this session).
+
+### 4. Wallet funding — STILL $0.00, unchanged
+
+```
+onchainos wallet balance --chain xlayer
+→ {"ok":true,"data":{"details":[{"tokenAssets":[]}],"totalValueUsd":"0.00"}}
+```
+No USD₮0, no OKB, on `0x75d00a2713565171f33216e5aa2a375e076ecf69` on X Layer (chainId 196). Did
+not attempt to fund — requires the owner's real money, out of scope for this session per the
+dispatching instruction.
+
+### 5. Agent #2632 status — unchanged
+
+`onchainos agent get-agents --agent-ids 2632` still shows `approvalDisplayStatus: 5` ("Listing
+rejected"), `status: "not listed"`, `serviceList: []`. WO-05 has correctly not run — its hard gate
+(explicit GO from WO-04) is still unmet, and WO-04 still cannot run for real (needs both the OKX
+rail live — item 3 — and wallet funding — item 4).
+
+### WO-05/06/07 precondition check (per the dispatching instruction)
+
+- **WO-05**: hard-gated on WO-04's GO. WO-04 requires a funded wallet + a working settlement rail
+  (items 3+4 above) to run for real. Still NO-GO. Did not run it (correctly stays untouched — its
+  own file says "stop and say so" with no gate).
+- **WO-06**: requirement 2 (3+ demo identities, inspected) is still blocked — needs rigging, which
+  is still 429 (item 1). Requirement 3 (#2632's own avatar) is downstream of requirement 2. Neither
+  requires money by itself, but both require the rigging pipeline which fails closed on the same
+  Redis gap. No code-only work available here beyond what WO-06 already shipped.
+- **WO-07**: explicitly requires "01–05 must be complete" before it runs; 05 hasn't run. Not
+  started, correctly.
+- No piece of remaining work in 05/06/07 is code-only and non-financial/non-signature at this
+  time — everything left is genuinely gated on the two owner items below.
+
+### Precise unblock list for the owner (both required; independent of each other)
+
+1. **Redis for the rate limiter** (unblocks rigging → WO-06 demos → #2632's own avatar):
+   Provision/point Cloud Run service `three-ws-api` at a real Upstash Redis (or Memorystore) and
+   set `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`:
+   `gcloud run services update three-ws-api --region us-central1 --set-env-vars
+   UPSTASH_REDIS_REST_URL=...,UPSTASH_REDIS_REST_TOKEN=...`. (The idempotency-crash half of this
+   gap is already patched around via `X402_ALLOW_MEMORY_FALLBACK=1` — this step is specifically to
+   restore real cross-replica rate limiting so rigging stops failing closed.)
+2. **OKX facilitator credentials OR a relayer key** (unblocks the X Layer rail appearing in any
+   402 → unblocks WO-04's real paid E2E → unblocks WO-05's resubmission): either
+   `OKX_API_KEY` + `OKX_SECRET_KEY` + `OKX_PASSPHRASE` from the OKX Web3 developer console, or a
+   fresh EVM keypair set as `X402_XLAYER_RELAYER_KEY` (funded with a small amount of OKB for gas)
+   as a no-OKX-account stopgap. Apply the same way:
+   `gcloud run services update three-ws-api --region us-central1 --set-env-vars
+   OKX_API_KEY=...,OKX_SECRET_KEY=...,OKX_PASSPHRASE=...` (or `X402_XLAYER_RELAYER_KEY=...`).
+3. **Fund `0x75d00a2713565171f33216e5aa2a375e076ecf69` on X Layer (chainId 196) with USD₮0**
+   (`0x779ded0c9e1022225f8e0630b35a9b54be713736`) — ~$5 recommended (covers one paid call of every
+   catalog service with buffer, per the WO-03 close-out's cost table). No OKB strictly required
+   for the payer (EIP-3009 gas is facilitator/relayer-paid), but a small OKB balance is worth
+   adding as a safety margin regardless of which settlement path (1) uses.
+
+Once 1–3 land: re-run WO-04 for real (funded paid E2E across the catalog), get its GO, then
+dispatch WO-05 (resubmission) and finish WO-06's demo/avatar requirements, then WO-07.
+
+### Files touched this session
+
+- `docs/ops/gcp-production.md` — added the "OKX X Layer facilitator creds" row to the
+  known-missing table (item 3 above, in doc form for future ops sessions).
+- This entry.
