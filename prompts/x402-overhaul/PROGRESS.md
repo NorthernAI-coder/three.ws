@@ -2013,3 +2013,67 @@ token-market-single-flight, x402-pipeline partial-failure semantics).
 - `tests/x402-ring-catalog.test.js` is red on main: the ring catalog lacks rows for the new
   `api/v1/ai/{asr,image,tts}.js` and the five `pipeline-*` stage routes — belongs to the
   ring-economy stream.
+
+## 2026-07-08 — Both adjacent gaps closed: ring-catalog coverage + descriptor convergence
+
+**Gap 1 — ring-catalog coverage, closed.** Added rows to `api/_lib/x402/ring-catalog.js`
+for the 9 endpoints `tests/x402-ring-catalog.test.js` flagged as uncataloged:
+`api/v1/ai/{asr,image,tts}.js` and the five `api/x402/pipeline-{rembg,remesh,rig,stylize,
+gameready}.js` stage routes, plus `api/x402/remix-asset.js` which had also drifted
+uncataloged in the interim. Every price/method/body was read from the live handler (not
+guessed): `priceFor(slug, default)` literals (asr $0.01, image $0.02, tts $0.005, rembg
+$0.01, remesh/stylize/gameready $0.03, rig $0.05, remix-asset $0.25 flat). All 9 are
+`autobuy:false` — each is a real NVIDIA NIM / Cloud Run GPU compute call (or, for
+remix-asset, a real on-chain royalty payout to a third-party creator wallet), matching the
+existing `fact-check`/`llm-proxy`/`cosmetic-purchase` precedent for "burns real cost per
+call, verify once rather than loop." Bodies use a real, currently-live sample asset
+(`https://three.ws/avatars/default.glb`, `https://three.ws/og-image.png`) or a small
+inline base64 WAV constant (`SILENT_WAV_B64`, 364 bytes) for ASR so a one-time verification
+call has real parseable input. While this was in flight, another endpoint
+(`api/x402/embody.js`, $1.00 flat) landed on main mid-session via a concurrent agent and
+also uncataloged — added its row too (same autobuy:false reasoning; the priciest single-call
+service in the catalog) so the shared suite stayed green for whoever committed next.
+
+**Gap 2 — 402-challenge description drift, closed for every endpoint with real drift.**
+Following the `forge.js` → `forge-listing.js` pattern, wrote a static-analysis script
+(`new Function` eval of each endpoint's local `DESCRIPTION` declaration vs. its
+`api/_lib/service-catalog/services/<slug>.js` descriptor's `description` field) to check
+every one of the 45 paid-endpoint descriptors against its live 402 text. First pass flagged
+25 as `[DRIFT]`; two (`did.js`, `solana-register-health.js`) turned out to be false positives
+(an escaped-quote artifact in the naive regex extractor, not real drift — re-verified byte-
+identical). The remaining 23 had genuine, verifiable divergence and were converged: each
+endpoint now does `import <slug>Listing from '../_lib/service-catalog/services/<slug>.js'`
+and `const DESCRIPTION = <slug>Listing.description` instead of hand-duplicating the prose.
+Endpoints fixed: `pump-launch`, `agent-bouncer`, `agent-reputation`, `bazaar-feed`,
+`billboard`, `club-cover`, `llm-proxy`, `onchain-identity-verify`, `pipeline-{rembg,remesh,
+rig,stylize,gameready}`, `skill-marketplace`, `symbol-availability`, `token-intel`,
+`animation-download`, `asset-download`, `cosmetic-purchase`, `skill-call`, `remix-asset`.
+Scoped deliberately: `agent-reputation`'s `SWEEP_DESCRIPTION`, `symbol-availability`'s
+`BATCH_DESCRIPTION`, and `billboard`'s live `SLOT_HOURS` interpolation were all left as
+local text on purpose (batch/sweep modes are intentionally not advertised to external
+buyers; the billboard duration figure has no descriptor-side source without adding a new
+cross-import) — noted inline in each file's comment. `embody.js`'s local description
+already matched its descriptor byte-for-byte — no action needed.
+
+**Verification:**
+```
+npx vitest run tests/x402-ring-catalog.test.js tests/service-catalog.test.js \
+  tests/api/x402-discovery-parity.test.js tests/x402-forge-listing.test.js \
+  tests/api/okx-3d-services.test.js
+ Test Files  5 passed (5)      Tests  68 passed (68)
+npm run verify:x402
+  ✓ clean: 66   ▲ warnings: 6 (pre-existing, unrelated endpoints — fact-check,
+    mint-to-mesh, mint-to-mesh-batch, embody, mcp mint_3d_asset missing output.example;
+    confirmed present with this change fully stashed too)   ✗ dropped: 0
+```
+Note: `tests/okx-catalog.test.js` named in the original task no longer exists at that path;
+the OKX-catalog byte-for-byte deep-equal coverage now lives inside `service-catalog.test.js`
+(confirmed passing), and the standalone OKX REST-services suite
+(`tests/api/okx-3d-services.test.js`, 26 tests) was run as the closest existing equivalent.
+
+**Concurrency note:** this worktree had very heavy concurrent agent activity throughout
+(11+ unrelated commits landed on `main` mid-session). All of this work ended up correct on
+`main` and pushed to `origin/main` — but swept into other agents' commits by their broad
+staging rather than a dedicated commit of its own (verified via `git log -- <file>` /
+`git show <commit> -- <file>` per touched file; every change above is present in HEAD with
+zero working-tree diff). Only this PROGRESS.md entry remained to commit directly.
