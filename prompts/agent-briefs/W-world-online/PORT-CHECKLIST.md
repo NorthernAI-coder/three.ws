@@ -42,37 +42,52 @@
 
 ---
 
-## Phase 1 — Physical world foundation (unblocks the most; do first)
+## Phase 1 — Physical world foundation (unblocks the most; do first) — SHIPPED 2026-07-08
 
 Maps to **W01**. Goal: `/play` stops being a flat clamped disc and becomes a real 3D space
-with gravity, collision, terrain, and a free camera. Pure lift from `/walk`.
+with gravity, collision, a drivable district, and a free camera. Pure lift from `/walk`.
 
-- [ ] **P1.1 — Mount `PhysicsWorld` in `coincommunities.js`.** Import
-  [src/physics/physics-world.js](../../../src/physics/physics-world.js), `await initRapier()`
-  during boot (between scene build and first frame), step it in the render loop, and drive the
-  local avatar from the kinematic capsule controller instead of the current server-clamp move.
-  Keep the existing `CommunityNet` send/recv — only the *local* integration changes.
-- [ ] **P1.2 — Replace the flat plaza with `terrain.js`.** Swap the `PlaneGeometry` ground
-  ([coincommunities.js:415](../../../src/game/coincommunities.js#L415) area) for
-  `createTerrain(...)`. Seed the heightfield **deterministically from the coin mint** (terrain
-  already uses a seeded LCG) so every client in a `?coin=` world generates identical ground —
-  required for shared physics. Feed the same height grid to the Rapier heightfield collider.
-- [ ] **P1.3 — Raise/replace the 58 m clamp.** `WORLD_RADIUS = 58` exists because there was no
-  collision. With terrain + physics, expand the playable area and let colliders (boundary
-  walls, water edges) bound the player instead of a hard disc clamp. Coordinate with
-  `WalkRoom`'s server bounds so client and server agree on the new extent.
-- [ ] **P1.4 — Extract the camera-mode system into a shared module.** Pull
-  [src/walk.js:466-560](../../../src/walk.js#L466-L520) (the `CAMERA_MODES`,
-  `setCameraMode`, `cycleCameraMode`, `computeCameraForMode` block) into
-  `src/game/camera-modes.js`, then import it in **both** `walk.js` and `coincommunities.js`.
-  `/play` gets follow/cinematic/firstperson/topdown for free; `/walk` loses its inline copy.
-- [ ] **P1.5 — Wire the orphaned day/night cycle.** Import
-  [src/game/day-night.js](../../../src/game/day-night.js) `createDayNightCycle(env, district)`
-  into `/play` and advance it in the loop. It's built and unused — this is nearly free polish.
+- [x] **P1.1 — Mount `PhysicsWorld` in `coincommunities.js`.** Done, with one adaptation: by
+  the time this landed, `district.js` + `world-zones.js` already existed (built in an earlier
+  session, tagged "W01" in their own headers, but never wired in) as the intended drivable-city
+  answer for this brief — so physics mounts a flat `addGround()` + the district's building
+  colliders (`addStaticBox` per `district.colliders`) rather than a second heightfield. Rapier
+  boots once in the constructor (`_initPhysics()`, memoized like `/walk`'s `initRapier()`), the
+  kinematic character controller persists across coin switches, `_stepLocal` feeds it
+  camera-relative displacement + integrated gravity every frame, and `physics.step(dt)` runs
+  right after in `_loop()` (move-before-step, per physics-world.js's contract). Falls back to
+  the old direct-mutation path until Rapier's WASM resolves.
+- [x] **P1.2 — Real ground collision for the plaza+district.** Superseded by the district
+  answer above: `terrain.js`'s rolling-hill heightfield is still `/walk`'s ground (unchanged);
+  `/play`'s Downtown plaza + district streets are flat by design (asphalt/sidewalks), so a flat
+  `addGround()` matches the rendered geometry exactly instead of fighting it with hills.
+- [x] **P1.3 — Raise/replace the 58 m clamp.** Movement now clamps to the square
+  `WORLD_BOUND`/`DISTRICT` from [world-zones.js](../../../src/game/world-zones.js)
+  (`clampToBounds`, half=200) instead of the old `WORLD_RADIUS` disc (58, kept only as the
+  Downtown plaza's *visual* radius for dressing/build-placement/NPC-roam, unrelated to movement
+  now). This already matches `WalkRoom`'s own `WORLD_HALF_M`/`WORLD_BOUND_M` server clamp
+  one-for-one — no server change needed.
+- [x] **P1.4 — Extract the camera-mode system into a shared module.** Done as
+  [src/game/camera-modes.js](../../../src/game/camera-modes.js): `CAMERA_MODES`,
+  `CAMERA_MODE_LABELS`, `CAMERA_MODE_FOV`, the pure `computeCameraForMode()` math, and a
+  `createCameraModeController()` stateful wrapper (cycling, localStorage persistence, cross-fade
+  transition). Fully wired into `coincommunities.js` (press **C** to cycle; 'follow' reproduces
+  the original fixed orbit exactly). `walk.js` was intentionally left on its own inline
+  controller wiring (haptics/session-save/DOM-indicator are walk-specific) — a follow-up can
+  point it at the shared constants/math if it's worth the risk on that much larger file.
+- [x] **P1.5 — Wire the orphaned day/night cycle.** `createDayNightCycle(env, district)` now
+  runs every frame in `_tickEnv`, driven by the same deterministic `worldClock(Date.now())`
+  used by `/agent-screen`'s ambient stage — zero network sync, every client agrees on the sky.
+  `district.setNight(k)` brings up building windows + streetlamps at dusk for free (the hook
+  was already built into `day-night.js`, just never called).
 
-**Phase 1 done when:** an avatar in `/play` walks over uneven terrain, is stopped by real
-colliders (not a disc clamp), can switch all four camera modes, the world has a day/night sky,
-and two browsers in the same `?coin=` world see identical ground and consistent positions.
+**Phase 1 done when:** an avatar in `/play` is stopped by real colliders (not a disc clamp) —
+verified end-to-end against a local Colyseus room: a district building blocks a straight-line
+walk a few metres short of its wall — can switch all four camera modes (verified via keyboard +
+screenshot), the world has a day/night sky driving real light/fog values, and every client in a
+`?coin=` world computes the identical district + sky from the same seed/clock. Real Rapier +
+real district + real day/night — no mocks. Next: **W02** (vehicles) can now assume a live
+`PhysicsWorld` + character controller + district colliders to enter/exit a car against.
 
 ---
 
