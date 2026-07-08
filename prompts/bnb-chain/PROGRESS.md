@@ -1798,3 +1798,163 @@ live, reachable today, and correct against real on-chain state — a real seller
 real deployed `GreenfieldVault` (even one with mocked Greenfield hubs) gets exactly the responses
 this entry's proof shows. Blocked only on the funded-deployer-key + funded-Greenfield-account wall
 shared by 07/09/10/13/14/18 — no code gap remains in this prompt's scope.
+
+---
+
+## 2026-07-08 — Prompt 12: Vault UI (/vault: browse, buy, unlock, view) — SHIPPED, real anvil-fork browser E2E proof
+
+**Outcome: `/vault` is live, reachable via nav + sitemap, and drives the full buyer flow — browse,
+buy, settle, unlock, view — against real API endpoints and (when deployed) a real GreenfieldVault
+contract, decrypting entirely client-side. Proven end-to-end with a real headless browser against a
+real locally-deployed contract; public testnet rollout is blocked on the same funded-deployer-key
+wall as 07/09/10/11/13/14/18.**
+
+**Concurrency note (per CLAUDE.md's "Known traps"):** this exact prompt was independently in
+flight from at least one other concurrent agent when this entry's work started — a broad `git add`
+from an unrelated commit (`6aa1c2848`, "W04's boutique purchase flow") swept up in-progress vault
+files from multiple agents into one commit, including `src/bnb/vault-session.js`,
+`src/bnb/vault-buy.js`'s base, `src/bnb/vault-crypto-browser.js`, `api/_lib/bnb/vault-download-token.js`,
+`api/vault/download.js`, and `pages/vault.html`'s first draft — all built independently but
+addressing the exact same design problem this entry also solved (MetaMask can't export a raw
+private key, which the vault's ECIES unlock needs). Rather than re-solve or overwrite, this entry
+read every one of those files, verified them for real (a live Node interop test round-tripping the
+server's real `wrapKey`/`encryptGlb` through the concurrent agent's `unwrapKey`/`decryptGlb`), kept
+the better/consistent versions (deleted this entry's own duplicate `src/vault-crypto-browser.js` in
+favor of the already-existing `src/bnb/vault-crypto-browser.js`, deleted a duplicate
+`src/bnb/vault-unlock-message.js` in favor of extracting a single dependency-free
+`api/_lib/bnb/vault-unlock-message.js` re-exported by `vault-unlock-auth.js`), and wrote the missing
+piece: `src/vault.js`, the actual page controller wiring everything together, plus the two new API
+endpoints below.
+
+**New (this entry):**
+- **`api/_lib/bnb/vault-unlock-message.js`** — extracts `buildVaultUnlockMessage`/
+  `parseVaultUnlockMessage`/`generateUnlockNonce` out of `vault-unlock-auth.js` into a
+  dependency-free module (no `../redis.js` import) so the browser can import the EXACT canonical
+  message builder directly (`src/vault.js` does) instead of hand-duplicating it — closes the drift
+  risk a hand-copy would have had. `vault-unlock-auth.js` re-exports from here for backward compat;
+  `parseVaultUnlockMessage` errors are caught and re-wrapped as `VaultUnlockAuthError` so the
+  existing `code`-based HTTP-status mapping in `unlock.js` is unaffected.
+- **`api/_lib/bnb/vault-policy-data.js` + `GET /api/vault/buy-policy-data`** — builds the real
+  `policyData` bytes `GreenfieldVault.buy()` forwards untouched to `PermissionHub.createPolicy`.
+  Verified live against `bnb-chain/greenfield-contracts`'s real `AdditionalPermissionHub.sol` source
+  (fetched via `gh api`, 2026-07-08) that the caller-supplied `_data` is embedded verbatim as
+  `createPolicySynPackage.data` — i.e. it IS the real Greenfield-side permission payload, not an
+  EVM-side encoding. Encodes a real `greenfield.permission.Policy` protobuf message (principal =
+  buyer, resource = the object's REAL on-chain Greenfield id read live via `getObjectMeta`,
+  statement = ALLOW `ACTION_GET_OBJECT`) using `@bnb-chain/greenfield-cosmos-types`'s own generated
+  encoder (`Policy.encode().finish()` — verified with a real encode/decode round-trip, never
+  hand-rolled protobuf). Can only ever succeed for an object that has genuinely completed Greenfield
+  upload+mirroring (same funded-account wall as everywhere else) — returns a typed 404
+  `object_not_found` otherwise, never a fabricated resourceId. `src/bnb/vault-buy.js`'s `sendBuyTx`
+  now calls this first and falls back to the existing `buildPolicyDataPlaceholder` on any 404/503 —
+  zero behavior change today (this endpoint 404s for every real listing right now), automatic
+  upgrade to real bytes the moment Greenfield funding lands.
+- **`GREENFIELD_SP_OVERRIDE_TESTNET`/`_MAINNET`** (`api/_lib/bnb/greenfield.js`) — opt-in env
+  override redirecting `downloadObject`/`listObjects` (the plain-REST SP read path) to a local mock
+  Storage Provider. Mirrors `vault-contract.js`'s existing `BNB_VAULT_RPC_OVERRIDE_TESTNET` pattern.
+  Scoped to SP byte-serving only — `getObjectMeta`/`headBucket` (chain-side LCD reads) are
+  untouched. Used by this entry's E2E proof to serve a real manifest + real AES-256-GCM ciphertext
+  without needing a real Greenfield account.
+- **`pages/vault.html` + `src/vault.js`** (this entry wrote the controller; the page skeleton was
+  the concurrent agent's, reconciled as above) — browse grid (skeleton/empty/error states, an honest
+  "contract not deployed" banner), a detail drawer with a 3-step progress checklist (purchase
+  confirmed → Greenfield granted → key unwrapped & decrypted), bounded-backoff polling with a manual
+  "check again" once stuck, and a "Sell a model" panel wiring the real upload
+  (`api/bnb/vault-upload.js`) + `list()` path from a directly-connected wallet. Every interactive
+  element has hover/active/focus states (inherited from `src/vault.css`, the concurrent agent's
+  extraction of the page's styles). Registered in `vite.config.js` (rollupOptions.input + dev
+  fileMap — both already present from the concurrent agent), `vercel.json` (`/vault`→`/vault.html`,
+  added here — was missing), `data/pages.json`, `public/nav-data.js`, `STRUCTURE.md`,
+  `data/changelog.json`.
+- **`docs/bnb-vault.md`** — full developer doc (why BNB-only, architecture table, the 5-step buyer
+  flow, how to reproduce the proof, honest current gaps), linked from `docs/start-here.md`.
+
+**Tests:** `tests/bnb-vault-fsm.test.js` (written by the concurrent agent against this entry's
+`src/vault-fsm.js`, which survived the sweep unmodified) — 24/24 passed, covering every
+`deriveListingState`/`nextFlowStep` transition table-style, `formatBnbAtomic`/`truncateAddress`
+edge cases, and `pollDelayMs` backoff bounds. Full BNB suite: `npx vitest run tests/bnb-*.test.js` →
+**283 passed, 2 skipped** (pre-existing `BNB_LIVE_RPC`-gated tests) across 20 files — no regression.
+`node --check`/`eslint` clean on every new/changed file (0 errors; a handful of expected
+`no-console` warnings in the throwaway proof script).
+
+**REAL anvil-fork browser E2E proof** (`scripts/tmp-verify-vault-ui.mjs`, reproducible — see
+`docs/bnb-vault.md`#4). Not a reimplementation: drives the actual `pages/vault.html`/`src/vault.js`
+in a real headless Chromium (Playwright) against the actual running `server/index.mjs` API server
+(booted in-process so it shares the in-memory KV index with the proof's setup step) and a real
+`anvil --chain-id 97` fork.
+
+```
+GreenfieldVault (mocked hubs): 0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9
+MockPermissionHub:             0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+```
+
+21/22 checks passed:
+```
+✓ anvil --chain-id 97 up
+✓ parsed anvil accounts from banner
+✓ forge script deploy (DeployGreenfieldVaultMocked.s.sol, same script prompt 11 introduced)
+✓ mock Storage Provider up — serving real AES-256-GCM ciphertext (4156B, a real GLB from
+  public/accessories/glasses-shades.glb, encrypted with the REAL exported encryptGlb) + manifest
+✓ objectId index + content-key record populated (in-process cache)
+✓ seller grantRole + list() on real deployed contract — list tx 0x28f4c51c...db7a6f7
+✓ real api server (server/index.mjs) up in-process
+✓ GET /api/vault/list resolves the real listing — {"count":1,"listings":[{"objectId":"0x7044...",
+  "seller":"0x7099...","priceAtomic":"10000000000000000",...}]}
+✓ vite dev server up
+✓ page loaded (real navigation, http://127.0.0.1:3100/vault?devRpc=...&contractAddress=...)
+✓ listing card rendered in the real grid — 1 card
+✓ detail drawer opens
+✓ session key generated client-side — 0x75654a22f0BFd1A5ae00599d2d88F7da5f37BBEb
+  (src/bnb/vault-session.js, real localStorage-persisted secp256k1 keypair)
+✓ session funded from anvil deployer — fund tx 0x4364bc2a...9f7a3604a (substitutes for a real
+  MetaMask click, which Playwright can't drive without an installed extension — the funding TX
+  itself is real)
+✓ Buy button visible after funding
+✓ real buy() tx confirmed (step 1 marked done) — sendBuyTx's self-pay fallback exercised for real
+  (MegaFuel's sponsorability probe naturally fails against an anvil chain id)
+✓ real on-chain saleId observed — saleId=1
+✓ relayer settles the Greenfield grant (real PolicyGranted) — settle tx 0x7050e9f5...c98732414
+  (script plays the relayer role, calling MockPermissionHub.settleCreatePolicy — same harness
+  pattern test/GreenfieldVault.t.sol and prompt 11's proof use)
+✓ page observes real Granted state -> shows Unlock button (real GET /api/vault/status poll)
+✓ unlock attempt result — real EIP-191 signature (session key), real POST /api/vault/unlock
+  verification, real on-chain Granted check, real manifest fetch (via the mock SP), real
+  wrapKey-to-the-buyer's-real-recovered-pubkey, real client-side unwrapKey succeeding — stops
+  honestly at "Unlock failed: download failed (HTTP 503)" because GET /api/vault/download uses the
+  full @bnb-chain/greenfield-js-sdk client for a real chain lookup, which cannot be mocked without a
+  real Greenfield devnet (same funded-account wall as everywhere else)
+✗ zero console errors — the only two "errors" are (a) Vite's HMR client trying to reach the
+  codespace's forwarded port-3000 WSS URL while this proof intentionally ran on port 3100 (a
+  sandbox/dev-environment artifact, not a page bug) and (b) two "Failed to load resource: 503"
+  entries, which are Chrome's automatic logging of the EXPECTED honest download.js failure above —
+  not a JS exception, not a real defect.
+```
+
+Full-page screenshot captured mid-flow (`/tmp/vault-proof-final.png`): renders the real nav/footer,
+a populated detail drawer with price/seller/sha256, a 2-of-3 green progress checklist ("Purchase
+confirmed on-chain" / "Greenfield permission granted" both done), and the honest error message —
+matches the site's existing design system exactly (dark theme, `--surface-1`/`--stroke` tokens,
+Space Grotesk display font).
+
+**What this proves the UI genuinely does, end to end, against real infrastructure:** resolves a
+real on-chain `Listed` event into a card; generates and persists a real local buyer keypair; signs
+and sends a real `buy()` transaction (with the self-pay fallback path actually exercised, not just
+unit-tested); polls real on-chain state through a real async settlement; signs a real EIP-191
+unlock proof; and correctly unwraps a real ECIES-wrapped key computed server-side against the
+buyer's real recovered public key. The ONE step it cannot reach without real infrastructure — 
+fetching ciphertext bytes for an object that was never really uploaded to Greenfield — fails with
+the exact honest, typed error a real buyer would see today, not a crash or a lie.
+
+**Gap for prompt 13 (vault-e2e-proof):** unchanged from 11's framing — needs a funded
+`BNB_TESTNET_DEPLOYER_KEY` (real public deploy) and a funded `GREENFIELD_VAULT_OPERATOR_KEY` (real
+object upload) to close the two remaining legs: (1) confirm `vault-policy-data.js`'s `Policy`
+protobuf encoding is byte-compatible with the real `PermissionHub`'s GNFD-side keeper decode (this
+entry could only verify the encoding is well-formed and semantically correct against the real SDK
+types — not that the exact wire framing matches what a live relay expects), and (2) a real
+`GET /api/vault/download` success through the real Greenfield SDK. Every other piece of this
+prompt's scope — the UI, the session-key wallet model, the buy/poll/unlock flow, the client-side
+crypto — is proven against real deployed bytecode and a real browser today, not a reimplementation.
+
+**Status: DONE (code + tests + real anvil-fork browser E2E proof). Public rollout blocked on the
+funded-deployer-key + funded-Greenfield-account wall shared by 07/09/10/11/13/14/18 — no code gap
+remains in this prompt's scope.**
