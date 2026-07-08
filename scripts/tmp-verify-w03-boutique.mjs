@@ -108,7 +108,7 @@ async function main() {
 	if (!pickedDesign) fail('could not find the "Design your avatar" card');
 	else ok('Selected "Design your avatar" (opens the real Avaturn selfie SDK)');
 
-	await page.waitForTimeout(4000);
+	await page.waitForTimeout(12000);
 	if (avaturnRequestSeen) ok('Real network request to avaturn.* observed — selfie→3D SDK is genuinely wired (not mocked)');
 	else fail('No network request to avaturn.* observed — selfie SDK may not have initialized');
 	await page.screenshot({ path: `${SHOT_DIR}/w03-01-avatar-creator.png` });
@@ -133,6 +133,14 @@ async function main() {
 	if (!reachedTailor) fail('never got within range of the Tailor NPC (real on-foot Rapier movement)');
 	else ok('Walked to Roux · Tailor (real physics-driven movement, ~62m from spawn)');
 	await page.screenshot({ path: `${SHOT_DIR}/w03-02-near-tailor.png` });
+
+	// The walk from spawn to the Tailor stall passes within range of the
+	// pre-existing zauth NPC (6,2), whose `onApproach` auto-opens its scan
+	// counter (a real, unrelated feature). Dismiss it so the boutique's own
+	// interact isn't swallowed by "a counter is already open" — real NPC
+	// interference, not a bug in the boutique code.
+	await page.keyboard.press('Escape');
+	await page.waitForTimeout(300);
 
 	const promptShown = await waitFor(page, () => document.querySelector('.npc-prompt.npc-show')?.textContent?.includes('Browse the wardrobe'), { timeout: 25000, label: 'tailor prompt' });
 	if (promptShown) ok('Proximity prompt shows "E · Browse the wardrobe"');
