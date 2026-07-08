@@ -34,7 +34,7 @@ Authoritative sources (re-fetch at submission time; requirements move):
 
 ### Track A — Claude Connectors Directory (do first)
 1. `01-claude-tool-annotation-audit.md` — ✅ SHIPPED (verified 2026-07-07; prompt retired — deliverables live in the repo/`_generated/`) — every tool has a correct `title` + annotation set. (Also unblocks OpenAI.)
-2. `02-claude-reviewer-access-guide.md` — ✅ SHIPPED (verified 2026-07-07; prompt retired — deliverables live in the repo/`_generated/`) — free verification path, graceful `PaymentRequired`, reviewer setup/test-account doc.
+2. `02-claude-reviewer-access-guide.md` — ✅ SHIPPED (re-audited + closed out 2026-07-08; prompt retired — deliverables live in the repo/`_generated/`) — free verification path, graceful `PaymentRequired`, reviewer setup/test-account doc. Live re-check found the free lane (`forge_free`) currently exceeding a reviewer's patience window — see `_generated/claude-tool-call-evidence.md` and `TRACKER.md` item 8 before filing.
 3. `03-claude-submission-package.md` — ✅ SHIPPED (verified 2026-07-07; prompt retired — deliverables live in the repo/`_generated/`) — privacy URL, allowed-links, server metadata, the exact form-fill content + compliance acknowledgments.
 
 ### Track B — OpenAI ChatGPT App (do after Track A, or in parallel)
