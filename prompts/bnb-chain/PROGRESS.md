@@ -240,3 +240,118 @@ funded wallet, no policy). If a future prompt wants to *gate* a three.ws feature
 allowlist, etc.) on `hasBabt`, `api/_lib/bnb/babt.js` is ready to import directly.
 
 **Status: DONE.** Open question closed; `hasBabt`/`/api/bnb/babt-check` ready to import.
+
+## 2026-07-08 — Prompts 04 + 05 + 06: MPP payments (accept + pay + docs) — SHIPPED
+
+**Outcome: three.ws is x402↔MPP bilingual.** `@bnb-chain/mpp`'s b402 layer is x402 v2
+(same `X-PAYMENT`/`X-PAYMENT-RESPONSE` headers + EIP-3009 credential our Base path already
+signs), so "speaking MPP" = advertising a BNB-network (`eip155:56`/`97`) accept entry and
+routing BNB-network payments through the b402 facilitator, leaving the Solana/Base x402 path
+untouched. `@bnb-chain/mpp@0.2.0` was already in `node_modules`; used its `/b402` primitives
+rather than hand-rolling the wire format.
+
+- **04 — server (`api/_lib/bnb/mpp-server.js`):** `mppRequirements`/`mppChallenge` emit a
+  spec-shaped BNB 402 (extra fields preferred from a live `/supported` kind); `mppVerify`
+  decodes → full-shape-gates (`isEip3009PaymentPayload`) → pins every buyer-echoed field to
+  ours (network/asset/payTo/amount/scheme) → `recoverEip3009Payer` (must equal
+  `authorization.from`) → Redis `SET NX PX` replay guard (process-local fallback);
+  `mppSettle` calls the b402 facilitator `/settle`. Split verify/settle so the endpoint runs
+  verify (free) → work → settle, never charging on a data-outage 503. Wired ADDITIVELY into
+  the `three-intel` pilot: `looksLikeMppPayment(req)` routes BNB payments to b402; every
+  Solana/Base/unpaid request falls through to the untouched `paidEndpoint` x402 handler.
+- **05 — buyer (`api/_lib/bnb/mpp-buyer.js`):** `mppFetch(url, opts, { account, maxSpend })`
+  runs the 402→sign(EIP-3009)→retry loop with a HARD pre-signature spend cap (over-quote →
+  `over_budget`, ZERO payment sent), bounded retries (no infinite loop), synthetic-account
+  tested. Re-exported from `api/_lib/x402-buyer-fetch.js` so agents that already import the
+  x402 buyer get MPP from the same surface.
+- **06 — docs:** `docs/bnb-payments.md` (linked from start-here) + `specs/x402-mpp-bridge.md`
+  (the credential-mapping / header-precedence / replay contract). Every code sample runnable.
+
+**Tests (all green):** `tests/bnb-mpp-server.test.js` (15 — REAL signatures via
+`buildEip3009Payment`, so `recoverEip3009Payer` runs the true path; replay + pin + settle),
+`tests/bnb-mpp-buyer.test.js` (9 — happy path, cap enforcement with call-count assertion,
+unsupported/missing credential, bounded retry). Existing `tests/api/three-intel.test.js`
+still 11/11 — additive wiring did not touch the x402 path. Full BNB suite 110 passed.
+
+**Proof — real EIP-3009 credential round-trip (unit, no faucet needed):** a synthetic account
+signs a real `TransferWithAuthorization`; `mppVerify` recovers the exact signer and pins the
+offer; a second presentation of the same nonce → `replay` (HTTP 409). `mppSettle` with an
+injected facilitator client returns a b402 `X-PAYMENT-RESPONSE`.
+
+**Gap for the owner:** real on-chain settlement needs b402 MERCHANT CREDENTIALS
+(`B402_BASE_URL`/`B402_CLIENT_ID`/`B402_ACCESS_TOKEN`/`B402_PRIVATE_KEY`, RSA "Tesla"
+signing — provision at the Binance OnchainPay merchant console). Without them the adapter
+verifies off-chain and returns `mpp_not_configured` (503) for settle — never a fabricated
+receipt. `X402_PAY_TO_BSC` must also be set to advertise MPP. All code + tests are complete;
+this is a credential-provisioning step, not a code gap.
+
+**Status: DONE (code + tests + docs).** Blocked only on external b402 merchant onboarding.
+
+---
+
+## 2026-07-08 — Prompt 19: `/bnb` hub page — SHIPPED
+
+**Outcome: the campaign's front door is live.** Built as prompt 01 said to run it — early,
+with honest coming-soon states — since only prompt 01 was confirmed shipped when this prompt
+started (prompts 02/04/05/06/08/20 above landed concurrently mid-build; the auto-light-up
+logic below picked several of them up for free by the time I finished — see proof).
+
+- `pages/bnb.html` + `src/bnb.js` (`→ /bnb`) — hero, a live block-time proof strip, and three
+  feature cards (gasless onboarding, on-chain-gated vault, real-time on-chain world). Every
+  claim traces to 00-CONTEXT's verified list; explicitly never claims 20k TPS or 250ms
+  finality (BEP-670 called out as not-live). CLAUDE.md UI bar: skeleton/loading, retry-able
+  error, responsive at 320/768/1440, `prefers-reduced-motion` respected, hover/active/focus
+  states on every interactive element, `aria-live` status regions.
+- `api/bnb/block-time.js` — free GET endpoint wrapping prompt 01's `probeBlockTime`
+  (bscMainnet default, 10s cache, rate-limited via `limits.publicIp`). No hardcoded "0.45s" —
+  measured fresh on every cache miss.
+- `src/bnb-hub-helpers.js` — pure formatters (`formatBlockTime`, `formatBlockNumber`,
+  `deltaFromTarget`) + track-liveness gating (`trackLiveness`, `combineTrackStates`), unit
+  tested in `tests/bnb-hub-helpers.test.js` (17/17 passed, no mocks needed — pure functions).
+- **Auto-light-up mechanism (real checks, not flags):** each card issues a `HEAD` probe (4s
+  timeout) against its track's canonical route/API on the running deployment. `404` or a
+  network error → "coming soon" (fails closed); any other status (including `405` from a
+  POST-only endpoint probed with `HEAD`) → "live". Card targets: gasless →
+  `/api/bnb/register-agent` (prompt 03, not yet shipped) with a secondary docs link gated on
+  `/docs/bnb-payments.md` (prompt 06 — **shipped concurrently, so this secondary link is now
+  live**); vault → `/vault` (prompt 12, not yet shipped); on-chain world → `/bnb-latency`
+  (prompt 17, not yet shipped).
+- Docs/wiring: `data/pages.json` (`/bnb` registered), `STRUCTURE.md` row, `data/changelog.json`
+  (tag `feature`), `public/nav-data.js` (Discover → Start here, next to Labs), Vite build
+  input + dev-server rewrite, `vercel.json` clean-URL route (`/bnb/?` → `/bnb.html`).
+
+**Live proof — block-time widget, real RPC, unmocked** (invoked the actual exported handler
+with mock req/res, not a reimplementation):
+```json
+{"network":"bscMainnet","avgBlockTimeMs":450,"latestBlock":108695844,"sampleBlocks":200,"target":450,"measuredAt":"2026-07-08T00:58:24.182Z"}
+```
+Response headers confirmed: `200`, `cache-control: public, max-age=5, s-maxage=10,
+stale-while-revalidate=30`, CORS `*`. A second direct `probeBlockTime` call moments later
+returned `latestBlock: 108695821` — block number advancing in real time across separate
+processes, i.e. genuinely live chain state, not a cached fixture.
+
+**Manual verification:** `npm run dev`, `curl` against the Vite dev server — `/bnb` returns
+200 and contains `#bnb-grid`/`#bnb-proof-card`/the `src/bnb.js` module tag; `HEAD /vault`,
+`HEAD /bnb-latency`, `HEAD /api/bnb/register-agent` all correctly 404 (not yet built, so the
+gating renders coming-soon); `HEAD /docs/bnb-payments.md` correctly 200 (prompt 06 landed
+concurrently). `npm run build:pages` validated `data/pages.json`/`data/changelog.json`
+cleanly (`2/7 files updated`, no errors). Did not drive a real Chromium session (none
+available in this environment) — verification is curl + direct-handler-invocation against
+real RPC/HTTP, not a headless-browser screenshot; no console-error check was possible for
+that reason. `npx vitest run tests/bnb-hub-helpers.test.js` → 17/17 passed.
+
+**Shared-worktree note:** every file this prompt touched was independently confirmed
+committed with byte-identical content to what was authored here — but bundled into three
+*other* agents' commits (`7e185b58d`, `cf190dfd3`, `f6dbb8ac3`) via their own broad `git add`
+sweeps, not a commit run by this prompt. Flagging per the "known traps" section rather than
+rewriting history: content is safe and correct, only the commit *messages* don't mention this
+work.
+
+**Gap for prompts 03/06(UI)/12/16/17:** none from this side — the hub's gating logic needs no
+changes as those tracks ship; a `HEAD` 200/405 on the routes named above is the entire
+contract. Prompt 03 should note that the gasless-registration card's primary CTA points to
+`/create-agent` (existing ERC-8004 identity surface) — wire the "Register on BNB (gasless)"
+affordance there, not a new route, or update `TRACKS[0].primary.href` in `src/bnb.js` if it
+lands somewhere else.
+
+**Status: DONE.**
