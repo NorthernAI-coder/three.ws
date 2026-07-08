@@ -34,7 +34,17 @@ export const VEHICLE_TYPES = {
 		grip: 1.9,           // wheel friction slip — lower = looser tail
 		dims: { l: 4.1, w: 1.85, h: 1.05 },
 		wheel: { radius: 0.34, halfWidth: 0.18, inset: 0.16, frontZ: 1.35, rearZ: -1.3 },
-		suspension: { rest: 0.32, stiffness: 26, travel: 0.16, compression: 0.82, relax: 0.88 },
+		// rest=0.4, not the more "sporty-low" 0.32 it started at: verified against
+		// the real Rapier raycast vehicle controller (createVehicle in
+		// src/physics/physics-world.js) that at 0.32 the chassis collider (offset
+		// -0.3*hy below the body origin) settles low enough to rest on/against the
+		// ground itself, so its own friction pins the car almost dead still no
+		// matter how much engine force is applied (0.61 m/s after 3s of full
+		// throttle in a scripted repro — scripts/tmp-verify-w02-physics-core.mjs).
+		// 0.4 gives the chassis clearance over the wheel contact line so the wheels
+		// (not the hull) carry the car's weight and traction (10.8 m/s after the
+		// same 3s in the same repro).
+		suspension: { rest: 0.4, stiffness: 26, travel: 0.16, compression: 0.82, relax: 0.88 },
 		seat: { x: -0.42, y: 0.62, z: -0.2 }, // driver seat offset in chassis space
 		color: 0xc8402f,
 	},
@@ -51,7 +61,11 @@ export const VEHICLE_TYPES = {
 		grip: 2.3,
 		dims: { l: 4.4, w: 1.9, h: 1.25 },
 		wheel: { radius: 0.36, halfWidth: 0.19, inset: 0.16, frontZ: 1.45, rearZ: -1.4 },
-		suspension: { rest: 0.36, stiffness: 24, travel: 0.18, compression: 0.85, relax: 0.9 },
+		// rest=0.5 (was 0.36 — same chassis-clearance bug as coupe's, see its
+		// comment above; a taller sedan needed more lift than the coupe did).
+		// Verified: stock 0.36 never moves (0.00 m/s after 3s full throttle) in
+		// the real-Rapier repro; 0.5 reaches 7.9 m/s in the same window.
+		suspension: { rest: 0.5, stiffness: 24, travel: 0.18, compression: 0.85, relax: 0.9 },
 		seat: { x: -0.44, y: 0.72, z: -0.1 },
 		color: 0x2f6fc8,
 	},
@@ -68,7 +82,12 @@ export const VEHICLE_TYPES = {
 		grip: 2.7,
 		dims: { l: 5.0, w: 2.05, h: 1.5 },
 		wheel: { radius: 0.42, halfWidth: 0.22, inset: 0.14, frontZ: 1.6, rearZ: -1.55 },
-		suspension: { rest: 0.42, stiffness: 22, travel: 0.22, compression: 0.85, relax: 0.9 },
+		// rest=0.6 (was 0.42 — the same chassis-clearance bug, worst here because
+		// the pickup is the tallest chassis: h=1.5). At 0.42 it was FULLY pinned —
+		// speed stayed ~0.00 m/s even at 10x its stock engine force in the
+		// real-Rapier repro. 0.6 clears the chassis off the ground and reaches
+		// 4.1 m/s in 3s, matching a heavy/planted truck's slower character.
+		suspension: { rest: 0.6, stiffness: 22, travel: 0.22, compression: 0.85, relax: 0.9 },
 		seat: { x: -0.5, y: 0.92, z: 0.35 },
 		color: 0x2b2f36,
 	},

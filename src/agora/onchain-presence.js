@@ -70,6 +70,19 @@ function hasStoredKey() {
 	}
 }
 
+/** See the "Dev/demo override" comment in `turnOn()` for why this exists. */
+function devOverrideFromUrl() {
+	try {
+		const params = new URLSearchParams(location.search);
+		const address = params.get('bnbDevAddress');
+		const rpc = params.get('bnbDevRpc');
+		if (address && rpc && /^0x[0-9a-fA-F]{40}$/.test(address)) return { address, rpc };
+	} catch {
+		/* no location/URLSearchParams (non-browser test import) */
+	}
+	return null;
+}
+
 /**
  * Mount the on-chain presence toggle + ghost layer.
  *
@@ -118,6 +131,7 @@ export function mountOnchainPresence({ scene, hudRoot, network = 'bscTestnet' })
 	let watcher = null;
 	let firstHereTimer = null;
 	let statusReason = '';
+	let rpcOverrideClient = null; // set only by the ?bnbDevAddress/?bnbDevRpc override, see turnOn()
 
 	function setState(state, reason = '') {
 		toggle.dataset.state = state;
@@ -182,19 +196,34 @@ export function mountOnchainPresence({ scene, hudRoot, network = 'bscTestnet' })
 
 	async function turnOn() {
 		setState('connecting');
+		// Dev/demo override: `?bnbDevAddress=0x...&bnbDevRpc=http://host:port` points
+		// this session at an already-deployed WorldMoves instance and RPC directly,
+		// bypassing /api/bnb/world-config. Exists purely because the public BSC
+		// testnet deploy is still blocked on a funded deployer key (PROGRESS.md
+		// prompt 14/15) — the same "prove it against a real anvil fork of testnet
+		// state" technique this campaign has used since prompt 02, just reachable
+		// from a real browser session instead of only `cast`/`forge script`. It is
+		// NEVER used unless BOTH params are explicitly present in the URL.
 		let cfg;
-		try {
-			cfg = await fetchWorldConfig(network);
-		} catch (err) {
-			setState('off', `couldn't reach world-config: ${err.message}`);
-			on = false;
-			toggle.setAttribute('aria-pressed', 'false');
-			return;
-		}
-		if (!cfg.deployed || !cfg.address) {
-			setState('unavailable', 'WorldMoves is not deployed on this network yet — code is ready, address pending (see PROGRESS.md).');
-			on = false;
-			return;
+		const override = devOverrideFromUrl();
+		if (override) {
+			cfg = { deployed: true, address: override.address, worldId: 1 };
+			const { getPublicClient } = await import('../../api/_lib/bnb/chains.js');
+			rpcOverrideClient = getPublicClient(network, { rpcs: [override.rpc], cache: false });
+		} else {
+			try {
+				cfg = await fetchWorldConfig(network);
+			} catch (err) {
+				setState('off', `couldn't reach world-config: ${err.message}`);
+				on = false;
+				toggle.setAttribute('aria-pressed', 'false');
+				return;
+			}
+			if (!cfg.deployed || !cfg.address) {
+				setState('unavailable', 'WorldMoves is not deployed on this network yet — code is ready, address pending (see PROGRESS.md).');
+				on = false;
+				return;
+			}
 		}
 		contractAddress = cfg.address;
 		worldId = cfg.worldId;
@@ -205,8 +234,10 @@ export function mountOnchainPresence({ scene, hudRoot, network = 'bscTestnet' })
 			worldId,
 			network,
 			address: contractAddress,
+			publicClient: rpcOverrideClient || undefined,
 			onSent: (result) => {
 				if (disposed) return;
+				log.info(`[onchain-presence] move sent hash=${result.hash} mode=${result.mode} from=${account.address}`);
 				setState(result.mode === 'sponsored' ? 'on' : 'on-selfpay', result.mode === 'sponsored' ? '' : result.reason || 'sponsorship unavailable right now');
 			},
 			onError: (err) => {
@@ -217,7 +248,7 @@ export function mountOnchainPresence({ scene, hudRoot, network = 'bscTestnet' })
 		});
 
 		try {
-			await sendJoin({ account, worldId, network }, { address: contractAddress });
+			await sendJoin({ account, worldId, network }, { address: contractAddress, publicClient: rpcOverrideClient || undefined });
 		} catch (err) {
 			log.warn('[onchain-presence] join announce failed (non-fatal)', err?.message);
 		}
@@ -227,13 +258,15 @@ export function mountOnchainPresence({ scene, hudRoot, network = 'bscTestnet' })
 				worldId,
 				address: contractAddress,
 				network,
+				publicClient: rpcOverrideClient || undefined,
 				onMove: (ev) => {
 					if (ev.player.toLowerCase() === account.address.toLowerCase()) return; // never ghost yourself
 					// Ghost tracker interpolates facing in contract centidegrees
 					// (its default facingRange=36000) — converted to radians only at
 					// render time in update(), below.
 					const pos = fromContractPos(ev);
-					ghosts.upsert(ev.player, { ...pos, facing: ev.facing });
+					const { isNew } = ghosts.upsert(ev.player, { ...pos, facing: ev.facing });
+					if (isNew) log.info(`[onchain-presence] ghost joined player=${ev.player} pos=${JSON.stringify(pos)}`);
 					hint.hidden = true;
 				},
 				onLeave: (ev) => {
@@ -265,12 +298,13 @@ export function mountOnchainPresence({ scene, hudRoot, network = 'bscTestnet' })
 		watcher = null;
 		if (account && contractAddress) {
 			try {
-				await sendLeave({ account, worldId, network }, { address: contractAddress });
+				await sendLeave({ account, worldId, network }, { address: contractAddress, publicClient: rpcOverrideClient || undefined });
 			} catch {
 				/* best-effort — presence timeout via staleness covers this either way */
 			}
 		}
 		clearGhosts();
+		rpcOverrideClient = null;
 		setState('off');
 	}
 

@@ -164,6 +164,23 @@ const appConfig = {
 				changeOrigin: true,
 				secure: true,
 				ws: true,
+				// `api/_lib/**` is source code (library modules shared by serverless
+				// handlers), never a routable endpoint — the leading underscore is
+				// this repo's established "not a route" convention (mirrors Next/
+				// Vercel). A few isomorphic BNB modules (src/bnb/move-sender.js,
+				// src/agora/onchain-presence.js — prompts 15/16) import straight from
+				// api/_lib/bnb/*.js via a relative path so the exact same code runs
+				// server- and client-side with zero duplication. That relative import
+				// resolves in the BROWSER to a same-origin request for
+				// /api/_lib/bnb/*.js, which this proxy would otherwise swallow and
+				// forward upstream (404 — no such route exists there), breaking those
+				// modules in `vite dev` even though the production bundle (which
+				// inlines everything at build time) never hits this path. Bypassing
+				// the proxy for /api/_lib/** lets Vite's own static/module server
+				// return the real source file instead, so dev and prod both work.
+				bypass: (req) => {
+					if (req.url && req.url.startsWith('/api/_lib/')) return req.url;
+				},
 				// SSE responses (text/event-stream) must not be buffered.
 				// http-proxy + Node's stream pipe handle this when we don't
 				// touch the response, so leave selfHandleResponse off.
