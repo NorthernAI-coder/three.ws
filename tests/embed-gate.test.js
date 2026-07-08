@@ -70,7 +70,7 @@ describe('meetsGateThreshold — gate pass/fail by balance', () => {
 });
 
 describe('getSplTokenBalance — real Solana RPC read, gate pass/fail end-to-end', () => {
-	const WALLET = 'DYw8jCTfwHNRJhhmFcbXvVDTqWMEVFBX6ZKUmG5CNSKK';
+	const WALLET = 'ThreeWsSyntheticTestWallet1111111111111111';
 	const MINT = DEFAULT_GATE_MINT;
 
 	afterEach(() => {
@@ -127,7 +127,7 @@ describe('embed gate access tokens — sign/verify and expiry', () => {
 	const CLAIMS = {
 		gateId: 'gate123abc',
 		assetId: 'avatar:8e3c9b1a-0000-4000-8000-000000000001',
-		wallet: 'DYw8jCTfwHNRJhhmFcbXvVDTqWMEVFBX6ZKUmG5CNSKK',
+		wallet: 'ThreeWsSyntheticTestWallet1111111111111111',
 		mint: DEFAULT_GATE_MINT,
 		minAmount: 5000,
 		amount: 7250.25,

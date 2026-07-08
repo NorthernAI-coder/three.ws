@@ -1,0 +1,181 @@
+/**
+ * Tests for api/_lib/material-studio-store.js — the Material Studio server core
+ * (AI PBR restyle + seeded colorway variants + persistence).
+ *
+ * The network/credential boundary is stubbed (R2 upload, watsonx.ai, and the
+ * SSRF DNS check), but everything else runs for REAL against a real GLB
+ * fixture (public/avatars/fox.glb): the glTF-Transform document is actually
+ * loaded, materials actually mutated, the output actually re-serialized and
+ * run through the real Khronos gltf-validator. This is the offline stand-in
+ * for a live end-to-end call — same philosophy as tests/api/x402-pipeline.test.js.
+ */
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+const FIXTURE_GLB_PATH = resolve(process.cwd(), 'public/avatars/fox.glb');
+const FIXTURE_URL = 'https://cdn.three.ws/fixtures/fox.glb';
+
+let fixtureBytes;
+let uploadedObjects;
+let watsonxReply;
+
+vi.mock('../../api/_lib/r2.js', () => ({
+	putObject: vi.fn(async ({ key, body }) => {
+		uploadedObjects.push({ key, bytes: body.length ?? body.byteLength });
+	}),
+	publicUrl: vi.fn((key) => `https://cdn.three.ws/${key}`),
+}));
+
+vi.mock('../../api/_lib/ssrf.js', () => ({
+	assertPublicHttpsUrl: vi.fn(async (url) => url),
+}));
+
+vi.mock('../../api/_lib/watsonx.js', () => ({
+	watsonxConfig: vi.fn(() => ({ configured: true, chatModel: 'ibm/granite-3-8b-instruct' })),
+	watsonxChatComplete: vi.fn(async () => ({
+		text: JSON.stringify(watsonxReply),
+		model: 'ibm/granite-3-8b-instruct',
+		usage: { total_tokens: 42 },
+	})),
+}));
+
+beforeEach(() => {
+	uploadedObjects = [];
+	fixtureBytes = readFileSync(FIXTURE_GLB_PATH);
+	watsonxReply = {
+		name: 'Polished chrome',
+		baseColorFactor: [0.79, 0.81, 0.83],
+		metallicFactor: 1,
+		roughnessFactor: 0.05,
+		emissiveFactor: [0, 0, 0],
+		notes: 'a bright, reflective chrome finish',
+	};
+	global.fetch = vi.fn(async (url) => {
+		if (url === FIXTURE_URL) {
+			return { ok: true, status: 200, arrayBuffer: async () => fixtureBytes.buffer.slice(fixtureBytes.byteOffset, fixtureBytes.byteOffset + fixtureBytes.byteLength) };
+		}
+		throw new Error(`unexpected fetch: ${url}`);
+	});
+});
+
+describe('restyleMaterialFromInstruction', () => {
+	it('applies AI-proposed PBR factors, persists a valid GLB, and seeds a lineage', async () => {
+		const { restyleMaterialFromInstruction } = await import('../../api/_lib/material-studio-store.js');
+		const result = await restyleMaterialFromInstruction({
+			glbUrl: FIXTURE_URL,
+			instruction: 'make it chrome',
+		});
+
+		expect(result.glbUrl).toMatch(/^https:\/\/cdn\.three\.ws\/material-studio\/restyle\/.+\.glb$/);
+		expect(result.sourceGlbUrl).toBe(FIXTURE_URL);
+		expect(result.factors.metallicFactor).toBe(1);
+		expect(result.materialsEdited).toBeGreaterThan(0);
+		expect(uploadedObjects).toHaveLength(1);
+		// magic bytes of the persisted output really are a binary glTF
+		expect(uploadedObjects[0].bytes).toBeGreaterThan(12);
+
+		// Lineage: origin (index 0) → restyle (index 1), immutable + well-formed.
+		expect(result.lineage).toHaveLength(2);
+		expect(result.lineage[0]).toMatchObject({ index: 0, parentIndex: null, glbUrl: FIXTURE_URL, refKind: 'origin' });
+		expect(result.lineage[1]).toMatchObject({
+			index: 1,
+			parentIndex: 0,
+			glbUrl: result.glbUrl,
+			instruction: 'make it chrome',
+			refKind: 'restyle',
+		});
+		expect(result.activeIndex).toBe(1);
+	});
+
+	it('extends a caller-supplied parent_lineage instead of starting fresh', async () => {
+		const { restyleMaterialFromInstruction } = await import('../../api/_lib/material-studio-store.js');
+		const parentLineage = [
+			{ index: 0, parentIndex: null, glbUrl: FIXTURE_URL, refKind: 'origin' },
+			{ index: 1, parentIndex: 0, glbUrl: 'https://cdn.three.ws/material-studio/variants/abc.glb', instruction: 'Chrome 3', refKind: 'variant' },
+		];
+		const result = await restyleMaterialFromInstruction({
+			glbUrl: FIXTURE_URL,
+			instruction: 'wooden',
+			parentLineage,
+		});
+
+		expect(result.lineage).toHaveLength(3);
+		expect(result.lineage[2]).toMatchObject({ index: 2, parentIndex: 1, instruction: 'wooden', refKind: 'restyle' });
+	});
+
+	it('rejects a malformed parent_lineage by falling back to a fresh one rather than corrupting history', async () => {
+		const { restyleMaterialFromInstruction } = await import('../../api/_lib/material-studio-store.js');
+		const corrupt = [{ index: 0, parentIndex: null, glbUrl: FIXTURE_URL, refKind: 'origin' }, { index: 5, parentIndex: 99, glbUrl: 'x', refKind: 'text' }];
+		const result = await restyleMaterialFromInstruction({ glbUrl: FIXTURE_URL, instruction: 'gold', parentLineage: corrupt });
+		expect(result.lineage).toHaveLength(2);
+		expect(result.lineage[0].glbUrl).toBe(FIXTURE_URL);
+	});
+
+	it('surfaces a not_configured error when watsonx has no credentials, without persisting anything', async () => {
+		const { watsonxConfig } = await import('../../api/_lib/watsonx.js');
+		watsonxConfig.mockReturnValueOnce({ configured: false });
+		const { restyleMaterialFromInstruction, MaterialStudioError } = await import('../../api/_lib/material-studio-store.js');
+		await expect(restyleMaterialFromInstruction({ glbUrl: FIXTURE_URL, instruction: 'chrome' })).rejects.toMatchObject({
+			code: 'not_configured',
+			status: 503,
+		});
+		expect(uploadedObjects).toHaveLength(0);
+	});
+
+	it('rejects a too-short instruction before any network call', async () => {
+		const { restyleMaterialFromInstruction } = await import('../../api/_lib/material-studio-store.js');
+		await expect(restyleMaterialFromInstruction({ glbUrl: FIXTURE_URL, instruction: 'x' })).rejects.toMatchObject({
+			code: 'invalid_instruction',
+		});
+		expect(uploadedObjects).toHaveLength(0);
+	});
+});
+
+describe('generateSeededVariants', () => {
+	it('is deterministic — the same preset + seed produce byte-identical factor sets across two runs', async () => {
+		const { generateSeededVariants } = await import('../../api/_lib/material-studio-store.js');
+		const a = await generateSeededVariants({ glbUrl: FIXTURE_URL, preset: 'gold', seed: 7, count: 3 });
+		uploadedObjects = [];
+		const b = await generateSeededVariants({ glbUrl: FIXTURE_URL, preset: 'gold', seed: 7, count: 3 });
+
+		expect(a.variants).toHaveLength(3);
+		expect(a.variants.map((v) => v.config.color)).toEqual(b.variants.map((v) => v.config.color));
+		expect(a.variants.map((v) => v.seed)).toEqual(b.variants.map((v) => v.seed));
+		for (const v of a.variants) expect(v.glbUrl).toMatch(/^https:\/\/cdn\.three\.ws\/material-studio\/variants\/.+\.glb$/);
+	});
+
+	it('fans every variant off the SAME shared parent rather than chaining them', async () => {
+		const { generateSeededVariants } = await import('../../api/_lib/material-studio-store.js');
+		const result = await generateSeededVariants({ glbUrl: FIXTURE_URL, preset: 'chrome', seed: 1, count: 4 });
+		const nonOrigin = result.lineage.filter((v) => v.refKind === 'variant');
+		expect(nonOrigin).toHaveLength(4);
+		const parentIndices = new Set(nonOrigin.map((v) => v.parentIndex));
+		expect(parentIndices.size).toBe(1); // all siblings, one shared parent
+		expect([...parentIndices][0]).toBe(result.activeIndex);
+	});
+
+	it('rejects an unknown preset', async () => {
+		const { generateSeededVariants } = await import('../../api/_lib/material-studio-store.js');
+		await expect(generateSeededVariants({ glbUrl: FIXTURE_URL, preset: 'unobtainium' })).rejects.toMatchObject({
+			code: 'invalid_preset',
+		});
+	});
+
+	it('clamps an out-of-range count into [1, 12]', async () => {
+		const { generateSeededVariants } = await import('../../api/_lib/material-studio-store.js');
+		const result = await generateSeededVariants({ glbUrl: FIXTURE_URL, preset: 'wood', seed: 2, count: 999 });
+		expect(result.variants).toHaveLength(12);
+	});
+});
+
+describe('validateAndPersistGlb', () => {
+	it('accepts a real GLB and rejects non-GLB bytes', async () => {
+		const { validateAndPersistGlb, MaterialStudioError } = await import('../../api/_lib/material-studio-store.js');
+		const good = await validateAndPersistGlb(fixtureBytes, { keyPrefix: 'material-studio/checkpoints' });
+		expect(good.url).toMatch(/^https:\/\/cdn\.three\.ws\/material-studio\/checkpoints\/.+\.glb$/);
+
+		await expect(validateAndPersistGlb(Buffer.from('not a glb'))).rejects.toBeInstanceOf(MaterialStudioError);
+	});
+});

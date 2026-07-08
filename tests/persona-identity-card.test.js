@@ -3,9 +3,12 @@ import { buildIdentityCard, summarizeIdentityCard } from '../api/_lib/persona-id
 
 function sampleIdentity() {
 	return {
-		address: 'CkxTHWu8FDvUmQMuoNe4dS6jt6fFjNhhKJqoFCT9GgFf',
+		// Clearly-synthetic placeholder address (CLAUDE.md fixture policy) — not a
+		// real mainnet wallet, just a fixed string this pure-function test asserts
+		// gets threaded through unchanged.
+		address: 'SyntheticTestWallet1111111111111111111111',
 		network: 'mainnet',
-		explorer: 'https://solscan.io/account/CkxTHWu8FDvUmQMuoNe4dS6jt6fFjNhhKJqoFCT9GgFf',
+		explorer: 'https://solscan.io/account/SyntheticTestWallet1111111111111111111111',
 		balances: { sol: 1.5, usdc: 12.34, total_usd: 250 },
 		reputation: { feedback: { total: 10, verified: 5, disputed: 0, score_avg_verified: 4.4 } },
 		holdings: { count: 3, total_usd: 120 },

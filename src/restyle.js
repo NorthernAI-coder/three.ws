@@ -79,6 +79,7 @@ function cache() {
 		'file', 'url-input', 'load-url', 'status', 'error', 'error-msg', 'retry',
 		'ai-instruction', 'ai-restyle', 'ai-texture', 'ai-note',
 		'lineage-strip', 'save-version', 'lineage-note',
+		'save-variants', 'variants-note',
 	]) {
 		el[id] = document.getElementById(id);
 	}
@@ -423,6 +424,59 @@ function generateVariants() {
 	el.variants.hidden = false;
 }
 
+// ── seeded variants: persist all N as real, durable versions ─────────────────
+// The swatch strip (generateVariants, below) is an instant, free, client-only
+// preview. "Save all as versions" is the durable counterpart: it asks
+// api/material-studio's variants action to actually export, gltf-validate, and
+// persist N independent GLBs (branching off the SAME parent version) and folds
+// every one into the real lineage, so each variant is a separately addressable,
+// revertable asset — not just a color swap that vanishes on reload.
+async function persistVariants() {
+	if (!state.root) return;
+	if (state.sourceUrlPending) {
+		setNote(el['variants-note'], 'Still checkpointing the model — try again in a moment.', 'busy');
+		return;
+	}
+	if (!state.sourceGlbUrl) {
+		setNote(el['variants-note'], 'Saving variants needs a public model URL — load one via "Load URL", or wait for the upload checkpoint to finish.', 'error');
+		return;
+	}
+	const seed = parseInt(el.seed.value, 10) || 0;
+	const count = clampInt(parseInt(el['variant-count'].value, 10) || 6, 1, 12);
+	el['save-variants'].disabled = true;
+	setNote(el['variants-note'], `Generating and saving ${count} variants…`, 'busy');
+	try {
+		const res = await fetch('/api/material-studio?action=variants', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({
+				glb_url: state.sourceGlbUrl,
+				preset: state.baseName,
+				seed,
+				count,
+				parent_lineage: state.realLineage,
+				parent_index: state.activeIndex,
+			}),
+		});
+		const data = await res.json().catch(() => ({}));
+		if (!res.ok || !data?.ok) throw new Error(data?.message || `variants failed (${res.status})`);
+
+		state.realLineage = data.lineage;
+		// Leave the active pointer where it was — the variants are new siblings
+		// to pick from, not an implicit navigation to the last one.
+		renderLineageStrip();
+		setNote(
+			el['variants-note'],
+			`Saved ${data.variants.length} variant${data.variants.length === 1 ? '' : 's'} as new versions — pick one below in Versions.`,
+			'done',
+		);
+	} catch (err) {
+		setNote(el['variants-note'], `Save failed: ${err?.message || err}`, 'error');
+	} finally {
+		el['save-variants'].disabled = false;
+	}
+}
+
 // ── AI restyle ───────────────────────────────────────────────────────────────
 async function aiRestyle() {
 	const instruction = (el['ai-instruction'].value || '').trim();
@@ -592,6 +646,7 @@ function wireControls() {
 	el.basecolor.addEventListener('input', () => setManual('color', el.basecolor.value));
 	el.emissivecolor.addEventListener('input', () => setManual('emissive', el.emissivecolor.value));
 	el['gen-variants'].addEventListener('click', generateVariants);
+	el['save-variants'].addEventListener('click', persistVariants);
 	el.reset.addEventListener('click', resetModel);
 	el.export.addEventListener('click', exportModel);
 	el.retry.addEventListener('click', () => loadModel(DEFAULT_MODEL, 'sample', { originUrl: DEFAULT_MODEL }));

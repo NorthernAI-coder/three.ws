@@ -55,6 +55,12 @@ import {
 	INPUT_TYPES,
 } from './resolve-avatar.js';
 import { runSolanaDeploy, solanaTxExplorerUrl, detectSolanaWallet } from './solana-deploy.js';
+import {
+	getEphemeralAccount,
+	registerAgentGaslessAttempt,
+	registerAgentSelfPayRetry,
+	BSC_TESTNET_CHAIN_ID,
+} from './gasless-register.js';
 import { onchainBadgeHTML, ensureOnchainBadgeStyles } from '../shared/onchain-badge.js';
 import { log } from '../shared/log.js';
 ensureOnchainBadgeStyles();
@@ -1606,6 +1612,21 @@ export class RegisterUI {
 			${!walletOk ? `<div class="erc8004-alert">Connect a wallet before deploying.</div>` : ''}
 			${walletOk && !chainOk ? `<div class="erc8004-alert">Your wallet is on chain ${this.wallet.chainId}. <button class="erc8004-link" data-role="switch">Switch to ${esc(meta.name)}</button></div>` : ''}
 
+			${this.selectedChainId === BSC_TESTNET_CHAIN_ID ? `
+				<div class="erc8004-gasless-panel" data-role="gasless-panel">
+					<div class="erc8004-gasless-head">
+						<span class="erc8004-gasless-badge">⚡ Zero gas</span>
+						<div>
+							<h4 class="erc8004-h4">Try gasless registration on BNB Chain</h4>
+							<p class="erc8004-p erc8004-muted">Mints your agent from a brand-new wallet holding <b>0 tBNB</b> — sponsored by MegaFuel's paymaster, no faucet, no funding, no wallet connection needed.</p>
+						</div>
+					</div>
+					<div class="erc8004-log" data-role="gasless-log"></div>
+					<div class="erc8004-result deploy-result" data-role="gasless-result" style="display:none"></div>
+					<button type="button" class="erc8004-btn btn btn--secondary" data-role="gasless-deploy">⚡ Register gasless (0 tBNB wallet)</button>
+				</div>
+			` : ''}
+
 			<details class="erc8004-accordion">
 				<summary class="erc8004-accordion-head">📦 Export Options</summary>
 				<div class="erc8004-accordion-body">
@@ -1702,7 +1723,112 @@ export class RegisterUI {
 			this._doDeploy(body),
 		);
 
+		body.querySelector('[data-role="gasless-deploy"]')?.addEventListener('click', () =>
+			this._doGaslessDeploy(body),
+		);
+
 		this._wireExportOptions(body);
+	}
+
+	// -----------------------------------------------------------------------
+	// Gasless BNB Chain registration (api/bnb/register-agent.js) — a fresh,
+	// page-local ephemeral wallet with 0 tBNB mints its identity sponsored by
+	// MegaFuel. Independent of the wallet-connect flow above: no signer, no
+	// gas, no faucet. See src/erc8004/gasless-register.js for the signing.
+	// -----------------------------------------------------------------------
+
+	async _doGaslessDeploy(body) {
+		const log = body.querySelector('[data-role="gasless-log"]');
+		const resultEl = body.querySelector('[data-role="gasless-result"]');
+		const btn = body.querySelector('[data-role="gasless-deploy"]');
+		const say = (msg, err = false) => {
+			const line = document.createElement('div');
+			line.className = 'erc8004-log-line' + (err ? ' erc8004-log-error' : '');
+			line.textContent = msg;
+			log.appendChild(line);
+			log.scrollTop = log.scrollHeight;
+		};
+		btn.disabled = true;
+		resultEl.style.display = 'none';
+		resultEl.innerHTML = '';
+		log.innerHTML = '';
+
+		const agentURI = this._currentGlbUrl() || this.form.imageUrl || '';
+
+		try {
+			const account = getEphemeralAccount();
+			say(`Ephemeral wallet: ${account.address} — 0 tBNB, no funding needed.`);
+			say('Signing register() with gasPrice: 0…');
+			const result = await registerAgentGaslessAttempt({ agentURI, chainId: BSC_TESTNET_CHAIN_ID, network: 'bscTestnet' });
+
+			if (result.alreadyRegistered) {
+				say(`This wallet already holds agent #${result.agentId ?? '(id unavailable on this registry)'} — no new mint.`);
+				this._renderGaslessResult(resultEl, { mode: 'already', agentURI, ...result });
+				return;
+			}
+			if (result.mode === 'declined') {
+				say(`MegaFuel declined sponsorship: ${result.reason || 'no policy for this address'}.`, true);
+				say(result.hint || 'Fund the wallet above with a small amount of tBNB, then retry.');
+				this._renderGaslessResult(resultEl, { mode: 'declined', agentURI, ...result });
+				return;
+			}
+
+			say(`Relayed via MegaFuel — mode: ${result.mode}. Tx: ${result.hash}`);
+			say(
+				result.pending
+					? 'Submitted — still confirming (BSC blocks land in well under a second; a slow RPC can lag behind). Check the explorer link.'
+					: `Confirmed. Agent ID: ${result.agentId ?? '(pending indexer)'}.`,
+			);
+			this._renderGaslessResult(resultEl, { mode: 'success', agentURI, ...result });
+		} catch (err) {
+			say(`Gasless registration failed: ${err.message}`, true);
+		} finally {
+			btn.disabled = false;
+		}
+	}
+
+	async _doGaslessSelfPayRetry(el, agentURI) {
+		el.innerHTML = `<div class="erc8004-muted">Retrying with a real gasPrice…</div>`;
+		try {
+			const result = await registerAgentSelfPayRetry({ agentURI, chainId: BSC_TESTNET_CHAIN_ID, network: 'bscTestnet' });
+			if (result.alreadyRegistered) {
+				this._renderGaslessResult(el, { mode: 'already', agentURI, ...result });
+				return;
+			}
+			this._renderGaslessResult(el, { mode: 'success', agentURI, ...result });
+		} catch (err) {
+			el.innerHTML = `<div class="erc8004-alert">Self-pay retry failed: ${esc(err.message)}</div>`;
+		}
+	}
+
+	_renderGaslessResult(el, data) {
+		el.style.display = '';
+		const address = data.walletAddress || data.address || '';
+		if (data.mode === 'already') {
+			el.innerHTML = `<div class="erc8004-alert">Wallet <code>${esc(address)}</code> already owns agent <b>#${esc(data.agentId ?? '?')}</b> on this registry.</div>`;
+			return;
+		}
+		if (data.mode === 'declined') {
+			el.innerHTML = `
+				<div class="erc8004-alert">Sponsorship declined for <code>${esc(address)}</code>: ${esc(data.reason || 'unavailable right now')}.</div>
+				<p class="erc8004-p erc8004-muted">${esc(data.hint || 'Fund this wallet with a small amount of tBNB and retry to self-pay.')}</p>
+				<button type="button" class="erc8004-btn btn btn--secondary" data-role="gasless-selfpay-retry">I funded it — self-pay retry</button>
+			`;
+			el.querySelector('[data-role="gasless-selfpay-retry"]').addEventListener('click', () =>
+				this._doGaslessSelfPayRetry(el, data.agentURI),
+			);
+			return;
+		}
+		el.innerHTML = `
+			<div class="deploy-result-badge">${data.mode === 'sponsored' ? '⚡ Sponsored — zero gas' : '⛽ Self-pay'}</div>
+			<h4 class="erc8004-h4 deploy-result-heading">Agent registered on BNB Chain testnet</h4>
+			<dl class="erc8004-result-dl">
+				<dt>Agent ID</dt> <dd>${esc(data.agentId ?? (data.pending ? 'confirming…' : 'unknown'))}</dd>
+				<dt>Wallet</dt>   <dd><code>${esc(address)}</code></dd>
+				<dt>Tx Hash</dt>  <dd><code>${esc(data.hash || '')}</code></dd>
+			</dl>
+			${data.explorerUrl ? `<a class="erc8004-btn btn btn--secondary" href="${esc(data.explorerUrl)}" target="_blank" rel="noopener">View on BscScan ↗</a>` : ''}
+		`;
 	}
 
 	_renderStepDeploySolana(body) {

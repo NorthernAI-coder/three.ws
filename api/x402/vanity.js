@@ -67,6 +67,14 @@ import {
 import { buildCertificateCore, signCertificate } from '../../src/solana/vanity/proof-of-grind.js';
 import { getServiceIdentity } from '../_lib/vanity-service-key.js';
 import { registerCert } from '../_lib/vanity-cert-store.js';
+import {
+	claimMatchingPattern,
+	peekReservedSecret,
+	reserveAndReveal,
+	releaseReservation,
+	isDbUnavailableError,
+} from '../_lib/vanity-inventory-store.js';
+import { openSecret } from '../_lib/vanity-vault.js';
 import bs58 from 'bs58';
 
 const ROUTE = '/api/x402/vanity';
@@ -483,6 +491,7 @@ async function grindAndShape({ prefix, suffix, ignoreCase, format, strength, sea
 			expectedAttempts: Math.round(expectedMnemonicAttempts(prefix, suffix, ignoreCase)),
 			network: 'solana',
 			explorerUrl: `https://solscan.io/account/${result.publicKey}`,
+			source: 'ground',
 		};
 	} else {
 		const result = grindVanityNode({

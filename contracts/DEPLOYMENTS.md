@@ -196,6 +196,39 @@ After filling a row, set the matching `agentPayments` address in
 [`agent-payments-sdk/src/evm/addresses.ts`](../agent-payments-sdk/src/evm/addresses.ts)
 and run `npm run build` in `agent-payments-sdk/`.
 
+## WorldMoves (event-only move-commit contract)
+
+BNB Chain campaign, Track C: an event-only on-chain move stream for three.ws
+real-time worlds, designed to be called every ~0.45s (BSC's live block time).
+Source: [`src/WorldMoves.sol`](src/WorldMoves.sol). No admin, no owner, no
+upgradeability — `move()` never writes storage; `checkpoint()` is the only
+opt-in storage-writing call. Full design rationale in the contract NatSpec.
+
+**Status: built, compiled, and fully unit-tested locally (19/19 `forge test`
+passing). NOT deployed to BSC testnet.** A `forge script ... -vvvv` dry-run
+against the live BSC testnet RPC (`https://data-seed-prebsc-1-s1.bnbchain.org:8545`)
+simulated successfully end-to-end (constructor executes, `COORD_MIN`/`COORD_MAX`
+read back correctly, ~566k gas estimated for the deploy tx at 0.1 gwei ≈
+0.0000566 BNB) — the RPC, script, and bytecode are all deploy-ready. The only
+missing piece is a funded deployer key: neither `DEPLOYER_PK` nor
+`BNB_TESTNET_DEPLOYER_KEY` is present in this environment (checked `.env`,
+`.env.local`, and shell env; no secret values were read, only key presence).
+Same funding blocker as campaign items 13 and 18 — owner-only to unblock (fund
+a deployer EOA via the tBNB faucet, then run the broadcast command below).
+
+Deploy (once funded):
+```
+forge script script/DeployWorldMoves.s.sol:DeployWorldMoves \
+  --rpc-url https://data-seed-prebsc-1-s1.bnbchain.org:8545 \
+  --private-key $DEPLOYER_PK \
+  --broadcast
+```
+
+After a real deploy, replace this status block with the address, deploy tx
+hash, and a BscScan link, and paste ~10 real `move()` tx block numbers/
+timestamps here as live proof of sub-second block spacing (per
+`prompts/bnb-chain/14-world-moves-contract.md`'s definition of done).
+
 ## Notes
 
 - Addresses are authoritative in [`src/erc8004/abi.js`](../src/erc8004/abi.js) (`REGISTRY_DEPLOYMENTS`).

@@ -352,8 +352,8 @@
 				},
 				{
 					"path": "/restyle",
-					"title": "Restyle Studio — material presets & variants",
-					"description": "Re-skin any 3D model in the browser: apply PBR material presets (chrome, gold, glass, wood…), generate seeded colorway variants, fine-tune metalness and roughness, and export a validated GLB — non-destructively.",
+					"title": "Restyle Studio — material presets, AI restyle & variants",
+					"description": "Re-skin any 3D model in the browser: apply PBR material presets (chrome, gold, glass, wood…), restyle from a plain-language AI instruction, fan out seeded colorway variants as durable versions, fine-tune metalness and roughness live, and export a validated GLB — non-destructively, with a real revertable version lineage.",
 					"priority": 0.8,
 					"changefreq": "monthly",
 					"added": "2026-07-08"
@@ -685,6 +685,14 @@
 					"path": "/viewer",
 					"title": "glTF / GLB Viewer",
 					"description": "Paste any public glTF/GLB URL and preview it inline — the lightweight, unauthenticated model viewer every 3D Studio tool's shared asset link opens.",
+					"priority": 0.5,
+					"changefreq": "monthly",
+					"added": "2026-07-08"
+				},
+				{
+					"path": "/spatial-mcp",
+					"title": "Spatial MCP — reference renderer",
+					"description": "The open standard for returning a live, interactive 3D scene as a first-class MCP tool result, with a framework-free reference renderer that displays any conformant artifact — including ones transformed from other tools.",
 					"priority": 0.5,
 					"changefreq": "monthly",
 					"added": "2026-07-08"
