@@ -38,6 +38,7 @@ import { resolveObjectRef, getVaultKeyRecord, fetchManifest } from '../_lib/bnb/
 import { wrapKey, VaultCryptoError } from '../_lib/bnb/vault-crypto.js';
 import { GreenfieldError } from '../_lib/bnb/greenfield.js';
 import { decryptSecret } from '../_lib/secret-box.js';
+import { encodeVaultDownloadToken } from '../_lib/bnb/vault-download-token.js';
 
 function normalizeNetwork(raw) {
 	const v = String(raw || '').trim().toLowerCase();
@@ -211,6 +212,9 @@ export default wrap(async (req, res) => {
 				authTag: `0x${wrapped.authTag.toString('hex')}`,
 				ciphertext: `0x${wrapped.ciphertext.toString('hex')}`,
 			},
+			// Lets the buyer's client fetch the ciphertext via GET /api/vault/download
+			// without signing a second wallet message — see vault-download-token.js.
+			downloadToken: encodeVaultDownloadToken({ objectId, buyer, network }),
 		},
 		{ 'cache-control': 'no-store' },
 	);

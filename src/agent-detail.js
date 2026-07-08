@@ -430,6 +430,73 @@ async function renderLaunchHistory(container, agent) {
 	container.appendChild(box);
 }
 
+// ── 3D Creations (tokenized mints) ───────────────────────────────────────────
+// Every GLB this agent has minted as a Metaplex Core NFT (roadmap prompt 08 —
+// GET /api/v1/tokenized/launches, the NFT analogue of pump_agent_mints above),
+// surfaced on the profile the same way launched coins are — this is the "link
+// from existing agent profiles where the creator is an agent" half of the
+// creator-marketplace leaderboard (roadmap prompt 09, /creations). A mint that
+// names a parent shows a remix badge; the section stays hidden (see the
+// `hidden` attribute in pages/agent-detail.html) until a real mint is found —
+// no empty card ever ships to a visitor.
+async function renderMintedCreations(container, card, agent) {
+	if (!agent.id || !container || !card) return;
+	let launches = [];
+	try {
+		const r = await fetch(`/api/v1/tokenized/launches?agent_id=${encodeURIComponent(agent.id)}&limit=6`);
+		if (!r.ok) return;
+		const body = await r.json();
+		launches = Array.isArray(body?.data?.launches) ? body.data.launches : [];
+		// A brand-new profile may only have devnet test mints — fall back so the
+		// card isn't hidden just because nothing has hit mainnet yet.
+		if (!launches.length) {
+			const rd = await fetch(`/api/v1/tokenized/launches?agent_id=${encodeURIComponent(agent.id)}&network=devnet&limit=6`);
+			if (rd.ok) {
+				const bodyD = await rd.json();
+				launches = Array.isArray(bodyD?.data?.launches) ? bodyD.data.launches : [];
+			}
+		}
+	} catch {
+		return; // supplementary card — never blocks the rest of the profile
+	}
+	if (!launches.length) return;
+
+	card.hidden = false;
+	const box = el('div', { class: 'ad-launch-history' });
+	box.appendChild(el('div', { class: 'ad-launch-history-head', text: `Minted 3D assets (${launches.length})` }));
+	for (const a of launches) {
+		const row = el('a', {
+			class: 'ad-launch-row',
+			href: a.viewer_url || `/minted`,
+			target: a.viewer_url ? '_blank' : undefined,
+			rel: a.viewer_url ? 'noopener noreferrer' : undefined,
+			'aria-label': `${a.name || 'Minted 3D asset'} viewer`,
+		});
+		row.append(
+			el('span', { class: 'ad-launch-symbol', text: truncateLabel(a.name || '3D asset', 22) }),
+			el('span', { class: 'ad-mono ad-launch-mint', text: shortAddr(a.mint) }),
+		);
+		if (a.parent_mint) {
+			row.append(
+				el('span', {
+					class: 'ad-pill ad-pill-violet',
+					text: a.remix_royalty?.paid ? 'remix · royalty paid' : 'remix',
+				}),
+			);
+		}
+		row.append(el('span', { class: 'ad-launch-time', text: launchTimeAgo(a.created_at) }));
+		box.appendChild(row);
+	}
+	box.appendChild(el('a', { class: 'ad-launch-feed-link', href: '/creations', text: 'Browse the creator gallery →' }));
+	box.appendChild(el('a', { class: 'ad-launch-feed-link', href: '/minted', text: 'View every mint on /minted →' }));
+	container.replaceChildren(box);
+}
+
+function truncateLabel(s, n) {
+	const t = String(s || '');
+	return t.length > n ? `${t.slice(0, n - 1)}…` : t;
+}
+
 // ── Agent Genome lineage panel ───────────────────────────────────────────────
 // Reveals the verifiable family tree: parents this agent was bred from, children
 // it has parented, and a one-click verify that re-derives the genome from the
@@ -1166,6 +1233,10 @@ function render(agent) {
 	// Full launch history from the pump_agent_mints registry — fire-and-forget;
 	// renders nothing extra when the agent has no launches beyond the chip above.
 	renderLaunchHistory($('ad-token-body'), agent);
+
+	// 3D creations minted as NFTs — fire-and-forget; the card stays hidden when
+	// this agent hasn't minted anything yet.
+	renderMintedCreations($('ad-creations-body'), $('ad-creations-card'), agent);
 
 	// Achievements — earned badges + in-progress ladder from real platform data
 	// (launches, graduations/migrations, market caps, supporters, burns,

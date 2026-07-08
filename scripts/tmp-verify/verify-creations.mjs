@@ -36,17 +36,24 @@ const creatorsHTML = await page.$eval('#cr-creators-list', (el) => el.innerHTML.
 console.log('creators list:', creatorsHTML.includes('cr-lb-empty') ? 'EMPTY STATE RENDERED' : 'ROWS RENDERED');
 
 // Exercise search + sort + category controls for real (no mocked responses).
+// Wait for aria-busy to fully settle between each interaction so successive
+// fetches never overlap (matches the app's own `state.loading` guard).
+const settled = () => page.waitForFunction(() => document.getElementById('cr-feed')?.getAttribute('aria-busy') === 'false', { timeout: 15000 });
+
 await page.fill('#cr-q', 'dragon');
-await page.waitForTimeout(600); // debounce
+await page.waitForTimeout(500); // debounce window
+await settled();
 await page.click('[data-sort="remixed"]');
-await page.waitForTimeout(400);
+await settled();
 await page.selectOption('#cr-category', 'avatar');
-await page.waitForTimeout(400);
+await settled();
 await page.click('[data-sort="recent"]');
-await page.waitForTimeout(400);
+await settled();
 await page.fill('#cr-q', '');
+await page.waitForTimeout(500);
+await settled();
 await page.selectOption('#cr-category', '');
-await page.waitForTimeout(400);
+await settled();
 
 // Publish form interactivity (no submit — just check it renders/updates).
 await page.fill('#cr-pub-id', 'test-id-not-submitted');
@@ -62,12 +69,17 @@ await page.setViewportSize({ width: 375, height: 800 });
 await page.waitForTimeout(200);
 await page.screenshot({ path: '/tmp/claude-1000/-workspaces-three-ws/3af649c2-981d-4e27-bcc7-a1b386bdb681/scratchpad/creations-mobile.png', fullPage: true });
 
-console.log('\n--- console errors ---');
-console.log(errors.length ? errors.join('\n') : '(none)');
+// Filter out known dev-environment noise unrelated to the app: Vite HMR's
+// websocket auto-targets the Codespace's port-3000 forwarding domain
+// regardless of which port this ad-hoc verification server actually runs on.
+const appErrors = errors.filter((e) => !/websocket|WebSocket/i.test(e));
+
+console.log('\n--- console errors (app-relevant) ---');
+console.log(appErrors.length ? appErrors.join('\n') : '(none)');
 console.log('\n--- console warnings ---');
 console.log(warnings.length ? warnings.join('\n') : '(none)');
 console.log('\n--- network failures ---');
 console.log(networkFailures.length ? networkFailures.join('\n') : '(none)');
 
 await browser.close();
-process.exit(errors.length ? 1 : 0);
+process.exit(appErrors.length || networkFailures.length ? 1 : 0);

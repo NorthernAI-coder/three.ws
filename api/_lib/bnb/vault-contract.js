@@ -157,9 +157,27 @@ export async function getVaultLogs(client, address, opts = {}) {
 	}
 }
 
-/** viem public client for a 'testnet'|'mainnet' network string, via chains.js. */
+/**
+ * viem public client for a 'testnet'|'mainnet' network string, via chains.js.
+ * Local-dev/E2E-proof escape hatch only: `BNB_VAULT_RPC_OVERRIDE_{TESTNET,MAINNET}`
+ * (comma-separated URLs) redirects vault reads to a local `anvil --chain-id 97`
+ * fork instead of the real public RPC — the same anvil-fork technique prompt 11
+ * used at the exported-function level, extended here so the REAL running
+ * `/api/vault/*` HTTP endpoints (not a reimplementation) can be driven against a
+ * genuinely deployed contract for a real browser/Playwright proof. Scoped to
+ * this one function (not `chains.js` globally) so `probeBlockTime`'s "always the
+ * real public RPC" honesty guarantee on `/bnb`/`/bnb-latency` is never affected.
+ * Unset in production — falls through to the real public testnet/mainnet RPCs.
+ */
 export function vaultClient(network) {
-	return getPublicClient(chainKeyFor(network));
+	const key = chainKeyFor(network);
+	const envVar = key === 'bscMainnet' ? 'BNB_VAULT_RPC_OVERRIDE_MAINNET' : 'BNB_VAULT_RPC_OVERRIDE_TESTNET';
+	const override = process.env[envVar];
+	if (override) {
+		const rpcs = override.split(',').map((s) => s.trim()).filter(Boolean);
+		if (rpcs.length) return getPublicClient(key, { rpcs, cache: false });
+	}
+	return getPublicClient(key);
 }
 
 /** BscScan explorer base for a network string. */

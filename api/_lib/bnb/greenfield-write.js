@@ -340,3 +340,45 @@ export async function createObject(bucketName, objectName, bytes, opts = {}) {
 		status: sealed ? 'stored' : 'pending',
 	};
 }
+
+/**
+ * Authenticated download of a PRIVATE Greenfield object, signed by the
+ * platform's operator key (the same account `createObject` used to write it —
+ * see the module doc comment on the managed-storage model: sellers/buyers
+ * never hold a Greenfield keypair). Used by `GET /api/vault/download`
+ * (prompt 12/13) to fetch a vault's ciphertext object on an authorized
+ * buyer's behalf, after that buyer's on-chain purchase + Greenfield grant
+ * (`sales[saleId].status == Granted`) has already been re-verified fresh by
+ * the caller — this function itself does no authorization, only the signed
+ * SP fetch (mirrors `createObject`'s `client.object.uploadObject(...,
+ * {type:'ECDSA', privateKey})` auth shape, the SDK's `client.object.getObject`
+ * counterpart for reads).
+ *
+ * @param {string} bucketName @param {string} objectName
+ * @param {{ network?: string, privateKey?: string, client?: object }} [opts]
+ * @returns {Promise<{ bytes: Buffer, contentType: string|null }>}
+ */
+export async function downloadPrivateObject(bucketName, objectName, opts = {}) {
+	const network = opts.network === 'mainnet' ? 'mainnet' : 'testnet';
+	const { privateKey } = accountFromPrivateKey(opts.privateKey);
+	const client = resolveClient(network, opts);
+
+	let result;
+	try {
+		result = await client.object.getObject({ bucketName, objectName }, { type: 'ECDSA', privateKey });
+	} catch (err) {
+		throw new GreenfieldWriteError(`Greenfield getObject request failed: ${err.message}`, { code: 'unavailable', cause: err });
+	}
+	if (result.code !== 0 || !result.body) {
+		const status = result.statusCode;
+		const code = status === 404 ? 'not_found' : status === 403 ? 'upload_failed' : 'unavailable';
+		throw new GreenfieldWriteError(result.message || 'Greenfield getObject failed', { code });
+	}
+
+	const blob = result.body;
+	const arrayBuffer = typeof blob.arrayBuffer === 'function' ? await blob.arrayBuffer() : blob;
+	return {
+		bytes: Buffer.from(arrayBuffer),
+		contentType: blob.type || 'application/octet-stream',
+	};
+}
