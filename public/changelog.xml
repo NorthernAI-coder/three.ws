@@ -159,6 +159,14 @@
 			<description>Any embedded avatar can now hold a real conversation with zero setup: add brain=&quot;free&quot; to an &lt;agent-3d&gt; tag and it routes through three.ws's host-paid free-tier proxy (OpenRouter, Groq, or NVIDIA NIM, whichever is healthy) — no API key, no backend code, no per-token cost to the embedder. Previously the brain attribute required an exact model id and defaulted to a silent avatar; brain=&quot;free&quot; is now a supported alias, and it's honored on both the src= (bare GLB) and body= (ad-hoc agent) embed paths, which is where this fell through before.</description>
 		</item>
 		<item>
+			<title>3D viewer accessibility: keyboard orbit, focus rings, and a low-power mode for the main site viewer</title>
+			<link>https://three.ws/scene</link>
+			<guid isPermaLink="false">2026-07-08:3D viewer accessibility: keyboard orbit, focus rings, and a low-power mode for the main site viewer</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The core 3D viewer that powers /app, Forge, avatar pages, and every embed now matches the accessibility bar the lightweight SDK viewer already had: the canvas is keyboard-reachable (tab to focus, arrow keys orbit, +/- zoom), gets a proper accessible name, and shows a visible focus ring. Entry-level phones and tablets (detected by touch input plus low core count or memory — desktop is never affected) now get a lighter render automatically: capped resolution and no antialiasing, for a steadier frame rate instead of a choppy one. Also fixed: Scene Studio's Import from Forge / Export / Share action bar was overlapping the editor's own File/Edit/Add menu bar at every screen size — it now sits cleanly below it.</description>
+		</item>
+		<item>
 			<title>A live public gallery for every minted 3D asset — and a fix that had been silently 500ing the launch directory</title>
 			<link>https://three.ws/minted</link>
 			<guid isPermaLink="false">2026-07-08:A live public gallery for every minted 3D asset — and a fix that had been silently 500ing the launch directory</guid>

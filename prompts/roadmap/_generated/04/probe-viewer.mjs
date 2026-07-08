@@ -6,7 +6,7 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 
 const OUT = '/workspaces/three.ws/prompts/roadmap/_generated/04';
 mkdirSync(OUT, { recursive: true });
-const BASE = 'http://localhost:3000';
+const BASE = 'http://localhost:3061';
 
 const results = [];
 function log(...args) {
