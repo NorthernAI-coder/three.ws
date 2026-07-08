@@ -17,7 +17,7 @@ Legend: **not-started** | **blocked** | **ready-to-submit** | **submitted** | **
 | **OpenAI GPT Store** | ready-to-build | 12 | `/api/3d/studio` free REST Actions lane built + live-verified (real GLB, safety gate, zero crypto/PII); `_generated/openai-actions.yaml` lints clean; `_generated/openai-gpt-config.md` complete; `[HUMAN: paste config into GPT builder, upload icon-512x512.png, verify Builder Profile, submit]` | — |
 | **Official MCP Registry** | ready-to-submit | 13 | `server.json` manifests verified clean; `[HUMAN: Run mcp-publisher commands (staged in prompt 13 output) — do not publish without explicit operator approval]` | https://registry.modelcontextprotocol.io/?q=io.github.nirholas |
 | **Smithery** | not-started | 13 | Listing doc not yet written | — |
-| **Glama** | not-started | 13 | Listing doc not yet written | — |
+| **Glama** | blocked | 13 | `_generated/mcp-directories/glama.md` written; repo-root `glama.json` and `public/.well-known/glama.json` now committed (Glama auto-ingests `io.github.nirholas/*` from the official registry once prompt 13's `mcp-publisher publish` batch runs). `[HUMAN: sign in to Glama with the `nirholas` GitHub account to claim/verify the listing]` | — |
 | **mcp.so** | not-started | 13 | Listing doc not yet written | — |
 | **PulseMCP** | not-started | 13 | Listing doc not yet written | — |
 | **LobeHub** | not-started | 13 | `public/lobehub/plugin.json` exists but needs refresh | — |

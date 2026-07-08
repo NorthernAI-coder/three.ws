@@ -1058,6 +1058,10 @@
 			"dest": "/forge.html"
 		},
 		{
+			"src": "/restyle/?",
+			"dest": "/restyle.html"
+		},
+		{
 			"src": "/forge-studio/?",
 			"dest": "/forge-studio.html"
 		},
