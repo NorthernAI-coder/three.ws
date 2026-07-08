@@ -700,3 +700,100 @@ fail-closed settle — is proven live end-to-end today, at both the library and 
 
 **Status: DONE (re-verified).** No new commit from this entry beyond this PROGRESS append —
 the code was already on `threews/main`.
+
+---
+
+## 2026-07-08 — Prompt 17 (latency-proof-page): independently re-verified live, no gaps found — DONE
+
+**Starting state:** `/bnb-latency` was already fully built and committed to `threews/main` by
+a concurrent agent before this session started — `api/_lib/bnb/latency-lanes.js`,
+`api/bnb/latency.js`, `src/bnb-latency.js` + `src/bnb-latency-helpers.js`,
+`pages/bnb-latency.html`, `tests/bnb-latency-helpers.test.js`, the `data/pages.json` /
+`STRUCTURE.md` / `data/changelog.json` / `CHANGELOG.md` / `public/changelog.json` /
+`public/features.json` / `public/sitemap` entries, and the `/bnb` hub card link — all present
+at session start. Audited every artifact line-by-line against this prompt's spec and the
+00-CONTEXT DoD rather than trusting it, per CLAUDE.md's "verify via git show" trap warning.
+
+**Audit findings — matches spec exactly, no gaps:**
+- `api/_lib/bnb/latency-lanes.js`: reuses `probeBlockTime` (01) for BNB verbatim (no
+  duplication), adds `probeEvmLane` (Base/Ethereum, two-real-blocks-apart sampling off
+  `erc8004-chains.js`'s already-probed public RPC lists) and `probeSolanaLane`
+  (`getRecentPerformanceSamples`, slot cadence, not block — correctly labeled). Every probe
+  fails closed to `{ ok:false }`, never throws, so `probeAllLanes()` (`Promise.all`) never
+  rejects — one dead chain degrades one lane, not the whole response. Matches "four lanes,
+  each ok:false on total failure" DoD line exactly.
+- `api/bnb/latency.js`: 4s in-process cache + `stale-while-revalidate=15`, rate-limited via
+  `limits.publicIp`, `wrap`/`cors`/`method` from the shared `http.js` pattern — same shape as
+  `api/bnb/block-time.js` (prompt 01).
+- `src/bnb-latency-helpers.js` (pure, no DOM/fetch): `blockIntervals`, `rollingAverageFromTimestamps`,
+  `laneState`, `allLanesDown`, `sparklineBars`, `speedupRatio` — exactly the "feed block
+  timestamps → correct rolling average" test surface the prompt asks for.
+  `npx vitest run tests/bnb-latency-helpers.test.js` → **20/20 passed** (interval diffing,
+  rolling-window averaging incl. clamped/over-large window, lane-state transitions incl. the
+  "ok but zero sampled blocks still reconnecting" edge case, flat-series sparkline
+  divide-by-zero guard, honest speedup-ratio null-guards).
+- `src/bnb-latency.js`: 5s poll, `AbortSignal.timeout(8000)`, pauses polling on
+  `visibilitychange` (tab hidden), synthesizes an all-down payload on total fetch failure
+  (network/DNS dead, not just one chain) so the render path is identical to a partial outage,
+  `prefers-reduced-motion` gates the tick-flash animation, `aria-live="polite"` on the number
+  region. No hardcoded "0.45s" anywhere in the file — confirmed by reading every literal.
+- `pages/bnb-latency.html`: reduced-motion media queries present at 3 separate animation
+  sites (tick flash, spinner, sparkline bar transition); designed page-level error state
+  (`#bnbl-page-error` + retry button) distinct from per-lane "reconnecting".
+
+**Real live proof captured this session (not reused from the prior entry — fresh probe):**
+Started `npm run dev` (port 3000 was already held by a concurrent agent's server on this
+shared worktree — reused it rather than double-spawning; `GET /api/bnb/latency` on that live
+process returns the real serverless handler, not a mock):
+
+```
+GET http://localhost:3000/api/bnb/latency →
+{"lanes":[
+  {"id":"bnb","chainId":56,"ok":true,"avgBlockTimeMs":450,"latestBlock":108703614,"sampleBlocks":60,"target":450,"measuredAt":"2026-07-08T01:56:42.383Z"},
+  {"id":"base","chainId":8453,"ok":true,"avgBlockTimeMs":2000,"latestBlock":48343227,"sampleBlocks":30,"target":2000,"measuredAt":"2026-07-08T01:56:42.569Z"},
+  {"id":"ethereum","chainId":1,"ok":true,"avgBlockTimeMs":12000,"latestBlock":25484701,"sampleBlocks":12,"target":12000,"measuredAt":"2026-07-08T01:56:42.437Z"},
+  {"id":"solana","chainId":null,"ok":true,"avgBlockTimeMs":402.68,"latestBlock":431495536,"sampleBlocks":149,"target":400,"measuredAt":"2026-07-08T01:56:42.305Z"}
+],"measuredAt":"2026-07-08T01:56:42.569Z"}
+```
+
+**BNB Chain live measured average observed: 0.45s** (`avgBlockTimeMs: 450`, sampled 60 real
+blocks off the public BSC mainnet RPC, latest block 108,703,614) — matches 00-CONTEXT's
+verified fact #3 exactly, live, not fabricated.
+
+Drove the actual rendered page with a real headless Chromium (`playwright`, already a repo
+dependency — `node_modules/playwright/index.js`) against `http://localhost:3000/bnb-latency`:
+- Headline: `"0.45s avg block time"`, sub-line `"4.4× faster than Base's live average · 26.7×
+  faster than Ethereum's live average"` — both ratios computed live from the two real
+  measurements above (`2000/450 = 4.44`, `12000/450 = 26.7`), not marketing constants.
+- All four lane cards rendered `state: "live"`: BNB 0.45s (60 blocks), Base 2.0s (30 blocks),
+  Ethereum 12.0s (12 blocks), Solana 0.41s (148 slots) — each with its real latest block/slot
+  number and sample count in the meta line.
+- `#bnbl-updated` → `"Updated just now"`.
+- Full-page screenshot captured (`/tmp/.../bnb-latency.png`, not committed): headline card,
+  four-lane grid with sparkline bars, and the "How we keep this race honest" disclosure block
+  (traces every number to `/api/bnb/latency` → `probeBlockTime`, explicitly disclaims
+  20,000 TPS / BEP-670's 250ms target) all render correctly in dark theme.
+- `pageerror`/`console.error` events captured: only Vite's own HMR WebSocket handshake failing
+  through the devcontainer's port-forwarding proxy (`wss://...app.github.dev` 302, unrelated
+  dev-tooling noise present on every page in this environment) — zero errors from
+  `bnb-latency.js`, `bnb-latency-helpers.js`, or the API response path itself.
+
+**No code changes made this session.** `git status` shows zero diff on any `bnb-latency`-named
+file or its dependencies — the implementation was already correct, tested, and live-verified
+against real RPCs. The only working-tree noise on unrelated files (OG meta-tag regens on
+`pages/bnb.html`/`pages/bnb-latency.html`, various other in-flight concurrent-agent edits) was
+left untouched, out of this prompt's blast radius, per the shared-worktree rule.
+
+**Gaps for prompt 18 (world-e2e-demo):**
+- No functional gap in this prompt's own scope — DoD fully met, nothing to hand off as a
+  blocker.
+- Opportunity, not a gap: prompt 18's on-chain-world demo could embed/link this page's proven
+  "0.45s, live, real RPC" headline as its own speed-credibility anchor (same pattern the `/bnb`
+  hub already uses) rather than re-deriving a fresh claim.
+- Environment note for whoever runs prompt 18's own dev-server verification in this worktree:
+  port 3000 is frequently already held by a concurrent agent's `npm run dev` — check with
+  `curl -s localhost:3000/api/bnb/latency` before assuming you need to start a new one; Vite
+  auto-increments to 3001+ if you do spawn a second instance.
+
+**Status: DONE (re-verified, live).** No new commit needed beyond this PROGRESS append — the
+page, API, tests, and docs were already correct and on `threews/main`.
