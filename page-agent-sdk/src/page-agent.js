@@ -25,6 +25,7 @@ import { AvatarStage } from './stage.js';
 import { SpeechNarrator } from './narrator.js';
 import { AvatarPicker } from './picker.js';
 import { injectStyles } from './styles.js';
+import { resolvePreset, sanitizeContext, buildSystemPrompt } from './presets.js';
 
 const ICONS = {
 	play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>',
@@ -43,8 +44,17 @@ export class PageAgent {
 	 *   mount?: HTMLElement, agent?: string, agents?: string[], assetBase?: string,
 	 *   position?: 'bottom-right'|'bottom-left'|'top-right'|'top-left',
 	 *   muted?: boolean, collapsed?: boolean, picker?: boolean, controls?: boolean,
-	 *   greeting?: string, autoNarrate?: boolean|string, persistAgent?: boolean
+	 *   greeting?: string, autoNarrate?: boolean|string, persistAgent?: boolean,
+	 *   preset?: string, context?: Record<string, unknown>,
+	 *   suggestedPrompts?: (string|{prompt:string, response?:string, action?:'narrate'|'tour'})[],
+	 *   tools?: string[]
 	 * }} [config]
+	 *
+	 * `preset` resolves a persona (greeting, systemRole, suggestedPrompts, tools) —
+	 * see `src/presets.js`. Explicit `greeting` / `suggestedPrompts` / `tools`
+	 * always win over the preset's defaults. `context` is sanitized host state
+	 * folded into `systemPrompt` (see `presets.js#buildSystemPrompt`) — this
+	 * package never sends it anywhere itself.
 	 */
 	constructor(config = {}) {
 		if (typeof window === 'undefined') throw new Error('[page-agent] requires a browser environment');
@@ -57,8 +67,16 @@ export class PageAgent {
 		this._agent = null;
 		this._narrationToken = 0;
 
+		// ── Persona preset resolution (explicit config always wins) ────────────
+		this._preset = resolvePreset(config.preset);
+		this._context = sanitizeContext(config.context);
+		this.tools = config.tools ?? this._preset?.tools ?? [];
+		this.suggestedPrompts = normalizePrompts(config.suggestedPrompts ?? this._preset?.suggestedPrompts);
+		this._effectiveGreeting = config.greeting ?? this._preset?.greeting;
+
 		injectStyles();
 		this._buildDom();
+		this._renderPrompts();
 
 		this.stage = new AvatarStage(this._stageEl, { background: 'transparent' });
 		this.narrator = new SpeechNarrator(this.stage, {
@@ -92,8 +110,8 @@ export class PageAgent {
 			if (config.autoNarrate) {
 				const sel = typeof config.autoNarrate === 'string' ? config.autoNarrate : undefined;
 				this.narratePage({ selector: sel, greet: true });
-			} else if (config.greeting) {
-				this.narrate(config.greeting);
+			} else if (this._effectiveGreeting) {
+				this.narrate(this._effectiveGreeting);
 			}
 		}).catch((e) => this._emit('error', e));
 	}
@@ -131,6 +149,13 @@ export class PageAgent {
 		stage.append(name, caption);
 		this._enableDrag(root, stage);
 
+		// Suggested-prompt chips (from a persona preset, or explicit config)
+		const prompts = document.createElement('div');
+		prompts.className = 'tw-pa-prompts';
+		prompts.setAttribute('role', 'group');
+		prompts.setAttribute('aria-label', 'Suggested prompts');
+		prompts.hidden = true;
+
 		// Control bar
 		const bar = document.createElement('div');
 		bar.className = 'tw-pa-bar';
@@ -146,7 +171,7 @@ export class PageAgent {
 
 		bar.append(this._playBtn, this._muteBtn, this._swapBtn, spacer, this._minBtn);
 
-		dock.append(stage, bar);
+		dock.append(stage, prompts, bar);
 		root.append(dock, launcher);
 		document.body.appendChild(root);
 
@@ -155,6 +180,30 @@ export class PageAgent {
 		this._nameEl = name.querySelector('.tw-pa-name-text');
 		this._captionEl = caption;
 		this._launcher = launcher;
+		this._promptsEl = prompts;
+	}
+
+	/** Render/refresh the suggested-prompt chip row from `this.suggestedPrompts`. */
+	_renderPrompts() {
+		const el = this._promptsEl;
+		if (!el) return;
+		el.innerHTML = '';
+		if (!this.suggestedPrompts.length) {
+			el.hidden = true;
+			return;
+		}
+		el.hidden = false;
+		for (const item of this.suggestedPrompts) {
+			const btn = document.createElement('button');
+			btn.type = 'button';
+			btn.className = 'tw-pa-prompt';
+			btn.textContent = item.prompt;
+			btn.addEventListener('click', () => {
+				if (item.action === 'tour') this.narratePage({ greet: false });
+				else this.narrate(item.response, { interrupt: true });
+			});
+			el.appendChild(btn);
+		}
 	}
 
 	_enableDrag(root, handle) {
@@ -308,6 +357,23 @@ export class PageAgent {
 
 	get currentAgent() { return this._agent; }
 
+	/** The resolved persona preset (`undefined` if no `preset` was set/unknown). */
+	get currentPreset() { return this._preset; }
+
+	/** Sanitized host context (read-only copy) — see `presets.js#sanitizeContext`. */
+	get context() { return { ...this._context }; }
+
+	/**
+	 * `preset.systemRole` + sanitized `context`, composed into one plain-text
+	 * brief (see `presets.js#buildSystemPrompt`). `page-agent` never sends this
+	 * anywhere — it's for a host page (or a paired `<agent-3d chat>` on the same
+	 * page) to hand to a real LLM.
+	 */
+	get systemPrompt() { return buildSystemPrompt(this._preset, this._context); }
+
+	/** Update host context after load (e.g. once a wallet connects). Re-sanitized. */
+	setContext(context) { this._context = sanitizeContext(context); }
+
 	// ── Internals ─────────────────────────────────────────────────────────────────
 
 	_stateBase() { return this._collapsed ? 'collapsed' : 'idle'; }
@@ -430,3 +496,30 @@ function pointer(e) {
 }
 
 function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
+
+/**
+ * Normalize `suggestedPrompts` input (preset default or explicit config) into
+ * a consistent `{ prompt, response, action }[]`. Accepts plain strings (an
+ * attribute-only override with just questions) as well as full objects.
+ * @param {(string|{prompt:string, response?:string, action?:'narrate'|'tour'})[]|undefined} list
+ * @returns {{prompt:string, response:string, action:'narrate'|'tour'}[]}
+ */
+function normalizePrompts(list) {
+	if (!Array.isArray(list)) return [];
+	const out = [];
+	for (const p of list) {
+		if (typeof p === 'string') {
+			const prompt = p.trim();
+			if (prompt) out.push({ prompt, response: prompt, action: 'narrate' });
+			continue;
+		}
+		if (p && typeof p === 'object' && typeof p.prompt === 'string' && p.prompt.trim()) {
+			out.push({
+				prompt: p.prompt.trim(),
+				response: typeof p.response === 'string' && p.response.trim() ? p.response.trim() : p.prompt.trim(),
+				action: p.action === 'tour' ? 'tour' : 'narrate',
+			});
+		}
+	}
+	return out;
+}

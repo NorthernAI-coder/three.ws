@@ -429,6 +429,10 @@ Mint a generated or owned GLB as a **Metaplex Core NFT on Solana whose media is 
 
 The call is **idempotent**: a row is claimed before any on-chain action, so a repeat call with the same arguments returns the same mint instead of minting twice. The royalty is capped at **10 %** (1000 bps) — a higher request is clamped.
 
+**Signed provenance ledger.** Alongside the provenance baked into the NFT metadata, the mint appends an ERC-191-signed record to the platform's append-only `agent_actions` ledger — the same ledger [`@three-ws/provenance-mcp`](https://www.npmjs.com/package/@three-ws/provenance-mcp) reads and verifies (`list_agent_actions` / `query_action`). It requires the source avatar to have a provisioned agent; when it doesn't, the mint still succeeds and `provenance_ledger` in the response is `null` — never a blocking requirement. Every avatar generated through the platform (chat forge-to-avatar, direct upload, studio save) also gets this same signed ledger entry the moment its agent is provisioned, independent of ever being minted.
+
+**Remix royalty settlement.** When `parent_mint` names another creator's tokenized asset (this mint is a derivative), the parent creator's royalty share — using the rate set on their own mint — is routed out of **this mint's fee** as a real on-chain USDC transfer, the moment the mint confirms. Mainnet only, and only when the mint fee was actually collected via x402 (an OAuth-bypassed call has nothing to split). Every outcome is reported honestly in `remix_royalty.reason` (`no_creator_wallet`, `below_dust_floor`, `payout_unconfigured`, `devnet_not_settled`, `no_fee_collected`, `parent_not_found`) rather than a fabricated payout.
+
 **Pricing:** $0.25 USDC per mint via x402 (an OAuth bearer token bypasses payment). Supply either `avatar_id` (an avatar you own) or `glb_url`, and a recipient (`owner_wallet`, or your OAuth-linked Solana wallet).
 
 ```json
@@ -453,7 +457,7 @@ The call is **idempotent**: a row is claimed before any on-chain action, so a re
 }
 ```
 
-The `structuredContent` returns the `mint` address, `explorer_asset_url` + `explorer_tx_url` (Solscan), `viewer_url` (the live three.ws 3D viewer), `metadata_uri`, and the `royalty` terms (`basis_points`, `percent`, `recipient`, `cap_basis_points`, `capped`).
+The `structuredContent` returns the `mint` address, `explorer_asset_url` + `explorer_tx_url` (Solscan), `viewer_url` (the live three.ws 3D viewer), `metadata_uri`, the `royalty` terms (`basis_points`, `percent`, `recipient`, `cap_basis_points`, `capped`), `provenance_ledger` (`action_id`, `signed`, `signer_address`, `digest` — or `null`), and `remix_royalty` (the settlement above — or `null` when there's no `parent_mint`).
 
 ---
 
@@ -473,7 +477,9 @@ Resolve a Solana mint address to its **live 3D asset**: current holder, the inte
 }
 ```
 
-Returns `holder`, `media` (`glb_url`, `image_url`, `viewer_url`, `viewer_live`), `provenance`, `royalty` (`basis_points`, `percent`, `recipient`, `enforced_onchain`, `cap_basis_points`), and, for platform mints, `minted_through_threews` + `tx_signature`.
+Returns `holder`, `media` (`glb_url`, `image_url`, `viewer_url`, `viewer_live`), `provenance`, `provenance_ledger` (the mint's signed `agent_actions` entry, or `null`), `royalty` (`basis_points`, `percent`, `recipient`, `enforced_onchain`, `cap_basis_points`), `remix_royalty` (the settlement routed to the parent creator, or `null`), and, for platform mints, `minted_through_threews` + `tx_signature`.
+
+**Browsing every mint:** `GET /api/v1/tokenized/launches?limit=24&offset=0&network=mainnet&agent_id=<uuid>` is the free, public, paginated directory of every 3D asset minted through three.ws — the NFT counterpart to `GET /api/v1/pump/launches`. No auth, no payment; 60 requests/min per IP.
 
 ---
 

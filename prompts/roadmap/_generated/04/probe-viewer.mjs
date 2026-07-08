@@ -47,17 +47,13 @@ await withPage('three-ws-viewer harness', async (page) => {
 		.catch(() => false);
 	log('viewer element mounted:', loaded);
 
-	// Wait for the GLB `load` event (or error) to confirm real rendering.
-	const loadState = await page.evaluate(
-		() =>
-			new Promise((resolve) => {
-				const el = window.__viewerEl;
-				if (!el) return resolve('no-element');
-				el.addEventListener('load', () => resolve('load'), { once: true });
-				el.addEventListener('error', (e) => resolve('error:' + e.detail?.error?.message), { once: true });
-				setTimeout(() => resolve('timeout'), 12000);
-			}),
-	);
+	// Confirm the GLB actually parsed and rendered — poll internal state rather
+	// than a `load` listener attached after the fact (the default avatar loads
+	// fast enough that a listener wired post-hoc can race the event).
+	const loadState = await page
+		.waitForFunction(() => !!window.__viewerEl?._model, { timeout: 15000 })
+		.then(() => 'model-set')
+		.catch(() => 'timeout-no-model');
 	log('viewer GLB load result:', loadState);
 
 	// AR button present + accessible name.
@@ -77,6 +73,7 @@ await withPage('three-ws-viewer harness', async (page) => {
 			: null;
 	});
 	log('canvas a11y:', JSON.stringify(canvasInfo));
+	await page.screenshot({ path: `${OUT}/three-ws-viewer-harness.png` });
 
 	// Keyboard orbit: focus canvas, press ArrowLeft, confirm camera moved.
 	const before = await page.evaluate(() => {
