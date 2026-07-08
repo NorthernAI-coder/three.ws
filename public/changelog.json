@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-08T07:22:51.852Z",
+	"generated_at": "2026-07-08T07:40:33.149Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -272,6 +272,26 @@
 				"feature",
 				"docs",
 				"fix"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
+			"title": "Draw a sketch or speak your prompt in the Forge",
+			"summary": "Two new ways to start a 3D creation, both live at /forge and /create/prompt. Draw it: click \"Or draw it instead\" in the Forge's photo tab to open an in-browser drawing canvas — sketch with your mouse, finger, or stylus, and the drawing feeds the same reconstruction pipeline as an uploaded photo. Say it: click the mic next to any prompt box and describe what you want out loud; the transcript drops into the field, ready to edit before you generate. Voice uses your browser's built-in speech recognition where available, with a free NVIDIA Riva fallback for browsers without one — nothing is ever written to disk. Multi-photo reconstruction (up to 4 angles of the same object) and photo-to-avatar (the /scan selfie flow) were already live; this closes out the last two on-ramps into generation.",
+			"link": "/forge",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
+			"title": "Drivable vehicles in the open world",
+			"summary": "The plaza world at /play now has real, drivable cars. Walk up to a parked coupe, sedan, pickup, or buggy, press F (or tap it on mobile) to take the wheel, and drive with WASD or on-screen pedals — full Rapier physics under the hood, so the car actually collides with district buildings, has real suspension and steering, and can flip and auto-right itself. Every car is a shared world object: other players see you driving it in real time, and the seat is server-arbitrated so only one person can drive a given car at once. Exit with F and the car parks exactly where you left it.",
+			"link": "/play",
+			"tags": [
+				"feature"
 			]
 		},
 		{

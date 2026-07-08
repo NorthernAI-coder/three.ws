@@ -192,6 +192,18 @@ Because the output is a clean, rigged glTF 2.0 file, it isn't locked to three.ws
 
 ---
 
+## Privacy — what happens to your photo
+
+Your photo(s) are uploaded to the platform's storage and referenced by the build job so it can complete and be retried on failure — the same way any creation tool keeps its source input while the job runs. Concretely:
+
+- **Not public.** The raw photo isn't exposed by any public endpoint or gallery — only the *generated avatar* is shareable, and only if you set its visibility to unlisted/public.
+- **Not analyzed beyond this build.** Nothing runs face recognition, identity matching, or profiling against your photo outside of producing the 3D reconstruction you asked for.
+- **Deleting an avatar** removes it from your account and any listing immediately; it's a soft delete, not an instant hard purge of the underlying storage object.
+
+If you'd rather nothing persisted at all, use a disposable/cropped photo — the reconstruction only needs a clear, evenly-lit face, not an identifiable original.
+
+---
+
 ## Troubleshooting
 
 | Symptom | Likely cause | Fix |

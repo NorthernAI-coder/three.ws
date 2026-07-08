@@ -34,6 +34,8 @@ Three habits that make prompts work dramatically better:
 
 Want more recipes? There's a whole cookbook: [Prompt Recipes for 3D Generation](/tutorials/prompts-for-3d).
 
+**Prefer to talk?** Click the mic button next to the prompt box and describe the object out loud — the transcript drops straight into the same field, ready to edit before you generate. It uses your browser's built-in speech recognition where available, with a free cross-browser fallback (NVIDIA Riva) for browsers that don't have one (mainly Firefox). Nothing is written to disk on either path — the browser path never leaves your device, and the fallback path transcribes in memory and discards the audio once it replies. If neither is available the mic button simply doesn't appear — type instead.
+
 ---
 
 ## Step 3 — Pick a quality tier

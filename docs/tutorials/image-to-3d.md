@@ -30,6 +30,8 @@ Go to [three.ws/forge](/forge) and switch to the **From photos** tab.
 
 You'll see a grid of four upload slots. Drag your photos in, or click a slot to browse. After uploading you can **drag the thumbnails to reorder** them — put your best, clearest shot first.
 
+**No object on hand? Draw it.** Click **Or draw it instead** below the grid to open an in-browser drawing canvas — draw with your mouse, finger, or stylus, then **Use sketch** to drop the PNG straight into the next open slot. It goes through the exact same reconstruction pipeline as an uploaded photo, so simple objects with a clear outline (a mug, a low-poly rocket, a chair silhouette) work well; photorealistic detail obviously won't appear from a line drawing. Nothing is uploaded while you draw — only when you click **Use sketch**, and cancelling discards it with zero network activity.
+
 ---
 
 ## Step 3 — Add guidance (optional, but worth it)
