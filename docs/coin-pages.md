@@ -22,6 +22,14 @@ editorial serif headings, hairline borders, mono numerals, light/dark themes.
   page.
 - Responsive: lower-priority columns collapse at small widths, the coin-name
   column stays sticky while the table scrolls horizontally.
+- **Liquidations pulse** — a strip under the global stats bar showing a
+  dominant-side badge (LONG PAIN / SHORT SQUEEZE / BALANCED), 1h long-vs-short
+  liquidated USD bars, and the 3 largest recent liquidations, fed by
+  `/api/coin/liquidations` and polled every 30s (paused while the tab is
+  hidden). Optional enrichment: degrades to a quiet single-line offline state
+  — never fabricated data — when its collector isn't reachable. See
+  [`services/liquidation-collector/README.md`](../services/liquidation-collector/README.md)
+  and [api-reference.md → Liquidations](api-reference.md#liquidations).
 
 ### `/coin/:id` — coin detail
 
@@ -132,6 +140,7 @@ All data is real and fetched at runtime — nothing is hardcoded or sampled:
 | `/api/coin/fear-greed`  | alternative.me `/fng` (current + history)                  | 300 s        |
 | `/api/coin/gas`         | public Ethereum RPC `eth_feeHistory` + CoinGecko ETH price | 15 s         |
 | `/api/coin/news`        | cryptocurrency.cv aggregator → first-party RSS fallback    | 300 s        |
+| `/api/coin/liquidations`| `services/liquidation-collector` (Binance/Bybit/OKX public liquidation WebSocket streams) | 15 s, `503` no-fallback offline |
 
 Full request/response shapes: [api-reference.md → Coin Market Data API](api-reference.md#coin-market-data-api).
 
@@ -158,7 +167,8 @@ text before they reach the client.
 | DeFi / Chains / Stablecoins | `pages/{defi,chains,stablecoins}.html` (+ `src/*.js`, `src/*.css`), APIs in [`api/defi/`](../api/defi)                                   |
 | Shared design system        | [`src/coin-pages.css`](../src/coin-pages.css) (Source Serif 4 self-hosted in `public/fonts/`)                                            |
 | Shared formatters           | [`src/shared/coin-format.js`](../src/shared/coin-format.js) — unit-tested in [`tests/coin-format.test.js`](../tests/coin-format.test.js) |
-| API proxies                 | [`api/coin/`](../api/coin) — `detail.js`, `ohlc.js`, `markets.js`, `global.js`, `fear-greed.js`, `gas.js`, `news.js`                     |
+| API proxies                 | [`api/coin/`](../api/coin) — `detail.js`, `ohlc.js`, `markets.js`, `global.js`, `fear-greed.js`, `gas.js`, `news.js`, `liquidations.js`  |
+| Liquidations collector      | [`services/liquidation-collector/`](../services/liquidation-collector) — standalone always-on Node service (not a Vercel function)      |
 
 Routing: `vercel.json` rewrites `/coins`, `/coin/<id>`, `/heatmap`,
 `/fear-greed`, `/gas`, and `/compare` to their pages in production; the Vite dev
