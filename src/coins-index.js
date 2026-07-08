@@ -367,6 +367,7 @@ const LIQ_POLL_MS = 30_000;
 const LIQ_1H_MS = 60 * 60 * 1000;
 let liqTimer = null;
 let liqLoaded = false;
+let lastLiqData = null; // last successful payload, re-rendered once state.coins loads (see loadCoins().then below) so symbol→id links resolve even when liquidations loads faster than the markets table.
 
 // Resolve a liquidation's ticker symbol to a /coin/:id detail page — only for
 // symbols present in the currently loaded markets table (state.coins), per
@@ -464,6 +465,7 @@ async function pollLiquidations() {
 	if (document.hidden) return;
 	try {
 		const data = await getJson('/api/coin/liquidations');
+		lastLiqData = data;
 		renderLiqPopulated(data);
 	} catch {
 		// 503 collector_offline (or any other failure) → quiet offline line, never
@@ -493,6 +495,12 @@ function loadLiquidations() {
 // ── Boot ────────────────────────────────────────────────────────────────────
 
 loadStats();
-loadCoins();
+// If the liquidations strip's first poll lands before the markets table finishes
+// loading, its top-3 items resolve no symbol→id links yet (state.coins is still
+// empty). Re-render with the same data once the table is in so those items pick
+// up their /coin/:id links without waiting for the next 30s poll.
+loadCoins().then(() => {
+	if (lastLiqData) renderLiqPopulated(lastLiqData);
+});
 loadLiquidations();
 wireSearch();
