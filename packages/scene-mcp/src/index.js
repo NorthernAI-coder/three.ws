@@ -5,6 +5,8 @@
 //   • compose_scene — one sentence → a placed 3D diorama plan (LLM-composed)
 //   • get_scene     — fetch a saved world by id
 //   • list_scenes   — browse the recent / featured gallery
+//   • export_scene  — merge an already-forged diorama into one GLB scene
+//   • build_world   — one sentence → a fully forged, exported world (no browser)
 //
 // A thin wrapper over the PUBLIC three.ws API (/api/diorama). No keys, no
 // signer, no payment — point THREE_WS_BASE at a deployment and go.
@@ -24,12 +26,14 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { def as composeScene } from './tools/compose-scene.js';
 import { def as getScene } from './tools/get-scene.js';
 import { def as listScenes } from './tools/list-scenes.js';
+import { def as exportScene } from './tools/export-scene.js';
+import { def as buildWorld } from './tools/build-world.js';
 
 // Single source of truth for the advertised server version — package.json.
 const require = createRequire(import.meta.url);
 const { version: PKG_VERSION } = require('../package.json');
 
-export const TOOLS = [composeScene, getScene, listScenes];
+export const TOOLS = [composeScene, getScene, listScenes, exportScene, buildWorld];
 
 /**
  * Construct a fully-registered McpServer without connecting a transport.
@@ -46,8 +50,12 @@ export function buildServer() {
 				'into a diorama PLAN (title, mood, palette, ground, and 2–8 placed single-object forge prompts) ' +
 				'using the platform free-first LLM chain; nothing is saved and no meshes are forged yet. ' +
 				'get_scene fetches a previously saved world by id (with GLB URLs and an orbitable viewer link). ' +
-				'list_scenes browses the recent or featured gallery. All data comes live from the public ' +
-				'three.ws /api/diorama endpoint — no API key, signer, or payment required.',
+				'list_scenes browses the recent or featured gallery. export_scene merges an already-forged ' +
+				'diorama into ONE glTF 2.0 binary — every object a named, selectable node, plus a real ground ' +
+				'disc and mood-tuned lighting — ready to open in Scene Studio. build_world runs the whole ' +
+				'pipeline (compose → forge every object → export) server-side from one sentence, for callers ' +
+				'with no browser to drive the progressive flow; it can take a couple of minutes. All data comes ' +
+				'live from the public three.ws /api/diorama endpoint — no API key, signer, or payment required.',
 		},
 	);
 

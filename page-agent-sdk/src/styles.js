@@ -78,6 +78,25 @@ export const CSS = `
 }
 .tw-pa-caption[data-show="true"] { opacity: 1; transform: translateY(0); }
 
+.tw-pa-prompts {
+	display: flex; flex-direction: column; gap: 6px;
+	max-height: 132px; overflow-y: auto;
+}
+.tw-pa-prompts[hidden] { display: none; }
+.tw-pa-prompt {
+	appearance: none; text-align: left; cursor: pointer;
+	border: 1px solid rgba(255,255,255,0.1); border-radius: 12px;
+	background: var(--tw-pa-bg); color: var(--tw-pa-fg);
+	padding: 8px 12px; font-size: 12px; line-height: 1.35; font-family: inherit;
+	box-shadow: 0 8px 22px -10px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04) inset;
+	transition: background .15s ease, transform .1s ease, border-color .15s ease;
+}
+.tw-pa-prompt:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); }
+.tw-pa-prompt:active { transform: scale(.98); }
+.tw-pa-prompt:focus-visible { outline: 2px solid var(--tw-pa-accent); outline-offset: 2px; }
+.tw-pa-prompts::-webkit-scrollbar { width: 4px; }
+.tw-pa-prompts::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.16); border-radius: 2px; }
+
 .tw-pa-bar {
 	display: flex; align-items: center; gap: 6px;
 	padding: 6px; border-radius: 16px;
@@ -179,7 +198,7 @@ export const CSS = `
 	.tw-pa-card:hover { background: rgba(0,0,0,0.05); }
 }
 @media (prefers-reduced-motion: reduce) {
-	.tw-pa-stage, .tw-pa-caption, .tw-pa-panel, .tw-pa-launcher, .tw-pa-card { transition: none; }
+	.tw-pa-stage, .tw-pa-caption, .tw-pa-panel, .tw-pa-launcher, .tw-pa-card, .tw-pa-prompt { transition: none; }
 	.tw-pa-name::before { animation: none; }
 }
 @media (max-width: 480px) {

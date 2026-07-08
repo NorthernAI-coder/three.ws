@@ -29,6 +29,9 @@ export {
 	AGENTS, DEFAULT_AGENT_ID, DEFAULT_ASSET_BASE,
 	getAgent, agentUrl, filterAgents,
 } from './catalog.js';
+export {
+	PRESETS, PRESET_IDS, resolvePreset, sanitizeContext, buildSystemPrompt,
+} from './presets.js';
 
 // Register the <page-agent> element on import (browser only).
 if (typeof window !== 'undefined') {
@@ -57,6 +60,13 @@ function autoInit() {
 
 	const d = tag.dataset;
 	const autoNarrate = 'autoNarrate' in d ? (d.autoNarrate || true) : false;
+	let context;
+	if (d.context) {
+		try {
+			const parsed = JSON.parse(d.context);
+			if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) context = parsed;
+		} catch { /* malformed JSON — ignored, context stays undefined */ }
+	}
 	window.__threeWsPageAgent = new PageAgent({
 		agent: d.avatar || undefined,
 		agents: d.agents?.split(',').map((s) => s.trim()).filter(Boolean),
@@ -68,6 +78,8 @@ function autoInit() {
 		collapsed: 'collapsed' in d,
 		picker: !('noPicker' in d),
 		controls: !('noControls' in d),
+		preset: d.preset || undefined,
+		context,
 	});
 }
 

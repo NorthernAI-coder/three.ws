@@ -1,0 +1,5 @@
+export menu items: ["Web GLB .glb — orbit-ready, compressed","AR bundle .usdz — iOS Quick Look"]
+GLB export download filename: scene.glb bytes: 132
+share embed panel opened: false
+console errors (excl. WS): 1
+  - Failed to load resource: the server responded with a status of 404 (Not Found)

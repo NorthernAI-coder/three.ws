@@ -19,6 +19,12 @@
  *   collapsed       present → start as the launcher pill
  *   no-picker       present → hide the "change agent" affordance
  *   no-controls     present → hide the control bar
+ *   preset          persona id — resolves greeting/systemRole/suggestedPrompts/tools
+ *                   defaults (see src/presets.js). Explicit attributes above
+ *                   still win over the preset's values.
+ *   context         JSON object of host-page state, folded (sanitized) into
+ *                   `.systemPrompt` alongside the preset's systemRole —
+ *                   e.g. context='{"page":"pricing","user":"free-tier"}'
  *
  * Methods mirror PageAgent: narrate, narratePage, stop, setAgent, mute,
  * collapse, openPicker. Events re-dispatched as DOM CustomEvents:
@@ -28,6 +34,17 @@
 import { PageAgent } from './page-agent.js';
 
 const bool = (el, name) => el.hasAttribute(name);
+
+/** Parse the `context` JSON attribute defensively — malformed JSON → `{}`, never throws. */
+function parseContextAttr(raw) {
+	if (!raw) return undefined;
+	try {
+		const parsed = JSON.parse(raw);
+		return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : undefined;
+	} catch {
+		return undefined;
+	}
+}
 
 export class PageAgentElement extends HTMLElement {
 	connectedCallback() {
@@ -48,6 +65,8 @@ export class PageAgentElement extends HTMLElement {
 			collapsed: bool(this, 'collapsed'),
 			picker: !bool(this, 'no-picker'),
 			controls: !bool(this, 'no-controls'),
+			preset: this.getAttribute('preset') || undefined,
+			context: parseContextAttr(this.getAttribute('context')),
 		});
 
 		for (const ev of ['ready', 'agentchange', 'state', 'caption', 'segment', 'error']) {
@@ -70,8 +89,12 @@ export class PageAgentElement extends HTMLElement {
 	mute(on = true) { this._agent?.mute(on); }
 	collapse(on = true) { this._agent?.collapse(on); }
 	openPicker() { this._agent?.openPicker(); }
+	setContext(context) { this._agent?.setContext(context); }
 	get controller() { return this._agent; }
 	get currentAgent() { return this._agent?.currentAgent; }
+	get currentPreset() { return this._agent?.currentPreset; }
+	get systemPrompt() { return this._agent?.systemPrompt; }
+	get tools() { return this._agent?.tools; }
 }
 
 export function registerElement(tag = 'page-agent') {
