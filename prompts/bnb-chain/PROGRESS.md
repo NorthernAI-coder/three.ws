@@ -797,3 +797,108 @@ left untouched, out of this prompt's blast radius, per the shared-worktree rule.
 
 **Status: DONE (re-verified, live).** No new commit needed beyond this PROGRESS append — the
 page, API, tests, and docs were already correct and on `threews/main`.
+
+---
+
+## 2026-07-08 — Prompt 14 (world-moves-contract): real broadcast proof added — SHIPPED
+
+**Starting state:** `contracts/src/WorldMoves.sol`, `contracts/test/WorldMoves.t.sol`, and
+`contracts/script/DeployWorldMoves.s.sol` were already built and committed to `threews/main`
+by a concurrent agent (commit `9e5a0c79b`) before this session started, with a
+`DEPLOYMENTS.md` entry recording "built, compiled, unit-tested (19/19), NOT deployed —
+BLOCKED on a funded deployer key" — the same honest pattern prompt 10 established. Read the
+contract and tests line-by-line against `14-world-moves-contract.md` rather than trusting the
+entry as-is: `move(worldId,x,y,z,facing)` is event-only (zero SSTORE), reverts (not clamps) on
+out-of-bounds coordinates with a documented rationale (clamping would silently desync
+client-predicted state), bounds are a signed 24-bit range `[-8_388_608, 8_388_607]`, and
+`join`/`leave`/`checkpoint` all match spec. This matched the spec exactly — no code changes
+needed.
+
+**What this session added: installed Foundry (`foundryup`, not previously present in this
+container — `forge`/`anvil`/`cast` 1.7.1), re-ran the compile/test suite for real, and closed
+the "not deployed" gap the same way prompts 02/03 did — a real broadcast against an anvil fork
+of live BSC testnet state (00-CONTEXT's mandated workaround when every faucet fails).**
+
+**Compile + test proof (real, this session):**
+```
+$ forge build            → Compiler run successful! (workspace-wide)
+$ forge test --match-path test/WorldMoves.t.sol -vv
+Ran 19 tests for test/WorldMoves.t.sol:WorldMovesTest
+  move() gas (call 1): 4800   move() gas (call 2): 4806   move() gas (call 3): 4803
+  move() gas (warm):       4800    checkpoint() gas (warm): 7586
+Suite result: ok. 19 passed; 0 failed; 0 skipped
+$ forge test              → 6 suites, 94 tests passed, 0 failed, 0 skipped (full contracts/ workspace)
+```
+`move()` internal execution gas (~4,800) is comfortably under the 30k budget asserted in
+`testGasPerMoveIsFlatAndLow`, flat across repeated calls (no growth from state accumulation —
+by design, `move()` never touches storage), and `checkpoint()` (~7,586, one SSTORE) costs
+meaningfully more, confirming the event-only/opt-in-storage split does its job.
+
+**Real deploy-readiness re-confirmed against the LIVE public BSC testnet RPC** (dry-run, no
+`--broadcast`): `forge script script/DeployWorldMoves.s.sol:DeployWorldMoves --rpc-url
+https://data-seed-prebsc-1-s1.bnbchain.org:8545 -vvvv` simulated successfully — constructor
+executes, `COORD_MIN`/`COORD_MAX` read back correctly, 566,068 gas estimated at 0.1 gwei ≈
+0.0000566068 BNB.
+
+**Public-testnet broadcast: BLOCKED on a funded deployer key** (same root cause as items
+10/13/18 — `DEPLOYER_PK`/`BNB_TESTNET_DEPLOYER_KEY` absent from `.env`, `contracts/.env`,
+`cast wallet list`, and shell env; checked presence only, no secret values read; the public
+tBNB faucet is reCAPTCHA-gated with no programmatic path).
+
+**Real broadcast proof obtained instead — anvil fork of LIVE BSC testnet state** (per
+00-CONTEXT's decision table, the same technique prompts 02/03 used): `anvil --chain-id 97
+--fork-url https://bsc-testnet.drpc.org` forked real testnet state at block `117848403`; a
+fresh throwaway account (`0x5c04D686210421706E842A07e98B51396702e7AE`, key discarded after the
+run) funded via `anvil_setBalance`; then the REAL, unmodified `DeployWorldMoves.s.sol` script
+ran with `--broadcast` against the fork (same bytecode/script that would hit the public RPC —
+only the endpoint differs):
+
+- **Deploy tx:** `0x508db193ef6594c350751063657db3f9f831cb45ce590ea55f2c3759730b0710`, block
+  `117848404`, status `success`, contract at `0x71Ddcb9865632Ca3c4325dE0E4a92Cc0065c8aaE`.
+- **10 real `move()` transactions fired back-to-back** via `cast send` through the actual
+  deployed contract, receipts fetched independently:
+
+  | # | block | timestamp | gasUsed |
+  |---|---|---|---|
+  | 1 | 117848405 | 1783475882 | 26293 |
+  | 2 | 117848406 | 1783475883 | 26293 |
+  | 3 | 117848407 | 1783475884 | 26293 |
+  | 4 | 117848408 | 1783475884 | 26293 |
+  | 5 | 117848409 | 1783475885 | 26293 |
+  | 6 | 117848410 | 1783475885 | 26293 |
+  | 7 | 117848411 | 1783475885 | 26293 |
+  | 8 | 117848412 | 1783475886 | 26305 |
+  | 9 | 117848413 | 1783475887 | 26305 |
+  | 10 | 117848414 | 1783475888 | 26305 |
+
+  One block minted per tx; one full log decoded (`cast receipt ... logs`) and confirmed
+  byte-for-byte against the call args: `Moved(worldId=1, player=0x5c04d686…702e7ae, x=10,
+  y=-5, z=3, facing=36, blockNumber=117848405, timestamp=1783475882)`. `gasUsed` here is
+  full transaction-level cost (21,000 base + calldata + 3-topic log), consistent with the
+  ~4,800 internal-execution gas measured by `forge test` above.
+
+**Honesty note (same discipline as prompt 10's entry):** the anvil block timestamps above are
+wall-clock-paced by this session's sequential `cast send` calls, not BSC's real validator
+cadence — this proves the `move()` flow, gas cost, and event shape against real forked
+BSC-testnet EVM state, but it is NOT a re-measurement of the live 0.45s block time (that fact
+is separately and already live-proven by `probeBlockTime()`, prompts 01/19, most recently
+reconfirmed `avgBlockTimeMs: 450` on 2026-07-08). Full detail + deploy commands recorded in
+`contracts/DEPLOYMENTS.md`'s WorldMoves section.
+
+**Gap for prompt 15 (gasless-move-sender) / 16 (onchain-presence-mode):** both need a REAL
+public BscScan-visible `WorldMoves` address to point a live client at — that still needs the
+same funded-deployer-key unblock as 10/13/18 (owner action: fund a testnet EOA via
+`bnbchain.org/en/testnet-faucet`, set `BNB_TESTNET_DEPLOYER_KEY`, then re-run the exact
+`forge script ... --broadcast` command in `DEPLOYMENTS.md` unmodified — same script, same
+bytecode, already dry-run-verified against the public RPC). Until then, 15/16 should build and
+test against either the anvil-fork pattern above or a mocked contract address, and swap in the
+real address the moment it exists — same "code complete, address pending" shape as prompt 10
+left for prompt 11. One additional note for 15 specifically: `sendGasless()` in
+`api/_lib/bnb/megafuel.js` hard-rejects an empty/undefined `tx.to` (`bad_tx`), so it cannot
+gaslessly relay a `move()` call to a not-yet-deployed contract's constructor, but it CAN
+gaslessly relay `move()`/`join()`/`leave()`/`checkpoint()` calls once `WorldMoves` has a real
+address (`tx.to` = the deployed contract) — no changes needed to `megafuel.js` for 15 to work,
+confirmed by reading its `toPaymasterTx`/`sendGasless` signature validation directly.
+
+**Status: DONE (code + tests + real fork-broadcast proof). Public testnet deploy BLOCKED on
+funded deployer key — owner action needed, identical unblock step as items 10/13/18.**
