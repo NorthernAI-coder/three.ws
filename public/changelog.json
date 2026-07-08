@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-08T08:32:23.152Z",
+	"generated_at": "2026-07-08T08:48:39.245Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -259,6 +259,17 @@
 			"tags": [
 				"feature",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
+			"title": "Agents can now generate a body, embody it, and distribute it everywhere — one call each",
+			"summary": "Any agent working through three.ws's MCP tools can now close the full loop autonomously: generate a 3D model, rig it, give an agent a persistent visual body tied to its account identity (new attach_avatar_to_agent tool), and hand out real distribution in one call — a copy-paste embed, a talking @three-ws/page-agent guide, or a walking @three-ws/walk companion, all built from the same GLB. Every Forge creation's share link now unfurls into a live, orbitable 3D viewer when pasted into Notion, Discord, or Slack (real oEmbed support, not just a static preview). See the live end-to-end demo in examples/agent-native-3d.",
+			"link": "/forge",
+			"tags": [
+				"feature",
+				"sdk"
 			]
 		},
 		{
