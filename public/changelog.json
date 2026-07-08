@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-08T02:12:37.156Z",
+	"generated_at": "2026-07-08T06:19:49.862Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -341,6 +341,16 @@
 			"title": "Live block-speed race: watch BNB Chain confirm in ~0.45s",
 			"summary": "A new /bnb-latency page races BNB Chain against Base, Ethereum, and Solana in real time, sampling real blocks off public RPCs every few seconds — never a hardcoded number. Each lane shows its live measured average and a rolling sparkline; a chain going quiet shows \"reconnecting\" instead of a frozen fake reading.",
 			"link": "/bnb-latency",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
+			"title": "Live DeFi yield and market-sentiment data: new fear/greed and yield-pool APIs",
+			"summary": "A new market-data layer pulls real-time DeFi yield pools and protocol TVL from DeFiLlama, backing a new GET /api/intel/yields endpoint that returns live yield pools filterable by chain, project, and stablecoin status, sorted by TVL. This lays the groundwork for yield-discovery features and a smarter trading copilot on top of real, cached, non-fabricated market data.",
+			"link": "/docs/api-reference",
 			"tags": [
 				"feature"
 			]

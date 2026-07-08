@@ -3,6 +3,25 @@
 	"entries": [
 		{
 			"date": "2026-07-08",
+			"title": "scene-mcp can now build a whole 3D world in one call — no browser required",
+			"summary": "The scene-mcp server (compose_scene, get_scene, list_scenes) gains two tools: build_world runs the entire diorama pipeline server-side from one sentence — compose the plan, forge every object on the free text→ 3D lane, and merge the result into one glTF binary with named, selectable nodes plus ground and mood-tuned lighting — for agents with no browser to drive the progressive /diorama flow. export_scene does the merge step alone for a diorama you've already forged objects for. Both degrade gracefully: a single object that fails to forge is skipped and reported, never a hard failure — the rest of the world still exports and opens cleanly in Scene Studio. `npx -y @three-ws/scene-mcp` picks up both automatically.",
+			"tags": [
+				"feature",
+				"sdk"
+			],
+			"link": "/diorama"
+		},
+		{
+			"date": "2026-07-08",
+			"title": "Live DeFi yield and market-sentiment data: new fear/greed and yield-pool APIs",
+			"summary": "A new market-data layer pulls real-time DeFi yield pools and protocol TVL from DeFiLlama, backing a new GET /api/intel/yields endpoint that returns live yield pools filterable by chain, project, and stablecoin status, sorted by TVL. This lays the groundwork for yield-discovery features and a smarter trading copilot on top of real, cached, non-fabricated market data.",
+			"tags": [
+				"feature"
+			],
+			"link": "/docs/api-reference"
+		},
+		{
+			"date": "2026-07-08",
 			"title": "Page agents get personas: one attribute turns your embedded 3D agent into a guide, shop assistant, DeFi advisor, onboarding coach, or support agent",
 			"summary": "@three-ws/page-agent's <page-agent> embed now ships five persona presets — add preset=\"shop-assistant\" (or defi-advisor, onboarding-coach, support, or guide) and the agent resolves a tailored greeting, four tappable suggested-prompt chips with real spoken answers, and a documented tool allowlist for pairing with a chat backend, all from one attribute. A new context attribute folds sanitized host-page state (page name, tier, connected chain, etc.) into the persona's brief for anything you pair it with. Explicit greeting/suggested-prompts/tools attributes still override the preset, and pages with no preset attribute behave exactly as before.",
 			"tags": [
