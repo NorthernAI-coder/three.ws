@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-07-08",
+			"title": "Vault: buy & unlock encrypted 3D models on BNB Chain",
+			"summary": "The BNB vault now has a face: /vault lets you browse encrypted 3D listings, buy one with a real BSC testnet transaction, watch the cross-chain Greenfield permission grant settle (an honest \"granting access…\" state, not a fake instant unlock), then unlock and view the model — decrypted entirely in your browser, the raw key and plaintext bytes never touch our servers. A local session key handles the purchase and unlock signature (a browser wallet like MetaMask can never export the raw key the vault's encryption needs); MetaMask's only job is funding that session with tBNB. Proven end-to-end against a real locally-deployed copy of the vault contract; public testnet rollout is pending the same funded deployer key blocking the rest of this track.",
+			"tags": [
+				"feature",
+				"infra"
+			],
+			"link": "/vault"
+		},
+		{
+			"date": "2026-07-08",
 			"title": "Agents can now generate a body, embody it, and distribute it everywhere — one call each",
 			"summary": "Any agent working through three.ws's MCP tools can now close the full loop autonomously: generate a 3D model, rig it, give an agent a persistent visual body tied to its account identity (new attach_avatar_to_agent tool), and hand out real distribution in one call — a copy-paste embed, a talking @three-ws/page-agent guide, or a walking @three-ws/walk companion, all built from the same GLB. Every Forge creation's share link now unfurls into a live, orbitable 3D viewer when pasted into Notion, Discord, or Slack (real oEmbed support, not just a static preview). See the live end-to-end demo in examples/agent-native-3d.",
 			"tags": [
@@ -241,7 +251,7 @@
 		{
 			"date": "2026-07-08",
 			"title": "Restyle Studio can now AI-restyle any model and remembers every version",
-			"summary": "Restyle Studio (/restyle) now takes a plain-language instruction — \"make it chrome\", \"worn copper\", \"cyberpunk neon\" — and asks IBM Granite for a real PBR material plus a generated seamless texture, applied live to any GLB. Seeded colorway variants can now be saved as real, separately downloadable models instead of just a browser preview: one click mints all N as durable, glTF-validated GLBs. Every AI restyle and every saved variant is recorded in an immutable parent \u2192 child version lineage \u2014 the same versioning refine_model uses \u2014 so you can click back to any earlier look without losing your place; the original is never touched. The restyle_material MCP tool exposes the same engine to agents.",
+			"summary": "Restyle Studio (/restyle) now takes a plain-language instruction — \"make it chrome\", \"worn copper\", \"cyberpunk neon\" — and asks IBM Granite for a real PBR material plus a generated seamless texture, applied live to any GLB. Seeded colorway variants can now be saved as real, separately downloadable models instead of just a browser preview: one click mints all N as durable, glTF-validated GLBs. Every AI restyle and every saved variant is recorded in an immutable parent → child version lineage — the same versioning refine_model uses — so you can click back to any earlier look without losing your place; the original is never touched. The restyle_material MCP tool exposes the same engine to agents.",
 			"tags": [
 				"feature"
 			],

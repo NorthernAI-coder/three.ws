@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-08T08:48:39.223Z",
+	"generated_at": "2026-07-08T09:16:08.888Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -1580,6 +1580,16 @@
 					"path": "/bnb-latency",
 					"title": "BNB Chain Live Block Race — 0.45s vs Base, Ethereum, Solana",
 					"description": "A live, honest race: BNB Chain, Base, Ethereum, and Solana block times measured fresh off real public RPCs every few seconds, with a rolling sparkline per lane. No wallet, no payment, no hardcoded numbers — a lane that goes quiet shows 'reconnecting' while the others keep racing.",
+					"added": "2026-07-08",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/vault",
+					"title": "Vault — Buy & Unlock Encrypted 3D Models on BNB Chain",
+					"description": "Browse encrypted 3D listings, buy access with a real BSC testnet transaction, watch the cross-chain Greenfield permission grant settle, then unlock and view the model — decrypted entirely client-side, the raw key never leaves your browser.",
 					"added": "2026-07-08",
 					"auth": null,
 					"indexable": true,

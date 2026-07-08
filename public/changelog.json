@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-08T08:48:39.245Z",
+	"generated_at": "2026-07-08T09:16:08.909Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -172,6 +172,16 @@
 			"title": "Top Crypto Exchanges",
 			"summary": "The leading cryptocurrency exchanges ranked by trust score and 24-hour trading volume, with country, launch year, and a direct link to each. Real CoinGecko data, sortable by any column.",
 			"link": "/exchanges",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "launch",
+			"title": "Vault — Buy & Unlock Encrypted 3D Models on BNB Chain",
+			"summary": "Browse encrypted 3D listings, buy access with a real BSC testnet transaction, watch the cross-chain Greenfield permission grant settle, then unlock and view the model — decrypted entirely client-side, the raw key never leaves your browser.",
+			"link": "/vault",
 			"tags": [
 				"launch"
 			]
@@ -750,6 +760,17 @@
 			"tags": [
 				"feature",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
+			"title": "Vault: buy & unlock encrypted 3D models on BNB Chain",
+			"summary": "The BNB vault now has a face: /vault lets you browse encrypted 3D listings, buy one with a real BSC testnet transaction, watch the cross-chain Greenfield permission grant settle (an honest \"granting access…\" state, not a fake instant unlock), then unlock and view the model — decrypted entirely in your browser, the raw key and plaintext bytes never touch our servers. A local session key handles the purchase and unlock signature (a browser wallet like MetaMask can never export the raw key the vault's encryption needs); MetaMask's only job is funding that session with tBNB. Proven end-to-end against a real locally-deployed copy of the vault contract; public testnet rollout is pending the same funded deployer key blocking the rest of this track.",
+			"link": "/vault",
+			"tags": [
+				"feature",
+				"infra"
 			]
 		},
 		{

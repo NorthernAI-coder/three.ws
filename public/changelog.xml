@@ -143,6 +143,14 @@
 			<description>The leading cryptocurrency exchanges ranked by trust score and 24-hour trading volume, with country, launch year, and a direct link to each. Real CoinGecko data, sortable by any column.</description>
 		</item>
 		<item>
+			<title>Vault — Buy &amp; Unlock Encrypted 3D Models on BNB Chain</title>
+			<link>https://three.ws/vault</link>
+			<guid isPermaLink="false">2026-07-08:Vault — Buy &amp; Unlock Encrypted 3D Models on BNB Chain</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Browse encrypted 3D listings, buy access with a real BSC testnet transaction, watch the cross-chain Greenfield permission grant settle, then unlock and view the model — decrypted entirely client-side, the raw key never leaves your browser.</description>
+		</item>
+		<item>
 			<title>/create is now the front door for everything you can build</title>
 			<link>https://three.ws/create</link>
 			<guid isPermaLink="false">2026-07-08:/create is now the front door for everything you can build</guid>
@@ -581,6 +589,14 @@
 			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>GET /api/x402/vanity now offers 4- and 5-character Solana vanity prefixes/suffixes ($2.50 and $10) on top of the existing 1-3 char live-grind tiers — those longer patterns are served only when a matching pre-ground address is actually in stock, so you never pay for one that isn't there (a 404 tells you honestly when it's out of stock). Behind the scenes, an hourly job now watches the pre-ground warehouse and automatically kicks off a fresh grinding batch on spot compute whenever stock runs low, so instant delivery keeps working without anyone manually restocking it.</description>
+		</item>
+		<item>
+			<title>Vault: buy &amp; unlock encrypted 3D models on BNB Chain</title>
+			<link>https://three.ws/vault</link>
+			<guid isPermaLink="false">2026-07-08:Vault: buy &amp; unlock encrypted 3D models on BNB Chain</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The BNB vault now has a face: /vault lets you browse encrypted 3D listings, buy one with a real BSC testnet transaction, watch the cross-chain Greenfield permission grant settle (an honest &quot;granting access…&quot; state, not a fake instant unlock), then unlock and view the model — decrypted entirely in your browser, the raw key and plaintext bytes never touch our servers. A local session key handles the purchase and unlock signature (a browser wallet like MetaMask can never export the raw key the vault's encryption needs); MetaMask's only job is funding that session with tBNB. Proven end-to-end against a real locally-deployed copy of the vault contract; public testnet rollout is pending the same funded deployer key blocking the rest of this track.</description>
 		</item>
 		<item>
 			<title>Verify a 3D model's authenticity — free, on-chain content credentials</title>

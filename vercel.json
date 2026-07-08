@@ -4816,6 +4816,14 @@
 			"dest": "/vaults.html"
 		},
 		{
+			"src": "/vault",
+			"dest": "/vault.html"
+		},
+		{
+			"src": "/vault/",
+			"dest": "/vault.html"
+		},
+		{
 			"src": "/play/ufo",
 			"dest": "/play/ufo.html"
 		},

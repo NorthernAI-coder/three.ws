@@ -963,6 +963,12 @@ URL: https://three.ws/bnb-latency
 
 A live, honest race: BNB Chain, Base, Ethereum, and Solana block times measured fresh off real public RPCs every few seconds, with a rolling sparkline per lane. No wallet, no payment, no hardcoded numbers — a lane that goes quiet shows 'reconnecting' while the others keep racing.
 
+### Vault — Buy & Unlock Encrypted 3D Models on BNB Chain
+
+URL: https://three.ws/vault
+
+Browse encrypted 3D listings, buy access with a real BSC testnet transaction, watch the cross-chain Greenfield permission grant settle, then unlock and view the model — decrypted entirely client-side, the raw key never leaves your browser.
+
 ### watsonx Constellation
 
 URL: https://three.ws/constellation

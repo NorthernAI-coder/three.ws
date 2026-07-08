@@ -61,9 +61,29 @@ export class GreenfieldError extends Error {
 	}
 }
 
+/**
+ * Local-dev/E2E-proof escape hatch only: `GREENFIELD_SP_OVERRIDE_TESTNET`/
+ * `_MAINNET` (comma-separated URLs) redirects Storage-Provider reads
+ * (`downloadObject`/`listObjects`) to a local mock SP instead of the real
+ * bnbchain.org gateways — same posture as `vault-contract.js`'s
+ * `BNB_VAULT_RPC_OVERRIDE_TESTNET` for the chain side. Unset in production;
+ * `getObjectMeta`/`headBucket` (the chain-side LCD reads) are untouched by
+ * this override on purpose — only SP byte-serving is ever worth mocking
+ * locally.
+ */
+function spOverride(key) {
+	const envVar = key === 'mainnet' ? 'GREENFIELD_SP_OVERRIDE_MAINNET' : 'GREENFIELD_SP_OVERRIDE_TESTNET';
+	const raw = process.env[envVar];
+	if (!raw) return null;
+	const sps = raw.split(',').map((s) => s.trim()).filter(Boolean);
+	return sps.length ? sps : null;
+}
+
 function net(network) {
 	const key = network === 'mainnet' || network === 'greenfield_1017-1' ? 'mainnet' : 'testnet';
-	return NETWORKS[key];
+	const base = NETWORKS[key];
+	const overrideSps = spOverride(key);
+	return overrideSps ? { ...base, sps: overrideSps } : base;
 }
 
 function assertName(v, what) {
