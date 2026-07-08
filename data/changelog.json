@@ -3,6 +3,70 @@
 	"entries": [
 		{
 			"date": "2026-07-08",
+			"title": "/create is now the front door for everything you can build",
+			"summary": "/create used to be just the avatar picker. It's now a four-way intent hub — Build an AI agent, Make a 3D avatar, Generate a 3D model, or Launch a token world — so you pick your destination in one click instead of hunting through a flat menu of tools. The avatar picker didn't go anywhere: it's still exactly where it was, now reachable as the 'Make a 3D avatar' path with its photo/scratch/prompt/upload options intact.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/create"
+		},
+		{
+			"date": "2026-07-08",
+			"title": "Sentiment and narrative intel are now part of the free API",
+			"summary": "POST /api/v1/sentiment (deterministic text classification), GET /api/v1/market/intel, and GET /api/v1/market/projects (aixbt-backed narrative + momentum intelligence) are now documented, publicly readable with no API key, and degrade honestly with a real 503 when the deployment's aixbt key isn't set — instead of a silent internal error.",
+			"tags": [
+				"improvement",
+				"docs"
+			],
+			"link": "/docs/api-reference"
+		},
+		{
+			"date": "2026-07-08",
+			"title": "Free live DEX data and Solana on-chain reads, no RPC setup",
+			"summary": "The free crypto API grows two more providers: DexScreener (live price, liquidity, volume, and trade counts for any token by address, pair, or search, plus the latest boosted/newly-profiled tokens) and direct Solana reads (wallet balances, token holdings and supply, top holders, transaction detail, account info, current priority-fee percentiles) — all as plain GET calls, no JSON-RPC boilerplate, no RPC endpoint to run yourself.",
+			"tags": [
+				"feature"
+			],
+			"link": "/docs/api-reference"
+		},
+		{
+			"date": "2026-07-08",
+			"title": "Free name resolution API — ENS + SNS in one call",
+			"summary": "New GET /api/v1/resolve resolves .eth names to their Ethereum address, .sol names to their Solana owner, or reverse-resolves an address back to its primary name — free, no API key, 30 requests/min per IP. Built on the same ENS and SNS resolvers already powering agent-ENS lookup and .sol resolution elsewhere on the platform.",
+			"tags": [
+				"feature"
+			],
+			"link": "/docs/api-reference"
+		},
+		{
+			"date": "2026-07-08",
+			"title": "Agent mood now shapes body language, not just facial expression",
+			"summary": "An agent's sustained mood — set via setMood(), tracked as valence and arousal — used to only drive the face (a smile, a worried brow) and posture. Now a resting up-and-energetic mood also nudges the agent toward a livelier gesture between events, and a down-and-subdued mood toward a stiller, more concerned one, so an agent's whole body reads as consistent with how it feels, not just its expression. A real triggered gesture (a wave, a reaction to an error) still always takes priority over this ambient bias.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/tutorials/emotion-from-data"
+		},
+		{
+			"date": "2026-07-08",
+			"title": "Cleaned up the x402 storefront listing",
+			"summary": "Delisted internal-use-only paid endpoints from the public x402 catalog while keeping their in-product functionality live, removed a dead endpoint with no real buyer, dropped a fake bullish/bearish framing from the ticker-collision checker, and re-listed three previously-hidden endpoints (fact-checking, token-to-3D rendering) as honest, discoverable products.",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"title": "Free pump.fun token search, now under the versioned API",
+			"summary": "New GET /api/v1/pump/search finds any Solana pump.fun / meme token by name, symbol, or mint — free, keyless, no account. It's the same Birdeye-first, pump.fun-fallback search that already powers the site's command palette, now registered under the versioned, cataloged /api/v1 surface so agents can discover it via GET /api/v1 alongside the platform's other free pump.fun reads (trending, bonding-curve progress, launches, whale activity).",
+			"tags": [
+				"feature"
+			],
+			"link": "/docs/api-reference"
+		},
+		{
+			"date": "2026-07-08",
 			"title": "New tool-authoring SDK: define an agent tool once — typed params, permissions, and rate limits included",
 			"summary": "Internal SDK release for developers extending three.ws's 38 MCP servers: @three-ws/tool-sdk lets a tool be declared once with defineTool (Zod parameter schemas, auto-derived JSON Schema, a per-tool permission manifest for network access/rate limits/wallet use) and wired up with defineExecutor (typed handlers, automatic validation, uniform error wrapping) — then adapted into a live MCP server registration with a single toMcpTools() call. Proven by refactoring the naming MCP server's sns_resolve tool onto it with byte-identical behavior.",
 			"tags": [
@@ -24,6 +88,14 @@
 			"summary": "A zero-context developer guide covering how to pay three.ws endpoints over MPP on BNB Chain, how our agents pay MPP endpoints, and how BNB Chain's block-level gas sponsorship (MegaFuel) lets a plain wallet send a transaction with zero gas — with an honest self-pay fallback for when sponsorship isn't available. Includes a wire-level bridge spec pinning how x402 and MPP map to each other.",
 			"tags": [
 				"docs"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"title": "View any generated model in your room with AR",
+			"summary": "Every 3D model you generate can now be placed in your space through your phone. A new device-aware AR link opens Apple Quick Look on iPhone/iPad, Google Scene Viewer on Android, and the interactive 3D viewer on desktop — one tap, no app, no wallet. The USDZ for iOS is generated from the model on the fly, so any GLB works. Agents get an export_ar tool that returns the AR link alongside the model.",
+			"tags": [
+				"feature"
 			]
 		},
 		{

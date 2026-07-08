@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-08T01:01:12.281Z",
+	"generated_at": "2026-07-08T01:05:42.970Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -119,12 +119,33 @@
 		{
 			"date": "2026-07-08",
 			"type": "update",
+			"title": "/create is now the front door for everything you can build",
+			"summary": "/create used to be just the avatar picker. It's now a four-way intent hub — Build an AI agent, Make a 3D avatar, Generate a 3D model, or Launch a token world — so you pick your destination in one click instead of hunting through a flat menu of tools. The avatar picker didn't go anywhere: it's still exactly where it was, now reachable as the 'Make a 3D avatar' path with its photo/scratch/prompt/upload options intact.",
+			"link": "/create",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
 			"title": "<agent-3d> talks out of the box with brain=\"free\"",
 			"summary": "Any embedded avatar can now hold a real conversation with zero setup: add brain=\"free\" to an <agent-3d> tag and it routes through three.ws's host-paid free-tier proxy (OpenRouter, Groq, or NVIDIA NIM, whichever is healthy) — no API key, no backend code, no per-token cost to the embedder. Previously the brain attribute required an exact model id and defaulted to a silent avatar; brain=\"free\" is now a supported alias, and it's honored on both the src= (bare GLB) and body= (ad-hoc agent) embed paths, which is where this fell through before.",
 			"link": "/docs/embedding",
 			"tags": [
 				"feature",
 				"sdk"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
+			"title": "Agent mood now shapes body language, not just facial expression",
+			"summary": "An agent's sustained mood — set via setMood(), tracked as valence and arousal — used to only drive the face (a smile, a worried brow) and posture. Now a resting up-and-energetic mood also nudges the agent toward a livelier gesture between events, and a down-and-subdued mood toward a stiller, more concerned one, so an agent's whole body reads as consistent with how it feels, not just its expression. A real triggered gesture (a wave, a reaction to an error) still always takes priority over this ambient bias.",
+			"link": "/tutorials/emotion-from-data",
+			"tags": [
+				"feature",
+				"improvement"
 			]
 		},
 		{
@@ -140,11 +161,51 @@
 		{
 			"date": "2026-07-08",
 			"type": "update",
+			"title": "Cleaned up the x402 storefront listing",
+			"summary": "Delisted internal-use-only paid endpoints from the public x402 catalog while keeping their in-product functionality live, removed a dead endpoint with no real buyer, dropped a fake bullish/bearish framing from the ticker-collision checker, and re-listed three previously-hidden endpoints (fact-checking, token-to-3D rendering) as honest, discoverable products.",
+			"link": null,
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
 			"title": "Fixed: the \"View it\" link on every generated 3D model now opens a real viewer",
 			"summary": "The viewer link returned with every generated model (/viewer?src=…) previously returned a 404. It now opens a polished, interactive 3D viewer — orbit, zoom, AR on mobile, one-tap GLB download — with designed loading, empty, and error states. This affects every model made through the 3D Studio, in chat or on the web.",
 			"link": null,
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
+			"title": "Free live DEX data and Solana on-chain reads, no RPC setup",
+			"summary": "The free crypto API grows two more providers: DexScreener (live price, liquidity, volume, and trade counts for any token by address, pair, or search, plus the latest boosted/newly-profiled tokens) and direct Solana reads (wallet balances, token holdings and supply, top holders, transaction detail, account info, current priority-fee percentiles) — all as plain GET calls, no JSON-RPC boilerplate, no RPC endpoint to run yourself.",
+			"link": "/docs/api-reference",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
+			"title": "Free name resolution API — ENS + SNS in one call",
+			"summary": "New GET /api/v1/resolve resolves .eth names to their Ethereum address, .sol names to their Solana owner, or reverse-resolves an address back to its primary name — free, no API key, 30 requests/min per IP. Built on the same ENS and SNS resolvers already powering agent-ENS lookup and .sol resolution elsewhere on the platform.",
+			"link": "/docs/api-reference",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
+			"title": "Free pump.fun token search, now under the versioned API",
+			"summary": "New GET /api/v1/pump/search finds any Solana pump.fun / meme token by name, symbol, or mint — free, keyless, no account. It's the same Birdeye-first, pump.fun-fallback search that already powers the site's command palette, now registered under the versioned, cataloged /api/v1 surface so agents can discover it via GET /api/v1 alongside the platform's other free pump.fun reads (trending, bonding-curve progress, launches, whale activity).",
+			"link": "/docs/api-reference",
+			"tags": [
+				"feature"
 			]
 		},
 		{
@@ -221,6 +282,17 @@
 		{
 			"date": "2026-07-08",
 			"type": "update",
+			"title": "Sentiment and narrative intel are now part of the free API",
+			"summary": "POST /api/v1/sentiment (deterministic text classification), GET /api/v1/market/intel, and GET /api/v1/market/projects (aixbt-backed narrative + momentum intelligence) are now documented, publicly readable with no API key, and degrade honestly with a real 503 when the deployment's aixbt key isn't set — instead of a silent internal error.",
+			"link": "/docs/api-reference",
+			"tags": [
+				"improvement",
+				"docs"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
 			"title": "Spatial MCP: 3D models are now a native, interactive response type",
 			"summary": "We published an open standard — Spatial MCP — for returning a live, interactive 3D scene as a first-class AI tool result instead of a link in text. Every three.ws 3D tool now emits a conformant artifact (camera, lighting, animation, AR handoff), a public validator checks conformance with actionable errors, and a framework-free reference renderer displays any conformant payload — including ones transformed from other tools. It carries no wallet or token surface, so it works everywhere. Try the reference renderer.",
 			"link": "/spatial-mcp",
@@ -258,6 +330,16 @@
 			"tags": [
 				"feature",
 				"sdk"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
+			"title": "View any generated model in your room with AR",
+			"summary": "Every 3D model you generate can now be placed in your space through your phone. A new device-aware AR link opens Apple Quick Look on iPhone/iPad, Google Scene Viewer on Android, and the interactive 3D viewer on desktop — one tap, no app, no wallet. The USDZ for iOS is generated from the model on the fly, so any GLB works. Agents get an export_ar tool that returns the AR link alongside the model.",
+			"link": null,
+			"tags": [
+				"feature"
 			]
 		},
 		{
@@ -16633,8 +16715,8 @@
 		{
 			"date": "2026-04-16",
 			"type": "launch",
-			"title": "Create Agent",
-			"summary": "Wizard for building a new agent: avatar, brain (LLM + prompt), skills, and on-chain identity.",
+			"title": "Create",
+			"summary": "The front door for everything you can create on three.ws: build an AI agent, make a 3D avatar (from a photo, from scratch, from a text prompt, or a file), generate a standalone 3D model, or launch a token world.",
 			"link": "/create",
 			"tags": [
 				"launch"

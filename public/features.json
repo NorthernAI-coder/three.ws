@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-08T01:01:12.266Z",
+	"generated_at": "2026-07-08T01:05:42.945Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -324,8 +324,8 @@
 				},
 				{
 					"path": "/create",
-					"title": "Create Agent",
-					"description": "Wizard for building a new agent: avatar, brain (LLM + prompt), skills, and on-chain identity.",
+					"title": "Create",
+					"description": "The front door for everything you can create on three.ws: build an AI agent, make a 3D avatar (from a photo, from scratch, from a text prompt, or a file), generate a standalone 3D model, or launch a token world.",
 					"added": "2026-04-16",
 					"auth": null,
 					"indexable": true,

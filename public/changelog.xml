@@ -95,12 +95,28 @@
 			<description>The leading cryptocurrency exchanges ranked by trust score and 24-hour trading volume, with country, launch year, and a direct link to each. Real CoinGecko data, sortable by any column.</description>
 		</item>
 		<item>
+			<title>/create is now the front door for everything you can build</title>
+			<link>https://three.ws/create</link>
+			<guid isPermaLink="false">2026-07-08:/create is now the front door for everything you can build</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>/create used to be just the avatar picker. It's now a four-way intent hub — Build an AI agent, Make a 3D avatar, Generate a 3D model, or Launch a token world — so you pick your destination in one click instead of hunting through a flat menu of tools. The avatar picker didn't go anywhere: it's still exactly where it was, now reachable as the 'Make a 3D avatar' path with its photo/scratch/prompt/upload options intact.</description>
+		</item>
+		<item>
 			<title>&lt;agent-3d&gt; talks out of the box with brain=&quot;free&quot;</title>
 			<link>https://three.ws/docs/embedding</link>
 			<guid isPermaLink="false">2026-07-08:&lt;agent-3d&gt; talks out of the box with brain=&quot;free&quot;</guid>
 			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Any embedded avatar can now hold a real conversation with zero setup: add brain=&quot;free&quot; to an &lt;agent-3d&gt; tag and it routes through three.ws's host-paid free-tier proxy (OpenRouter, Groq, or NVIDIA NIM, whichever is healthy) — no API key, no backend code, no per-token cost to the embedder. Previously the brain attribute required an exact model id and defaulted to a silent avatar; brain=&quot;free&quot; is now a supported alias, and it's honored on both the src= (bare GLB) and body= (ad-hoc agent) embed paths, which is where this fell through before.</description>
+		</item>
+		<item>
+			<title>Agent mood now shapes body language, not just facial expression</title>
+			<link>https://three.ws/tutorials/emotion-from-data</link>
+			<guid isPermaLink="false">2026-07-08:Agent mood now shapes body language, not just facial expression</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>An agent's sustained mood — set via setMood(), tracked as valence and arousal — used to only drive the face (a smile, a worried brow) and posture. Now a resting up-and-energetic mood also nudges the agent toward a livelier gesture between events, and a down-and-subdued mood toward a stiller, more concerned one, so an agent's whole body reads as consistent with how it feels, not just its expression. A real triggered gesture (a wave, a reaction to an error) still always takes priority over this ambient bias.</description>
 		</item>
 		<item>
 			<title>BNB Chain hub: three uniquely-BNB demos in one place</title>
@@ -111,12 +127,44 @@
 			<description>New /bnb landing page tells the whole BNB Chain story: gasless agent onboarding (a zero-balance wallet mints an on-chain identity, no faucet), an on-chain-gated 3D vault backed by Greenfield storage permissions, and a real-time on-chain world riding BNB's ~0.45s blocks — each claim traced to what we independently verified live, never BNB's own roadmap promises. The page embeds a live block-time widget that measures the real average off a public RPC on every load, and each feature card auto-detects whether its track has actually shipped on this deployment, showing an honest &quot;coming soon&quot; instead of a dead link until it has.</description>
 		</item>
 		<item>
+			<title>Cleaned up the x402 storefront listing</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-08:Cleaned up the x402 storefront listing</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Delisted internal-use-only paid endpoints from the public x402 catalog while keeping their in-product functionality live, removed a dead endpoint with no real buyer, dropped a fake bullish/bearish framing from the ticker-collision checker, and re-listed three previously-hidden endpoints (fact-checking, token-to-3D rendering) as honest, discoverable products.</description>
+		</item>
+		<item>
 			<title>Fixed: the &quot;View it&quot; link on every generated 3D model now opens a real viewer</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-07-08:Fixed: the &quot;View it&quot; link on every generated 3D model now opens a real viewer</guid>
 			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>The viewer link returned with every generated model (/viewer?src=…) previously returned a 404. It now opens a polished, interactive 3D viewer — orbit, zoom, AR on mobile, one-tap GLB download — with designed loading, empty, and error states. This affects every model made through the 3D Studio, in chat or on the web.</description>
+		</item>
+		<item>
+			<title>Free live DEX data and Solana on-chain reads, no RPC setup</title>
+			<link>https://three.ws/docs/api-reference</link>
+			<guid isPermaLink="false">2026-07-08:Free live DEX data and Solana on-chain reads, no RPC setup</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The free crypto API grows two more providers: DexScreener (live price, liquidity, volume, and trade counts for any token by address, pair, or search, plus the latest boosted/newly-profiled tokens) and direct Solana reads (wallet balances, token holdings and supply, top holders, transaction detail, account info, current priority-fee percentiles) — all as plain GET calls, no JSON-RPC boilerplate, no RPC endpoint to run yourself.</description>
+		</item>
+		<item>
+			<title>Free name resolution API — ENS + SNS in one call</title>
+			<link>https://three.ws/docs/api-reference</link>
+			<guid isPermaLink="false">2026-07-08:Free name resolution API — ENS + SNS in one call</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>New GET /api/v1/resolve resolves .eth names to their Ethereum address, .sol names to their Solana owner, or reverse-resolves an address back to its primary name — free, no API key, 30 requests/min per IP. Built on the same ENS and SNS resolvers already powering agent-ENS lookup and .sol resolution elsewhere on the platform.</description>
+		</item>
+		<item>
+			<title>Free pump.fun token search, now under the versioned API</title>
+			<link>https://three.ws/docs/api-reference</link>
+			<guid isPermaLink="false">2026-07-08:Free pump.fun token search, now under the versioned API</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>New GET /api/v1/pump/search finds any Solana pump.fun / meme token by name, symbol, or mint — free, keyless, no account. It's the same Birdeye-first, pump.fun-fallback search that already powers the site's command palette, now registered under the versioned, cataloged /api/v1 surface so agents can discover it via GET /api/v1 alongside the platform's other free pump.fun reads (trending, bonding-curve progress, launches, whale activity).</description>
 		</item>
 		<item>
 			<title>Give your agent a 3D body in one call — the new Embodiment endpoint</title>
@@ -175,6 +223,14 @@
 			<description>Hardened the pay-per-call x402 API surface — every /api/x402/* and /api/okx/3d/* endpoint — so it degrades gracefully instead of failing when the shared Redis cache is unreachable. Previously a missing cache configuration could take these paid endpoints offline; they now serve normally on a safe per-instance fallback, with on-chain payment safety unchanged (each payment authorization is still single-use, so no double-charge is possible).</description>
 		</item>
 		<item>
+			<title>Sentiment and narrative intel are now part of the free API</title>
+			<link>https://three.ws/docs/api-reference</link>
+			<guid isPermaLink="false">2026-07-08:Sentiment and narrative intel are now part of the free API</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>POST /api/v1/sentiment (deterministic text classification), GET /api/v1/market/intel, and GET /api/v1/market/projects (aixbt-backed narrative + momentum intelligence) are now documented, publicly readable with no API key, and degrade honestly with a real 503 when the deployment's aixbt key isn't set — instead of a silent internal error.</description>
+		</item>
+		<item>
 			<title>Spatial MCP: 3D models are now a native, interactive response type</title>
 			<link>https://three.ws/spatial-mcp</link>
 			<guid isPermaLink="false">2026-07-08:Spatial MCP: 3D models are now a native, interactive response type</guid>
@@ -205,6 +261,14 @@
 			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Our paid endpoints now accept payments over MPP — BNB Chain's Machine Payments Protocol — in addition to the x402 payments we already take on Solana and Base. Because MPP is x402 v2 under the hood, the same signed-stablecoin credential works; agents from the BNB ecosystem can now pay us on BNB Chain, settling through the Binance OnchainPay facilitator, while every existing Solana/Base payment path is untouched. The $THREE Town Oracle is the first endpoint to accept both. Our own agents can pay any MPP-protected endpoint too, with a hard per-call spending cap that refuses an over-quote before any money moves.</description>
+		</item>
+		<item>
+			<title>View any generated model in your room with AR</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-08:View any generated model in your room with AR</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Every 3D model you generate can now be placed in your space through your phone. A new device-aware AR link opens Apple Quick Look on iPhone/iPad, Google Scene Viewer on Android, and the interactive 3D viewer on desktop — one tap, no app, no wallet. The USDZ for iOS is generated from the model on the fly, so any GLB works. Agents get an export_ar tool that returns the AR link alongside the model.</description>
 		</item>
 		<item>
 			<title>3D API</title>
@@ -12847,12 +12911,12 @@
 			<description>The /discover page lists every ERC-8004 agent owned by your wallet with one-click import, plus a LobeHub plugin for LLM orchestration.</description>
 		</item>
 		<item>
-			<title>Create Agent</title>
+			<title>Create</title>
 			<link>https://three.ws/create</link>
-			<guid isPermaLink="false">2026-04-16:Create Agent</guid>
+			<guid isPermaLink="false">2026-04-16:Create</guid>
 			<pubDate>Thu, 16 Apr 2026 12:00:00 GMT</pubDate>
 			<category>launch</category>
-			<description>Wizard for building a new agent: avatar, brain (LLM + prompt), skills, and on-chain identity.</description>
+			<description>The front door for everything you can create on three.ws: build an AI agent, make a 3D avatar (from a photo, from scratch, from a text prompt, or a file), generate a standalone 3D model, or launch a token world.</description>
 		</item>
 		<item>
 			<title>Home</title>
