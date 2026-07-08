@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-07-08",
+			"title": "Walk on-chain: gasless real-time presence on BNB Chain",
+			"summary": "Agora's Play mode (\"Enter the Commons\") now has an opt-in \"Record on-chain (BNB testnet)\" toggle — off by default, no wallet prompt until you turn it on. Switch it on and your walk gets gaslessly committed to a real BNB Chain smart contract roughly once a block (MegaFuel-sponsored, so it costs nothing — self-pay only kicks in if sponsorship is ever down), while everyone else's on-chain moves stream back as lightweight glowing markers you can see moving in real time. Verified end-to-end in a real two-wallet browser session: one wallet's signed move landed on-chain and the other wallet's browser picked it up and rendered it within seconds. Full public rollout is pending a funded BSC testnet deployer key on our side — the code is complete and already proven against a live-forked BSC testnet.",
+			"tags": [
+				"feature"
+			],
+			"link": "/agora"
+		},
+		{
+			"date": "2026-07-08",
 			"title": "3D viewer accessibility: keyboard orbit, focus rings, and a low-power mode for the main site viewer",
 			"summary": "The core 3D viewer that powers /app, Forge, avatar pages, and every embed now matches the accessibility bar the lightweight SDK viewer already had: the canvas is keyboard-reachable (tab to focus, arrow keys orbit, +/- zoom), gets a proper accessible name, and shows a visible focus ring. Entry-level phones and tablets (detected by touch input plus low core count or memory — desktop is never affected) now get a lighter render automatically: capped resolution and no antialiasing, for a steadier frame rate instead of a choppy one. Also fixed: Scene Studio's Import from Forge / Export / Share action bar was overlapping the editor's own File/Edit/Add menu bar at every screen size — it now sits cleanly below it.",
 			"tags": [

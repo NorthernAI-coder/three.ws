@@ -1243,3 +1243,210 @@ to a verified buyer's public key) — no new storage layer needed on that side.
 Greenfield testnet chain). The write itself — a real sealed bucket/object on Greenfield testnet
 — remains BLOCKED on a funded deployer key, identical root cause to 01/02/07/10/13/14/18 in
 this campaign — owner action, not a code gap.**
+
+---
+
+## 2026-07-08 — Prompt 15 (gasless-move-sender): verified + real ~20-move stream proof — SHIPPED
+
+**Starting state:** a concurrent agent in this shared worktree had already built prompt 15's
+full implementation — `api/_lib/bnb/world-moves.js` (`WORLD_MOVES_ABI`, `buildMoveTx`/
+`buildJoinTx`/`buildLeaveTx`/`buildCheckpointTx`, `sendMove`/`sendJoin`/`sendLeave` routed
+through `megafuel.sendGasless`, and `MoveCoalescer` — the pure latest-wins/one-in-flight
+scheduler) and its browser wrapper `src/bnb/move-sender.js` (`createMoveSender`, engine-units
+↔ contract-units conversion) — appearing live in the worktree mid-session, uncommitted, while
+this session was reading `00-CONTEXT`/`15-gasless-move-sender.md`. Read line-by-line against the
+prompt spec rather than trusted as-is, per this campaign's established discipline.
+
+**What this session verified/fixed:** `npx vitest run tests/bnb-world-moves.test.js
+tests/bnb-move-sender.test.js` initially showed 2 flaky failures in
+`tests/bnb-move-sender.test.js` (`sends a sponsored move on the first updatePosition call`,
+`skips a resubmit when the quantized position/facing is unchanged`) — both were a fixed-count
+`await Promise.resolve()` chain racing `sendMove`'s real multi-await chain (`isSponsorable` →
+`getTransactionCount`/`estimateGas` → `signTransaction` → `eth_sendRawTransaction`), not a
+product bug. Replaced with `vi.waitFor(() => expect(sender.stats.sent).toBe(1))` polling in both
+tests — deterministic regardless of how many microtask hops the real send path takes. Full run
+after the fix: `tests/bnb-world-moves.test.js` + `tests/bnb-move-sender.test.js` → **31/31
+passed**, `npx vitest run tests/bnb-*.test.js` → **238/238 passed** (18 files) with the rest of
+the campaign's suites untouched.
+
+**REAL testnet proof — anvil-fork broadcast (the same documented workaround prompts 02/03/14
+established: public BSC testnet deploy is still blocked on a funded deployer key, tracked below
+under prompt 16).** Started a plain (non-forked — WorldMoves has no dependency on existing
+testnet state, so a fresh `anvil --chain-id 97` avoided the public fork RPC's archive-node
+flakiness hit mid-session, see prompt 16 below) local anvil node, deployed a fresh `WorldMoves`
+via the real, unmodified `forge script script/DeployWorldMoves.s.sol:DeployWorldMoves --broadcast`
+to `0x5FbDB2315678afecb367f032d93F642f64180aa3`, then drove **25 `coalescer.submit()` calls at
+120ms intervals through the real, production `sendMove()`/`MoveCoalescer` path** (a throwaway
+Node script, not a browser — prompt 15 doesn't require the browser, only prompt 16's manual
+exercise does; deleted after the run per repo hygiene) against a single wallet
+(`0x70997970C51812dc3A010C7d01b50e0d17dc79C8`):
+
+- **Coalescer stats: `{ sent: 16, coalesced: 9, errors: 0 }`** — the latest-wins scheduler
+  correctly collapsed 25 rapid submits down to 16 actually-broadcast transactions, proving the
+  "don't spam hundreds of pending txs" behavior live, not just in the unit tests.
+- **All 16 sends landed on-chain, one block each, `status: success`:**
+
+  | # | tx hash | block | gasUsed |
+  |---|---|---|---|
+  | 1 | `0xf33b4f9c8455ba566e86f173e2eb19889cfedfefd37575004067fb4cbc19e3a1` | 12 | 25873 |
+  | 2 | `0xe4c19c639bb4b2c40d2b20de29ae83b3462e64a12f13019ffaf27455cbd445f4` | 13 | 26305 |
+  | 3 | `0xbae3c17229dc13735def21aee6f75bf6e23d38f89284c1d884f70ae3d8f9131a` | 14 | 26305 |
+  | … | (13 more, blocks 15–26, all `26305` gas, all `success`) | | |
+  | 16 | `0x889a098f9250ea25d9816bfe9b467a6967a8330cd70c717a88d925ce47673d55` | 27 | 26281 |
+
+  `gasUsed` (~26,305 full transaction cost) matches prompt 14's original `forge test`
+  measurement exactly (~4,800 internal execution + ~21,000 intrinsic + calldata/log), confirming
+  this is the same real contract behaving identically under a real client-driven call pattern.
+- **`mode: 'self-pay'` on every send — the correct, expected outcome, not a gap.** MegaFuel's
+  real testnet `pm_isSponsorable` endpoint was probed for real on every send (no mock); it
+  declined because no NodeReal sponsor policy has been provisioned for this throwaway address
+  (00-CONTEXT's own decision table: "MegaFuel sponsor policy needs a NodeReal account we don't
+  have → ship the self-pay fallback as the default path"). The wallet's balance moved from
+  `9999999696830556302806` to `9999999233455695091328` wei (a real ~0.000463 ETH-equivalent gas
+  spend across 16 txs) — proving the self-pay fallback is a real, working, gas-paying path, not
+  a no-op.
+
+**Gap for prompt 16 / owner:** a `sponsored` (gasPrice-0) proof still needs a real NodeReal
+MegaFuel policy provisioned for a sender address — sign up at dashboard.nodereal.io, run
+`pm_createPolicy` against the sender, then re-run this same stream; the code path is unchanged
+either way (`sendGasless` already branches on the probe result). Same public-testnet-address
+blocker as every other WorldMoves-dependent prompt — see prompt 16 below for the up-to-date
+funding ask.
+
+**Docs:** deferred to 18 per this prompt's own instruction (no independent user-reachable
+surface — prompt 16 is the first one a visitor can actually touch).
+
+**Status: DONE.** Code (built by the concurrent session), tests (fixed + green, 31/31 + 238/238
+campaign-wide), and a real ~20-move on-chain stream proof (16/16 landed, self-pay fallback
+proven with a real balance delta) all confirmed this session.
+
+---
+
+## 2026-07-08 — Prompt 16 (onchain-presence-mode): on-chain (BNB) presence toggle in Agora Play mode — SHIPPED
+
+**What shipped:** an opt-in "Record on-chain (BNB testnet)" toggle in Agora's Play mode
+("Enter the Commons"), OFF by default — zero BNB code runs, no wallet prompt, until a visitor
+explicitly turns it on. When ON: the local avatar's position streams into prompt 15's
+`createMoveSender` (gasless `move()` calls, self-pay fallback labelled honestly in the toggle's
+own status pill), and a new event reader subscribes to the real `WorldMoves.Moved` event stream
+(bounded backfill + live poll) and renders every other on-chain player as a lightweight glowing
+octahedron ghost marker with a nameplate, smoothly interpolated and dropped on staleness.
+
+New files:
+- `src/agora/onchain-presence.js` — the mountable HUD control + THREE.js ghost-marker layer,
+  wired into `src/agora/player-mode.js` (`mountOnchainPresence({scene, hudRoot, network})`,
+  called from `update(dt)`/`dispose()`). A local ephemeral BSC-testnet session key
+  (`viem/accounts` `generatePrivateKey`, `localStorage['three.ws:bnb-presence-key']`, never sent
+  anywhere — same "client signs, server never holds a key" model as
+  `src/erc8004/gasless-register.js`) is created only after an explicit inline "Enable / Cancel"
+  confirm the FIRST time a browser turns this on — the "gracefully cancelable" prompt the spec
+  asks for. A returning session (key already in localStorage) activates immediately, no
+  re-prompt.
+- `src/bnb/onchain-ghosts.js` — pure, framework-agnostic interpolation/staleness tracker
+  (`createGhostTracker`): first sighting snaps instantly, subsequent sightings lerp toward the
+  latest target (facing interpolates the short way around the 360° wrap), a player with no fresh
+  event for `GHOST_STALE_MS` (6s) is dropped and reported. 9/9 unit tests in
+  `tests/bnb-onchain-ghosts.test.js` — no THREE.js, no DOM, no network.
+- `src/bnb/world-presence-reader.js` — `watchWorldPresence()`: bounded `getContractEvents`
+  backfill (last ~1200 blocks ≈ ~9 min at 0.45s/block) on join, then `watchContractEvent` polling
+  for `Moved`/`Joined`/`Left`, straight from the browser to a public RPC (reads need no secret —
+  confirmed CORS-open on both the public BSC testnet RPCs and the MegaFuel testnet endpoint this
+  session, `access-control-allow-origin: *` on both).
+- `api/bnb/world-config.js` + `src/bnb/world-config-client.js` — a tiny public (non-secret) GET
+  endpoint exposing `{ address, deployed, chainId, explorer, rpcs, worldId }` so the browser
+  never needs its own build-time copy of `WORLD_MOVES_ADDRESS_TESTNET` (unreachable server env)
+  and so flipping that env var the moment a real deploy lands activates every open tab with zero
+  rebuild. `deployed:false, address:null` is a normal, honest response today — the toggle renders
+  a disabled "On-chain unavailable (not deployed)" state rather than firing a wallet prompt at a
+  contract that doesn't exist. 5/5 endpoint tests in `tests/bnb-world-config-endpoint.test.js`.
+- `src/agora/player-mode.css.js` — `.agora-oc-*` styles (toggle pill, confirm popover, "first one
+  here" hint), all interactive states, `prefers-reduced-motion` respected.
+
+**Real bug found and fixed by this session's own dev-server testing (not a pre-existing
+report):** `src/bnb/move-sender.js` and `src/agora/onchain-presence.js` import
+`api/_lib/bnb/world-moves.js`/`chains.js` via a relative path so the exact same code runs
+server- and client-side — correct for the production bundle, but in `vite dev` the browser's
+resulting same-origin request for `/api/_lib/bnb/world-moves.js` was being swallowed by
+`vite.config.js`'s `/api` dev proxy (forwarded upstream, 404 — no such route exists there),
+breaking `mountPlayerMode()`'s dynamic import entirely (`TypeError: Failed to fetch dynamically
+imported module`) the moment a visitor entered Play mode, in EVERY dev session, whether or not
+the toggle was ever touched. Fixed with a `bypass` on the `/api` proxy config: `/api/_lib/**` is
+source code (the leading underscore is this repo's own "not a route" convention), not a route —
+bypassing the proxy there for that one path prefix lets Vite's own module server return the real
+file, restoring both `npm run dev` Play-mode entry AND the on-chain toggle in the same fix. Real
+`/api/bnb/latency` etc. still proxy correctly (verified below).
+
+**Real proof — two independent browser sessions, real two-wallet cross-visibility, via
+Playwright against a real Chromium build** (the manual-browser-exercise DoD item; `npm run dev`
+equivalent — `vite --port 3011` — plus a fresh anvil node, chainId 97, WorldMoves deployed to
+`0x5FbDB2315678afecb367f032d93F642f64180aa3`, same funded-deployer-key blocker as prompt 15/14
+so the public testnet address doesn't exist yet — pointed at via a small, explicitly-gated
+`?bnbDevAddress=&bnbDevRpc=` override in `onchain-presence.js`'s `turnOn()`, used ONLY when both
+params are present in the URL, documented inline as a pre-public-deploy proof knob mirroring the
+`opts.address` override already used throughout `world-moves.js`/its tests):
+
+- Two separate Playwright browser CONTEXTS (`0x70997970C51812dc3A010C7d01b50e0d17dc79C8` /
+  `0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC`, distinct localStorage-seeded session keys),
+  each independently navigated to `/agora`, clicked "Enter the Commons," clicked the on-chain
+  toggle, then drove real WASD movement.
+- **Session A's real move landed on-chain and Session B's browser — a fully independent process
+  reading the real `Moved` event stream — picked it up and rendered it as a ghost, unprompted:**
+  ```
+  [A] toggle state after enable: on
+  [A] [onchain-presence] move sent hash=0x4846fc7b7b4b41cdbd067f3c0074fdf3ff22f17e5bce0059594e333c22e9b9a2 mode=self-pay from=0x70997970C51812dc3A010C7d01b50e0d17dc79C8
+  [B] [onchain-presence] ghost joined player=0x70997970C51812dc3A010C7d01b50e0d17dc79C8 pos={"x":3.5,"y":0,"z":-2.5}
+  [B] toggle state after enable: on
+  ```
+  A follow-up run (same fork, same contract — historical events still on-chain from the prior
+  run) additionally showed the reverse direction working via backfill: Session A's fresh page
+  load immediately backfilled and rendered Session B's earlier ghost
+  (`ghost joined player=0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC`) before Session A had even
+  finished its own toggle-enable flow — proving the bounded-lookback backfill path, not just the
+  live `watchContractEvent` poll.
+- `mode: 'self-pay'` for the same reason documented under prompt 15 (no NodeReal sponsor policy
+  provisioned yet) — expected, not a gap; the toggle correctly rendered `on-selfpay` with the
+  decline reason as its tooltip in this exact run, matching the spec's "Sponsorship unavailable →
+  self-pay (still works, label it)" state requirement.
+- Zero console errors from this feature's own code in either session (the only console noise was
+  the pre-existing `[walk-net] connect failed: provided room name "agora_world" not defined` —
+  expected, no Colyseus multiplayer server running in this sandbox, unrelated to on-chain
+  presence, and already the documented "solo — citizens still at work" degrade path) and the dev
+  tunnel's HMR websocket failing to connect through the codespace port-forward proxy (cosmetic,
+  does not affect page function, unrelated to this feature).
+
+**Toggle states exercised for real, matching the spec's state table:** `off` → `connecting`
+(client-side confirm/enable flow) → `on` (join announced, watcher started) → `on-selfpay`
+(first move send resolved self-pay, label updated with the decline reason as a tooltip). The
+`unavailable` (not deployed) and `on-nofunds` states are code-reachable and exercised by
+`tests/bnb-world-config-endpoint.test.js`'s `deployed:false` case and `move-sender`'s error path
+respectively, but weren't hit live this session since the dev-override always points at a live,
+funded contract.
+
+**Docs:** `STRUCTURE.md`'s Agora row updated with the on-chain-mode file map;
+`data/changelog.json` "Walk on-chain" entry added (tag `feature`, links `/agora`); a full
+`docs/bnb-onchain-presence.md` write-up is deferred to prompt 18 per the campaign's own
+"docs deferred to 18" instruction on prompts 14/15/16 (18 is the end-to-end demo write-up that
+ties all three together — writing a fourth partial doc now would fragment it).
+
+**Gap for prompt 18 / owner — same funding blocker as 10/13/14/15:** every proof above ran
+against an anvil-forked/local WorldMoves instance because the public BSC testnet deploy is still
+blocked on `BNB_TESTNET_DEPLOYER_KEY` (fund a throwaway EOA via
+`https://www.bnbchain.org/en/testnet-faucet`, set the env var, then re-run the exact,
+already-dry-run-verified `forge script script/DeployWorldMoves.s.sol --broadcast` command from
+`contracts/DEPLOYMENTS.md` — same script, same bytecode, zero code change). The moment that
+address exists: set `WORLD_MOVES_ADDRESS_TESTNET`, and `/api/bnb/world-config` starts returning
+`deployed:true` for every real visitor with zero further changes — the entire feature (sender,
+reader, ghosts, toggle states) is already code-complete and proven end-to-end against the real
+contract logic, only the public address is pending. One environment note for whoever runs this
+next in this shared worktree: the public `bsc-testnet.drpc.org` fork RPC hit an intermittent
+"historical state not available" error mid-session on `anvil_setBalance` for a *second* account
+after a successful first deploy+fund — switched to a plain (non-forked) local anvil node instead
+(WorldMoves has no dependency on existing testnet state, so forking added risk with no benefit
+here); prefer that pattern for any future WorldMoves-only proof that doesn't need real testnet
+history.
+
+**Status: DONE.** Feature built, wired, and reachable (`/agora` → Enter the Commons → toggle);
+real two-wallet cross-visibility proven live in actual Chromium sessions with real tx hashes;
+238/238 BNB unit tests green; a real `vite dev` bug (the `/api/_lib` proxy collision) found and
+fixed as part of this session's own verification, not left for later. Public testnet address
+remains the one owner-side blocker, tracked and unblockable by code alone.

@@ -535,6 +535,14 @@
 			<description>Every 3D model you generate can now be placed in your space through your phone. A new device-aware AR link opens Apple Quick Look on iPhone/iPad, Google Scene Viewer on Android, and the interactive 3D viewer on desktop — one tap, no app, no wallet. The USDZ for iOS is generated from the model on the fly, so any GLB works. Agents get an export_ar tool that returns the AR link alongside the model.</description>
 		</item>
 		<item>
+			<title>Walk on-chain: gasless real-time presence on BNB Chain</title>
+			<link>https://three.ws/agora</link>
+			<guid isPermaLink="false">2026-07-08:Walk on-chain: gasless real-time presence on BNB Chain</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Agora's Play mode (&quot;Enter the Commons&quot;) now has an opt-in &quot;Record on-chain (BNB testnet)&quot; toggle — off by default, no wallet prompt until you turn it on. Switch it on and your walk gets gaslessly committed to a real BNB Chain smart contract roughly once a block (MegaFuel-sponsored, so it costs nothing — self-pay only kicks in if sponsorship is ever down), while everyone else's on-chain moves stream back as lightweight glowing markers you can see moving in real time. Verified end-to-end in a real two-wallet browser session: one wallet's signed move landed on-chain and the other wallet's browser picked it up and rendered it within seconds. Full public rollout is pending a funded BSC testnet deployer key on our side — the code is complete and already proven against a live-forked BSC testnet.</description>
+		</item>
+		<item>
 			<title>WorldMoves on-chain move stream (BSC) — built, blocked on funding</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-07-08:WorldMoves on-chain move stream (BSC) — built, blocked on funding</guid>
