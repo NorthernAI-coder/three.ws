@@ -61,13 +61,27 @@ could not "move" it; Cloud Run connects to the same instance via `DATABASE_URL`.
 - **NOT production:** `ep-rapid-surf-ak9p7occ` (Neon project `wild-river-11025097`)
   appears in old env archives — it is a **stale/smaller copy** (85 tables /
   ~127k rows / 224 avatars). Do not point production at it.
-- ⚠️ **DECOMMISSION HAZARD:** this Neon project was likely provisioned via
-  Vercel's Postgres integration. **Deleting the Vercel project may delete or
-  orphan the Neon database.** Before decommissioning Vercel, log into
-  neon.tech, confirm the `ep-muddy-morning` project is owned by a standalone
-  Neon account (not a Vercel-managed org), and transfer/claim it if not. This
-  is the single highest-stakes item in the whole migration — the data is the
-  crown jewels.
+- ⚠️ **DECOMMISSION HAZARD (confirmed 2026-07-08):** this Neon project was
+  provisioned via Vercel's Postgres integration. If it's the **Vercel-Managed
+  Integration** (billing inside Vercel), Neon's own docs state that deleting
+  the database from Vercel's interface **removes the underlying Neon project
+  permanently**, and Neon does **not** offer a self-serve transfer for
+  Vercel-integrated projects ("projects with Vercel integrations cannot be
+  transferred" — [neon.com/docs/manage/orgs-project-transfer](https://neon.com/docs/manage/orgs-project-transfer)).
+  There is no dashboard "claim it" button — do not assume one exists.
+  Two real paths before the Vercel account is closed:
+  1. Open a Neon support ticket asking to detach/transfer `ep-muddy-morning`
+     into a standalone (non-Vercel) Neon org — some users have gotten this
+     handled manually by support even though it isn't self-serve.
+  2. Cut over independently: provision a fresh standalone Postgres (Neon-native
+     org or Cloud SQL), restore into it, swap `DATABASE_URL` on the Cloud Run
+     service, verify, then let the old Vercel-linked project go.
+  - **Safety net taken 2026-07-08:** full `pg_dump -Fc` of `neondb` (344
+    tables, 673 MB live / 47 MB compressed) uploaded to Cloudflare R2 at
+    `s3://chatty-storage/db-backups/neondb-2026-07-08.dump` — durable, off
+    both Neon and Vercel. This is a point-in-time backup for disaster
+    recovery, not a replacement for resolving ownership above; retention/
+    rotation isn't automated yet.
 
 ### Service accounts (IMPORTANT — the project's default compute SA was deleted)
 

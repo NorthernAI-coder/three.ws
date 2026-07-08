@@ -44,6 +44,7 @@
 		"mcp-bridge",
 		"mcp-server",
 		"multiplayer",
+		"services/liquidation-collector",
 		"packages/avatar-schema",
 		"packages/avatar-cli",
 		"packages/defi-utils",
