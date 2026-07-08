@@ -292,3 +292,59 @@ export function buildSystemPrompt(preset, context) {
 	const fenced = '```\n' + block + '\n```';
 	return role ? `${role}\n\n${fenced}` : fenced;
 }
+
+/**
+ * Normalize `suggestedPrompts` input (preset default or explicit config) into
+ * a consistent `{ prompt, response, action }[]`. Accepts plain strings (an
+ * attribute-only override with just questions) as well as full objects.
+ * @param {(string|{prompt:string, response?:string, action?:'narrate'|'tour'})[]|undefined} list
+ * @returns {{prompt:string, response:string, action:'narrate'|'tour'}[]}
+ */
+export function normalizePrompts(list) {
+	if (!Array.isArray(list)) return [];
+	const out = [];
+	for (const p of list) {
+		if (typeof p === 'string') {
+			const prompt = p.trim();
+			if (prompt) out.push({ prompt, response: prompt, action: 'narrate' });
+			continue;
+		}
+		if (p && typeof p === 'object' && typeof p.prompt === 'string' && p.prompt.trim()) {
+			out.push({
+				prompt: p.prompt.trim(),
+				response: typeof p.response === 'string' && p.response.trim() ? p.response.trim() : p.prompt.trim(),
+				action: p.action === 'tour' ? 'tour' : 'narrate',
+			});
+		}
+	}
+	return out;
+}
+
+/**
+ * Resolve the final persona config for a `PageAgent`/`<page-agent>` instance:
+ * a `preset` id merged with explicit overrides, where explicit values always
+ * win (decision #1 — "Explicit attributes always override preset values").
+ * Pure and DOM-free by design so the precedence rules are directly testable
+ * without a browser; `PageAgent`'s constructor calls this as-is.
+ *
+ * @param {{ preset?: string, context?: unknown, greeting?: string,
+ *           suggestedPrompts?: (string|{prompt:string, response?:string, action?:string})[],
+ *           tools?: string[] }} [config]
+ * @returns {{
+ *   preset: PagePersonaPreset|undefined,
+ *   context: Record<string,string>,
+ *   greeting: string|undefined,
+ *   suggestedPrompts: {prompt:string, response:string, action:'narrate'|'tour'}[],
+ *   tools: string[],
+ *   systemPrompt: string,
+ * }}
+ */
+export function resolvePersonaConfig(config = {}) {
+	const preset = resolvePreset(config.preset);
+	const context = sanitizeContext(config.context);
+	const tools = config.tools ?? preset?.tools ?? [];
+	const suggestedPrompts = normalizePrompts(config.suggestedPrompts ?? preset?.suggestedPrompts);
+	const greeting = config.greeting ?? preset?.greeting;
+	const systemPrompt = buildSystemPrompt(preset, context);
+	return { preset, context, greeting, suggestedPrompts, tools, systemPrompt };
+}

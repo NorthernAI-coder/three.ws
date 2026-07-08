@@ -25,7 +25,7 @@ import { AvatarStage } from './stage.js';
 import { SpeechNarrator } from './narrator.js';
 import { AvatarPicker } from './picker.js';
 import { injectStyles } from './styles.js';
-import { resolvePreset, sanitizeContext, buildSystemPrompt } from './presets.js';
+import { resolvePersonaConfig, sanitizeContext, buildSystemPrompt } from './presets.js';
 
 const ICONS = {
 	play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>',
@@ -68,11 +68,12 @@ export class PageAgent {
 		this._narrationToken = 0;
 
 		// ── Persona preset resolution (explicit config always wins) ────────────
-		this._preset = resolvePreset(config.preset);
-		this._context = sanitizeContext(config.context);
-		this.tools = config.tools ?? this._preset?.tools ?? [];
-		this.suggestedPrompts = normalizePrompts(config.suggestedPrompts ?? this._preset?.suggestedPrompts);
-		this._effectiveGreeting = config.greeting ?? this._preset?.greeting;
+		const persona = resolvePersonaConfig(config);
+		this._preset = persona.preset;
+		this._context = persona.context;
+		this.tools = persona.tools;
+		this.suggestedPrompts = persona.suggestedPrompts;
+		this._effectiveGreeting = persona.greeting;
 
 		injectStyles();
 		this._buildDom();
@@ -496,30 +497,3 @@ function pointer(e) {
 }
 
 function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
-
-/**
- * Normalize `suggestedPrompts` input (preset default or explicit config) into
- * a consistent `{ prompt, response, action }[]`. Accepts plain strings (an
- * attribute-only override with just questions) as well as full objects.
- * @param {(string|{prompt:string, response?:string, action?:'narrate'|'tour'})[]|undefined} list
- * @returns {{prompt:string, response:string, action:'narrate'|'tour'}[]}
- */
-function normalizePrompts(list) {
-	if (!Array.isArray(list)) return [];
-	const out = [];
-	for (const p of list) {
-		if (typeof p === 'string') {
-			const prompt = p.trim();
-			if (prompt) out.push({ prompt, response: prompt, action: 'narrate' });
-			continue;
-		}
-		if (p && typeof p === 'object' && typeof p.prompt === 'string' && p.prompt.trim()) {
-			out.push({
-				prompt: p.prompt.trim(),
-				response: typeof p.response === 'string' && p.response.trim() ? p.response.trim() : p.prompt.trim(),
-				action: p.action === 'tour' ? 'tour' : 'narrate',
-			});
-		}
-	}
-	return out;
-}

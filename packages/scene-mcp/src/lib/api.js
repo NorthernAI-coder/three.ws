@@ -8,12 +8,15 @@ import { THREE_WS_BASE, HTTP_TIMEOUT_MS, USER_AGENT } from '../config.js';
  * Call a three.ws HTTP endpoint and return its parsed JSON body.
  *
  * @param {string} path  Endpoint path beginning with `/` (e.g. `/api/diorama`).
- * @param {{ method?: string, query?: Record<string, unknown>, body?: unknown }} [opts]
+ * @param {{ method?: string, query?: Record<string, unknown>, body?: unknown, timeoutMs?: number }} [opts]
+ *   `timeoutMs` overrides the default per-call timeout (THREE_WS_TIMEOUT_MS) for
+ *   calls known to run long server-side work — e.g. a full compose+forge+export
+ *   build, which chains several real generations. Every other call is unaffected.
  * @returns {Promise<any>} Parsed JSON response.
  * @throws {Error} with `.code` ('timeout' | 'network_error' | 'upstream_error'),
  *   and on upstream errors `.status` + `.body`.
  */
-export async function apiRequest(path, { method = 'GET', query, body } = {}) {
+export async function apiRequest(path, { method = 'GET', query, body, timeoutMs } = {}) {
 	const url = new URL(`${THREE_WS_BASE}${path}`);
 	if (query) {
 		for (const [key, value] of Object.entries(query)) {
@@ -22,8 +25,9 @@ export async function apiRequest(path, { method = 'GET', query, body } = {}) {
 		}
 	}
 
+	const effectiveTimeout = Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : HTTP_TIMEOUT_MS;
 	const controller = new AbortController();
-	const timer = setTimeout(() => controller.abort(), HTTP_TIMEOUT_MS);
+	const timer = setTimeout(() => controller.abort(), effectiveTimeout);
 
 	let res;
 	try {
@@ -40,7 +44,7 @@ export async function apiRequest(path, { method = 'GET', query, body } = {}) {
 	} catch (err) {
 		clearTimeout(timer);
 		if (err?.name === 'AbortError') {
-			throw Object.assign(new Error(`three.ws ${path} timed out after ${HTTP_TIMEOUT_MS}ms`), {
+			throw Object.assign(new Error(`three.ws ${path} timed out after ${effectiveTimeout}ms`), {
 				code: 'timeout',
 			});
 		}

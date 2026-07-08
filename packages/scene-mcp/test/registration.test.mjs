@@ -14,10 +14,10 @@ import { TOOLS, buildServer } from '../src/index.js';
 const READ_ONLY_TOOLS = new Set(['get_scene', 'list_scenes']);
 
 test('exactly the expected tools are registered', () => {
-	assert.equal(TOOLS.length, 3);
+	assert.equal(TOOLS.length, 5);
 	assert.deepEqual(
 		new Set(TOOLS.map((t) => t.name)),
-		new Set(['compose_scene', 'get_scene', 'list_scenes']),
+		new Set(['compose_scene', 'get_scene', 'list_scenes', 'export_scene', 'build_world']),
 	);
 });
 
@@ -61,6 +61,16 @@ test('compose_scene is generative (not read-only) but non-destructive', () => {
 	assert.equal(compose.annotations.readOnlyHint, false);
 	assert.equal(compose.annotations.destructiveHint, false);
 	assert.equal(compose.annotations.openWorldHint, true);
+});
+
+test('export_scene and build_world are generative (not read-only) but non-destructive', () => {
+	for (const name of ['export_scene', 'build_world']) {
+		const tool = TOOLS.find((t) => t.name === name);
+		assert.ok(tool, `${name} must exist in the tool registry`);
+		assert.equal(tool.annotations.readOnlyHint, false);
+		assert.equal(tool.annotations.destructiveHint, false);
+		assert.equal(tool.annotations.openWorldHint, true);
+	}
 });
 
 test('buildServer registers every tool with its annotations, without a signer', () => {

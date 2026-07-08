@@ -43,6 +43,36 @@ export function filterAgents(q?: {
 	ids?: AgentId[];
 }): RiggedAgent[];
 
+/** Persona preset id — see `PRESETS` / `PRESET_IDS`. */
+export type PresetId = 'guide' | 'shop-assistant' | 'defi-advisor' | 'onboarding-coach' | 'support';
+
+export interface SuggestedPrompt {
+	/** Chip label — what the visitor taps. */
+	prompt: string;
+	/** Spoken via `narrate()` when tapped. */
+	response: string;
+	/** 'narrate' (default) speaks `response`; 'tour' calls `narratePage()` instead. */
+	action?: 'narrate' | 'tour';
+}
+
+/** A persona resolved from `preset="…"` — see `src/presets.js`. */
+export interface PagePersonaPreset {
+	id: PresetId;
+	name: string;
+	description: string;
+	greeting: string;
+	systemRole: string;
+	suggestedPrompts: SuggestedPrompt[];
+	/** Capability allowlist — metadata for a paired chat backend; not enforced by this package. */
+	tools: string[];
+}
+
+export const PRESETS: Record<PresetId, PagePersonaPreset>;
+export const PRESET_IDS: readonly PresetId[];
+export function resolvePreset(id?: string): PagePersonaPreset | undefined;
+export function sanitizeContext(input: unknown): Record<string, string>;
+export function buildSystemPrompt(preset: PagePersonaPreset | undefined, context: Record<string, string> | undefined): string;
+
 export interface PageAgentConfig {
 	/** Element is not used as a mount; the agent docks itself to the page. */
 	mount?: HTMLElement;
@@ -57,12 +87,20 @@ export interface PageAgentConfig {
 	picker?: boolean;
 	/** Show the control bar. Default true. */
 	controls?: boolean;
-	/** Spoken once on load (ignored when autoNarrate is set). */
+	/** Spoken once on load (ignored when autoNarrate is set). Overrides the preset's greeting. */
 	greeting?: string;
 	/** true → tour the page; string → CSS selector of segments to narrate. */
 	autoNarrate?: boolean | string;
 	/** Persist the visitor's chosen agent in localStorage. Default true. */
 	persistAgent?: boolean;
+	/** Persona preset id — resolves greeting/systemRole/suggestedPrompts/tools defaults. */
+	preset?: PresetId | string;
+	/** Host-page state, sanitized and folded into `.systemPrompt`. */
+	context?: Record<string, unknown>;
+	/** Overrides the preset's suggested-prompt chips. */
+	suggestedPrompts?: (string | SuggestedPrompt)[];
+	/** Overrides the preset's tool allowlist (metadata; see `PagePersonaPreset.tools`). */
+	tools?: string[];
 }
 
 export type PageAgentEvent =
@@ -71,6 +109,12 @@ export type PageAgentEvent =
 export class PageAgent {
 	constructor(config?: PageAgentConfig);
 	readonly currentAgent: RiggedAgent | null;
+	readonly currentPreset: PagePersonaPreset | undefined;
+	readonly context: Record<string, string>;
+	readonly systemPrompt: string;
+	readonly suggestedPrompts: SuggestedPrompt[];
+	readonly tools: string[];
+	setContext(context: Record<string, unknown>): void;
 	narrate(text: string, opts?: { interrupt?: boolean }): Promise<void>;
 	narratePage(opts?: { selector?: string; greet?: boolean }): Promise<void>;
 	stop(): void;
@@ -90,6 +134,9 @@ export function collectSegments(selector?: string): { el: Element; text: string 
 export class PageAgentElement extends HTMLElement {
 	readonly controller: PageAgent | null;
 	readonly currentAgent: RiggedAgent | null;
+	readonly currentPreset: PagePersonaPreset | undefined;
+	readonly systemPrompt: string | undefined;
+	readonly tools: string[] | undefined;
 	narrate(text: string, opts?: { interrupt?: boolean }): Promise<void> | undefined;
 	narratePage(opts?: { selector?: string; greet?: boolean }): Promise<void> | undefined;
 	stop(): void;
@@ -97,6 +144,7 @@ export class PageAgentElement extends HTMLElement {
 	mute(on?: boolean): void;
 	collapse(on?: boolean): void;
 	openPicker(): void;
+	setContext(context: Record<string, unknown>): void;
 }
 export function registerElement(tag?: string): string;
 
