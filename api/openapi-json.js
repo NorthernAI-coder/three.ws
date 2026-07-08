@@ -13,12 +13,98 @@
 
 import { env } from './_lib/env.js';
 import { cors, json, method, wrap } from './_lib/http.js';
+import { providerCatalog } from './v1/_providers.js';
 
 // Single source of truth for the protocol list on every paid operation. Each
 // entry is one supported payment protocol; per-network payment lanes (Base /
 // Solana / Arbitrum / BSC USDC) are advertised at runtime in the 402 challenge
 // `accepts[]` array — see api/_lib/x402-spec.js `paymentRequirements()`.
 const X402_PROTOCOLS = [{ x402: {} }];
+
+// USDC atomics (6 decimals) → a decimal string, trimmed to the shortest
+// precision that round-trips (min 2 places) — mirrors the formatting already
+// used by hand-authored entries below ('0.001', '5.00', …).
+function formatUsd(atomics) {
+	const n = Number(atomics) / 1e6;
+	if (!Number.isFinite(n)) return '0.00';
+	let s = n.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
+	const [, dec = ''] = s.split('.');
+	if (!s.includes('.')) s += '.00';
+	else if (dec.length < 2) s += '0'.repeat(2 - dec.length);
+	return s;
+}
+
+// GET /api/v1/x/{provider}/{endpoint} paths, rendered live from the registry
+// (api/v1/_providers.js `providerCatalog()`) — never hand-enumerated, so this
+// document can never drift from the real aggregated endpoint surface no
+// matter which provider prompts have or haven't landed. See docs/api-
+// reference.md "Unified API — /api/v1/x aggregator" for the full billing-lane
+// writeup and the public storefront at /crypto-api.
+function aggregatorPaths() {
+	const paths = {};
+	for (const provider of providerCatalog()) {
+		for (const ep of provider.endpoints) {
+			const priceUsd = formatUsd(ep.price_usdc_atomics);
+			const billing =
+				'Billing lanes, in order: ' +
+				(ep.free
+					? `free tier (${ep.free.perMin}/min, ${ep.free.perDay}/day per IP, no credentials) → `
+					: '') +
+				`x402 pay-per-call ($${priceUsd} USDC via HTTP 402, no credentials) — or send your own upstream ` +
+				`key via BYOK, or authenticate with a three.ws API key / OAuth session / browser session for the plan lane.`;
+			const description = `${ep.summary} ${billing}`;
+
+			const operation = {
+				operationId: `v1_x_${provider.id}_${ep.id}`.replace(/[^a-zA-Z0-9_]/g, '_'),
+				summary: `${provider.name}: ${ep.summary}`,
+				description,
+				tags: ['Crypto API (aggregator)'],
+				security: [{}, { bearerAuth: [] }, { apiKeyAuth: [] }],
+				responses: {
+					200: { description: 'Normalized upstream response, wrapped as { data, _meta }' },
+					400: { description: 'Missing or invalid parameter' },
+					402: { description: 'Payment Required (x402) — no credentials and free quota (if any) exhausted' },
+					404: { description: 'Unknown provider/endpoint pair' },
+					429: { description: 'Rate limited' },
+				},
+				'x-payment-info': {
+					price: { mode: 'fixed', currency: 'USD', amount: priceUsd },
+					protocols: X402_PROTOCOLS,
+					note: ep.free
+						? `Free before payment: ${ep.free.perMin}/min, ${ep.free.perDay}/day per IP, no credentials required.`
+						: undefined,
+				},
+			};
+
+			if (ep.method === 'POST') {
+				operation.requestBody = {
+					required: true,
+					content: {
+						'application/json': {
+							schema: {
+								type: 'object',
+								description: Object.entries(ep.params || {})
+									.map(([k, v]) => `${k}: ${v}`)
+									.join('; ') || 'Forwarded as-is to the upstream JSON body.',
+							},
+						},
+					},
+				};
+			} else {
+				operation.parameters = Object.entries(ep.params || {}).map(([name, desc]) => ({
+					name,
+					in: 'query',
+					required: typeof desc === 'string' && /\(required\)/.test(desc),
+					schema: { type: 'string' },
+					description: desc,
+				}));
+			}
+
+			paths[ep.path] = { [ep.method.toLowerCase()]: operation };
+		}
+	}
+	return paths;
+}
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
@@ -47,9 +133,23 @@ export default wrap(async (req, res) => {
 					'Available MCP tools: list_my_avatars, get_avatar, search_public_avatars, ' +
 					'render_avatar, delete_avatar, validate_model, inspect_model, optimize_model. ' +
 					'Paid REST endpoints under /api/x402/* settle in USDC over ' +
-					'x402 (HTTP 402); pay programmatically with @x402/fetch — no API key required.',
+					'x402 (HTTP 402); pay programmatically with @x402/fetch — no API key required. ' +
+					'GET /api/v1/x/{provider}/{endpoint} (tag "Crypto API (aggregator)" below) bundles ' +
+					'CoinGecko, DefiLlama, Jupiter, DexScreener, Solana RPC and more behind one bill — ' +
+					'free tier, BYOK, a three.ws plan, or x402, in that order. Storefront: ' +
+					origin +
+					'/crypto-api. Discovery: GET /api/v1/x.',
 			},
 			servers: [{ url: origin }],
+			tags: [
+				{
+					name: 'Crypto API (aggregator)',
+					description:
+						'Third-party crypto/DeFi/on-chain APIs re-offered as one bill under /api/v1/x — ' +
+						'rendered live from the provider registry (api/v1/_providers.js). See /crypto-api ' +
+						'and docs/api-reference.md § Unified API.',
+				},
+			],
 			components: {
 				securitySchemes: {
 					bearerAuth: {
@@ -78,6 +178,11 @@ export default wrap(async (req, res) => {
 				},
 			},
 			paths: {
+				// Rendered live from the provider registry — see aggregatorPaths()
+				// above. Spread first so a duplicate key below always wins (none
+				// today: aggregator paths live under /api/v1/x/*, hand-authored
+				// paths don't).
+				...aggregatorPaths(),
 				'/api/mcp': {
 					post: {
 						operationId: 'mcp_call',

@@ -66,6 +66,7 @@ import { PlayOnboard } from './play-onboard.js';
 import { log } from '../shared/log.js';
 import { openAvatarInspector, isAvatarInspectorOpen, closeAvatarInspector } from '../shared/avatar-inspector.js';
 import { createAgentDesk } from './agent-desk.js';
+import { VehicleManager } from './vehicles.js';
 
 // localStorage throws in private mode and in third-party iframe contexts where
 // storage is blocked — exactly the `?bg=transparent` embed case (e.g. the IBM
@@ -881,6 +882,10 @@ export class CoinCommunities {
 		if (this._physicsOk && this._physics) {
 			this._physics.clearObstacles();
 			for (const c of this._district.colliders) this._physics.addStaticBox(c);
+			// W02: the coin totem (built below by _buildTotem, always at (0,0,-12))
+			// isn't part of the district grid, so give it its own collider — keeps
+			// both pedestrians and driven vehicles from passing through the landmark.
+			this._physics.addStaticCylinder({ position: { x: 0, y: 3, z: -12 }, radius: 1.6, halfHeight: 3.2 });
 			const spawn = { x: this.localPos.x, y: 0, z: this.localPos.z };
 			if (!this._character) this._character = this._physics.createCharacter({ position: spawn });
 			else this._character.setPosition(spawn);
@@ -1059,6 +1064,13 @@ export class CoinCommunities {
 		this.net.on('tag', (msg) => this._onTagMessage(msg)); // R08 tag mini-game
 		this.net.on('king', (msg) => this._onKing(msg)); // R07 King of the Totem
 		this.net.on('ping', (ms) => this.ui.setPing(ms));
+		// W02 vehicles: the parked fleet + any driver changes are synced world
+		// entities (add/change/remove mirror the player callbacks above); `vehicle`
+		// is the server's targeted enter/exit/deny ack for our own request.
+		this.net.on('vehicleAdd', (v, id) => this.vehicles?.addVehicle(v, id));
+		this.net.on('vehicleChange', (v, id) => this.vehicles?.changeVehicle(v, id));
+		this.net.on('vehicleRemove', (id) => this.vehicles?.removeVehicle(id));
+		this.net.on('vehicle', (msg) => this.vehicles?.onAck(msg));
 		this.net.on('blockAdd', (key, t) => { const [x, y, z] = parseKey(key); this.voxels?.setBlock(x, y, z, t); this._syncBudget(); });
 		this.net.on('blockChange', (key, t) => { const [x, y, z] = parseKey(key); this.voxels?.setBlock(x, y, z, t); });
 		this.net.on('blockRemove', (key) => { const [x, y, z] = parseKey(key); this.voxels?.removeBlock(x, y, z); this._syncBudget(); });
@@ -1099,6 +1111,12 @@ export class CoinCommunities {
 		this.phase = 'world';
 		this._initJoystick();
 		this._onboardBuild();
+		// W02: drivable vehicles — the parked fleet the server seeds every world
+		// with (multiplayer/src/vehicles.js VEHICLE_SPAWNS, mirrored from this
+		// district's own avenue bays in world-zones.js). Constructed after the
+		// physics boot above has resolved, so it can borrow this._physics straight
+		// away instead of waiting on it itself. Torn down in leave().
+		this.vehicles = new VehicleManager({ host: this });
 		// Every town hosts the live Agent Exchange: two NPC agents who pay each
 		// other on-chain via x402. Torn down in leave().
 		this.agentCommerce = new AgentCommerce({
@@ -1388,6 +1406,7 @@ export class CoinCommunities {
 		this._passRefreshTimer = null;
 		if (this.voice) { this.voice.dispose(); this.voice = null; }
 		if (this.net) { this.net.destroy(); this.net = null; }
+		if (this.vehicles) { this.vehicles.dispose(); this.vehicles = null; }
 		if (this.playSystems) { this.playSystems.dispose(); this.playSystems = null; }
 		if (this.agentCommerce) { this.agentCommerce.dispose(); this.agentCommerce = null; }
 		if (this.intelKiosk) { this.intelKiosk.dispose(); this.intelKiosk = null; }
@@ -2144,7 +2163,14 @@ export class CoinCommunities {
 		window.addEventListener('keydown', (e) => {
 			if (this.ui.chatFocused) return;
 			if (e.key === 'Enter' && this.phase === 'world') { e.preventDefault(); this.ui.focusChat(); return; }
-			if (e.code === 'Space') { e.preventDefault(); this._jump(); return; } // don't scroll the page
+			// Space jumps on foot; while driving it's the handbrake instead (held,
+			// released in the keyup handler below) — never scrolls the page either way.
+			if (e.code === 'Space') {
+				e.preventDefault();
+				if (this.vehicles?.isDriving()) { this.vehicles.setHandbrake(true); return; }
+				this._jump();
+				return;
+			}
 			const k = e.key.toLowerCase();
 			if (this.phase === 'world') {
 				// B toggles build mode; while it's on, 1–0 pick the active block.
@@ -2184,11 +2210,13 @@ export class CoinCommunities {
 					if (!this.worldLife?.interact() && !this.intelKiosk?.interact()) this.agentCommerce?.interact();
 					return;
 				}
-				// F casts a line when standing by a pond (no-op elsewhere). Not while
+				// F is contextual: enter/exit a nearby vehicle takes priority (the
+				// on-screen prompt already says "F — Drive" / "F — Exit"); otherwise it
+				// casts a line when standing by a pond (no-op elsewhere). Not while
 				// building, where keys drive the block palette.
 				if (k === 'f' && !this.buildHud.active) {
 					e.preventDefault();
-					this.playSystems?.castFish();
+					if (!this.vehicles?.interact()) this.playSystems?.castFish();
 					return;
 				}
 				// I inspects the nearest avatar — player, townsperson, or yourself:
@@ -2227,6 +2255,8 @@ export class CoinCommunities {
 		});
 		window.addEventListener('keyup', (e) => {
 			const k = e.key.toLowerCase();
+			// Space release: let go of the handbrake (harmless no-op when not driving).
+			if (e.code === 'Space') this.vehicles?.setHandbrake(false);
 			// Q release: if the wheel opened via hold, close it and play the selected clip.
 			if (k === 'q' && this.phase === 'world') {
 				clearTimeout(this._ewHoldTimer);
@@ -2259,6 +2289,11 @@ export class CoinCommunities {
 			if (consumed) return; // a hold already broke a block — don't also place
 			if (moved >= 6 || e.button === 2) return; // a look-drag, or a right-click (handled by contextmenu)
 			if (this.phase === 'world' && this.buildHud.active) { this._buildAt(e.clientX, e.clientY, false); return; }
+			// Tap a nearby parked vehicle to take the wheel — the touch-native
+			// equivalent of pressing F. Checked first: it only ever fires when a
+			// vehicle is both in range and under the tap, so it can't shadow the
+			// other tap targets below.
+			if (this.vehicles?.tryActivateAt(this._pointerRay(e.clientX, e.clientY))) return;
 			// Tap the agents (or their exchange ring) to watch a live payment — the
 			// touch-native equivalent of pressing E. Checked before the chart screen.
 			if (this.worldLife?.tryActivateAt(e.clientX, e.clientY)) return;
@@ -2968,11 +3003,20 @@ export class CoinCommunities {
 		this._last = now;
 
 		if (this.phase === 'world') {
-			this._stepLocal(dt);
-			// Step the Rapier world AFTER _stepLocal so it consumes the character's
-			// queued kinematic move from this same frame (and advances any dynamic
-			// props/vehicles later briefs add).
+			// W02: while driving, the vehicle IS the local player's movement — skip
+			// the on-foot character step (it would fight the car for localPos every
+			// frame) and let VehicleManager feed this frame's throttle/steer/brake
+			// into the Rapier vehicle controller instead.
+			const driving = this.vehicles?.isDriving();
+			if (driving) this.vehicles.tick(dt);
+			else { this._stepLocal(dt); this.vehicles?.tick(dt); }
+			// Step the Rapier world AFTER _stepLocal/vehicle input so it consumes the
+			// character's queued kinematic move (or the vehicle's driver intent) from
+			// this same frame, and advances every kinematic ghost of a remote vehicle.
 			if (this._physicsOk && this._physics) this._physics.step(dt);
+			// Read back the vehicle's post-step transform (mesh, camera, seat, HUD,
+			// netcode) now that the world has actually advanced.
+			if (driving) this.vehicles.postStep(dt);
 			this._checkFloorOccupancy();
 			this.localAnim?.update(dt);
 			this.localCosmetics?.tick(dt);
@@ -2985,7 +3029,10 @@ export class CoinCommunities {
 			this.agentCommerce?.tick(dt);
 			this.intelKiosk?.tick(dt);
 			if (this.worldLife) { this.worldLife.setRealPeers(this.remotes.size); this.worldLife.tick(dt); }
-			if (this.net) this.net.sendMove({ x: this.localPos.x, y: this.localPos.y, z: this.localPos.z, yaw: this.localYaw, motion: this.motion });
+			// Ordinary move sync is redundant (and would just get rejected by the
+			// server's walking-speed step clamp) while driving — VehicleManager
+			// streams the authoritative transform itself via sendVSync.
+			if (this.net && !driving) this.net.sendMove({ x: this.localPos.x, y: this.localPos.y, z: this.localPos.z, yaw: this.localYaw, motion: this.motion });
 			// Gamepad: north button (Y/△, 3) opens the emote wheel; once open, the left
 			// stick steers and the south button (A/✕, 0) plays the selected clip. Edge-
 			// detect the open button so holding it doesn't reopen on the frame it closes.

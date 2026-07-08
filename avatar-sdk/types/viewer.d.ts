@@ -13,21 +13,41 @@ declare global {
 }
 
 /**
- * `<three-ws-viewer src="..." alt="..." background="...">`
+ * `<three-ws-viewer src="..." alt="..." background="..." ar>`
  *
  * Attributes:
- *  - `src` — GLB URL (required to render anything).
- *  - `alt` — accessibility label and caption text.
+ *  - `src` — GLB URL (required to render anything). Supports
+ *    `EXT_meshopt_compression` and `KHR_draco_mesh_compression` transparently.
+ *  - `alt` — accessibility label and caption text. Defaults to
+ *    `"3D model viewer"` when unset so the canvas is never unlabeled.
  *  - `background` — CSS color string, or `'transparent'`. Default transparent.
+ *  - `ar` — opt-in boolean. Renders a "View in AR" button that opens the
+ *    platform's device-aware AR launcher (`three.ws/api/ar`) in a new tab:
+ *    Android → Google Scene Viewer, iOS → Apple Quick Look, desktop → the
+ *    interactive viewer. Absent by default; existing embeds are unaffected.
+ *
+ * Accessibility: the canvas is keyboard-focusable (`role="img"`, matching
+ * `<model-viewer>`'s own pattern) and orbits/zooms via Arrow keys and
+ * `+`/`-`/PageUp/PageDown. `prefers-reduced-motion: reduce` disables orbit
+ * damping (no lingering inertia after a drag or key press).
+ *
+ * Performance: on a detected low-power device (coarse pointer + ≤4 cores or
+ * ≤4GB `deviceMemory`) the viewer starts at a lower pixel ratio, skips MSAA
+ * and the PMREM environment prefilter. Independently, if live frame time
+ * shows sustained <~24fps for ~1.5s, pixel ratio is stepped down once at
+ * runtime (never re-escalated mid-session).
  *
  * Events:
- *  - `load`  — `CustomEvent<{ url: string }>` once the GLB is parsed and added.
- *  - `error` — `CustomEvent<{ url: string, error: Error }>` on load failure.
+ *  - `load`      — `CustomEvent<{ url: string }>` once the GLB is parsed and added.
+ *  - `error`     — `CustomEvent<{ url: string, error: Error }>` on load failure.
+ *  - `ar-launch` — `CustomEvent<{ src: string, launchUrl: string }>` when the
+ *    AR button is activated.
  */
 export class ThreeWsViewerElement extends HTMLElement {
 	src?: string;
 	alt?: string;
 	background?: string;
+	ar?: boolean;
 }
 
 export default ThreeWsViewerElement;

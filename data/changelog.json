@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-07-08",
+			"title": "Register your agent identity on BNB Chain with zero gas",
+			"summary": "A brand-new wallet holding zero tBNB can now mint its ERC-8004 on-chain identity on BSC Testnet in one click — no faucet, no funding. The /deploy wizard's Review & Deploy step gets a new ⚡ Register gasless button when BSC Testnet is selected: it generates a page-local wallet in your browser, signs the registration transaction, and relays it through BNB Chain's MegaFuel paymaster, which sponsors the gas atomically at the block-builder layer — a trick that's mechanically impossible on Ethereum or Base. If sponsorship isn't available for a given wallet, it falls back cleanly to a small self-paid transaction (well under a cent) instead of failing.",
+			"tags": [
+				"feature",
+				"sdk"
+			],
+			"link": "/deploy"
+		},
+		{
+			"date": "2026-07-08",
 			"title": "Restyle Studio can now AI-restyle any model and remembers every version",
 			"summary": "Restyle Studio (/restyle) now takes a plain-language instruction — \"make it chrome\", \"worn copper\", \"cyberpunk neon\" — and asks IBM Granite for a real PBR material plus a generated seamless texture, applied live to any GLB. Seeded colorway variants can now be saved as real, separately downloadable models instead of just a browser preview: one click mints all N as durable, glTF-validated GLBs. Every AI restyle and every saved variant is recorded in an immutable parent \u2192 child version lineage \u2014 the same versioning refine_model uses \u2014 so you can click back to any earlier look without losing your place; the original is never touched. The restyle_material MCP tool exposes the same engine to agents.",
 			"tags": [

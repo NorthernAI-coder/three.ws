@@ -1699,6 +1699,15 @@
 					"showcase": true
 				},
 				{
+					"path": "/crypto-api",
+					"title": "Crypto API",
+					"description": "One free, keyless API for on-chain and market data: DEX pairs, prices, swap quotes, TVL, Solana RPC reads, and ENS/SNS name resolution — CoinGecko, DefiLlama, Jupiter, DexScreener and Solana RPC bundled behind one bill. Live provider table rendered from the real registry, generated OpenAPI 3.1 spec, free tier then BYOK, plan, or x402 pay-per-call.",
+					"priority": 0.8,
+					"changefreq": "weekly",
+					"added": "2026-07-08",
+					"showcase": true
+				},
+				{
 					"path": "/docs/crypto-api",
 					"title": "Docs · Crypto Data API",
 					"description": "Developer reference for the free, keyless Crypto Data API bundle: the one-call discovery endpoint (GET /api/crypto), the generated OpenAPI 3.1 spec, and every endpoint's inputs, outputs, states, and curl examples — token snapshots, bonding status, whales, trending, wallet portfolios, and symbol availability.",

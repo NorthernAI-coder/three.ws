@@ -155,7 +155,13 @@ function openaiCompatProvider({ name, key, url, model, extraHeaders = {} }) {
 			model,
 			max_tokens: maxTokens,
 			messages: [
-				{ role: 'system', content: system },
+				// A system message with `content: undefined` is rejected outright by
+				// Groq ("'content' is missing", HTTP 400) — this was a live bug: every
+				// llmComplete() caller that omits `system` (e.g. the fact-checker's
+				// generateSearchQueries/analyzeResults) 400'd on the Groq lane instead
+				// of falling through cleanly. Only emit the system message when one was
+				// actually supplied.
+				...(system ? [{ role: 'system', content: system }] : []),
 				{ role: 'user', content: user },
 			],
 		}),

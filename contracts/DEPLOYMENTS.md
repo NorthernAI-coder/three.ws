@@ -229,6 +229,63 @@ hash, and a BscScan link, and paste ~10 real `move()` tx block numbers/
 timestamps here as live proof of sub-second block spacing (per
 `prompts/bnb-chain/14-world-moves-contract.md`'s definition of done).
 
+## GreenfieldVault (pay → PermissionHub grant, on-chain-gated 3D asset vault)
+
+BNB Chain campaign, Track B: a BSC marketplace contract that, on payment,
+calls the REAL Greenfield `PermissionHub.createPolicy` cross-chain, granting
+the buyer read permission on an encrypted object. Source:
+[`src/GreenfieldVault.sol`](src/GreenfieldVault.sol); real interface stubs
+(sourced from `bnb-chain/greenfield-contracts`, verified against `master` on
+2026-07-08 — no invented ABI) in [`src/greenfield/`](src/greenfield). Uses the
+real, already-deployed `PermissionHub`/`CrossChain`/`ObjectHub` hubs — no
+Greenfield contract of our own to deploy.
+
+Constructor-supplied hub addresses (deploy script
+[`script/DeployGreenfieldVault.s.sol`](script/DeployGreenfieldVault.s.sol)
+defaults per `block.chainid`, env-overridable):
+
+| Network | PermissionHub | CrossChain | ObjectHub (IGnfdAccessControl) |
+| --- | --- | --- | --- |
+| BSC mainnet (56) | `0xe1776006dBE9B60d9eA38C0dDb80b41f2657acE8` | `0x77e719b714be09F70D484AB81F70D02B0E182f7d` | `0x634eB9c438b8378bbdd8D0e10970Ec88db0b4d0f` |
+| BSC testnet (97) | `0x25E1eeDb5CaBf288210B132321FBB2d90b4174ad` | `0xa5B2c9194131A4E0BFaCbF9E5D6722c873159cb7` | `0x1b059D8481dEe299713F18601fB539D066553e39` |
+
+(Mainnet CrossChain/ObjectHub bytecode-verified 2026-07-07 per
+`prompts/bnb-chain/00-CONTEXT.md`; PermissionHub mainnet + all testnet
+addresses read live from `bnb-chain/greenfield-contracts`'s README "Contract
+Entrypoint" tables on 2026-07-08 — never invented.)
+
+**Status: built, compiled, and fully unit-tested locally (34/34 `forge test`
+passing, including two dedicated re-entrancy proofs against a mocked
+PermissionHub/CrossChain/IGnfdAccessControl). NOT deployed to BSC testnet.** A
+`forge script ... -vvvv` dry-run against the live BSC testnet RPC
+(`https://data-seed-prebsc-1-s1.bnbchain.org:8545`, also reachable via the new
+`bsc_testnet` `foundry.toml` alias) simulated successfully end-to-end
+(constructor executes against the real testnet PermissionHub/CrossChain/
+ObjectHub addresses above, ~1.16M gas estimated for the deploy tx at 0.1 gwei
+≈ 0.000170 BNB) — the RPC, script, and bytecode are all deploy-ready. The only
+missing piece is a funded deployer key: neither `DEPLOYER_PK` nor
+`BNB_TESTNET_DEPLOYER_KEY` is present in this environment (checked `.env`,
+`contracts/.env`, `cast wallet list`, and shell env; no secret values were
+read, only key presence). Same funding blocker as campaign items 13 and 18 —
+owner-only to unblock (fund a deployer EOA via the tBNB faucet, then run the
+broadcast command below).
+
+Deploy (once funded):
+```
+forge script script/DeployGreenfieldVault.s.sol:DeployGreenfieldVault \
+  --rpc-url https://data-seed-prebsc-1-s1.bnbchain.org:8545 \
+  --private-key $DEPLOYER_PK \
+  --broadcast
+```
+
+After a real deploy: replace this status block with the address, deploy tx
+hash, and a BscScan link; have a seller `grantRole(ROLE_CREATE, vault, expiry)`
+on the real testnet ObjectHub for a real uploaded object (prompt 09); execute
+one real `buy()`; and paste the BSC tx hash plus the resulting
+`PermissionHub.settleCreatePolicy`/`PolicyGranted` proof (BscScan +
+GreenfieldScan once the cross-chain ack settles) per
+`prompts/bnb-chain/10-vault-contract.md`'s definition of done.
+
 ## Notes
 
 - Addresses are authoritative in [`src/erc8004/abi.js`](../src/erc8004/abi.js) (`REGISTRY_DEPLOYMENTS`).

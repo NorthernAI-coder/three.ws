@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-08T01:25:30.566Z",
+	"generated_at": "2026-07-08T01:33:47.030Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -2062,6 +2062,16 @@
 					"title": "3D API",
 					"description": "Free, keyless 3D API for AI agents: turn a text prompt into a real GLB model and validate/optimize any glTF/GLB, all from one URL with a live OpenAPI 3.1 spec. Free draft generation and inspection graduate to paid Forge Pro quality tiers and animation-ready Rigged Avatars. No key, no account.",
 					"added": "2026-07-07",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": true
+				},
+				{
+					"path": "/crypto-api",
+					"title": "Crypto API",
+					"description": "One free, keyless API for on-chain and market data: DEX pairs, prices, swap quotes, TVL, Solana RPC reads, and ENS/SNS name resolution — CoinGecko, DefiLlama, Jupiter, DexScreener and Solana RPC bundled behind one bill. Live provider table rendered from the real registry, generated OpenAPI 3.1 spec, free tier then BYOK, plan, or x402 pay-per-call.",
+					"added": "2026-07-08",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

@@ -73,7 +73,7 @@ Smithery is publisher-driven — publish by **URL** (hosted remote) or **MCPB bu
 - **Connect:** `https://three.ws/api/mcp-studio`
 - **Tagline:** Free text/image → 3D. Five tools, no auth, no payment — forge meshes and rigged avatars on the house.
 - **Category:** 3d · **Tags:** text-to-3d, free, avatars, rigging, nvidia-nim
-- **Description:** Free text/image → 3D. Five tools, no auth, no payment: forge_free (text → textured GLB), text_to_avatar (text/image → avatar), mesh_forge (art-directed mesh), rig_mesh (auto-rig a GLB for animation), forge_avatar (one-call text → rigged avatar). Results render in an interactive viewer.
+- **Description:** Free text/image → 3D: generate, rig, avatar-ify, and refine GLB models. No auth, no payment.
 - **Example prompts:**
   - "Free: forge a 3D model of a mushroom house from text."
   - "Free: make a rigged 3D avatar of an astronaut in one step."

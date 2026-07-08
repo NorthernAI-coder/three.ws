@@ -123,7 +123,7 @@
       "connect": "https://three.ws/api/mcp-studio",
       "npmPackage": null,
       "version": "1.0.1",
-      "description": "Free text/image → 3D: generate, rig, avatar-ify, and conversationally refine GLB models, plus persistent lip-syncing agent personas. No auth, no payment, nine tools.",
+      "description": "Free text/image → 3D: generate, rig, avatar-ify, and refine GLB models. No auth, no payment.",
       "tagline": "Free text/image → 3D. Five tools, no auth, no payment — forge meshes and rigged avatars on the house.",
       "category": "3d",
       "tags": [

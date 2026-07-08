@@ -6,6 +6,12 @@
       "Bash(npx prettier --check *)"
     ]
   },
+  "enabledPlugins": {
+    "three-ws-core@three-ws": true,
+    "three-ws-developer@three-ws": true,
+    "three-ws-pump-fun@three-ws": true,
+    "three-ws-3d@three-ws": true
+  },
   "extraKnownMarketplaces": {
     "three-ws": {
       "source": {
@@ -13,10 +19,5 @@
         "repo": "nirholas/three.ws"
       }
     }
-  },
-  "enabledPlugins": {
-    "three-ws-core@three-ws": true,
-    "three-ws-developer@three-ws": true,
-    "three-ws-pump-fun@three-ws": true
   }
 }

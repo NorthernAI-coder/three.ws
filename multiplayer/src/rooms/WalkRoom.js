@@ -19,8 +19,8 @@ import { Room } from '@colyseus/core';
 
 import { Player, Block, Vehicle, Mob, Tombstone, WorldObject, WalkState } from '../schemas.js';
 import {
-	VEHICLE_SPAWNS, vehicleSpec, isVehicleType,
-	VEHICLE_WORLD_RADIUS_M, VEHICLE_ENTER_RANGE_M,
+	VEHICLE_SPAWNS, vehicleSpec, isVehicleType, vehicleRestHeight,
+	VEHICLE_WORLD_BOUND_M, VEHICLE_ENTER_RANGE_M,
 	vehicleMaxStepM, vehicleMaxSpeedMps,
 } from '../vehicles.js';
 import { cleanAvatarUrl } from '../avatar-url.js';
@@ -222,10 +222,6 @@ const KING_INTERMISSION_MS = 12_000;
 const KING_TICK_MS = 1000;
 const KING_POINTS_PER_SEC = 10;
 const KING_MIN_PLAYERS = 1;
-
-// Legacy disc radius — still used as the fallback drop clamp when a driver steps
-// out of a vehicle (vehicles carry their own VEHICLE_WORLD_RADIUS_M bound).
-const WORLD_RADIUS_M = 60;
 
 // Open-world district bounds (W01). The /play world is no longer the 60 m disc:
 // it's a square district the client renders streets/buildings across. These
@@ -1745,7 +1741,9 @@ export class WalkRoom extends Room {
 			v.type = spawn.type;
 			v.color = Number.isInteger(spawn.color) ? spawn.color : spec.color;
 			v.x = spawn.x;
-			v.y = 0;
+			// Rest the chassis on its suspension, not embedded in the asphalt — see
+			// vehicleRestHeight's doc for the geometry this mirrors.
+			v.y = vehicleRestHeight(spawn.type);
 			v.z = spawn.z;
 			// Resting heading → quaternion about the up axis.
 			const half = (spawn.yaw || 0) / 2;
@@ -1804,13 +1802,12 @@ export class WalkRoom extends Room {
 		v.speed = 0;
 		v.tsServer = Date.now();
 
-		// Drop the avatar just left of the car (chassis-left), clamped to the world.
+		// Drop the avatar just left of the car (chassis-left), clamped to the same
+		// square world bound as ordinary movement.
 		const yaw = this._vehicleYaw(v);
 		const off = (vehicleSpec(v.type).dims.w / 2) + 0.6;
-		let dx = v.x + Math.cos(yaw) * off;
-		let dz = v.z - Math.sin(yaw) * off;
-		const r = Math.hypot(dx, dz);
-		if (r > WORLD_RADIUS_M) { const k = WORLD_RADIUS_M / r; dx *= k; dz *= k; }
+		const dx = Math.max(-WORLD_BOUND_M, Math.min(WORLD_BOUND_M, v.x + Math.cos(yaw) * off));
+		const dz = Math.max(-WORLD_BOUND_M, Math.min(WORLD_BOUND_M, v.z - Math.sin(yaw) * off));
 		player.x = dx;
 		player.z = dz;
 		player.y = 0;
@@ -1859,15 +1856,11 @@ export class WalkRoom extends Room {
 		const sp = typeof speed === 'number' && Number.isFinite(speed) ? speed : 0;
 		if (Math.abs(sp) > vehicleMaxSpeedMps(v.type)) return false;
 
-		// World bounds — keep the car inside the visible arena (scale x/z together so
-		// a clamp doesn't change heading).
-		const r = Math.hypot(x, z);
-		if (r > VEHICLE_WORLD_RADIUS_M) {
-			const k = VEHICLE_WORLD_RADIUS_M / r;
-			v.x = x * k; v.z = z * k;
-		} else {
-			v.x = x; v.z = z;
-		}
+		// World bounds — the same square district clamp ordinary movement uses, so a
+		// car can reach the avenue spawns at x/z=±90 without being pulled toward the
+		// centre by a stale circular radius.
+		v.x = Math.max(-VEHICLE_WORLD_BOUND_M, Math.min(VEHICLE_WORLD_BOUND_M, x));
+		v.z = Math.max(-VEHICLE_WORLD_BOUND_M, Math.min(VEHICLE_WORLD_BOUND_M, z));
 		v.y = Math.max(-2, Math.min(8, y));
 		// Normalize the quaternion defensively so a denormalized client value can't
 		// poison every peer's renderer.

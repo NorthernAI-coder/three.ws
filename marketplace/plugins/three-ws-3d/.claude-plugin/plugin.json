@@ -21,7 +21,6 @@
     "trellis",
     "mcp"
   ],
-  "category": "creative",
   "mcpServers": {
     "3d-agent": {
       "command": "npx",

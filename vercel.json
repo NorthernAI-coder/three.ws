@@ -250,6 +250,14 @@
 			"dest": "/crypto.html"
 		},
 		{
+			"src": "/crypto-api",
+			"dest": "/crypto-api.html"
+		},
+		{
+			"src": "/crypto-api/",
+			"dest": "/crypto-api.html"
+		},
+		{
 			"src": "/3d",
 			"dest": "/3d.html"
 		},
@@ -968,6 +976,10 @@
 		{
 			"src": "/bnb/?",
 			"dest": "/bnb.html"
+		},
+		{
+			"src": "/bnb-latency/?",
+			"dest": "/bnb-latency.html"
 		},
 		{
 			"src": "/coin/([a-zA-Z0-9][a-zA-Z0-9_-]{0,99})/?",
@@ -5144,6 +5156,10 @@
 		{
 			"path": "/api/cron/wallets-leak-scan",
 			"schedule": "*/15 * * * *"
+		},
+		{
+			"path": "/api/cron/vanity-inventory-replenish",
+			"schedule": "0 * * * *"
 		}
 	]
 }

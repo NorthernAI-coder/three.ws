@@ -29,6 +29,17 @@ const ASYNC_STATES = new Set([
 	STATES.VERIFYING,
 ]);
 
+// window.ethereum.request() has no network-layer timeout — a dead or
+// reconnecting extension background port can leave the promise permanently
+// unsettled, stranding the button in its connecting state forever.
+function withTimeout(promise, ms, message) {
+	let timer;
+	const timeout = new Promise((_, reject) => {
+		timer = setTimeout(() => reject(new Error(message)), ms);
+	});
+	return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 /**
  * Build the EIP-4361 SIWE message string.
  * Format must match the parser in api/auth/siwe/verify.js exactly.
@@ -219,7 +230,11 @@ export class ConnectWalletController extends EventTarget {
 
 		try {
 			const provider = new BrowserProvider(window.ethereum);
-			await provider.send('eth_requestAccounts', []);
+			await withTimeout(
+				provider.send('eth_requestAccounts', []),
+				60_000,
+				'Wallet connection timed out. Check your wallet extension and try again.',
+			);
 			const signer = await provider.getSigner();
 			const address = await signer.getAddress();
 			const network = await provider.getNetwork();

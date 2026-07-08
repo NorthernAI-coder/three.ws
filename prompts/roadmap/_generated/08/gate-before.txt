@@ -1,0 +1,26 @@
+
+> 3d-agent@1.5.2 gate
+> npm run test:gate && npm run test:gate-3d && npm run audit:mcp && npm run audit:mcp-golden && npm run audit:routes && npm run audit:handlers && npm run audit:pages && npm run audit:hidden-guard && npm run audit:x402-catalog && npm run audit:tokens
+
+
+> 3d-agent@1.5.2 test:gate
+> node scripts/test-gate.mjs
+
+[test-gate] running 7 critical-path test files…
+✘ [ERROR] Cannot start service: Host version "0.27.7" does not match binary version "0.28.1"
+
+1 error
+failed to load config from /workspaces/three.ws/vitest.config.js
+
+⎯⎯⎯⎯⎯⎯⎯ Startup Error ⎯⎯⎯⎯⎯⎯⎯⎯
+Error: The service was stopped: write EPIPE
+    at /workspaces/three.ws/node_modules/vite/node_modules/esbuild/lib/main.js:1230:34
+    at responseCallbacks.<computed> (/workspaces/three.ws/node_modules/vite/node_modules/esbuild/lib/main.js:884:9)
+    at afterClose (/workspaces/three.ws/node_modules/vite/node_modules/esbuild/lib/main.js:875:28)
+    at /workspaces/three.ws/node_modules/vite/node_modules/esbuild/lib/main.js:2276:18
+    at onwriteError (node:internal/streams/writable:603:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:92:21)
+
+
+
+[test-gate] ✗ critical-path tests failed — blocking deploy

@@ -2384,6 +2384,14 @@ reads** (`solana`, balance/token-holdings/token-supply/largest-holders/
 transaction/account/priority-fees via public RPC), **OpenAI-compatible LLM**
 (`openai`).
 
+**Public storefront:** [three.ws/crypto-api](https://three.ws/crypto-api) — the live
+provider/endpoint table below, rendered at page load straight from `GET /api/v1/x` (never
+hand-enumerated, so it can't drift from what's actually deployed), plus the quickstart curl
+below and links to this page, the OpenAPI spec, and the x402 docs. **Machine-readable spec:**
+[three.ws/openapi.json](https://three.ws/openapi.json) — every `/api/v1/x/*` path generated
+from the same registry (`api/v1/_providers.js` `providerCatalog()`), tagged `Crypto API
+(aggregator)`. Adding a provider directory in the repo: [`api/v1/README.md`](../api/v1/README.md).
+
 ```
 GET  /api/v1/x                              # discovery: every provider + endpoint
 GET  /api/v1/x/<provider>/<endpoint>?…       # most endpoints (GET)
