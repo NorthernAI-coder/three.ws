@@ -1085,6 +1085,104 @@ as any section resolved.
 
 ---
 
+## Market Intelligence & Sentiment API
+
+Three free `/api/v1` routes: a deterministic text-sentiment classifier (always
+on, no upstream dependency), and two momentum/narrative intelligence reads
+backed by [aixbt](https://aixbt.tech) (`/market/intel`, `/market/projects`) —
+publicly readable, no API key or wallet needed, whenever aixbt is configured on
+the deployment.
+
+### Sentiment classification
+
+```
+POST /api/v1/sentiment
+```
+
+Public, CORS-open, no auth. Runs the same deterministic lexicon scorer as
+`/api/social/sentiment` — no third-party dependency, so it never degrades.
+Rate limited by the gateway's shared per-IP budget (120 requests/min).
+
+| Body field | Type   | Description                        |
+| ---------- | ------ | ----------------------------------- |
+| `text`     | string | The text to classify. Required.     |
+
+```bash
+curl -s -X POST https://three.ws/api/v1/sentiment \
+  -H 'content-type: application/json' \
+  -d '{"text":"this launch is going incredibly well, huge buy pressure"}'
+```
+
+```json
+{
+	"data": {
+		"sentiment": "Positive",
+		"score": 0.62,
+		"positive_pct": 71,
+		"negative_pct": 9
+	}
+}
+```
+
+| Status | Code               | Meaning                          |
+| ------ | ------------------ | --------------------------------- |
+| `400`  | `validation_error` | `text` missing or empty          |
+| `429`  | `rate_limited`      | Over the shared per-IP API budget |
+
+### Narrative / market intel
+
+```
+GET /api/v1/market/intel?limit=20&category=<category>&chain=<chain>
+```
+
+Public read (no auth required — an OAuth `agents:read` scope unlocks nothing
+extra here, it's the same free data). Backed by aixbt's `/intel` feed, cached
+for 2 minutes and metered against a shared per-deployment aixbt ceiling on top
+of the gateway's own per-IP budget, so one caller can't drain the shared key.
+
+| Query param | Type   | Description                                |
+| ----------- | ------ | ------------------------------------------- |
+| `limit`     | number | 1–50, default 20                            |
+| `category`  | string | Filter by category. Optional.               |
+| `chain`     | string | Filter by chain. Optional.                  |
+
+```bash
+curl -s 'https://three.ws/api/v1/market/intel?limit=5'
+```
+
+```json
+{ "data": { "intel": [ { "id": "…", "text": "…", "category": "narrative", "chain": "solana", "createdAt": "…" } ], "pagination": { "limit": 5, "page": 1, "hasMore": true }, "source": "aixbt" } }
+```
+
+### Momentum-ranked projects
+
+```
+GET /api/v1/market/projects?limit=20&page=1&names=<comma-separated>&chain=<chain>
+```
+
+Same access model as `/market/intel`. Backed by aixbt's `/projects` feed.
+
+| Query param | Type   | Description                                      |
+| ----------- | ------ | ------------------------------------------------- |
+| `limit`     | number | 1–50, default 20                                  |
+| `page`      | number | default 1                                         |
+| `names`     | string | Comma-separated project names to filter. Optional |
+| `chain`     | string | Filter by chain. Optional.                        |
+
+```bash
+curl -s 'https://three.ws/api/v1/market/projects?limit=5&chain=solana'
+```
+
+**Degradation & errors** (both aixbt-backed routes)
+
+| Status | Code            | Meaning                                                                 |
+| ------ | --------------- | ------------------------------------------------------------------------ |
+| `429`  | `rate_limited`   | Either the shared aixbt ceiling or the per-IP gateway budget is spent    |
+| `503`  | `not_configured` | `AIXBT_API_KEY` isn't set on this deployment — never a raw 500           |
+| `502`  | `aixbt_upstream_error` | aixbt returned an unexpected error — retry shortly                 |
+
+---
+
 ## Name Resolution API
 
 Name resolution is the highest-frequency primitive in agent tooling — every
@@ -1180,6 +1278,70 @@ curl -s 'https://three.ws/api/v1/resolve?address=0xd8dA6BF26964aF9D7eEd9e03E5341
 | `404`  | `not_found`          | The name/address is well-formed but does not resolve — a miss, not a failure                                                                    |
 | `429`  | `rate_limited`       | Over 30 requests/min from this IP — back off per `retry_after`                                                                                  |
 | `503`  | `ens_unavailable`    | The ENS RPC chain timed out or failed — transient, retry shortly                                                                                |
+
+---
+
+## Pump Search API
+
+Free text search over Solana pump.fun / meme tokens by name, symbol, or mint —
+the versioned, cataloged sibling of the free Crypto Data API's pump.fun
+endpoints (`/api/crypto/trending`, `/bonding`, `/launches`, `/whales` — see
+[docs/crypto-api.md](crypto-api.md)). Search is the one pump.fun read that
+didn't already have a free home under `/api/crypto/*`, so it's registered here
+instead. Both this endpoint and the site's command-palette search
+(`/api/pump/search`) share one implementation
+(`api/_lib/pump-search.js` `searchPumpTokens`) — Birdeye first when
+`BIRDEYE_API_KEY` is configured, falling back to pump.fun's public frontend
+search when Birdeye is unconfigured, rate-limited, or down.
+
+```
+GET /api/v1/pump/search?q=<query>&limit=<1-20>
+```
+
+Public, CORS-open, no auth, no cost. Rate limited to **60 requests/min per
+IP**; hits are cached 15s (CDN 30s).
+
+| Query param | Type   | Description                                                          |
+| ----------- | ------ | ---------------------------------------------------------------------- |
+| `q`         | string | Token name, symbol, or mint to search for (required, max 64 chars).    |
+| `limit`     | number | Result cap, `1`–`20` (default `8`).                                    |
+
+**Response**
+
+```json
+{
+	"data": {
+		"results": [
+			{
+				"mint": "FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump",
+				"symbol": "three",
+				"name": "three.ws",
+				"logo": "https://...",
+				"price_usd": 0.0013,
+				"rank": null
+			}
+		],
+		"count": 1,
+		"q": "three.ws"
+	}
+}
+```
+
+No matches is a valid, common outcome — `{ "results": [], "count": 0, "q": "…" }`
+with `200`, never a `404`.
+
+**Example**
+
+```bash
+curl -s 'https://three.ws/api/v1/pump/search?q=three.ws'
+```
+
+**Errors**
+
+| Status | Code                | Meaning                                            |
+| ------ | ------------------- | --------------------------------------------------- |
+| `400`  | `validation_error`  | `q` missing or empty                                |
+| `429`  | `rate_limited`      | Over 60 requests/min from this IP                    |
 
 ---
 
