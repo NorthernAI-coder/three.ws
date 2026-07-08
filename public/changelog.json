@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-07T23:53:44.043Z",
+	"generated_at": "2026-07-08T00:08:53.648Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -361,8 +361,8 @@
 		{
 			"date": "2026-07-07",
 			"type": "update",
-			"title": "New tutorial: drive your agent's face from real APIs and AI",
-			"summary": "A new developer tutorial shows how to wire the avatar's facial-emotion engine to real data — a free lexicon-sentiment lane to prove the wiring in a single HTML file, then a real AI model (IBM Granite over x402) reading arbitrary documents into structured emotion. Both lanes call the same public setMood()/expressEmotion() API the platform's own /agi page uses in production to embody a live trading agent's actual P&L and reputation.",
+			"title": "New tutorial: drive your agent's animations from real APIs and AI",
+			"summary": "A new developer tutorial shows how to trigger real body animations — celebrate, dance, flinch — from live data: a free lexicon-sentiment lane to prove the wiring in a single HTML file, then a real AI model (IBM Granite over x402) classifying arbitrary documents into a richer set of gestures. Both lanes use the public agent.play()/playEmote() animation API, with the cooldown pattern the platform's own production pump.fun trade-reaction engine uses to keep a fast feed from spamming the queue.",
 			"link": "/tutorials/emotion-from-data",
 			"tags": [
 				"docs",
