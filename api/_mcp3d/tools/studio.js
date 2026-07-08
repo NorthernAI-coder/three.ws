@@ -40,6 +40,7 @@ import { watsonxConfig, watsonxChatComplete } from '../../_lib/watsonx.js';
 import { createAvatar, storageKeyFor } from '../../_lib/avatars.js';
 import { putObject } from '../../_lib/r2.js';
 import { isValidGlbHeader, inspectGlb } from '../../_lib/glb-inspect.js';
+import { buildSpatialArtifact } from '../../_lib/spatial-mcp.js';
 import { env } from '../../_lib/env.js';
 import {
 	createPersona,
@@ -1080,7 +1081,18 @@ export const toolDefs = [
 					},
 					viewerArtifact({ glbUrl: args.glb_url, name: '3D model', options: args }),
 				],
-				structuredContent: { glb_url: args.glb_url },
+				structuredContent: {
+					glb_url: args.glb_url,
+					// Conformant Spatial MCP artifact (specs/SPATIAL_MCP.md) so any
+					// Spatial-MCP renderer can display this model, not just ours.
+					spatial: buildSpatialArtifact({
+						glbUrl: args.glb_url,
+						kind: 'model',
+						autoRotate: args.auto_rotate !== false,
+						cameraOrbit: typeof args.camera_orbit === 'string' ? args.camera_orbit : undefined,
+						viewerUrl: `https://three.ws/viewer?src=${encodeURIComponent(args.glb_url)}`,
+					}),
+				},
 			};
 		},
 	},

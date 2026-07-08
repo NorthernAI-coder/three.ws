@@ -26,6 +26,7 @@ import {
 	persistStageOutput,
 	stageObjectKey,
 } from '../_lib/pipeline-stage.js';
+import pipelineRemeshListing from '../_lib/service-catalog/services/pipeline-remesh.js';
 
 const ROUTE = '/api/x402/pipeline-remesh';
 const SLUG = 'pipeline-remesh';
@@ -34,12 +35,11 @@ const VALID_MODES = new Set(['triangle', 'quad', 'lowpoly']);
 const VALID_OPERATIONS = new Set(['full', 'simplify', 'repair', 'convert']);
 const VALID_TEXTURE_SIZES = new Set([512, 1024, 2048]);
 
-const DESCRIPTION =
-	'3D Asset Pipeline — Remesh: pay $0.03 USDC to retopologize a GLB. Triangle, ' +
-	'quad, or low-poly remeshing plus repair and decimation to a target face count, ' +
-	'with the texture re-baked onto the new topology. POST a public glb_url and ' +
-	'options; get back a durable first-party GLB URL. Nowhere else in the x402 ' +
-	'ecosystem sells mesh remeshing. Pay autonomously in USDC on Solana mainnet.';
+// Single source of truth: api/_lib/service-catalog/services/pipeline-remesh.js
+// is the storefront listing copy — importing it here keeps the live 402
+// challenge from drifting from what /.well-known/x402.json and the OKX
+// projection advertise (same pattern as forge.js → forge-listing.js).
+const DESCRIPTION = pipelineRemeshListing.description;
 
 export const INPUT_SCHEMA = {
 	$schema: 'https://json-schema.org/draft/2020-12/schema',

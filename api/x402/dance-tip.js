@@ -188,7 +188,10 @@ const OUTPUT_SCHEMA = {
 };
 
 const BAZAAR = {
-	discoverable: true,
+	// De-listed per the 2026-07-08 storefront cleanup (prompt 18) — the route
+	// stays live for /club + the Saloon Kid NPC, but the flag itself (not just
+	// wk.js's catalog omission) now matches the "internal-use only" header above.
+	discoverable: false,
 	info: {
 		input: { type: 'http', method: 'GET', queryParams: INPUT_EXAMPLE },
 		output: { type: 'json', example: OUTPUT_EXAMPLE },

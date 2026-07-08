@@ -1,0 +1,92 @@
+/*
+ * /defi — DeFi TVL & protocols. Layered after coin-pages.css: reuses the cv-*
+ * token system, cards, and table; this file only adds the stat grid, category
+ * filter, and the small protocol-table affordances (chain chips, logo
+ * fallback). Both themes inherit from the shared data-theme tokens.
+ */
+
+.defi-stat-grid {
+	display: grid;
+	gap: 1rem;
+	grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+/* Rows here are informational, not navigable — reset the shared table's
+   pointer cursor so nothing signals a click target that doesn't exist. */
+#defi-table .cv-table tbody tr {
+	cursor: default;
+}
+
+/* Category filter cluster in the toolbar. */
+.defi-filter {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	flex-wrap: wrap;
+}
+.defi-filter-label {
+	font-size: 0.75rem;
+	font-weight: 500;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: var(--cv-text-3);
+}
+.defi-select {
+	appearance: none;
+	background: var(--cv-surface);
+	color: var(--cv-text);
+	border: 1px solid var(--cv-border);
+	border-radius: var(--cv-radius-md);
+	font: inherit;
+	font-size: 0.875rem;
+	padding: 0.4375rem 2rem 0.4375rem 0.75rem;
+	cursor: pointer;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: right 0.5rem center;
+	transition:
+		border-color 0.15s,
+		box-shadow 0.15s;
+	max-width: 14rem;
+}
+.defi-select:hover {
+	border-color: var(--cv-border-hover);
+}
+.defi-select:focus-visible {
+	outline: none;
+	border-color: var(--cv-accent);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--cv-accent) 20%, transparent);
+}
+
+/* Chain list cell: keep the "+N" overflow marker subdued. */
+.defi-chains .defi-more {
+	color: var(--cv-text-3);
+	font-size: 0.75rem;
+	font-variant-numeric: tabular-nums;
+}
+
+/* Placeholder swatch when a protocol has no logo, so the name column stays
+   aligned with logo rows. */
+.defi-logo-fallback {
+	display: inline-block;
+	width: 24px;
+	height: 24px;
+	border-radius: 50%;
+	background: var(--cv-surface-3);
+	flex-shrink: 0;
+}
+
+/* The empty-state reset button reads as a link, matching cv-empty's anchors. */
+.defi-reset {
+	appearance: none;
+	border: 0;
+	background: transparent;
+	color: var(--cv-accent);
+	font: inherit;
+	cursor: pointer;
+	padding: 0;
+}
+.defi-reset:hover {
+	color: var(--cv-accent-hover);
+	text-decoration: underline;
+}

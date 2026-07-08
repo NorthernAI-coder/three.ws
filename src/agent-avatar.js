@@ -33,6 +33,16 @@ import { log } from './shared/log.js';
 
 const DEG2RAD = Math.PI / 180;
 
+// Sustained-mood → gesture-slot bias thresholds (Living Agents · Task 07
+// extension). Read against the *applied* (lerped) mood, not the raw target, so
+// a gesture only fires once the mood has actually settled there — a momentary
+// setMood() spike doesn't yank the body into a slot the same frame it decays.
+const MOOD_GESTURE_THRESHOLD = {
+	positiveValence: 0.35, // above this = "up"; below its negation = "down"
+	energeticArousal: 0.6, // above this = "energetic"
+	calmArousal: 0.25, // below this = "subdued"
+};
+
 // Emotion decay rates (units per second — larger = fades faster)
 const DECAY = {
 	concern: 0.08, // half-life ~12s — lingers, builds empathy
@@ -774,6 +784,25 @@ export class AgentAvatar {
 				this._playSlot('concern', 2.0);
 			} else if (w.curiosity > 0.6) {
 				this._playSlot('think', 1.5);
+			} else if (this._mood.active) {
+				// Stage 3.5: sustained-mood gesture bias. Stage 3 above reacts to
+				// momentary emotion *spikes* (an error just happened, a task just
+				// finished); this reacts to the agent's *resting* mood — the same
+				// valence/arousal state that drives the facial mood layer in
+				// _applyMoodLayer(). Only engages once nothing else already claims
+				// the one-shot slot (the `else` above), so a live event always wins.
+				// Routes through the same `_playSlot` → `resolveSlot` path as every
+				// other gesture, so `meta.edits.animations` overrides still apply and
+				// an unregistered clip name can never be selected.
+				const { valence, arousal } = this._moodApplied;
+				if (valence > MOOD_GESTURE_THRESHOLD.positiveValence && arousal > MOOD_GESTURE_THRESHOLD.energeticArousal) {
+					// Sustained up + energetic mood → lively, energetic body language.
+					this._playSlot('celebrate', 2.5);
+				} else if (valence < -MOOD_GESTURE_THRESHOLD.positiveValence && arousal < MOOD_GESTURE_THRESHOLD.calmArousal) {
+					// Sustained down + subdued mood → concerned stillness — the
+					// opposite bias, never the energetic gesture.
+					this._playSlot('concern', 2.5);
+				}
 			}
 		}
 

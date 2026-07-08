@@ -27,9 +27,14 @@ RUN npm ci --ignore-scripts || npm install --ignore-scripts
 # Bring in source needed at runtime, then build the SDK's dist/ explicitly
 # (ignore-scripts skipped the postinstall build above). src/ is required too: the
 # worker's first-claim path imports api/_lib/pump-claims.js → src/pump/first-claims.js.
+# packages/agent-sniper/src is required too: mayhem-gate.js imports
+# createMayhemFilter from packages/agent-sniper/src/mayhem-filter.js (self-contained,
+# only depends on @solana/web3.js which is already a root dependency) — only src/ is
+# copied, not the whole package (its own node_modules/tests/bin are unused at runtime).
 COPY agent-payments-sdk ./agent-payments-sdk
 COPY api ./api
 COPY src ./src
+COPY packages/agent-sniper/src ./packages/agent-sniper/src
 COPY workers/agent-sniper ./workers/agent-sniper
 RUN npm run build --prefix agent-payments-sdk
 

@@ -163,13 +163,18 @@ This is the remix loop: find a motion someone else published, open it in the Stu
 
 ## Emotion and expression on the live agent
 
-Applying clips in the Studio is the **authoring** side. On a *running* agent, the same library drives emotion and gesture automatically through two complementary channels:
+Applying clips in the Studio is the **authoring** side. On a *running* agent, the same library drives emotion and gesture automatically through two channels that share one emotional state — the avatar's **Empathy Layer** ([src/agent-avatar.js](../../src/agent-avatar.js)):
 
 **Gesture slots** ([src/runtime/animation-slots.js](../../src/runtime/animation-slots.js)) — a fixed emotional vocabulary the agent plays in conversation: `idle`, `wave`, `nod`, `shake`, `think`, `celebrate`, `concern`, `bow`, `point`, `shrug`, `dance`. Each slot resolves to a concrete library clip at runtime (e.g. `celebrate` → the `celebrate` clip, `think` → `pray`). An agent picks a slot when the moment calls for it; the clip retargets onto that agent's avatar exactly as in the Studio. You can override any slot per agent via `meta.edits.animations` — point `wave` at a different clip, or map a slot to a motion you authored yourself.
 
-**Facial expression** ([src/runtime/arkit52.js](../../src/runtime/arkit52.js)) — independent of the skeleton. If your avatar carries ARKit-52 blendshapes (most modern avatar-platform exports do, as do VRoid models), the runtime resolves those morph targets and drives expression and lip-sync directly on the face. A skeletal clip plays the body; the blendshape layer plays the eyes, brows, and mouth on top.
+**Facial expression** ([src/runtime/arkit52.js](../../src/runtime/arkit52.js)) — driven from the same blend of morph targets as the gesture layer, not a separate track. If your avatar carries ARKit-52 blendshapes (most modern avatar-platform exports do, as do VRoid models), the runtime resolves those morph targets and drives expression and lip-sync directly on the face. A skeletal clip plays the body; the blendshape layer plays the eyes, brows, and mouth on top.
 
-The division of labor: **clips move the body, blendshapes move the face, slots choose *which* body motion fits the emotion.** All three ride the same universal-rig foundation — name your bones (and your blendshapes) in a convention the resolvers know, and everything just works.
+The two channels are wired to the *same* emotional state, at two different timescales, so the body and the face never disagree:
+
+- **Momentary events** (an error just happened, a skill just finished) inject a transient emotion spike — `concern`, `celebration`, `curiosity`, and friends — that decays over seconds. A spike crossing threshold both reshapes the face immediately *and* biases the gesture slot the avatar plays next (e.g. sustained `celebration` picks the `celebrate` slot).
+- **Sustained mood** — the agent's resting valence/arousal, set via `setMood()` (see [docs/tutorials/emotion-from-data.md](emotion-from-data.md)) — is the continuous baseline between events. It biases the resting face (a soft smile at high valence, a worried brow at low) and posture (lean, gaze) every frame, and, once nothing more urgent claims the gesture slot, biases *which* ambient gesture plays too: a sustained up-and-energetic mood leans toward the `celebrate` slot, a sustained down-and-subdued mood toward `concern` — the opposite bias, never the energetic one. A momentary event always takes priority over the ambient mood bias, and slot overrides via `meta.edits.animations` apply identically whether the trigger was a spike or the resting mood.
+
+The division of labor: **clips move the body, blendshapes move the face, slots choose *which* body motion fits the emotion — and one emotional state, not two independent tracks, drives all of it.** All three ride the same universal-rig foundation — name your bones (and your blendshapes) in a convention the resolvers know, and everything just works.
 
 ---
 

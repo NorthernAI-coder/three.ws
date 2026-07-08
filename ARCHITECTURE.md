@@ -540,7 +540,7 @@ See [MCP Layer](#mcp-layer) section for full tool listings.
 
 #### x402 Paid Endpoints (`api/x402/*`)
 
-**34 files** in `api/x402/`, each a paid endpoint built on `paidEndpoint()`. Payable on Base USDC, Solana USDC, and (for `model-check`/`mint-to-mesh`) Arbitrum One USDC; discoverable via `/.well-known/x402.json` + `/openapi.json`. Additional priced endpoints beyond the table: `model-check` ($0.001), `mint-to-mesh-batch` ($0.05), `revenue-vision` ($0.001), `symbol-availability` ($0.001), `permit2-paid-demo` ($0.001, Base gas-sponsored EIP-2612), `onchain-identity-verify` ($0.005), `agent-reputation` ($0.01), `pump-agent-audit` ($0.02). Sample paid MCP-tool prices: `render_avatar` $0.005, `text_to_3d`/`image_to_3d` $0.15, `mesh_forge` $0.25, `forge_avatar` $0.45, `ibm_granite_forecast` $0.05.
+**34 files** in `api/x402/`, each a paid endpoint built on `paidEndpoint()`. Payable on Base USDC, Solana USDC, and (for `model-check`/`mint-to-mesh`) Arbitrum One USDC; discoverable via `/.well-known/x402.json` + `/openapi.json`. Additional priced endpoints beyond the table: `model-check` ($0.001), `mint-to-mesh-batch` ($0.05), `symbol-availability` ($0.001), `permit2-paid-demo` ($0.001, Base gas-sponsored EIP-2612), `onchain-identity-verify` ($0.005), `agent-reputation` ($0.01), `pump-agent-audit` ($0.02). Sample paid MCP-tool prices: `render_avatar` $0.005, `text_to_3d`/`image_to_3d` $0.15, `mesh_forge` $0.25, `forge_avatar` $0.45, `ibm_granite_forecast` $0.05.
 
 Representative endpoints:
 
@@ -699,7 +699,7 @@ Beyond the feature areas above, the `api/` tree exposes many more surfaces. Comp
 | `/api/monetization/*` | `prices`, `revenue`, `wallet`, `withdrawals` | Per-agent price config, revenue, payout wallet, withdrawals |
 | `/api/custody/*` | `anchor`, `integrity` | Proof-of-custody public epoch anchors + integrity checks |
 | `/api/ledger/[agentId]` | `[agentId]`, `verify/` | Reasoning Ledger: explainable agent-decision timeline |
-| `/api/onramp/link`, `/api/usage/summary`, `/api/insights/revenue-vision` | — | Fiat on-ramp link, per-user usage summary, revenue-vision insights |
+| `/api/onramp/link`, `/api/usage/summary` | — | Fiat on-ramp link, per-user usage summary |
 | `/api/token/[action]` | `[action]` | $THREE on-chain token HTTP layer (price/balance/burn surface) |
 | `/api/cz/claim`, `/api/cosmetics/*` | `catalog`, `owned`, `earnings`, `leaderboard`, `split` | Cosmetics catalog + creator revenue split + ownership |
 
@@ -3162,7 +3162,6 @@ All **150+ directories** under `api/` plus many top-level single-file endpoints.
 | `guardian/` | assess | Granite Guardian assessment. |
 | `ibm/` | attest, galaxy, oracle, twin, vision | IBM Granite product surfaces. |
 | `inference/` | livepeer | Livepeer inference proxy. |
-| `insights/` | revenue-vision | AI revenue insights. |
 | `intel/` | smart-money, wallet/ | Smart-money + wallet intel. |
 | `irl/` | agent-card, agent-summary, drops, fix-token, interactions(+stream), pins, privacy, report, world-lines | IRL/AR layer. |
 | `jobs/` | flush-usage-events | Usage-event flush. |

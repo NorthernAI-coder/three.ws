@@ -41,6 +41,83 @@ function parseQuery(req) {
 	return q;
 }
 
+// ── free tier lane ──────────────────────────────────────────────────────────
+// An unauthenticated caller (no BYOK key, no three.ws credentials) on an
+// endpoint marked `free: { perMin, perDay }` (api/v1/_providers.js) gets a real
+// per-IP, per-endpoint quota BEFORE the x402 402 challenge — this is what makes
+// "the free crypto API" true instead of marketing copy: `curl
+// https://three.ws/api/v1/x/coingecko/price?ids=solana` returns data with zero
+// wallet setup. Both windows (burst perMin + funnel-budget perDay) must pass;
+// whichever check blocks the request drives the RateLimit-* headers so a client
+// backing off learns the window that actually stopped it. Returns true when the
+// request was served (caller must return); false means the quota is exhausted
+// and the caller should fall through to the existing x402 lane.
+async function serveFreeLane({ req, res, provider, endpoint }) {
+	const ip = clientIp(req);
+	const bucketKey = `${provider.id}:${endpoint.id}:${ip}`;
+	const [minResult, dayResult] = await Promise.all([
+		limits.apiV1FreeMin(bucketKey, endpoint.free.perMin),
+		limits.apiV1FreeDay(bucketKey, endpoint.free.perDay),
+	]);
+
+	res.setHeader('x-free-tier', '1');
+	const blocked = !minResult.success || !dayResult.success;
+	const headerResult = !minResult.success ? minResult : dayResult;
+	setRateLimitHeaders(res, headerResult);
+
+	if (blocked) {
+		// Hint header (the 402 challenge body shape is spec-locked by the x402
+		// bazaar format, so the "quota resets at T" signal rides a header instead):
+		// the caller learns exactly when the free lane reopens, on top of the 402's
+		// own "or pay per call / send a three.ws API key" accepts array.
+		res.setHeader('x-free-tier-reset', new Date(headerResult.reset).toISOString());
+		return false;
+	}
+
+	const query = parseQuery(req);
+	const body = endpoint.method === 'POST' ? await readJson(req) : undefined;
+	// Free lane always runs on the platform's own upstream key (there is no
+	// caller credential to resolve one from) — same key source the plan lane
+	// uses, just billed differently.
+	const { key, source } = resolveUpstreamKey(provider, null);
+
+	const started = Date.now();
+	let out;
+	try {
+		out = await executeUpstream({ provider, endpoint, query, body, apiKey: key });
+	} catch (err) {
+		recordEvent({
+			kind: 'api',
+			tool: `v1.x.${provider.id}.${endpoint.id}`,
+			status: 'error',
+			latencyMs: Date.now() - started,
+			meta: { billing: 'free', key_source: source, code: err?.code, ip },
+		});
+		throw err;
+	}
+
+	// Metering: free-lane calls still record a usage event (billing: 'free') so
+	// funnel adoption is measurable even though no payment settles.
+	recordEvent({
+		kind: 'api',
+		tool: `v1.x.${provider.id}.${endpoint.id}`,
+		status: 'ok',
+		latencyMs: Date.now() - started,
+		meta: { billing: 'free', key_source: source, ip },
+	});
+
+	json(res, 200, {
+		data: out,
+		_meta: {
+			provider: provider.id,
+			endpoint: endpoint.id,
+			billing: 'free',
+			free_remaining: { per_min: minResult.remaining, per_day: dayResult.remaining },
+		},
+	});
+	return true;
+}
+
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,POST,OPTIONS', origins: '*' })) return;
 
@@ -54,7 +131,8 @@ export default wrap(async (req, res) => {
 				billing: {
 					byok: 'send your own upstream key via the provider\'s BYOK header — pass-through, no markup',
 					plan: 'authenticate with a three.ws API key / OAuth token — uses the platform key',
-					x402: 'send no credentials — pay per call in USDC (HTTP 402)',
+					free: 'send no credentials on an endpoint marked "free" — a per-IP quota (see each endpoint\'s free.perMin/free.perDay) serves real data with zero setup; X-Free-Tier: 1 + RateLimit-* headers on every response',
+					x402: 'send no credentials — pay per call in USDC (HTTP 402), or quota-exhausted free-tier calls fall through here',
 				},
 				providers: providerCatalog(),
 			},
@@ -104,6 +182,14 @@ export default wrap(async (req, res) => {
 					clientId: bearer.clientId,
 				};
 		}
+	}
+
+	// Free tier: no BYOK key, no three.ws credentials, endpoint marked `free` →
+	// serve a real per-IP quota before the 402 challenge. Quota exhausted falls
+	// through to the x402 lane below (still !byokKey && !principal).
+	if (!byokKey && !principal && endpoint.free) {
+		const served = await serveFreeLane({ req, res, provider, endpoint });
+		if (served) return;
 	}
 
 	// No BYOK key and no three.ws credentials → pay-per-call via the x402 rail.

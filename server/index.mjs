@@ -324,8 +324,19 @@ app.use((req, res, next) => {
 
 // Vercel-parity body parsing. Types not listed (multipart, image/*, …) are
 // left unparsed so handlers can consume the raw request stream.
-app.use(express.json({ limit: BODY_LIMIT }));
-app.use(express.urlencoded({ extended: true, limit: BODY_LIMIT }));
+//
+// `verify` stashes the exact raw bytes on req.rawBody before they're parsed —
+// a handful of handlers (webhook signature verification: api/webhooks/*.js)
+// need the byte-for-byte body, which a re-serialized req.body can't
+// reconstruct (whitespace/key-order differ). Every other handler reads the
+// body via api/_lib/http.js readJson()/readBody(), which prefers req.rawBody
+// (falling back to reconstructing from req.body) instead of re-reading the
+// stream — reading the stream here already fully drains it, so a second read
+// downstream would hang forever waiting for 'data'/'end' events that already
+// fired.
+const captureRawBody = (req, _res, buf) => { req.rawBody = buf; };
+app.use(express.json({ limit: BODY_LIMIT, verify: captureRawBody }));
+app.use(express.urlencoded({ extended: true, limit: BODY_LIMIT, verify: captureRawBody }));
 app.use(express.text({ type: 'text/*', limit: BODY_LIMIT }));
 app.use(express.raw({ type: 'application/octet-stream', limit: BODY_LIMIT }));
 

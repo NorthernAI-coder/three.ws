@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Spatial MCP — reference renderer</title>
+<meta name="description" content="Reference renderer for the open Spatial MCP artifact shape — 3D as a native conversational MCP response type." />
+<script src="/model-viewer-meshopt.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js"></script>
+<style>
+  :root { color-scheme: dark; --accent:#6ea8fe; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; min-height:100%; }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: radial-gradient(130% 130% at 50% 0%, #14161c 0%, #0b0c10 60%, #08090c 100%); color:#e8eaf0; }
+  .page { max-width: 1000px; margin: 0 auto; padding: 32px 20px 64px; }
+  h1 { font-size: 22px; margin: 0 0 6px; }
+  .lede { color:#9aa3b2; font-size:14px; line-height:1.55; max-width: 62ch; }
+  .lede a { color: var(--accent); }
+  .grid { display:grid; grid-template-columns: 1fr; gap: 20px; margin-top: 26px; }
+  @media (min-width: 760px){ .grid { grid-template-columns: 1fr 1fr; } }
+  .card { border:1px solid rgba(255,255,255,0.08); border-radius:14px; overflow:hidden; background: rgba(12,14,19,0.6); }
+  .card h2 { font-size:13px; letter-spacing:.02em; text-transform:uppercase; color:#aeb6c4; margin:0; padding:12px 14px; border-bottom:1px solid rgba(255,255,255,0.07); }
+  .stage { height: 340px; background: transparent; }
+  .spatial-empty { display:flex; align-items:center; justify-content:center; height:100%; color:#9aa3b2; font-size:13px; text-align:center; padding:20px; }
+  pre { margin:0; padding:14px; font-size:12px; line-height:1.5; overflow:auto; max-height:340px; color:#cbd3e1; }
+  .note { margin-top:24px; font-size:13px; color:#9aa3b2; line-height:1.6; }
+  code { color:#dbe9ff; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Spatial MCP — reference renderer</h1>
+  <p class="lede">
+    <strong>Spatial MCP</strong> makes a live, interactive 3D scene a first-class MCP tool result, not a URL in text.
+    This page is the reference renderer for the open artifact shape. It renders the conformant payload below —
+    including one <em>transformed from a different (foreign) tool's output</em> — proving the shape is portable.
+    Spec: <a href="/specs/spatial-mcp">SPATIAL_MCP.md</a>.
+  </p>
+
+  <div class="grid">
+    <div class="card">
+      <h2>three.ws forge_free → artifact</h2>
+      <div id="stage-native" class="stage"></div>
+    </div>
+    <div class="card">
+      <h2>Foreign tool result → conformant artifact</h2>
+      <div id="stage-foreign" class="stage"></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:20px;">
+    <h2>The foreign result, transformed (what the renderer consumes)</h2>
+    <pre id="artifact-json"></pre>
+  </div>
+
+  <p class="note">
+    A third-party MCP server that returns <code>{ url, previewImage }</code> becomes conformant with a tiny adapter —
+    see <a href="/docs/spatial-mcp">docs/spatial-mcp</a>. Any renderer that speaks this shape (this one included) then
+    displays it. No payment, wallet, or coin surface anywhere in the shape or the renderer.
+  </p>
+</div>
+
+<script type="module">
+  import { renderSpatialArtifact } from './spatial-renderer.js';
+
+  // A real, public demo GLB (three.js sample, https).
+  const DEMO_GLB = 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/models/gltf/DamagedHelmet/glTF-Binary/DamagedHelmet.glb';
+
+  // 1) A native three.ws artifact (what forge_free's structuredContent.spatial looks like).
+  const native = {
+    spatialMcpVersion: '0.1',
+    kind: 'model',
+    scene: { glbUrl: DEMO_GLB, format: 'glb' },
+    camera: { autoRotate: true },
+    environment: { image: 'neutral', exposure: 1, shadowIntensity: 1 },
+    affordances: { orbit: true, zoom: true, fullscreen: true, download: true },
+    meta: { title: 'Damaged helmet', prompt: 'a battle-worn sci-fi helmet' },
+  };
+  renderSpatialArtifact(document.getElementById('stage-native'), native);
+
+  // 2) A FOREIGN tool result in some other server's shape…
+  const foreignResult = { model_url: DEMO_GLB, thumbnail: null, name: 'A helmet from another server' };
+
+  // …transformed into a conformant artifact by a 6-line adapter (the portability proof).
+  function toSpatialArtifact(foreign) {
+    return {
+      spatialMcpVersion: '0.1',
+      kind: 'model',
+      scene: { glbUrl: foreign.model_url, format: 'glb', ...(foreign.thumbnail ? { poster: foreign.thumbnail } : {}) },
+      camera: { autoRotate: true },
+      affordances: { orbit: true, zoom: true },
+      meta: { title: foreign.name },
+    };
+  }
+  const transformed = toSpatialArtifact(foreignResult);
+  renderSpatialArtifact(document.getElementById('stage-foreign'), transformed);
+  document.getElementById('artifact-json').textContent = JSON.stringify(transformed, null, 2);
+</script>
+</body>
+</html>

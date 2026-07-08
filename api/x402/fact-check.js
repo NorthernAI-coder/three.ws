@@ -1,6 +1,8 @@
-// INTERNAL-USE ONLY; not an agent product. De-listed from the x402 discovery
-// catalog (api/wk.js) in the 2026-07 overhaul: the fact-checker app (src/fact-checker-app.js) and the Sheriff Boone NPC in /play buy through it.
-// The route stays live for those consumers; do not re-add it to the catalog.
+// Re-listed per the 2026-07-08 storefront cleanup (prompt 18): sourced
+// verdicts with cryptographic attestations are a defensible agent product —
+// the 2026-07 overhaul's "internal-use only" de-listing is superseded. The
+// fact-checker app (src/fact-checker-app.js) and the Sheriff Boone NPC in
+// /play also buy through this same route.
 // POST /api/x402/fact-check
 //
 // Real-Time Fact Checker — paid x402 micropayment endpoint.

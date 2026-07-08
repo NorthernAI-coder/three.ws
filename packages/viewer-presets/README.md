@@ -93,6 +93,34 @@ so the plane fades in seamlessly.
 `luminanceSmoothing`, `mipmapBlur`, `intensity`, `kernelSize`).
 `bloomConfig(overrides?)` merges your changes over it.
 
+### Materials (`./materials`)
+
+Where the rig above tunes how a scene is *lit*, this module tunes how a model's
+*surfaces* read. `MATERIAL_PRESETS` is a curated set of physically-plausible
+MeshStandardMaterial looks — `chrome`, `gold`, `copper`, `brushedSteel`,
+`gunmetal`, `matte`, `glossy`, `rubber`, `ceramic`, `glass`, `wood`, `stone`,
+`neon`, `holographic` — each a frozen parameter set (color, metalness, roughness,
+emissive, envMapIntensity, and transparency for glass).
+
+```js
+import { applyMaterialPreset, materialVariants } from '@three-ws/viewer-presets/materials';
+
+// Re-skin every standard material on a loaded glTF, non-destructively:
+const handle = applyMaterialPreset(THREE, gltf.scene, 'chrome');
+// … later, put it back exactly as it was:
+handle.restore();
+
+// Fan a base look out into reproducible colorway variants (same seed → same set):
+const variants = materialVariants('gold', { seed: 42, count: 6 });
+variants.forEach((v) => console.log(v.label, v.config.color));
+```
+
+`applyMaterialPreset` only touches materials that expose the standard PBR knobs
+(a `MeshBasicMaterial`, sprite, or line material is skipped), captures the prior
+values, and hands back a `restore()` — so edits are a reversible layer over the
+original asset. `materialVariants` is pure and deterministic per `seed`, aligning
+with Forge's `seed` semantics so a variant set is shareable by number.
+
 ## API
 
 | Export | Signature |
@@ -103,6 +131,10 @@ so the plane fades in seamlessly.
 | `FLOOR_REFLECTION_DEFAULTS` | Frozen floor-reflection defaults (no `color`). |
 | `bloomConfig(overrides?)` | `(Partial<BloomProps>) => BloomProps` |
 | `BLOOM_DEFAULTS` | Frozen bloom defaults. |
+| `MATERIAL_PRESETS` / `MATERIAL_PRESET_NAMES` | Frozen map of PBR presets, and their ids in order. |
+| `materialPreset(idOrConfig, overrides?)` | `(string \| Partial<MaterialPreset>, overrides?) => MaterialPreset`; throws on unknown id. |
+| `applyMaterialPreset(THREE, root, idOrConfig, opts?)` | `(THREE, Object3D, preset) => { restore(), count }` — non-destructive. |
+| `materialVariants(base, opts?)` | `(preset, { seed, count, hueSpread, jitter }) => MaterialVariant[]` — seeded, reproducible. |
 
 ## Requirements
 

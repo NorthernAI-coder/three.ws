@@ -26,17 +26,17 @@ All responses are JSON. Successful responses return the resource or a result obj
 
 ```json
 {
-  "error": "Message describing what went wrong",
-  "code": "ERROR_CODE"
+	"error": "Message describing what went wrong",
+	"code": "ERROR_CODE"
 }
 ```
 
 ### Rate limits
 
-| Tier | Limit |
-|------|-------|
-| Authenticated | 100 req/min |
-| Unauthenticated | 20 req/min |
+| Tier            | Limit       |
+| --------------- | ----------- |
+| Authenticated   | 100 req/min |
+| Unauthenticated | 20 req/min  |
 
 Rate-limited responses return HTTP 429 with `{ "error": "...", "code": "RATE_LIMITED" }`.
 
@@ -54,31 +54,31 @@ Returns the authenticated user's agents. Requires auth.
 
 **Query parameters**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `limit` | integer | Max results (default: 20) |
-| `offset` | integer | Pagination offset (default: 0) |
+| Parameter | Type    | Description                    |
+| --------- | ------- | ------------------------------ |
+| `limit`   | integer | Max results (default: 20)      |
+| `offset`  | integer | Pagination offset (default: 0) |
 
 **Response**
 
 ```json
 {
-  "agents": [
-    {
-      "id": "abc123",
-      "name": "Aria",
-      "description": "Product guide",
-      "avatar_url": "https://cdn.example.com/aria.glb",
-      "thumbnail_url": "https://cdn.example.com/aria.png",
-      "creator_address": "0xabc...",
-      "created_at": "2025-01-15T10:00:00Z",
-      "chain_id": 8453,
-      "chain_agent_id": 42
-    }
-  ],
-  "total": 5,
-  "limit": 20,
-  "offset": 0
+	"agents": [
+		{
+			"id": "abc123",
+			"name": "Aria",
+			"description": "Product guide",
+			"avatar_url": "https://cdn.example.com/aria.glb",
+			"thumbnail_url": "https://cdn.example.com/aria.png",
+			"creator_address": "0xabc...",
+			"created_at": "2025-01-15T10:00:00Z",
+			"chain_id": 8453,
+			"chain_agent_id": 42
+		}
+	],
+	"total": 5,
+	"limit": 20,
+	"offset": 0
 }
 ```
 
@@ -120,9 +120,9 @@ Requires auth.
 
 ```json
 {
-  "name": "Aria",
-  "description": "Product guide",
-  "manifest": { }
+	"name": "Aria",
+	"description": "Product guide",
+	"manifest": {}
 }
 ```
 
@@ -130,8 +130,8 @@ Requires auth.
 
 ```json
 {
-  "id": "new-agent-id",
-  "agent": { }
+	"id": "new-agent-id",
+	"agent": {}
 }
 ```
 
@@ -178,8 +178,8 @@ Requires auth. Owner only. Links an Ethereum wallet to the agent for signing act
 
 ```json
 {
-  "address": "0xabc...",
-  "signature": "0x..."
+	"address": "0xabc...",
+	"signature": "0x..."
 }
 ```
 
@@ -235,32 +235,32 @@ Requires auth. Returns the authenticated user's widgets, including joined avatar
 
 **Query parameters**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `limit` | integer | Max results (default: 20) |
-| `offset` | integer | Pagination offset (default: 0) |
-| `type` | string | Filter by widget type |
-| `agent_id` | string | Filter by agent ID |
+| Parameter  | Type    | Description                    |
+| ---------- | ------- | ------------------------------ |
+| `limit`    | integer | Max results (default: 20)      |
+| `offset`   | integer | Pagination offset (default: 0) |
+| `type`     | string  | Filter by widget type          |
+| `agent_id` | string  | Filter by agent ID             |
 
 **Response**
 
 ```json
 {
-  "widgets": [
-    {
-      "id": "wdgt_abc123def456",
-      "agent_id": "abc123",
-      "type": "turntable",
-      "config": { "auto_rotate_speed": 0.5, "preset": "venice" },
-      "is_public": true,
-      "created_at": "2025-01-15T10:00:00Z",
-      "view_count": 42,
-      "avatar": { }
-    }
-  ],
-  "total": 8,
-  "limit": 20,
-  "offset": 0
+	"widgets": [
+		{
+			"id": "wdgt_abc123def456",
+			"agent_id": "abc123",
+			"type": "turntable",
+			"config": { "auto_rotate_speed": 0.5, "preset": "venice" },
+			"is_public": true,
+			"created_at": "2025-01-15T10:00:00Z",
+			"view_count": 42,
+			"avatar": {}
+		}
+	],
+	"total": 8,
+	"limit": 20,
+	"offset": 0
 }
 ```
 
@@ -292,13 +292,13 @@ Requires auth. Bearer token must have `avatars:write` scope.
 
 ```json
 {
-  "agent_id": "abc123",
-  "type": "turntable",
-  "config": {
-    "auto_rotate_speed": 0.5,
-    "preset": "venice"
-  },
-  "visibility": "public"
+	"agent_id": "abc123",
+	"type": "turntable",
+	"config": {
+		"auto_rotate_speed": 0.5,
+		"preset": "venice"
+	},
+	"visibility": "public"
 }
 ```
 
@@ -306,8 +306,8 @@ Requires auth. Bearer token must have `avatars:write` scope.
 
 ```json
 {
-  "id": "wdgt_abc123def456",
-  "embed_url": "https://three.ws/widgets/view?id=wdgt_abc123def456"
+	"id": "wdgt_abc123def456",
+	"embed_url": "https://three.ws/widgets/view?id=wdgt_abc123def456"
 }
 ```
 
@@ -373,29 +373,29 @@ GET /api/agent-actions
 
 **Query parameters**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `agent_id` | string | Required. Filter by agent ID |
-| `limit` | integer | Max results (default: 20) |
-| `cursor` | string | Cursor for keyset pagination |
+| Parameter  | Type    | Description                  |
+| ---------- | ------- | ---------------------------- |
+| `agent_id` | string  | Required. Filter by agent ID |
+| `limit`    | integer | Max results (default: 20)    |
+| `cursor`   | string  | Cursor for keyset pagination |
 
 **Response**
 
 ```json
 {
-  "actions": [
-    {
-      "id": "act_xyz",
-      "agent_id": "abc123",
-      "type": "speak",
-      "payload": { "text": "Hello, welcome!" },
-      "source_skill": "greeting",
-      "signature": "0x...",
-      "signer_address": "0xabc...",
-      "created_at": "2025-01-15T10:05:00Z"
-    }
-  ],
-  "cursor": "2025-01-14T10:05:00Z"
+	"actions": [
+		{
+			"id": "act_xyz",
+			"agent_id": "abc123",
+			"type": "speak",
+			"payload": { "text": "Hello, welcome!" },
+			"source_skill": "greeting",
+			"signature": "0x...",
+			"signer_address": "0xabc...",
+			"created_at": "2025-01-15T10:05:00Z"
+		}
+	],
+	"cursor": "2025-01-14T10:05:00Z"
 }
 ```
 
@@ -413,12 +413,12 @@ Append-only. Actions are never deleted. Optionally include an ERC-191 signature 
 
 ```json
 {
-  "agent_id": "abc123",
-  "type": "speak",
-  "payload": { "text": "Hello, welcome!" },
-  "source_skill": "greeting",
-  "signature": "0x...",
-  "signer_address": "0xabc..."
+	"agent_id": "abc123",
+	"type": "speak",
+	"payload": { "text": "Hello, welcome!" },
+	"source_skill": "greeting",
+	"signature": "0x...",
+	"signer_address": "0xabc..."
 }
 ```
 
@@ -436,30 +436,30 @@ GET /api/agent-memory
 
 **Query parameters**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `agentId` | string | Required. The agent's ID |
-| `type` | string | Filter by memory type: `user`, `feedback`, `project`, `reference` |
-| `since` | string | ISO 8601 timestamp — return only memories updated after this time |
-| `limit` | integer | Max results (default: 50) |
+| Parameter | Type    | Description                                                       |
+| --------- | ------- | ----------------------------------------------------------------- |
+| `agentId` | string  | Required. The agent's ID                                          |
+| `type`    | string  | Filter by memory type: `user`, `feedback`, `project`, `reference` |
+| `since`   | string  | ISO 8601 timestamp — return only memories updated after this time |
+| `limit`   | integer | Max results (default: 50)                                         |
 
 **Response**
 
 ```json
 {
-  "memories": [
-    {
-      "id": "mem_abc",
-      "agent_id": "abc123",
-      "type": "user",
-      "content": "User prefers concise answers.",
-      "salience": 0.8,
-      "expires_at": null,
-      "client_id": "local-uuid-123",
-      "created_at": "2025-01-15T10:00:00Z",
-      "updated_at": "2025-01-15T10:00:00Z"
-    }
-  ]
+	"memories": [
+		{
+			"id": "mem_abc",
+			"agent_id": "abc123",
+			"type": "user",
+			"content": "User prefers concise answers.",
+			"salience": 0.8,
+			"expires_at": null,
+			"client_id": "local-uuid-123",
+			"created_at": "2025-01-15T10:00:00Z",
+			"updated_at": "2025-01-15T10:00:00Z"
+		}
+	]
 }
 ```
 
@@ -477,12 +477,12 @@ Idempotent — uses `client_id` as a conflict key. If a memory with the same `cl
 
 ```json
 {
-  "agent_id": "abc123",
-  "type": "feedback",
-  "content": "Stop summarizing at end of responses.",
-  "salience": 0.9,
-  "expires_at": null,
-  "client_id": "local-uuid-456"
+	"agent_id": "abc123",
+	"type": "feedback",
+	"content": "Stop summarizing at end of responses.",
+	"salience": 0.9,
+	"expires_at": null,
+	"client_id": "local-uuid-456"
 }
 ```
 
@@ -518,15 +518,13 @@ Send a message to an agent's LLM runtime. Proxied through the platform for auth 
 
 ```json
 {
-  "agent_id": "abc123",
-  "messages": [
-    { "role": "user", "content": "What animations do you have?" }
-  ],
-  "context": {
-    "model_name": "avatar.glb",
-    "animations": ["wave", "idle", "dance"],
-    "settings": { }
-  }
+	"agent_id": "abc123",
+	"messages": [{ "role": "user", "content": "What animations do you have?" }],
+	"context": {
+		"model_name": "avatar.glb",
+		"animations": ["wave", "idle", "dance"],
+		"settings": {}
+	}
 }
 ```
 
@@ -536,19 +534,19 @@ The `context` object is included in the system prompt so the model knows what's 
 
 The LLM can invoke these viewer actions in its response:
 
-| Tool | Description |
-|------|-------------|
-| `setWireframe` | Toggle wireframe mode |
-| `setSkeleton` | Toggle skeleton overlay |
-| `setGrid` | Toggle ground grid |
-| `setAutoRotate` | Start/stop auto-rotation |
-| `setBgColor` | Set background color |
-| `setTransparentBg` | Toggle transparent background |
-| `setEnvironment` | Set environment map |
-| `takeScreenshot` | Capture viewport screenshot |
-| `loadModel` | Load a different model URL |
-| `runValidation` | Run glTF validation |
-| `showMaterialEditor` | Open material editor UI |
+| Tool                 | Description                   |
+| -------------------- | ----------------------------- |
+| `setWireframe`       | Toggle wireframe mode         |
+| `setSkeleton`        | Toggle skeleton overlay       |
+| `setGrid`            | Toggle ground grid            |
+| `setAutoRotate`      | Start/stop auto-rotation      |
+| `setBgColor`         | Set background color          |
+| `setTransparentBg`   | Toggle transparent background |
+| `setEnvironment`     | Set environment map           |
+| `takeScreenshot`     | Capture viewport screenshot   |
+| `loadModel`          | Load a different model URL    |
+| `runValidation`      | Run glTF validation           |
+| `showMaterialEditor` | Open material editor UI       |
 
 **Response (streaming SSE)**
 
@@ -574,36 +572,36 @@ Server-Sent Events stream from a unified multi-provider LLM gateway. Used by the
 
 ```json
 {
-  "provider": "claude-sonnet-4-6",
-  "messages": [{ "role": "user", "content": "Hello" }],
-  "system": "You are a friendly product guide.",
-  "maxTokens": 1024
+	"provider": "claude-sonnet-4-6",
+	"messages": [{ "role": "user", "content": "Hello" }],
+	"system": "You are a friendly product guide.",
+	"maxTokens": 1024
 }
 ```
 
 **Supported `provider` IDs**
 
-| Provider | Network | Tier |
-|---|---|---|
-| `claude-opus-4-7` | Anthropic | flagship |
-| `claude-sonnet-4-6` | Anthropic | balanced |
-| `claude-haiku-4-5` | Anthropic | fast |
-| `gpt-4o` | OpenAI | flagship |
-| `gpt-4o-mini` | OpenAI | fast |
-| `qwen-*` | Qwen / Alibaba | varies |
-| `openrouter:*` | OpenRouter (any) | varies |
+| Provider            | Network          | Tier     |
+| ------------------- | ---------------- | -------- |
+| `claude-opus-4-7`   | Anthropic        | flagship |
+| `claude-sonnet-4-6` | Anthropic        | balanced |
+| `claude-haiku-4-5`  | Anthropic        | fast     |
+| `gpt-4o`            | OpenAI           | flagship |
+| `gpt-4o-mini`       | OpenAI           | fast     |
+| `qwen-*`            | Qwen / Alibaba   | varies   |
+| `openrouter:*`      | OpenRouter (any) | varies   |
 
 Call `GET /api/brain/chat` for the live list of providers actually available on the current deployment (depends on which provider keys are configured).
 
 **Response (SSE)**
 
-| Event | Payload |
-|---|---|
-| `meta` | `{ provider, label, network, model, tier }` |
-| `first` | `{ firstTokenMs }` |
-| (data) | JSON-encoded text chunk |
-| `done` | `{ elapsedMs, firstTokenMs, usage }` |
-| `error` | `{ message, elapsedMs }` |
+| Event   | Payload                                     |
+| ------- | ------------------------------------------- |
+| `meta`  | `{ provider, label, network, model, tier }` |
+| `first` | `{ firstTokenMs }`                          |
+| (data)  | JSON-encoded text chunk                     |
+| `done`  | `{ elapsedMs, firstTokenMs, usage }`        |
+| `error` | `{ message, elapsedMs }`                    |
 
 **Rate limits:** Per-IP and per-agent limits apply in addition to the standard platform limits. Failed upstream calls automatically fall back to OpenRouter where possible.
 
@@ -630,6 +628,7 @@ POST /api/tts/eleven
 Text-to-speech via ElevenLabs with R2 caching. Requires auth.
 
 **Limits**
+
 - Max 500 characters per request
 - 1,000 characters per hour per user (tracked via Redis)
 
@@ -637,9 +636,9 @@ Text-to-speech via ElevenLabs with R2 caching. Requires auth.
 
 ```json
 {
-  "voiceId": "rachel",
-  "text": "Hello, welcome to my portfolio!",
-  "modelId": "eleven_monolingual_v1"
+	"voiceId": "rachel",
+	"text": "Hello, welcome to my portfolio!",
+	"modelId": "eleven_monolingual_v1"
 }
 ```
 
@@ -678,22 +677,22 @@ silently.
 { "prompt": "a small ceramic robot figurine" }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
+| Field    | Type   | Description                                                         |
+| -------- | ------ | ------------------------------------------------------------------- |
 | `prompt` | string | Describe a single object or character. 3–1000 characters. Required. |
 
 **Response — finished inline** (the NIM often completes inside the request window):
 
 ```json
 {
-  "data": {
-    "status": "done",
-    "glb_url": "https://cdn.three.ws/forge/anon/<id>.glb",
-    "viewer_url": "https://three.ws/viewer?src=https%3A%2F%2Fcdn.three.ws%2Fforge%2Fanon%2F%3Cid%3E.glb",
-    "creation_id": "<uuid>",
-    "backend": "nvidia",
-    "tier": "draft"
-  }
+	"data": {
+		"status": "done",
+		"glb_url": "https://cdn.three.ws/forge/anon/<id>.glb",
+		"viewer_url": "https://three.ws/viewer?src=https%3A%2F%2Fcdn.three.ws%2Fforge%2Fanon%2F%3Cid%3E.glb",
+		"creation_id": "<uuid>",
+		"backend": "nvidia",
+		"tier": "draft"
+	}
 }
 ```
 
@@ -701,14 +700,14 @@ silently.
 
 ```json
 {
-  "data": {
-    "status": "pending",
-    "job": "f1.<signed-token>",
-    "poll_url": "/api/forge?job=f1.<signed-token>",
-    "viewer_url": null,
-    "backend": "nvidia",
-    "tier": "draft"
-  }
+	"data": {
+		"status": "pending",
+		"job": "f1.<signed-token>",
+		"poll_url": "/api/forge?job=f1.<signed-token>",
+		"viewer_url": null,
+		"backend": "nvidia",
+		"tier": "draft"
+	}
 }
 ```
 
@@ -724,12 +723,12 @@ curl -s -X POST https://three.ws/api/v1/ai/text-to-3d \
 
 **Errors**
 
-| Status | Code | Meaning |
-|--------|------|---------|
-| `400` | `validation_error` | `prompt` missing, shorter than 3 chars, or over 1000 |
-| `429` | `quota_exceeded` | Daily free quota spent; see `X-RateLimit-Reset` and `upgrade.endpoint` (`/api/x402/forge`) |
-| `503` | `not_configured` | The NVIDIA NIM lane isn't configured on this deployment (`NVIDIA_API_KEY`) |
-| `502`/`504` | `lane_error` / `lane_timeout` | The generation lane failed or timed out — retry |
+| Status      | Code                          | Meaning                                                                                    |
+| ----------- | ----------------------------- | ------------------------------------------------------------------------------------------ |
+| `400`       | `validation_error`            | `prompt` missing, shorter than 3 chars, or over 1000                                       |
+| `429`       | `quota_exceeded`              | Daily free quota spent; see `X-RateLimit-Reset` and `upgrade.endpoint` (`/api/x402/forge`) |
+| `503`       | `not_configured`              | The NVIDIA NIM lane isn't configured on this deployment (`NVIDIA_API_KEY`)                 |
+| `502`/`504` | `lane_error` / `lane_timeout` | The generation lane failed or timed out — retry                                            |
 
 ---
 
@@ -760,25 +759,25 @@ outage never burns a free generation.
 { "prompt": "a brass owl figurine on a plain white background", "aspect_ratio": "1:1" }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `prompt` | string | Image description. 3–2000 characters. Required. |
-| `aspect_ratio` | string | One of `1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:2`, `2:3`. Default `1:1`. |
-| `seed` | integer | Optional deterministic seed (0–4294967295). Honored on the NIM / Replicate flux lanes; the Vertex/Gemini lane has no seed parameter and ignores it. |
+| Field          | Type    | Description                                                                                                                                         |
+| -------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `prompt`       | string  | Image description. 3–2000 characters. Required.                                                                                                     |
+| `aspect_ratio` | string  | One of `1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:2`, `2:3`. Default `1:1`.                                                                            |
+| `seed`         | integer | Optional deterministic seed (0–4294967295). Honored on the NIM / Replicate flux lanes; the Vertex/Gemini lane has no seed parameter and ignores it. |
 
 **Response — 200**
 
 ```json
 {
-  "url": "https://cdn.three.ws/forge/refs/<id>.jpg",
-  "provider": "nvidia-nim",
-  "model": "black-forest-labs/flux.1-schnell",
-  "width": 1024,
-  "height": 1024,
-  "aspect_ratio": "1:1",
-  "seed": null,
-  "free": true,
-  "quota": { "used": 1, "limit": 5, "remaining": 4, "resetAt": "2026-07-08T00:00:00.000Z" }
+	"url": "https://cdn.three.ws/forge/refs/<id>.jpg",
+	"provider": "nvidia-nim",
+	"model": "black-forest-labs/flux.1-schnell",
+	"width": 1024,
+	"height": 1024,
+	"aspect_ratio": "1:1",
+	"seed": null,
+	"free": true,
+	"quota": { "used": 1, "limit": 5, "remaining": 4, "resetAt": "2026-07-08T00:00:00.000Z" }
 }
 ```
 
@@ -814,15 +813,15 @@ discovery doc (price, free-tier width, which lanes are configured).
 
 **Errors**
 
-| Status | Code | Meaning |
-|--------|------|---------|
-| `400` | `invalid_prompt` / `prompt_too_long` / `invalid_aspect_ratio` / `invalid_seed` | Request validation failed |
-| `402` | — | Free quota spent — pay the x402 challenge to continue |
-| `422` | `content_refused` | The provider blocked the prompt on content-policy grounds (not retried) |
-| `429` | `rate_limited` | Lane briefly busy — retry after `retryAfter` seconds |
-| `503` | `not_configured` | No image lane is configured (`NVIDIA_API_KEY`, `GOOGLE_CLOUD_PROJECT` + `GCP_SERVICE_ACCOUNT_JSON`, or `REPLICATE_API_TOKEN`) |
-| `503` | `lane_unavailable` | The configured lane is temporarily down — retry |
-| `502` | `generation_failed` | The lane returned no usable image — retry |
+| Status | Code                                                                           | Meaning                                                                                                                       |
+| ------ | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| `400`  | `invalid_prompt` / `prompt_too_long` / `invalid_aspect_ratio` / `invalid_seed` | Request validation failed                                                                                                     |
+| `402`  | —                                                                              | Free quota spent — pay the x402 challenge to continue                                                                         |
+| `422`  | `content_refused`                                                              | The provider blocked the prompt on content-policy grounds (not retried)                                                       |
+| `429`  | `rate_limited`                                                                 | Lane briefly busy — retry after `retryAfter` seconds                                                                          |
+| `503`  | `not_configured`                                                               | No image lane is configured (`NVIDIA_API_KEY`, `GOOGLE_CLOUD_PROJECT` + `GCP_SERVICE_ACCOUNT_JSON`, or `REPLICATE_API_TOKEN`) |
+| `503`  | `lane_unavailable`                                                             | The configured lane is temporarily down — retry                                                                               |
+| `502`  | `generation_failed`                                                            | The lane returned no usable image — retry                                                                                     |
 
 ---
 
@@ -857,30 +856,30 @@ access, not a different model.
 { "text": "Your deploy finished — three services are green.", "voice": "nova", "format": "wav" }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `text` | string | Text to synthesize. Required. ≤4096 chars (free tier ≤500). |
-| `voice` | string | Voice id (`nova`, `alloy`, `shimmer`, `onyx`, …). Unknown values fall back to the default persona. Default `nova`. |
-| `format` | string | `wav` or `pcm`. Magpie emits WAV or raw PCM. Default `wav`. |
-| `language` | string | BCP-47 tag: `en-US`, `es-US`, `fr-FR`, `de-DE`, `it-IT`, `hi-IN`, `zh-CN`, `vi-VN`, `ja-JP`. Default `en-US`. |
+| Field      | Type   | Description                                                                                                        |
+| ---------- | ------ | ------------------------------------------------------------------------------------------------------------------ |
+| `text`     | string | Text to synthesize. Required. ≤4096 chars (free tier ≤500).                                                        |
+| `voice`    | string | Voice id (`nova`, `alloy`, `shimmer`, `onyx`, …). Unknown values fall back to the default persona. Default `nova`. |
+| `format`   | string | `wav` or `pcm`. Magpie emits WAV or raw PCM. Default `wav`.                                                        |
+| `language` | string | BCP-47 tag: `en-US`, `es-US`, `fr-FR`, `de-DE`, `it-IT`, `hi-IN`, `zh-CN`, `vi-VN`, `ja-JP`. Default `en-US`.      |
 
 **Response — 200**
 
 ```json
 {
-  "data": {
-    "audio": "UklGR... (base64)",
-    "encoding": "base64",
-    "format": "wav",
-    "content_type": "audio/wav",
-    "sample_rate": 44100,
-    "voice": "Magpie-Multilingual.EN-US.Aria",
-    "model": "magpie-tts-multilingual",
-    "characters": 47,
-    "bytes": 132344,
-    "tier": "free",
-    "free_remaining_today": 9
-  }
+	"data": {
+		"audio": "UklGR... (base64)",
+		"encoding": "base64",
+		"format": "wav",
+		"content_type": "audio/wav",
+		"sample_rate": 44100,
+		"voice": "Magpie-Multilingual.EN-US.Aria",
+		"model": "magpie-tts-multilingual",
+		"characters": 47,
+		"bytes": 132344,
+		"tier": "free",
+		"free_remaining_today": 9
+	}
 }
 ```
 
@@ -928,27 +927,27 @@ Send audio one of two ways:
 
 WebM/Opus is not accepted — decode it to PCM/WAV client-side first.
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `audio` | string | Base64 audio in a JSON body (data: URIs accepted). Required for the JSON transport. |
-| `format` | string | `wav` \| `pcm` \| `flac` \| `ogg`. Default `wav`. |
-| `language` | string | BCP-47 language hint. Default `en-US`. |
-| `sampleRate` | integer | Sample rate (Hz) for raw PCM. Ignored for WAV (read from the header). |
-| `words` | boolean | Return word-level timestamps. Default `false`. |
+| Field        | Type    | Description                                                                         |
+| ------------ | ------- | ----------------------------------------------------------------------------------- |
+| `audio`      | string  | Base64 audio in a JSON body (data: URIs accepted). Required for the JSON transport. |
+| `format`     | string  | `wav` \| `pcm` \| `flac` \| `ogg`. Default `wav`.                                   |
+| `language`   | string  | BCP-47 language hint. Default `en-US`.                                              |
+| `sampleRate` | integer | Sample rate (Hz) for raw PCM. Ignored for WAV (read from the header).               |
+| `words`      | boolean | Return word-level timestamps. Default `false`.                                      |
 
 **Response — 200**
 
 ```json
 {
-  "data": {
-    "text": "schedule the deploy for friday morning",
-    "confidence": 0.94,
-    "duration": 2.1,
-    "language": "en-US",
-    "model": "riva-asr",
-    "tier": "free",
-    "free_remaining_today": 4
-  }
+	"data": {
+		"text": "schedule the deploy for friday morning",
+		"confidence": 0.94,
+		"duration": 2.1,
+		"language": "en-US",
+		"model": "riva-asr",
+		"tier": "free",
+		"free_remaining_today": 4
+	}
 }
 ```
 
@@ -986,15 +985,15 @@ sample rate, whether the lane is configured).
 
 **Errors** (both endpoints)
 
-| Status | Code | Meaning |
-|--------|------|---------|
-| `400` | `bad_request` / `text_too_long` | Request validation failed (empty/invalid body, or text over 4096 chars) |
-| `402` | — | Free quota spent (or over the free size limit) — pay the x402 challenge |
-| `413` | `payload_too_large` | Audio exceeds the 8 MB limit |
-| `415` | `unsupported_media_type` | Unrecognized audio `Content-Type` (ASR) |
-| `429` | `rate_limited` | Upstream credit metering hit — retry shortly |
-| `503` | `not_configured` | TTS needs `NVIDIA_API_KEY`; ASR needs `NVIDIA_API_KEY` + `NVIDIA_ASR_FUNCTION_ID` |
-| `502` | `provider_error` / `invalid_key` | The NIM lane failed — retry |
+| Status | Code                             | Meaning                                                                           |
+| ------ | -------------------------------- | --------------------------------------------------------------------------------- |
+| `400`  | `bad_request` / `text_too_long`  | Request validation failed (empty/invalid body, or text over 4096 chars)           |
+| `402`  | —                                | Free quota spent (or over the free size limit) — pay the x402 challenge           |
+| `413`  | `payload_too_large`              | Audio exceeds the 8 MB limit                                                      |
+| `415`  | `unsupported_media_type`         | Unrecognized audio `Content-Type` (ASR)                                           |
+| `429`  | `rate_limited`                   | Upstream credit metering hit — retry shortly                                      |
+| `503`  | `not_configured`                 | TTS needs `NVIDIA_API_KEY`; ASR needs `NVIDIA_API_KEY` + `NVIDIA_ASR_FUNCTION_ID` |
+| `502`  | `provider_error` / `invalid_key` | The NIM lane failed — retry                                                       |
 
 ---
 
@@ -1016,9 +1015,9 @@ GET /api/v1/token/security?address=<mint>
 Public, CORS-open, no auth. Rate limited to **20 requests/min per IP**; responses
 are edge-cached for 60s. Solana only — an EVM `0x…` address returns `400`.
 
-| Query param | Type | Description |
-|-------------|------|-------------|
-| `address` | string | Base58 Solana mint address. Required. |
+| Query param | Type   | Description                           |
+| ----------- | ------ | ------------------------------------- |
+| `address`   | string | Base58 Solana mint address. Required. |
 
 **Response**
 
@@ -1028,32 +1027,41 @@ factual conditions (an empty array means none tripped).
 
 ```json
 {
-  "data": {
-    "address": "FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump",
-    "chain": "solana",
-    "mint_authority": { "revoked": true, "address": null },
-    "freeze_authority": { "revoked": true, "address": null },
-    "supply": "999683523471616",
-    "decimals": 6,
-    "top_holders": { "top1_pct": 6.6, "top5_pct": 14.7, "top10_pct": 22.3, "holders_sampled": 20 },
-    "liquidity": { "usd": 196695.93, "largest_pair": "three/SOL", "pair_created_at": 1777446541000 },
-    "flags": [],
-    "sources": ["solana-rpc", "dexscreener"],
-    "ts": 1783382400000
-  }
+	"data": {
+		"address": "FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump",
+		"chain": "solana",
+		"mint_authority": { "revoked": true, "address": null },
+		"freeze_authority": { "revoked": true, "address": null },
+		"supply": "999683523471616",
+		"decimals": 6,
+		"top_holders": {
+			"top1_pct": 6.6,
+			"top5_pct": 14.7,
+			"top10_pct": 22.3,
+			"holders_sampled": 20
+		},
+		"liquidity": {
+			"usd": 196695.93,
+			"largest_pair": "three/SOL",
+			"pair_created_at": 1777446541000
+		},
+		"flags": [],
+		"sources": ["solana-rpc", "dexscreener"],
+		"ts": 1783382400000
+	}
 }
 ```
 
 **Flags** (emitted only when the underlying facts are known):
 
-| Flag | Condition |
-|------|-----------|
-| `mint_authority_active` | The mint authority is not revoked — supply can still be inflated |
-| `freeze_authority_active` | The freeze authority is not revoked — accounts can be frozen |
-| `top1_holder_over_20pct` | The single largest account holds > 20% of supply |
-| `top10_holders_over_80pct` | The top 10 accounts hold > 80% of supply |
-| `liquidity_under_10k` | Deepest-pair liquidity is under $10,000 |
-| `pair_younger_than_24h` | The deepest pair was created less than 24h ago |
+| Flag                       | Condition                                                        |
+| -------------------------- | ---------------------------------------------------------------- |
+| `mint_authority_active`    | The mint authority is not revoked — supply can still be inflated |
+| `freeze_authority_active`  | The freeze authority is not revoked — accounts can be frozen     |
+| `top1_holder_over_20pct`   | The single largest account holds > 20% of supply                 |
+| `top10_holders_over_80pct` | The top 10 accounts hold > 80% of supply                         |
+| `liquidity_under_10k`      | Deepest-pair liquidity is under $10,000                          |
+| `pair_younger_than_24h`    | The deepest pair was created less than 24h ago                   |
 
 **Example**
 
@@ -1067,13 +1075,111 @@ Each section resolves independently. If one upstream is down, only that section
 is nulled and it drops out of `sources` — the call still succeeds (`200`) as long
 as any section resolved.
 
-| Status | Code | Meaning |
-|--------|------|---------|
-| `400` | `validation_error` | `address` missing or not a base58 Solana address |
-| `400` | `unsupported_chain` | An EVM `0x…` address — this endpoint is Solana-only |
-| `404` | `not_found` | Sources answered but no on-chain mint or market exists for this address |
-| `429` | `rate_limited` | Over 20 requests/min from this IP — back off per `retry_after` |
-| `503` | `sources_unavailable` | Every upstream failed — transient, retry shortly |
+| Status | Code                  | Meaning                                                                 |
+| ------ | --------------------- | ----------------------------------------------------------------------- |
+| `400`  | `validation_error`    | `address` missing or not a base58 Solana address                        |
+| `400`  | `unsupported_chain`   | An EVM `0x…` address — this endpoint is Solana-only                     |
+| `404`  | `not_found`           | Sources answered but no on-chain mint or market exists for this address |
+| `429`  | `rate_limited`        | Over 20 requests/min from this IP — back off per `retry_after`          |
+| `503`  | `sources_unavailable` | Every upstream failed — transient, retry shortly                        |
+
+---
+
+## Name Resolution API
+
+Name resolution is the highest-frequency primitive in agent tooling — every
+payment, transfer, or profile lookup starts with turning a human-readable name
+into an address (or back). This endpoint wraps the platform's existing ENS and
+SNS resolvers (the same ones behind `/api/agents/ens/:name` and `/api/sns`) in
+one free, versioned door.
+
+### Resolve a name / reverse-resolve an address
+
+```
+GET /api/v1/resolve?name=<x>.eth
+GET /api/v1/resolve?name=<x>.sol
+GET /api/v1/resolve?address=<addr>[&chain=ethereum|solana]
+```
+
+Public, CORS-open, no auth, no cost. Rate limited to **30 requests/min per
+IP**; successful responses are edge-cached for 5 minutes. Pass exactly one of
+`name` or `address`.
+
+| Query param | Type   | Description                                                                                                                                |
+| ----------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `name`      | string | A name ending in `.eth` (ENS) or `.sol` (SNS). Required unless `address` is passed.                                                        |
+| `address`   | string | A `0x…` Ethereum address or a base58 Solana address to reverse-resolve. Required unless `name` is passed.                                  |
+| `chain`     | string | `"ethereum"` \| `"solana"` — optional hint, validated against the address format when passed. Auto-detected from the address when omitted. |
+
+**Forward response** (`?name=…`)
+
+```json
+{
+	"data": {
+		"name": "vitalik.eth",
+		"chain": "ethereum",
+		"address": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
+		"source": "ens"
+	}
+}
+```
+
+```json
+{
+	"data": {
+		"name": "bonfida.sol",
+		"chain": "solana",
+		"address": "<owner base58 address>",
+		"source": "sns"
+	}
+}
+```
+
+**Reverse response** (`?address=…`)
+
+```json
+{
+	"data": {
+		"address": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
+		"chain": "ethereum",
+		"name": "vitalik.eth",
+		"source": "ens"
+	}
+}
+```
+
+```json
+{
+	"data": {
+		"address": "<base58 address>",
+		"chain": "solana",
+		"name": "bonfida.sol",
+		"source": "sns"
+	}
+}
+```
+
+Reverse lookup only runs in the direction the wrapped resolver already
+supports (ethers `lookupAddress` for ENS, SNS `getFavoriteDomain` for SNS) —
+both directions are covered, so there is no half-built placeholder here.
+
+**Examples**
+
+```bash
+curl -s 'https://three.ws/api/v1/resolve?name=vitalik.eth'
+curl -s 'https://three.ws/api/v1/resolve?name=bonfida.sol'
+curl -s 'https://three.ws/api/v1/resolve?address=0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'
+```
+
+**Errors**
+
+| Status | Code                 | Meaning                                                                                                                                         |
+| ------ | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `400`  | `validation_error`   | Neither/both of `name`/`address` passed, `address` isn't a recognizable Ethereum or Solana address, or `chain` doesn't match the address format |
+| `400`  | `unsupported_suffix` | `name` doesn't end in `.eth` or `.sol` — those are the only two supported registries                                                            |
+| `404`  | `not_found`          | The name/address is well-formed but does not resolve — a miss, not a failure                                                                    |
+| `429`  | `rate_limited`       | Over 30 requests/min from this IP — back off per `retry_after`                                                                                  |
+| `503`  | `ens_unavailable`    | The ENS RPC chain timed out or failed — transient, retry shortly                                                                                |
 
 ---
 
@@ -1081,15 +1187,15 @@ as any section resolved.
 
 Authentication is covered in detail in the [Authentication documentation](authentication.md). Quick reference:
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/auth/siwe/nonce` | GET | Get a SIWE nonce |
-| `/api/auth/siwe/verify` | POST | Verify SIWE signature, create session |
-| `/api/auth/session` | GET | Get current session |
-| `/api/auth/session` | DELETE | Logout / destroy session |
-| `/api/auth/privy/[handler]` | GET/POST | Privy OAuth handlers |
-| `/api/auth/wallets` | GET | List wallets linked to current user |
-| `/api/auth/wallets` | POST | Link a new wallet |
+| Endpoint                    | Method   | Description                           |
+| --------------------------- | -------- | ------------------------------------- |
+| `/api/auth/siwe/nonce`      | GET      | Get a SIWE nonce                      |
+| `/api/auth/siwe/verify`     | POST     | Verify SIWE signature, create session |
+| `/api/auth/session`         | GET      | Get current session                   |
+| `/api/auth/session`         | DELETE   | Logout / destroy session              |
+| `/api/auth/privy/[handler]` | GET/POST | Privy OAuth handlers                  |
+| `/api/auth/wallets`         | GET      | List wallets linked to current user   |
+| `/api/auth/wallets`         | POST     | Link a new wallet                     |
 
 ---
 
@@ -1107,15 +1213,15 @@ Requires auth. Returns all API keys for the current user. Plaintext key values a
 
 ```json
 {
-  "keys": [
-    {
-      "id": "key_abc",
-      "name": "My Integration",
-      "scopes": ["avatars:read", "avatars:write"],
-      "created_at": "2025-01-15T10:00:00Z",
-      "last_used_at": "2025-01-20T08:30:00Z"
-    }
-  ]
+	"keys": [
+		{
+			"id": "key_abc",
+			"name": "My Integration",
+			"scopes": ["avatars:read", "avatars:write"],
+			"created_at": "2025-01-15T10:00:00Z",
+			"last_used_at": "2025-01-20T08:30:00Z"
+		}
+	]
 }
 ```
 
@@ -1133,26 +1239,26 @@ Requires auth.
 
 ```json
 {
-  "name": "My Integration",
-  "scopes": ["avatars:read", "avatars:write"]
+	"name": "My Integration",
+	"scopes": ["avatars:read", "avatars:write"]
 }
 ```
 
 **Available scopes**
 
-| Scope | Description |
-|-------|-------------|
-| `avatars:read` | Read agents and avatars |
-| `avatars:write` | Create and update agents and avatars |
-| `avatars:delete` | Delete agents and avatars |
-| `profile` | Read user profile data |
+| Scope            | Description                          |
+| ---------------- | ------------------------------------ |
+| `avatars:read`   | Read agents and avatars              |
+| `avatars:write`  | Create and update agents and avatars |
+| `avatars:delete` | Delete agents and avatars            |
+| `profile`        | Read user profile data               |
 
 **Response**
 
 ```json
 {
-  "id": "key_abc",
-  "key": "sk_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+	"id": "key_abc",
+	"key": "sk_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 }
 ```
 
@@ -1186,35 +1292,35 @@ Paginated search over ERC-8004 registered agents. No auth required.
 
 **Query parameters**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `q` | string | Full-text search query |
-| `only3d` | `1` | Filter to agents with 3D avatars only |
-| `chain` | integer | Filter by chain ID |
-| `cursor` | string | ISO 8601 timestamp cursor for keyset pagination |
-| `limit` | integer | Max results (default: 20) |
+| Parameter | Type    | Description                                     |
+| --------- | ------- | ----------------------------------------------- |
+| `q`       | string  | Full-text search query                          |
+| `only3d`  | `1`     | Filter to agents with 3D avatars only           |
+| `chain`   | integer | Filter by chain ID                              |
+| `cursor`  | string  | ISO 8601 timestamp cursor for keyset pagination |
+| `limit`   | integer | Max results (default: 20)                       |
 
 **Response**
 
 ```json
 {
-  "agents": [
-    {
-      "id": "onchain_abc",
-      "name": "Aria",
-      "description": "Product guide",
-      "avatar_url": "https://cdn.example.com/aria.glb",
-      "thumbnail_url": "https://cdn.example.com/aria.png",
-      "chain_id": 8453,
-      "chain_agent_id": 42,
-      "registered_at": "2025-01-15T10:00:00Z",
-      "services": [],
-      "explorer_url": "https://basescan.org/..."
-    }
-  ],
-  "total": 142,
-  "total_3d": 89,
-  "cursor": "2025-01-10T10:00:00Z"
+	"agents": [
+		{
+			"id": "onchain_abc",
+			"name": "Aria",
+			"description": "Product guide",
+			"avatar_url": "https://cdn.example.com/aria.glb",
+			"thumbnail_url": "https://cdn.example.com/aria.png",
+			"chain_id": 8453,
+			"chain_agent_id": 42,
+			"registered_at": "2025-01-15T10:00:00Z",
+			"services": [],
+			"explorer_url": "https://basescan.org/..."
+		}
+	],
+	"total": 142,
+	"total_3d": 89,
+	"cursor": "2025-01-10T10:00:00Z"
 }
 ```
 
@@ -1230,13 +1336,13 @@ Public directory of ERC-8004 agents with 3D avatars, for homepage and gallery us
 
 **Query parameters**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `net` | string | `mainnet`, `testnet`, or `all` (default: `all`) |
-| `sort` | string | `newest` or `oldest` |
-| `chain` | integer | Filter by chain ID |
-| `limit` | integer | Max results (default: 20) |
-| `cursor` | string | Keyset pagination cursor (`registered_at,chain_id,agent_id` tuple) |
+| Parameter | Type    | Description                                                        |
+| --------- | ------- | ------------------------------------------------------------------ |
+| `net`     | string  | `mainnet`, `testnet`, or `all` (default: `all`)                    |
+| `sort`    | string  | `newest` or `oldest`                                               |
+| `chain`   | integer | Filter by chain ID                                                 |
+| `limit`   | integer | Max results (default: 20)                                          |
+| `cursor`  | string  | Keyset pagination cursor (`registered_at,chain_id,agent_id` tuple) |
 
 **Response:** Same shape as `/api/explore`. Cursor encodes the full keyset tuple for stable pagination under concurrent inserts.
 
@@ -1294,16 +1400,16 @@ Model Context Protocol endpoint — exposes three.ws as a JSON-RPC 2.0 tool serv
 
 ### Available tools
 
-| Tool | Scope required | Description |
-|------|---------------|-------------|
-| `list_my_avatars` | `avatars:read` | List authenticated user's avatars |
-| `get_avatar` | `avatars:read` | Fetch single avatar by ID or owner+slug |
-| `search_public_avatars` | none | Search the public avatar gallery |
-| `render_avatar` | `avatars:read` | Generate `<model-viewer>` HTML embed |
-| `delete_avatar` | `avatars:delete` | Soft-delete an avatar |
-| `validate_model` | none | Run Khronos glTF-Validator on a remote URL |
-| `inspect_model` | none | Parse GLB/glTF and return structural stats |
-| `optimize_model` | none | Return optimization suggestions for a model |
+| Tool                    | Scope required   | Description                                 |
+| ----------------------- | ---------------- | ------------------------------------------- |
+| `list_my_avatars`       | `avatars:read`   | List authenticated user's avatars           |
+| `get_avatar`            | `avatars:read`   | Fetch single avatar by ID or owner+slug     |
+| `search_public_avatars` | none             | Search the public avatar gallery            |
+| `render_avatar`         | `avatars:read`   | Generate `<model-viewer>` HTML embed        |
+| `delete_avatar`         | `avatars:delete` | Soft-delete an avatar                       |
+| `validate_model`        | none             | Run Khronos glTF-Validator on a remote URL  |
+| `inspect_model`         | none             | Parse GLB/glTF and return structural stats  |
+| `optimize_model`        | none             | Return optimization suggestions for a model |
 
 `render_avatar` enforces the agent's embed policy (allowed origins, allowed surfaces). Model URLs must be HTTPS — SSRF protections block private IP ranges.
 
@@ -1311,13 +1417,13 @@ Model Context Protocol endpoint — exposes three.ws as a JSON-RPC 2.0 tool serv
 
 ```json
 {
-  "jsonrpc": "2.0",
-  "id": 1,
-  "method": "tools/call",
-  "params": {
-    "name": "get_avatar",
-    "arguments": { "id": "abc123" }
-  }
+	"jsonrpc": "2.0",
+	"id": 1,
+	"method": "tools/call",
+	"params": {
+		"name": "get_avatar",
+		"arguments": { "id": "abc123" }
+	}
 }
 ```
 
@@ -1341,13 +1447,13 @@ Add a single `siwx:` block to `paidEndpoint(spec)`:
 
 ```js
 paidEndpoint({
-  route: '/api/x402/my-endpoint',
-  // …other fields…
-  siwx: {
-    statement: 'Sign in to refresh the catalog without re-paying.',
-    ttlSeconds: 24 * 3600,    // grant lifetime; null = permanent
-    expirationSeconds: 300,    // SIWX message validity window
-  },
+	route: '/api/x402/my-endpoint',
+	// …other fields…
+	siwx: {
+		statement: 'Sign in to refresh the catalog without re-paying.',
+		ttlSeconds: 24 * 3600, // grant lifetime; null = permanent
+		expirationSeconds: 300, // SIWX message validity window
+	},
 });
 ```
 
@@ -1365,12 +1471,12 @@ Each asset has its own SIWX grant key: the endpoint passes a `resourceUrlBuilder
 
 ```json
 {
-  "siwx": {
-    "configured": true,
-    "paymentsRowCount": 42,
-    "noncesRowCount": 17,
-    "evmVerifierConfigured": true
-  }
+	"siwx": {
+		"configured": true,
+		"paymentsRowCount": 42,
+		"noncesRowCount": 17,
+		"evmVerifierConfigured": true
+	}
 }
 ```
 
@@ -1387,10 +1493,10 @@ Paid MCP and A2MCP endpoints advertise **every settlement rail the deployment ca
 
 Both header names are read case-insensitively and both receipt names are emitted, so a buyer speaking either dialect is served. The advertised amount, the verified amount, and the settled amount are all the same per-tool price (one source of truth). Endpoints that speak this rail:
 
-| Endpoint | Kind | Rails advertised |
-|---|---|---|
-| `POST /api/mcp-3d` | MCP (Streamable HTTP) | Base + X Layer (+ Solana when configured) |
-| `POST /api/okx/3d/<service>` | A2MCP (decomposed 3D studio) | X Layer first, then Solana/Base |
+| Endpoint                     | Kind                         | Rails advertised                          |
+| ---------------------------- | ---------------------------- | ----------------------------------------- |
+| `POST /api/mcp-3d`           | MCP (Streamable HTTP)        | Base + X Layer (+ Solana when configured) |
+| `POST /api/okx/3d/<service>` | A2MCP (decomposed 3D studio) | X Layer first, then Solana/Base           |
 
 The full seller-side wire contract — challenge fields, verify→work→settle order, the `PAYMENT-SIGNATURE` payload shape, and the settlement receipt — is pinned in [`specs/okx-agent-payments.md`](../specs/okx-agent-payments.md). The per-service catalog and runnable curls are in [`docs/okx-marketplace.md`](okx-marketplace.md).
 
@@ -1413,30 +1519,52 @@ GET /api/coin/detail?contract=<solana-mint>
 
 **Query parameters**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `id` | string | CoinGecko coin id (lowercase slug). Required unless `contract` is given |
-| `contract` | string | Base58 Solana mint address — resolves via the contract lookup |
+| Parameter  | Type   | Description                                                             |
+| ---------- | ------ | ----------------------------------------------------------------------- |
+| `id`       | string | CoinGecko coin id (lowercase slug). Required unless `contract` is given |
+| `contract` | string | Base58 Solana mint address — resolves via the contract lookup           |
 
 **Response**
 
 ```json
 {
-  "coin": {
-    "id": "…", "symbol": "…", "name": "…", "image": "https://…", "rank": 1,
-    "categories": ["…"],
-    "description": "plain text, HTML stripped server-side",
-    "links": { "homepage": "…", "twitter": "…", "reddit": "…", "telegram": "…", "github": "…", "explorers": ["…"] },
-    "platforms": { "<chain>": "<contract address>" },
-    "market": {
-      "price": 0, "market_cap": 0, "fdv": 0, "volume_24h": 0,
-      "high_24h": 0, "low_24h": 0, "change_24h_abs": 0,
-      "change_pct": { "h24": 0, "d7": 0, "d30": 0, "y1": 0 },
-      "circulating": 0, "total": 0, "max": 0,
-      "ath": 0, "ath_date": "…", "ath_change_pct": 0, "atl": 0, "atl_date": "…"
-    },
-    "last_updated": "…"
-  }
+	"coin": {
+		"id": "…",
+		"symbol": "…",
+		"name": "…",
+		"image": "https://…",
+		"rank": 1,
+		"categories": ["…"],
+		"description": "plain text, HTML stripped server-side",
+		"links": {
+			"homepage": "…",
+			"twitter": "…",
+			"reddit": "…",
+			"telegram": "…",
+			"github": "…",
+			"explorers": ["…"]
+		},
+		"platforms": { "<chain>": "<contract address>" },
+		"market": {
+			"price": 0,
+			"market_cap": 0,
+			"fdv": 0,
+			"volume_24h": 0,
+			"high_24h": 0,
+			"low_24h": 0,
+			"change_24h_abs": 0,
+			"change_pct": { "h24": 0, "d7": 0, "d30": 0, "y1": 0 },
+			"circulating": 0,
+			"total": 0,
+			"max": 0,
+			"ath": 0,
+			"ath_date": "…",
+			"ath_change_pct": 0,
+			"atl": 0,
+			"atl_date": "…"
+		},
+		"last_updated": "…"
+	}
 }
 ```
 
@@ -1479,12 +1607,14 @@ GET /api/coin/global
 
 ```json
 {
-  "market": {
-    "market_cap_usd": 0, "volume_24h_usd": 0, "market_cap_change_pct_24h": 0,
-    "active_coins": 0,
-    "dominance": [{ "symbol": "…", "pct": 0 }]
-  },
-  "fear_greed": { "value": 0, "label": "…" }
+	"market": {
+		"market_cap_usd": 0,
+		"volume_24h_usd": 0,
+		"market_cap_change_pct_24h": 0,
+		"active_coins": 0,
+		"dominance": [{ "symbol": "…", "pct": 0 }]
+	},
+	"fear_greed": { "value": 0, "label": "…" }
 }
 ```
 
@@ -1506,9 +1636,9 @@ history to return.
 
 ```json
 {
-  "current": { "value": 0, "label": "…", "ts": 0 },
-  "previous_week": { "value": 0, "label": "…", "ts": 0 },
-  "history": [{ "ts": 0, "value": 0, "label": "…" }]
+	"current": { "value": 0, "label": "…", "ts": 0 },
+	"previous_week": { "value": 0, "label": "…", "ts": 0 },
+	"history": [{ "ts": 0, "value": 0, "label": "…" }]
 }
 ```
 
@@ -1532,23 +1662,46 @@ plus USD cost estimates from the live ETH price.
 
 ```json
 {
-  "tiers": [
-    {
-      "key": "slow|standard|fast",
-      "base_fee_gwei": 0, "priority_fee_gwei": 0,
-      "gas_price_gwei": 0, "gas_price_wei": 0,
-      "actions": [{ "key": "transfer", "label": "ETH transfer", "gas": 21000, "usd": 0 }]
-    }
-  ],
-  "base_fee_gwei": 0,
-  "eth_price_usd": 0,
-  "actions": [{ "key": "transfer", "label": "ETH transfer", "gas": 21000 }],
-  "updated_at": 0
+	"tiers": [
+		{
+			"key": "slow|standard|fast",
+			"base_fee_gwei": 0,
+			"priority_fee_gwei": 0,
+			"gas_price_gwei": 0,
+			"gas_price_wei": 0,
+			"actions": [{ "key": "transfer", "label": "ETH transfer", "gas": 21000, "usd": 0 }]
+		}
+	],
+	"base_fee_gwei": 0,
+	"eth_price_usd": 0,
+	"actions": [{ "key": "transfer", "label": "ETH transfer", "gas": 21000 }],
+	"updated_at": 0
 }
 ```
 
 `usd` is `null` if the ETH price is briefly unavailable (gwei figures stay
 live). Cached 15 s — no API key required.
+
+---
+
+### Market tools (categories, exchanges, derivatives, rates, DeFi)
+
+Read-only, key-free proxies powering the `/categories`, `/exchanges`,
+`/derivatives`, `/converter`, `/defi`, `/chains`, and `/stablecoins` pages.
+
+| Endpoint                    | Upstream                                 | Returns                                                                                                                                                                           |
+| --------------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/coin/categories`  | CoinGecko `/coins/categories`            | `{ categories: [{ id, name, market_cap, market_cap_change_24h, volume_24h, top_3_coins }] }`                                                                                      |
+| `GET /api/coin/exchanges`   | CoinGecko `/exchanges` + `/simple/price` | `{ exchanges: [{ id, name, image, trust_score, trust_score_rank, volume_24h_btc, volume_24h_usd, year_established, country, url }], btc_usd, updated_at }`                        |
+| `GET /api/coin/derivatives` | CoinGecko `/derivatives`                 | `{ tickers: [{ market, symbol, index_id, price, change_24h, funding_rate, open_interest, volume_24h }], updated_at }` (perpetuals only, top 100 by volume)                        |
+| `GET /api/coin/rates`       | CoinGecko `/exchange_rates`              | `{ fiats: [{ code, name, unit, per_btc }], updated_at }` (USD first; `per_btc` = units per 1 BTC)                                                                                 |
+| `GET /api/defi/protocols`   | DeFiLlama `/protocols`                   | `{ total_tvl, protocol_count, protocols: [{ name, logo, symbol, category, chains, chain_count, tvl, change_1d, change_7d, mcap }], updated_at }` (CEX category excluded; top 100) |
+| `GET /api/defi/chains`      | DeFiLlama `/v2/chains`                   | `{ total_tvl, chain_count, chains: [{ name, tvl, token_symbol, share_pct }], updated_at }` (top 100)                                                                              |
+| `GET /api/defi/stablecoins` | DeFiLlama `stablecoins.llama.fi`         | `{ total_mcap, count, stablecoins: [{ name, symbol, price, peg_type, peg_mechanism, circulating_usd, chains, chain_count }], updated_at }` (top 100)                              |
+
+All are GET-only, CORS-open, rate-limited per IP, and return `502 upstream_error`
+when their source is briefly unavailable. Cache windows: 300 s (categories,
+rates, DeFi), 120 s (exchanges), 60 s (derivatives). No API key required.
 
 ---
 
@@ -1565,6 +1718,150 @@ feeds directly (`source: "rss"`).
 
 ---
 
+## Unified API — `/api/v1/x` aggregator
+
+One catch-all route (`api/v1/x/[...slug].js`) bundles every third-party API
+three.ws re-offers as one API, registered in `api/v1/_providers.js`. Adding a
+new upstream — or a new endpoint on an existing one — is a descriptor there;
+no new route file. Providers today: **CoinGecko** (`coingecko`), **DefiLlama**
+(`defillama`), **Jupiter** (`jupiter`, Solana prices/quotes/search),
+**DexScreener** (`dexscreener`, DEX pairs/search/profiles/boosts for any
+token), **Solana reads** (`solana`, balance/token-holdings/token-supply/
+largest-holders/transaction/account/priority-fees via public RPC),
+**OpenAI-compatible LLM** (`openai`).
+
+```
+GET  /api/v1/x                              # discovery: every provider + endpoint
+GET  /api/v1/x/<provider>/<endpoint>?…       # most endpoints (GET)
+POST /api/v1/x/<provider>/<endpoint>         # a few (e.g. openai/chat)
+```
+
+Each call resolves to one of four billing lanes, in this order:
+
+| Lane     | How                                                                          | Notes                                                      |
+| -------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| **free** | send no credentials on an endpoint marked `free`                             | per-IP quota, zero setup — see below                       |
+| **BYOK** | send your own upstream key via the provider's header (e.g. `x-provider-key`) | pure pass-through, no markup, no key custody               |
+| **plan** | authenticate with a three.ws API key / OAuth token / session                 | uses the platform's upstream key, counts against your plan |
+| **x402** | send no credentials, no free quota left                                      | pay per call in USDC — the standard HTTP 402 challenge     |
+
+### The free tier
+
+This is what makes "free crypto API" true instead of marketing copy: an agent
+can call a `free`-marked endpoint with **zero wallet setup** and get real data.
+Each free-marked endpoint descriptor carries its own quota —
+`free: { perMin, perDay }` — enforced per (provider, endpoint, IP). Both
+windows must pass; whichever one blocks a request drives the response headers.
+
+```bash
+curl -s "https://three.ws/api/v1/x/coingecko/price?ids=solana"
+```
+
+```json
+{
+	"data": { "solana": { "usd": 141.23 } },
+	"_meta": {
+		"provider": "coingecko",
+		"endpoint": "price",
+		"billing": "free",
+		"free_remaining": { "per_min": 29, "per_day": 1999 }
+	}
+}
+```
+
+**Response headers on every free-lane call:**
+
+| Header                                                        | Meaning                                                                                                                |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `X-Free-Tier: 1`                                              | this response was served on the free lane                                                                              |
+| `RateLimit-Limit` / `RateLimit-Remaining` / `RateLimit-Reset` | the quota window that governed this request (burst `perMin` if it was the tighter one, else the daily `perDay` budget) |
+| `X-Free-Tier-Reset`                                           | only sent when the quota is exhausted — ISO timestamp for when the free lane reopens                                   |
+
+Once the quota is exhausted, the exact same URL keeps working — it just falls
+through to the standard x402 402 challenge (pay per call), or succeeds
+immediately if you send a three.ws API key or a BYOK header instead. No dead
+end, no silent downgrade.
+
+**Current free quotas** (also machine-readable via `GET /api/v1/x` below —
+every endpoint's `free` field is `{ perMin, perDay }` or `false`):
+
+| Provider/endpoint                                                                                                      | perMin                                                     | perDay |
+| ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ------ |
+| `coingecko/price`, `coingecko/markets`                                                                                 | 30                                                         | 2000   |
+| `defillama/protocols`, `defillama/tvl`                                                                                 | 30                                                         | 2000   |
+| `jupiter/price`, `jupiter/quote`, `jupiter/token-search`                                                               | 20                                                         | 2000   |
+| `dexscreener/token`, `dexscreener/search`, `dexscreener/pair`                                                          | 30                                                         | 3000   |
+| `dexscreener/profiles`, `dexscreener/boosts`                                                                           | 10                                                         | 500    |
+| `solana/balance`, `/token-holdings`, `/token-supply`, `/largest-holders`, `/transaction`, `/account`, `/priority-fees` | 20                                                         | 2000   |
+| `openai/chat`                                                                                                          | not free — real per-call LLM spend, BYOK or plan/x402 only |
+
+**DexScreener** (`dexscreener`) — live DEX pair data for any token: price,
+liquidity, volume, 24h change, txns. Works for any chain DexScreener indexes,
+not just Solana.
+
+```bash
+curl -s "https://three.ws/api/v1/x/dexscreener/token?addresses=FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump"
+```
+
+**Solana reads** (`solana`) — public-RPC reads with no key required: SOL
+balance, SPL token holdings, mint supply, largest-holder concentration, a
+transaction by signature, raw account info, and current prioritization fees.
+
+```bash
+curl -s "https://three.ws/api/v1/x/solana/balance?address=FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump"
+```
+
+### Discovery
+
+```
+GET /api/v1/x
+```
+
+Returns every provider and endpoint, each endpoint's price (USDC atomics),
+required OAuth scope, and its `free` quota (or `false`):
+
+```json
+{
+	"data": {
+		"base_url": "/api/v1/x",
+		"billing": { "byok": "…", "plan": "…", "free": "…", "x402": "…" },
+		"providers": [
+			{
+				"id": "coingecko",
+				"name": "CoinGecko",
+				"category": "crypto-market-data",
+				"key": "optional",
+				"byok": true,
+				"endpoints": [
+					{
+						"id": "price",
+						"method": "GET",
+						"path": "/api/v1/x/coingecko/price",
+						"scope": "agents:read",
+						"price_usdc_atomics": "1000",
+						"summary": "Spot price for one or more coins in any fiat/crypto.",
+						"params": { "ids": "…" },
+						"free": { "perMin": 30, "perDay": 2000 }
+					}
+				]
+			}
+		]
+	}
+}
+```
+
+### BYOK / plan / x402 lanes
+
+BYOK sends the provider's own key header (e.g. `x-provider-key`) and gets pure
+pass-through with no markup. Plan callers send `Authorization: Bearer
+<three.ws API key>` (or an OAuth token, or a browser session) and pay the
+endpoint's price against their plan. Neither present, and the free quota (if
+any) is exhausted → the standard x402 `HTTP 402` challenge (see
+[x402 Paid Endpoints](#x402-paid-endpoints--sign-in-with-x-siwx) above for the
+wire format); pay in USDC and the identical upstream call runs.
+
+---
+
 ## Animations Library API
 
 ```
@@ -1577,10 +1874,10 @@ Each entry's `url` is an absolute CDN URL to the baked clip JSON (`THREE.Animati
 
 **Query parameters** (optional — omit for the full catalog)
 
-| Param | Description |
-| --- | --- |
-| `limit` | Page size, `1`–`1000`. When set, the response is a bounded page instead of the whole catalog — use this to keep a single response small as the library grows. |
-| `offset` | Zero-based start index into the ordered catalog. Default `0`. |
+| Param    | Description                                                                                                                                                   |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `limit`  | Page size, `1`–`1000`. When set, the response is a bounded page instead of the whole catalog — use this to keep a single response small as the library grows. |
+| `offset` | Zero-based start index into the ordered catalog. Default `0`.                                                                                                 |
 
 The manifest is a stable ordered array, so paging is offset-based. A paged response adds `offset` and `next_offset` (`null` on the last page); `total` is always the full catalog size. Page until `next_offset` is `null`:
 
@@ -1595,19 +1892,19 @@ Omitting `limit` returns the full array exactly as before (no `offset`/`next_off
 
 ```json
 {
-  "clips": [
-    {
-      "name": "mx-hip-hop-dancing",
-      "label": "Hip Hop Dancing",
-      "icon": "💃",
-      "loop": true,
-      "duration": 4.4,
-      "bytes": 1174283,
-      "url": "https://cdn.three.ws/animations/library/clips/mx-hip-hop-dancing.json"
-    }
-  ],
-  "total": 2400,
-  "generated_at": "2026-07-04T00:00:00.000Z"
+	"clips": [
+		{
+			"name": "mx-hip-hop-dancing",
+			"label": "Hip Hop Dancing",
+			"icon": "💃",
+			"loop": true,
+			"duration": 4.4,
+			"bytes": 1174283,
+			"url": "https://cdn.three.ws/animations/library/clips/mx-hip-hop-dancing.json"
+		}
+	],
+	"total": 2400,
+	"generated_at": "2026-07-04T00:00:00.000Z"
 }
 ```
 
@@ -1627,7 +1924,7 @@ Returns public platform configuration. No auth required. CORS open.
 
 ```json
 {
-  "walletConnectProjectId": "..."
+	"walletConnectProjectId": "..."
 }
 ```
 
@@ -1649,21 +1946,21 @@ Responses always include `total`, `limit`, and `offset`.
 
 ## Error codes
 
-| Code | HTTP Status | Description |
-|------|-------------|-------------|
-| `UNAUTHORIZED` | 401 | Missing or invalid auth |
-| `FORBIDDEN` | 403 | Authenticated but not allowed |
-| `NOT_FOUND` | 404 | Resource doesn't exist |
-| `RATE_LIMITED` | 429 | Too many requests |
-| `INVALID_INPUT` | 400 | Request body validation failed |
-| `AGENT_NOT_FOUND` | 404 | Agent ID not found |
-| `WIDGET_NOT_FOUND` | 404 | Widget ID not found |
-| `CHAIN_NOT_SUPPORTED` | 400 | chainId not in supported list |
-| `IPFS_FAILED` | 503 | IPFS pinning service unavailable |
-| `LLM_ERROR` | 502 | LLM provider returned an error |
-| `TTS_LIMIT_EXCEEDED` | 429 | Character limit for TTS exceeded |
-| `QUOTA_EXCEEDED` | 429 | Agent's monthly token budget exhausted |
-| `EMBED_POLICY_DENIED` | 403 | Request origin blocked by agent embed policy |
+| Code                  | HTTP Status | Description                                  |
+| --------------------- | ----------- | -------------------------------------------- |
+| `UNAUTHORIZED`        | 401         | Missing or invalid auth                      |
+| `FORBIDDEN`           | 403         | Authenticated but not allowed                |
+| `NOT_FOUND`           | 404         | Resource doesn't exist                       |
+| `RATE_LIMITED`        | 429         | Too many requests                            |
+| `INVALID_INPUT`       | 400         | Request body validation failed               |
+| `AGENT_NOT_FOUND`     | 404         | Agent ID not found                           |
+| `WIDGET_NOT_FOUND`    | 404         | Widget ID not found                          |
+| `CHAIN_NOT_SUPPORTED` | 400         | chainId not in supported list                |
+| `IPFS_FAILED`         | 503         | IPFS pinning service unavailable             |
+| `LLM_ERROR`           | 502         | LLM provider returned an error               |
+| `TTS_LIMIT_EXCEEDED`  | 429         | Character limit for TTS exceeded             |
+| `QUOTA_EXCEEDED`      | 429         | Agent's monthly token budget exhausted       |
+| `EMBED_POLICY_DENIED` | 403         | Request origin blocked by agent embed policy |
 
 ---
 
@@ -1677,11 +1974,11 @@ import { AgentAPI } from '@three-ws/sdk';
 const api = new AgentAPI({ apiKey: 'sk_live_xxxxx' });
 
 const agents = await api.agents.list({ limit: 10 });
-const agent  = await api.agents.get('abc123');
+const agent = await api.agents.get('abc123');
 const widget = await api.widgets.create({
-  agentId: 'abc123',
-  type: 'turntable',
-  config: { auto_rotate_speed: 0.5, preset: 'venice' }
+	agentId: 'abc123',
+	type: 'turntable',
+	config: { auto_rotate_speed: 0.5, preset: 'venice' },
 });
 ```
 

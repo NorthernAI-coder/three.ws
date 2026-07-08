@@ -540,6 +540,13 @@ html.cv-page, .cv-page body {
 	.cv-news-card, .cv-stat-card, .cv-range-btn { transition: none; }
 }
 
+/* Market-tools hub strip on /coins — every sibling surface, one row. */
+.cv-tools {
+	display: flex; flex-wrap: wrap; gap: 0.5rem;
+	margin: 0 0 2rem;
+}
+.cv-tools .cv-pill { font-size: 0.8125rem; }
+
 /* ═══════════════════════════════════════════════════════════════════════════
    Market tools — /fear-greed, /heatmap, /gas, /compare
    Shared with the coin pages above (same tokens, fonts, card system).

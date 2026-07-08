@@ -68,9 +68,26 @@ The element accepts several ways to point at an agent — pick one:
 | `agent-id` (CAIP-10) | `agent-id="eip155:8453:0xReg…:42"` | Fully qualified on-chain reference |
 | `agent-id` (backend) | `agent-id="a_abc123"` | Legacy backend account ID |
 | `manifest` | `ipfs://bafy.../manifest.json` | IPFS or HTTPS manifest URL |
-| `body` | `./avatar.glb` | Bare GLB for ad-hoc (vieweronly, no persona) |
+| `body` | `./avatar.glb` | Bare GLB for an ad-hoc agent (viewer-only unless you also set `brain`) |
 
 When multiple are set, priority is `src` > `agent-id` > `manifest` > `body`.
+
+**Ad-hoc agents talk too:** `body` (and a bare-GLB `src`) default to a silent
+viewer. Add `brain="free"` to give it a real conversation with zero setup — no
+API key, no backend, no per-token cost — routed through three.ws's host-paid
+free-tier proxy. Pair it with `instructions` for a system prompt:
+
+```html
+<agent-3d
+  body="./avatar.glb"
+  brain="free"
+  instructions="You are Maya, a friendly guide to this site."
+></agent-3d>
+```
+
+Set `brain` to a specific model id (e.g. `claude-sonnet-4-6`) instead of `free`
+to use a paid model via your three.ws dashboard key, or `brain="none"` to keep
+it a pure display embed (see [Performance tips](#performance-tips)).
 
 ### Sizing
 

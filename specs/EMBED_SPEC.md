@@ -77,7 +77,7 @@ name-plate) is **opt-in**:
 
 | Attribute      | Type                      | Default       | Notes                                     |
 | -------------- | ------------------------- | ------------- | ----------------------------------------- |
-| `brain`        | model id                  | from manifest | `claude-opus-4-6`, `none`, etc.           |
+| `brain`        | model id                  | from manifest | `claude-opus-4-6`, `free` (host-paid free tier, no key needed), `none`, etc. |
 | `api-key`      | string                    | none          | **dev use only** — prefer `key-proxy`     |
 | `key-proxy`    | URL                       | none          | your backend that injects API keys safely |
 | `instructions` | URL or inline             | from manifest | overrides manifest's instructions.md      |

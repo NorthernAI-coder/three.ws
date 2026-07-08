@@ -25,7 +25,7 @@ import { buildBazaarSchema } from '../../_lib/x402-spec.js';
 import { installAccessControl } from '../../_lib/x402/access-control.js';
 import { withService, declareHttpDiscovery } from '../../_lib/x402/bazaar-helpers.js';
 import { priceFor } from '../../_lib/x402-prices.js';
-import { cors, error, json, method, wrap } from '../../_lib/http.js';
+import { cors, error, json, method, wrap, readBody } from '../../_lib/http.js';
 import { clientIp } from '../../_lib/rate-limit.js';
 import { textToImage } from '../../_mcp3d/text-to-image.js';
 import {
@@ -45,6 +45,7 @@ const PRICE_ATOMICS = priceFor('ai-image', '20000'); // $0.02 USDC per image abo
 const MAX_PROMPT = 2000;
 const MIN_PROMPT = 3;
 const MAX_SEED = 4_294_967_295; // uint32 — the widest seed the flux lanes accept
+const MAX_BODY_BYTES = 16_384; // generous ceiling for a { prompt, aspect_ratio, seed } JSON body
 
 // ── Bazaar discovery (uniqueness first) ──────────────────────────────────────
 
@@ -248,12 +249,6 @@ async function generateAndRespond({ prompt, aspectRatio, seed }, { free, ip }) {
 	};
 }
 
-async function readBody(req) {
-	const chunks = [];
-	for await (const c of req) chunks.push(c);
-	return Buffer.concat(chunks).toString('utf8');
-}
-
 // ── Paid endpoint (free-quota funnel → x402) ─────────────────────────────────
 
 const paidImage = paidEndpoint({
@@ -285,7 +280,8 @@ const paidImage = paidEndpoint({
 	}),
 
 	async handler({ req, bypass }) {
-		const parsed = parseImageRequest(await readBody(req));
+		const buf = await readBody(req, MAX_BODY_BYTES);
+		const parsed = parseImageRequest(buf.toString('utf8'));
 		const free = bypass?.reason === 'ai_image_free_daily';
 		return generateAndRespond(parsed, { free, ip: clientIp(req) });
 	},

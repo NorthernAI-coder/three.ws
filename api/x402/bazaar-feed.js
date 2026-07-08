@@ -28,6 +28,7 @@ import { installAccessControl } from '../_lib/x402/access-control.js';
 import { withService } from '../_lib/x402/bazaar-helpers.js';
 import { priceFor } from '../_lib/x402-prices.js';
 import { sql } from '../_lib/db.js';
+import bazaarFeedListing from '../_lib/service-catalog/services/bazaar-feed.js';
 
 const ROUTE = '/api/x402/bazaar-feed';
 
@@ -40,13 +41,11 @@ const PRESSURE_PCT = Math.max(0.05, Number(process.env.X402_BAZAAR_TREND_PRESSUR
 // Cap on how many movers to return per side (the long tail isn't actionable).
 const TOP_N = 25;
 
-const DESCRIPTION =
-	'Bazaar Feed - pay $0.001 USDC per call for two live views of the x402 service' +
-	' marketplace. filter "new"/"active": newest service listings (id, name, price,' +
-	' networks, tags, first_seen) plus category rollup and listing-velocity signal' +
-	' (spike/active/quiet). filter "price_trends": 24h price-movement across all' +
-	' tracked services - trending up/down/stable and net market pressure as' +
-	' bullish/bearish/neutral. Live data from the platform bazaar index.';
+// Single source of truth: api/_lib/service-catalog/services/bazaar-feed.js is
+// the storefront listing copy — importing it here keeps the live 402 challenge
+// from drifting from what /.well-known/x402.json and the OKX projection
+// advertise (same pattern as forge.js → forge-listing.js).
+const DESCRIPTION = bazaarFeedListing.description;
 
 const INPUT_SCHEMA = {
 	$schema: 'https://json-schema.org/draft/2020-12/schema',

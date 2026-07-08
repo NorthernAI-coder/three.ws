@@ -333,6 +333,46 @@ export const NAV_GROUPS = [
 						desc: 'Put up to four coins head to head — overlay performance and line up the stats',
 					},
 					{
+						title: 'Screener',
+						href: '/screener',
+						desc: 'Filter the top 250 coins by market cap, volume, and 24h move — find movers fast',
+					},
+					{
+						title: 'Categories',
+						href: '/categories',
+						desc: 'Every crypto sector ranked by market cap — smart contracts, AI, memes, and more',
+					},
+					{
+						title: 'Exchanges',
+						href: '/exchanges',
+						desc: 'Top crypto exchanges ranked by trust score and 24h volume',
+					},
+					{
+						title: 'Derivatives',
+						href: '/derivatives',
+						desc: 'Live perpetual futures — funding rates, open interest, and volume by market',
+					},
+					{
+						title: 'Converter',
+						href: '/converter',
+						desc: 'Convert between any crypto and major fiat currencies at live rates',
+					},
+					{
+						title: 'DeFi TVL',
+						href: '/defi',
+						desc: 'Total value locked across DeFi — top protocols by TVL, live from DeFiLlama',
+					},
+					{
+						title: 'Chains',
+						href: '/chains',
+						desc: 'Blockchain TVL leaderboard — value locked per chain with dominance share',
+					},
+					{
+						title: 'Stablecoins',
+						href: '/stablecoins',
+						desc: 'Stablecoin market caps and peg health across every major issuer',
+					},
+					{
 						title: 'Coin Intelligence',
 						href: '/coin-intel',
 						badge: 'Live',

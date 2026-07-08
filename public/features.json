@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-08T00:08:53.636Z",
+	"generated_at": "2026-07-08T00:51:31.590Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -820,6 +820,16 @@
 					"showcase": false
 				},
 				{
+					"path": "/viewer",
+					"title": "glTF / GLB Viewer",
+					"description": "Paste any public glTF/GLB URL and preview it inline — the lightweight, unauthenticated model viewer every 3D Studio tool's shared asset link opens.",
+					"added": "2026-07-08",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
 					"path": "/playground",
 					"title": "Playground",
 					"description": "Sandbox for experimenting with agents, prompts, and 3D scenes.",
@@ -1421,6 +1431,86 @@
 					"title": "Compare Crypto Side by Side",
 					"description": "Compare cryptocurrencies head to head — overlay normalized price performance and line up market cap, volume, FDV, supply, and all-time-high stats for up to four coins at once. The selection is saved to the URL so any matchup is shareable.",
 					"added": "2026-07-07",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/screener",
+					"title": "Crypto Token Screener",
+					"description": "Screen the top 250 cryptocurrencies with live filters — search by name or symbol, isolate gainers or losers, and set minimum market cap and 24h volume thresholds. Every column sorts and every row links to a full coin detail page.",
+					"added": "2026-07-08",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/categories",
+					"title": "Crypto Categories by Market Cap",
+					"description": "Every crypto sector ranked by market cap — smart contract platforms, AI agents, memecoins, DeFi, gaming, and more — with 24h change, volume, and the top coins in each. See which narratives are leading the market right now.",
+					"added": "2026-07-08",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/exchanges",
+					"title": "Top Crypto Exchanges",
+					"description": "The leading cryptocurrency exchanges ranked by trust score and 24-hour trading volume, with country, launch year, and a direct link to each. Real CoinGecko data, sortable by any column.",
+					"added": "2026-07-08",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/derivatives",
+					"title": "Crypto Derivatives & Perpetual Futures",
+					"description": "Live perpetual-futures markets across exchanges — price, 24h change, funding rate, open interest, and volume for every major contract. Filter by underlying index (BTC, ETH, SOL) and sort by any column.",
+					"added": "2026-07-08",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/converter",
+					"title": "Crypto Currency Converter",
+					"description": "Convert between any cryptocurrency and major world fiat currencies at live market rates — crypto to crypto, crypto to fiat, and back. Type an amount, pick both sides, and share the result via URL.",
+					"added": "2026-07-08",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/defi",
+					"title": "DeFi TVL & Top Protocols",
+					"description": "Total value locked across decentralized finance, with the top protocols ranked by TVL, their category, chains, and 1-day and 7-day change. Live from DeFiLlama, sortable and filterable by category.",
+					"added": "2026-07-08",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/chains",
+					"title": "Blockchain TVL by Chain",
+					"description": "A leaderboard of every blockchain by total value locked, with each chain's dominance share of on-chain DeFi. Live from DeFiLlama — see where liquidity actually sits across L1s and L2s.",
+					"added": "2026-07-08",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/stablecoins",
+					"title": "Stablecoins Market Cap & Peg Health",
+					"description": "Every major stablecoin ranked by circulating market cap, with live peg health, backing mechanism (fiat-backed, crypto-backed, algorithmic), and the chains it lives on. Live from DeFiLlama.",
+					"added": "2026-07-08",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

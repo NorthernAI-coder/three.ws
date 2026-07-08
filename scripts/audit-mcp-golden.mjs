@@ -22,7 +22,7 @@
 //
 // Run:  node scripts/audit-mcp-golden.mjs           → compare, exit 1 on drift
 //       node scripts/audit-mcp-golden.mjs --update  → regenerate the fixture
-import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -40,7 +40,30 @@ const SOURCES = [
 	'api/_mcpagent/tools.js',
 	'api/_mcpbazaar/tools.js',
 	'api/_mcpibm/tools.js',
+	// Published MCP packages expose each tool as packages/<name>-mcp/src/tools/*.js.
+	// Snapshot them too — a package tool's public contract (name, description,
+	// input schema, safety annotations) is a promise to every MCP client that
+	// installed it, and a silent refactor must not be allowed to change it.
+	...packageToolSources(),
 ].filter((f) => f.endsWith('.js')).sort();
+
+// Discover every `packages/*-mcp/src/tools/*.js` tool-definition file. Returns
+// repo-relative, forward-slash paths (matching the hosted entries above) so the
+// same static AST extractor and fixture keying work unchanged. `index.js`
+// barrels are skipped — they re-export, they don't define contracts.
+function packageToolSources() {
+	const pkgRoot = join(ROOT, 'packages');
+	if (!existsSync(pkgRoot)) return [];
+	return readdirSync(pkgRoot, { withFileTypes: true })
+		.filter((d) => d.isDirectory() && d.name.endsWith('-mcp'))
+		.flatMap((d) => {
+			const rel = `packages/${d.name}/src/tools`;
+			if (!existsSync(join(ROOT, rel))) return [];
+			return readdirSync(join(ROOT, rel))
+				.filter((f) => f.endsWith('.js') && f !== 'index.js')
+				.map((f) => `${rel}/${f}`);
+		});
+}
 
 const sha12 = (text) => createHash('sha256').update(text).digest('hex').slice(0, 12);
 
@@ -89,8 +112,10 @@ function extractTools(file) {
 			if (name && hasContract) {
 				const desc = stringValue(props.get('description'));
 				const schemaNode = props.get('inputSchema');
+				const title = stringValue(props.get('title'));
 				tools.push({
 					name,
+					...(title ? { title } : {}),
 					descHead: desc ? desc.split('\n')[0].slice(0, 72) : 'dynamic',
 					descHash: desc ? sha12(desc) : 'dynamic',
 					annotations: annotationsValue(props.get('annotations')),
@@ -145,7 +170,7 @@ for (const file of new Set([...Object.keys(golden), ...Object.keys(current)])) {
 	for (const [name, tool] of after) {
 		const prev = before.get(name);
 		if (!prev) { complain(`${file}: tool ADDED: ${name}`); continue; }
-		for (const field of ['descHash', 'schemaHash']) {
+		for (const field of ['title', 'descHash', 'schemaHash']) {
 			if (JSON.stringify(prev[field]) !== JSON.stringify(tool[field])) {
 				complain(`${file}: ${name}.${field.replace('Hash', '')} changed (was "${prev.descHead}")`);
 			}

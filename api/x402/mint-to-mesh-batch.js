@@ -1,6 +1,6 @@
-// INTERNAL-USE ONLY; not an agent product. De-listed from the x402 discovery
-// catalog (api/wk.js) in the 2026-07 overhaul: the Mei foundry NPC in /play sells it; the real agent-facing text->3D product is Forge (/api/x402/forge).
-// The route stays live for those consumers; do not re-add it to the catalog.
+// Re-listed per the 2026-07-08 storefront cleanup (prompt 18) — batch sibling
+// of mint-to-mesh, same disposition: see api/x402/mint-to-mesh.js for the
+// header note superseding the prior "internal-use only" de-listing.
 // POST /api/x402/mint-to-mesh-batch
 //   body: { mints: ["mint1", "mint2", ...] }   (1–10 mints)
 //

@@ -162,4 +162,19 @@ export const CATALOG = [
 			address: 'string — base58 Solana mint address (required; EVM 0x… returns 400)',
 		},
 	},
+	{
+		id: 'v1.resolve',
+		method: 'GET',
+		path: '/api/v1/resolve',
+		auth: 'public',
+		summary:
+			'Free name resolution — a high-frequency agent primitive. Resolve a .eth name to its ' +
+			'Ethereum address via ENS, or a .sol name to its Solana owner via SNS; reverse-resolve an ' +
+			'address back to its primary name in either direction. No key, no wallet; 30/min per IP.',
+		params: {
+			name: 'string — a name ending in .eth (ENS) or .sol (SNS) to resolve (required unless address is passed)',
+			address: 'string — 0x… Ethereum or base58 Solana address to reverse-resolve (required unless name is passed)',
+			chain: 'string — "ethereum" | "solana", optional hint validated against address (auto-detected from format when omitted)',
+		},
+	},
 ];

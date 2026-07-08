@@ -674,6 +674,14 @@
 					"added": "2026-04-28"
 				},
 				{
+					"path": "/viewer",
+					"title": "glTF / GLB Viewer",
+					"description": "Paste any public glTF/GLB URL and preview it inline — the lightweight, unauthenticated model viewer every 3D Studio tool's shared asset link opens.",
+					"priority": 0.5,
+					"changefreq": "monthly",
+					"added": "2026-07-08"
+				},
+				{
 					"path": "/playground",
 					"title": "Playground",
 					"description": "Sandbox for experimenting with agents, prompts, and 3D scenes.",
@@ -1161,6 +1169,70 @@
 					"priority": 0.7,
 					"changefreq": "hourly",
 					"added": "2026-07-07"
+				},
+				{
+					"path": "/screener",
+					"title": "Crypto Token Screener",
+					"description": "Screen the top 250 cryptocurrencies with live filters — search by name or symbol, isolate gainers or losers, and set minimum market cap and 24h volume thresholds. Every column sorts and every row links to a full coin detail page.",
+					"priority": 0.7,
+					"changefreq": "hourly",
+					"added": "2026-07-08"
+				},
+				{
+					"path": "/categories",
+					"title": "Crypto Categories by Market Cap",
+					"description": "Every crypto sector ranked by market cap — smart contract platforms, AI agents, memecoins, DeFi, gaming, and more — with 24h change, volume, and the top coins in each. See which narratives are leading the market right now.",
+					"priority": 0.7,
+					"changefreq": "hourly",
+					"added": "2026-07-08"
+				},
+				{
+					"path": "/exchanges",
+					"title": "Top Crypto Exchanges",
+					"description": "The leading cryptocurrency exchanges ranked by trust score and 24-hour trading volume, with country, launch year, and a direct link to each. Real CoinGecko data, sortable by any column.",
+					"priority": 0.7,
+					"changefreq": "daily",
+					"added": "2026-07-08"
+				},
+				{
+					"path": "/derivatives",
+					"title": "Crypto Derivatives & Perpetual Futures",
+					"description": "Live perpetual-futures markets across exchanges — price, 24h change, funding rate, open interest, and volume for every major contract. Filter by underlying index (BTC, ETH, SOL) and sort by any column.",
+					"priority": 0.7,
+					"changefreq": "always",
+					"added": "2026-07-08"
+				},
+				{
+					"path": "/converter",
+					"title": "Crypto Currency Converter",
+					"description": "Convert between any cryptocurrency and major world fiat currencies at live market rates — crypto to crypto, crypto to fiat, and back. Type an amount, pick both sides, and share the result via URL.",
+					"priority": 0.7,
+					"changefreq": "hourly",
+					"added": "2026-07-08"
+				},
+				{
+					"path": "/defi",
+					"title": "DeFi TVL & Top Protocols",
+					"description": "Total value locked across decentralized finance, with the top protocols ranked by TVL, their category, chains, and 1-day and 7-day change. Live from DeFiLlama, sortable and filterable by category.",
+					"priority": 0.7,
+					"changefreq": "hourly",
+					"added": "2026-07-08"
+				},
+				{
+					"path": "/chains",
+					"title": "Blockchain TVL by Chain",
+					"description": "A leaderboard of every blockchain by total value locked, with each chain's dominance share of on-chain DeFi. Live from DeFiLlama — see where liquidity actually sits across L1s and L2s.",
+					"priority": 0.7,
+					"changefreq": "hourly",
+					"added": "2026-07-08"
+				},
+				{
+					"path": "/stablecoins",
+					"title": "Stablecoins Market Cap & Peg Health",
+					"description": "Every major stablecoin ranked by circulating market cap, with live peg health, backing mechanism (fiat-backed, crypto-backed, algorithmic), and the chains it lives on. Live from DeFiLlama.",
+					"priority": 0.7,
+					"changefreq": "hourly",
+					"added": "2026-07-08"
 				},
 				{
 					"path": "/constellation",

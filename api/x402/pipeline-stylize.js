@@ -25,6 +25,7 @@ import {
 	persistStageOutput,
 	stageObjectKey,
 } from '../_lib/pipeline-stage.js';
+import pipelineStylizeListing from '../_lib/service-catalog/services/pipeline-stylize.js';
 
 const ROUTE = '/api/x402/pipeline-stylize';
 const SLUG = 'pipeline-stylize';
@@ -38,12 +39,11 @@ const STYLE_BOUNDS = {
 	lowpoly: { def: 40, min: 8, max: 120 },
 };
 
-const DESCRIPTION =
-	'3D Asset Pipeline — Stylize: pay $0.03 USDC to geometrically restyle a GLB. ' +
-	'Voxel, brick, Voronoi-shatter, or faceted low-poly filters that rebuild the ' +
-	'mesh itself (not a shader), so the look survives export to any engine. POST a ' +
-	'public glb_url + style; get back a durable first-party GLB URL. Pay ' +
-	'autonomously in USDC on Solana mainnet.';
+// Single source of truth: api/_lib/service-catalog/services/pipeline-stylize.js
+// is the storefront listing copy — importing it here keeps the live 402
+// challenge from drifting from what /.well-known/x402.json and the OKX
+// projection advertise (same pattern as forge.js → forge-listing.js).
+const DESCRIPTION = pipelineStylizeListing.description;
 
 export const INPUT_SCHEMA = {
 	$schema: 'https://json-schema.org/draft/2020-12/schema',

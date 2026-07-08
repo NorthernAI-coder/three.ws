@@ -12,7 +12,7 @@
 // The functions here are deliberately framework-free — they operate on a
 // decoded payload + a small request descriptor — so they can be wired into
 // both the `paidEndpoint()` wrapper and the standalone endpoints that hand-
-// roll their 402 dance (model-check, mint-to-mesh, revenue-vision).
+// roll their 402 dance (model-check, mint-to-mesh, mint-to-mesh-batch).
 
 import {
 	PAYMENT_IDENTIFIER,

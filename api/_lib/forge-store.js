@@ -19,6 +19,8 @@ import { sql, isDbUnavailableError } from './db.js';
 import { databaseConfigured } from './env.js';
 import { putObject, publicUrl } from './r2.js';
 import { recordGenerationEvent } from './forge-events.js';
+import { scoreGlbQuality } from './glb-quality.js';
+import { compressGlb } from './glb-compress.js';
 
 // Stable, non-secret salt so a leaked DB row can't be trivially reversed to the
 // raw browser-local id. The id is anonymous to begin with; this is hygiene, not
@@ -140,7 +142,45 @@ export async function findByJob({ replicateJobId, clientKey }) {
 const COPY_MAX_ATTEMPTS = 3;
 const COPY_RETRY_BASE_MS = 400;
 
-async function copyToBucket({ sourceUrl, key, fallbackContentType, maxBytes }) {
+// Score + (optionally) compress a freshly-downloaded GLB before it lands in the
+// bucket. Both steps are pure, local, and best-effort: a scoring/compression
+// failure never blocks delivery — it just means the response carries no
+// quality signal, or ships the original uncompressed bytes. `compress` is one
+// of COMPRESSION_MODES ('draco' | 'meshopt') or falsy to skip.
+async function scoreAndCompress(buf, { computeQuality, compress }) {
+	let quality = null;
+	let compression = null;
+	if (computeQuality) {
+		try {
+			quality = scoreGlbQuality(buf);
+		} catch (err) {
+			console.warn('[forge-store] quality scoring failed:', err?.message);
+		}
+	}
+	let outBuf = buf;
+	if (compress) {
+		try {
+			const result = await compressGlb(buf, { mode: compress });
+			if (result.grew) {
+				compression = { mode: result.mode, skipped: true, reason: 'no_size_benefit' };
+			} else {
+				outBuf = result.buffer;
+				compression = {
+					mode: result.mode,
+					input_bytes: result.inputBytes,
+					output_bytes: result.outputBytes,
+					ratio: result.ratio,
+				};
+			}
+		} catch (err) {
+			console.warn(`[forge-store] compression (${compress}) failed, delivering uncompressed:`, err?.message);
+			compression = { mode: compress, skipped: true, reason: 'compression_failed' };
+		}
+	}
+	return { buf: outBuf, quality, compression };
+}
+
+async function copyToBucket({ sourceUrl, key, fallbackContentType, maxBytes, computeQuality = false, compress = null }) {
 	let lastErr;
 	for (let attempt = 1; attempt <= COPY_MAX_ATTEMPTS; attempt++) {
 		try {
@@ -154,11 +194,19 @@ async function copyToBucket({ sourceUrl, key, fallbackContentType, maxBytes }) {
 				if (attempt < COPY_MAX_ATTEMPTS) { lastErr = err; }
 				else throw err;
 			} else {
-				const buf = Buffer.from(await resp.arrayBuffer());
+				let buf = Buffer.from(await resp.arrayBuffer());
 				if (buf.length > maxBytes) throw new Error(`asset too large: ${buf.length} bytes`);
 				const contentType = resp.headers.get('content-type') || fallbackContentType;
+				let quality = null;
+				let compression = null;
+				if (computeQuality || compress) {
+					const scored = await scoreAndCompress(buf, { computeQuality, compress });
+					buf = scored.buf;
+					quality = scored.quality;
+					compression = scored.compression;
+				}
 				await putObject({ key, body: buf, contentType, metadata: { source: 'forge' } });
-				return { bytes: buf.length, publicUrl: publicUrl(key) };
+				return { bytes: buf.length, publicUrl: publicUrl(key), quality, compression };
 			}
 		} catch (err) {
 			// Permanent (404/410) or too-large: surface immediately. Network errors

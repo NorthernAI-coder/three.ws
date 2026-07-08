@@ -58,9 +58,29 @@ export interface LightRig {
 	shoeTarget: unknown;
 }
 
+export interface MaterialPreset {
+	label?: string;
+	color?: string;
+	metalness?: number;
+	roughness?: number;
+	emissive?: string;
+	emissiveIntensity?: number;
+	envMapIntensity?: number;
+	transparent?: boolean;
+	opacity?: number;
+}
+
+export interface MaterialVariant {
+	label: string;
+	seed: number;
+	config: MaterialPreset;
+}
+
 export declare const LIGHT_CONFIG: LightConfig;
 export declare const FLOOR_REFLECTION_DEFAULTS: Readonly<Omit<FloorReflectionProps, 'color'>>;
 export declare const BLOOM_DEFAULTS: BloomProps;
+export declare const MATERIAL_PRESETS: Readonly<Record<string, Readonly<MaterialPreset>>>;
+export declare const MATERIAL_PRESET_NAMES: readonly string[];
 
 export declare function buildLightRig(
 	THREE: unknown,
@@ -70,3 +90,18 @@ export declare function floorReflectionConfig(
 	props: Partial<Omit<FloorReflectionProps, 'color'>> & { color: string },
 ): FloorReflectionProps;
 export declare function bloomConfig(overrides?: Partial<BloomProps>): BloomProps;
+
+export declare function materialPreset(
+	presetOrConfig: string | Partial<MaterialPreset>,
+	overrides?: Partial<MaterialPreset>,
+): MaterialPreset;
+export declare function applyMaterialPreset(
+	THREE: unknown,
+	root: unknown,
+	presetOrConfig: string | Partial<MaterialPreset>,
+	opts?: { overrides?: Partial<MaterialPreset> },
+): { restore: () => void; count: number };
+export declare function materialVariants(
+	base: string | Partial<MaterialPreset>,
+	opts?: { seed?: number; count?: number; hueSpread?: number; jitter?: number },
+): MaterialVariant[];

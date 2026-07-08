@@ -20,15 +20,15 @@ import { installAccessControl } from '../_lib/x402/access-control.js';
 import { withService } from '../_lib/x402/bazaar-helpers.js';
 import { priceFor } from '../_lib/x402-prices.js';
 import { fetchTokenMarket, buildTokenSignal, buildTokenRisk, isResolvableAddress } from '../_lib/token-market.js';
+import tokenIntelListing from '../_lib/service-catalog/services/token-intel.js';
 
 const ROUTE = '/api/x402/token-intel';
 
-const DESCRIPTION =
-	'Generic token oracle — pay $0.01 USDC per call for live market intel on ANY ' +
-	'token by contract address: price, 24 h change, market cap, liquidity, 24 h ' +
-	'volume, and a bullish / bearish / neutral signal with a two-sentence ' +
-	'rationale. Pass ?mint=<contract-address> (Solana mint or EVM 0x). Powered ' +
-	'by live DexScreener data.';
+// Single source of truth: api/_lib/service-catalog/services/token-intel.js is
+// the storefront listing copy — importing it here keeps the live 402 challenge
+// from drifting from what /.well-known/x402.json and the OKX projection
+// advertise (same pattern as forge.js → forge-listing.js).
+const DESCRIPTION = tokenIntelListing.description;
 
 export const INPUT_SCHEMA = {
 	$schema: 'https://json-schema.org/draft/2020-12/schema',

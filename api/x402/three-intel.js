@@ -23,6 +23,13 @@ import { installAccessControl } from '../_lib/x402/access-control.js';
 import { withService } from '../_lib/x402/bazaar-helpers.js';
 import { priceFor } from '../_lib/x402-prices.js';
 import { env } from '../_lib/env.js';
+import {
+	mppEnabled,
+	looksLikeMppPayment,
+	mppRequirements,
+	mppVerify,
+	mppSettle,
+} from '../_lib/bnb/mpp-server.js';
 
 const ROUTE = '/api/x402/three-intel';
 
@@ -60,6 +67,9 @@ const OUTPUT_SCHEMA = {
 };
 
 export const BAZAAR = {
+	// De-listed per the 2026-07-08 storefront cleanup (prompt 18) — stays live
+	// for the /play town kiosk; not agent-discoverable via the bazaar.
+	discoverable: false,
 	description: DESCRIPTION,
 	useCases: ['$THREE market signal', 'in-world paid oracle', 'token intel'],
 	input: { type: 'query', example: {}, schema: INPUT_SCHEMA },
@@ -138,10 +148,42 @@ export function buildSignal({ price_usd, change_24h, volume_24h_usd, liquidity_u
 	return { signal, headline, rationale, confidence };
 }
 
-export default paidEndpoint({
+const PRICE_ATOMICS = priceFor('three-intel', '10000'); // $0.01 USDC
+
+/**
+ * The oracle's business logic, shared by the x402 handler and the MPP
+ * (BNB Chain) alternate payment path. Throws a 503 when live data is
+ * unavailable — a paid endpoint never charges for a fabricated signal.
+ */
+export async function computeThreeIntel() {
+	const mint = env.THREE_TOKEN_MINT;
+	let live = null;
+	try { live = await fetchThreeMarket(mint); } catch { /* upstream hiccup */ }
+
+	if (!live || live.change_24h == null) {
+		throw Object.assign(new Error('live THREE market data is temporarily unavailable'), {
+			status: 503,
+			code: 'data_unavailable',
+		});
+	}
+
+	const { signal, headline, rationale, confidence } = buildSignal(live);
+	return {
+		mint,
+		symbol: 'THREE',
+		...live,
+		signal,
+		headline,
+		rationale,
+		confidence,
+		ts: new Date().toISOString(),
+	};
+}
+
+const x402Handler = paidEndpoint({
 	route: ROUTE,
 	method: 'GET',
-	priceAtomics: priceFor('three-intel', '10000'), // $0.01 USDC
+	priceAtomics: PRICE_ATOMICS,
 	networks: ['solana', 'base'],
 	description: DESCRIPTION,
 	bazaar: BAZAAR,
@@ -150,33 +192,49 @@ export default paidEndpoint({
 		tags: ['three', 'market', 'signal', 'play', 'solana'],
 	}),
 	accessControl: installAccessControl({ requiredScope: 'x402:bypass' }),
-
-	async handler() {
-		const mint = env.THREE_TOKEN_MINT;
-		let live = null;
-		try { live = await fetchThreeMarket(mint); } catch { /* upstream hiccup */ }
-
-		if (!live || live.change_24h == null) {
-			// Live data is unavailable (DexScreener hiccup/rate-limit). This is a
-			// paid endpoint — never charge for a fabricated signal. Throw so the
-			// paidEndpoint wrapper returns a 503 BEFORE settlement runs; the buyer
-			// is not charged and can retry once live data is back.
-			throw Object.assign(new Error('live THREE market data is temporarily unavailable'), {
-				status: 503,
-				code: 'data_unavailable',
-			});
-		}
-
-		const { signal, headline, rationale, confidence } = buildSignal(live);
-		return {
-			mint,
-			symbol: 'THREE',
-			...live,
-			signal,
-			headline,
-			rationale,
-			confidence,
-			ts: new Date().toISOString(),
-		};
-	},
+	handler: computeThreeIntel,
 });
+
+// Additive MPP (BNB Chain / b402) alternate payment path. A BNB-network
+// X-PAYMENT settles through the b402 facilitator; every Solana/Base x402
+// request (and every unpaid request) falls through to the untouched x402
+// handler. Order is verify (free) → compute → settle so a data-outage 503
+// never charges the buyer. Advertising header lets MPP clients discover us.
+export default async function handler(req, res) {
+	if (mppEnabled() && looksLikeMppPayment(req)) {
+		const requirements = await mppRequirements({
+			route: ROUTE,
+			priceAtomics: PRICE_ATOMICS,
+			description: DESCRIPTION,
+		});
+		const verified = await mppVerify(req, requirements);
+		if (!verified.ok) {
+			return sendJson(res, verified.status, { error: verified.code, message: verified.reason });
+		}
+		let body;
+		try {
+			body = await computeThreeIntel();
+		} catch (err) {
+			// Business failure BEFORE settle — buyer is not charged.
+			return sendJson(res, err.status || 500, { error: err.code || 'error', message: err.message });
+		}
+		const settled = await mppSettle(verified.payload, requirements, { client: verified.client });
+		if (!settled.ok) {
+			return sendJson(res, settled.status, { error: settled.code, message: settled.reason });
+		}
+		res.setHeader('X-PAYMENT-RESPONSE', settled.paymentResponseHeader);
+		res.setHeader('X-Settled-Via', 'mpp-b402');
+		return sendJson(res, 200, body);
+	}
+	// Advertise MPP payability to discovery clients without altering x402.
+	if (mppEnabled() && typeof res.setHeader === 'function') {
+		res.setHeader('X-Accept-Payment-MPP', ROUTE);
+	}
+	return x402Handler(req, res);
+}
+
+function sendJson(res, status, obj) {
+	res.statusCode = status;
+	if (typeof res.setHeader === 'function') res.setHeader('content-type', 'application/json');
+	res.end(JSON.stringify(obj));
+}

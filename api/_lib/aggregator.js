@@ -51,6 +51,15 @@ export async function executeUpstream({ provider, endpoint, query = {}, body, ap
 	const path = typeof endpoint.path === 'function' ? endpoint.path(query) : endpoint.path;
 	const url = new URL(provider.base + path);
 
+	// `endpoint.method` is the caller-facing HTTP verb (what the aggregator front
+	// door requires the request to use); `endpoint.upstreamMethod` — optional,
+	// only set when they differ — is what we actually send upstream. This exists
+	// for read-only JSON-RPC upstreams (e.g. Solana) that are POST-only on the
+	// wire: the public surface stays a plain GET (agent-friendly, cacheable,
+	// no body to construct), while the upstream call is a POST built from the
+	// caller's query params. See the `solana` provider in api/v1/_providers.js.
+	const upstreamMethod = endpoint.upstreamMethod || endpoint.method;
+
 	if (endpoint.method === 'GET' && endpoint.query) {
 		for (const [k, v] of Object.entries(endpoint.query(query))) {
 			if (v != null && v !== '') url.searchParams.set(k, String(v));
@@ -59,8 +68,10 @@ export async function executeUpstream({ provider, endpoint, query = {}, body, ap
 
 	const headers = { accept: 'application/json' };
 	let outBody;
-	if (endpoint.method === 'POST') {
-		outBody = endpoint.body ? endpoint.body(body) : body;
+	if (upstreamMethod === 'POST') {
+		// A GET-caller/POST-upstream endpoint has no caller body to forward — its
+		// `body()` builder consumes the caller's query params instead.
+		outBody = endpoint.body ? endpoint.body(endpoint.method === 'GET' ? query : body) : body;
 		headers['content-type'] = 'application/json';
 	}
 	provider.applyKey(headers, url, apiKey);
@@ -70,7 +81,7 @@ export async function executeUpstream({ provider, endpoint, query = {}, body, ap
 	let res;
 	try {
 		res = await fetch(url, {
-			method: endpoint.method,
+			method: upstreamMethod,
 			headers,
 			body: outBody != null ? JSON.stringify(outBody) : undefined,
 			signal: controller.signal,

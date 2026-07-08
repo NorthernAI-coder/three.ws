@@ -23,6 +23,7 @@ import { buildBazaarSchema } from '../_lib/x402-spec.js';
 import { installAccessControl } from '../_lib/x402/access-control.js';
 import { withService } from '../_lib/x402/bazaar-helpers.js';
 import { llmComplete } from '../_lib/llm.js';
+import llmProxyListing from '../_lib/service-catalog/services/llm-proxy.js';
 
 const ROUTE = '/api/x402/llm-proxy';
 
@@ -41,14 +42,11 @@ function resolveModelOpts(modelAlias) {
 	return { anthropicModel: String(modelAlias), preferNvidia: false };
 }
 
-const DESCRIPTION =
-	'three.ws LLM Inference Proxy — pay per completion with no API key required. ' +
-	'Runs one-shot text prompts through the platform\'s free-first provider chain ' +
-	'(Groq → OpenRouter → NVIDIA NIM → Anthropic). Response includes measured ' +
-	'latency, token counts, and the provider actually used. Ideal for latency ' +
-	'benchmarking, agent pipelines, and one-off completions. ' +
-	'Model aliases: "fast" (Groq, sub-second) · "smart" (Anthropic Haiku backstop). ' +
-	'Price: $0.005 USDC per completion on Base or Solana.';
+// Single source of truth: api/_lib/service-catalog/services/llm-proxy.js is
+// the storefront listing copy — importing it here keeps the live 402 challenge
+// from drifting from what /.well-known/x402.json and the OKX projection
+// advertise (same pattern as forge.js → forge-listing.js).
+const DESCRIPTION = llmProxyListing.description;
 
 const INPUT_EXAMPLE = {
 	model: 'fast',

@@ -379,7 +379,7 @@ export function solanaSettleable() {
 //      sibling right after the Base accept.
 //
 // Replaces five byte-for-byte copies of this logic (model-check, mint-to-mesh,
-// vanity, vanity-verifiable, revenue-vision) and matches the Solana-first ordering
+// vanity, vanity-verifiable, mint-to-mesh-batch) and matches the Solana-first ordering
 // the discovery catalog (wk.js) already advertises, so live 402 and catalog agree.
 export function buildExactRequirements(resourceUrl, amount = env.X402_MAX_AMOUNT_REQUIRED) {
 	const amt = String(amount);
@@ -928,7 +928,7 @@ function buildIdempotencyKey({ paymentPayload, requirement }) {
 //
 // When the caller doesn't pass `builderCode`, we derive it from
 // X402_BUILDER_CODE_APP so the raw-verifyPayment routes (model-check,
-// mint-to-mesh, revenue-vision, mcp/auth) get echo enforcement symmetric
+// mint-to-mesh, mint-to-mesh-batch, mcp/auth) get echo enforcement symmetric
 // with build402Body's auto-declaration. Pass `builderCode: null`
 // explicitly to opt out (e.g. test harnesses).
 export async function verifyPayment({ paymentHeader, requirements, builderCode }) {

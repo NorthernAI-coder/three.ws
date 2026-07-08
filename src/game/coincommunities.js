@@ -24,6 +24,12 @@ import { AnimationManager } from '../animation-manager.js';
 import { CommunityNet } from './community-net.js';
 import { CommunityUI } from './coincommunities-ui.js';
 import { createWorldEnvironment, seedFromString } from './world-env.js';
+import { createDistrict } from './district.js';
+import { DISTRICT, clampToBounds } from './world-zones.js';
+import { PhysicsWorld } from '../physics/physics-world.js';
+import { createDayNightCycle } from './day-night.js';
+import { worldClock } from '../shared/world-clock.js';
+import { createCameraModeController, CAMERA_MODE_LABELS } from './camera-modes.js';
 import { createChartScreen } from './chart-screen.js';
 import { mountOracleRibbon } from './oracle-ribbon.js';
 import { MarketReactor } from './market-reactor.js';
@@ -87,7 +93,12 @@ const CONFETTI_COLORS = ['#ffffff', '#e8e8e8', '#fff8e1', '#e3f2fd', '#f3e5f5', 
 // also sends these bounds in every game:king message; this is the render default.
 const KING_ZONE = { x: 0, z: -12, r: 3.5 };
 
-const WORLD_RADIUS = 58; // a touch inside the server's 60m clamp
+// The Downtown plaza radius (matches world-zones.js DISTRICT.plazaRadius) — the
+// dressed circle world-env.js/district.js build around. W01: movement itself is
+// no longer clamped to this disc; it's bounded by the much larger square
+// DISTRICT/WORLD_BOUND (world-zones.js), which mirrors the server's own clamp so
+// players can walk/drive the full district, not just the plaza.
+const WORLD_RADIUS = 58;
 const MOVE_SPEED = 4.2;
 const RUN_SPEED = 8.0; // hold Shift to sprint
 const RUN_TIMESCALE = 1.7; // speed the walk cycle up so a sprint reads as a run
@@ -324,6 +335,24 @@ export class CoinCommunities {
 		this._last = performance.now();
 		this._lastKick = 0; // R05: timestamp of last ball:kick intent (client-side rate limit)
 
+		// W01: real Rapier collision. A single physics world + character controller
+		// persist for the whole session (Rapier's WASM init is memoized globally);
+		// district building colliders are rebuilt per coin in enter(). Movement in
+		// _stepLocal falls back to the legacy direct-mutation path until this
+		// resolves, so the first frame or two before Rapier's WASM loads still play.
+		this._physicsOk = false;
+		this._physics = null;
+		this._character = null;
+		this._physicsActivePrev = false;
+		this._physicsReady = this._initPhysics();
+
+		// W01: four-mode chase camera (follow/cinematic/firstperson/topdown),
+		// shared with /walk via camera-modes.js. 'c' cycles it (see _bindInput).
+		this._camModes = createCameraModeController({
+			storageKey: 'play:camera-mode',
+			onChange: (m) => this.ui?.toast(`Camera: ${CAMERA_MODE_LABELS[m]}`, 'info'),
+		});
+
 		// Embed mode: `?bg=transparent` clears the canvas to alpha 0 and drops the
 		// graded sky + fog so the world composites onto the host page (e.g. the IBM
 		// x402 showcase) instead of sitting in its own black box. Default play is
@@ -436,6 +465,22 @@ export class CoinCommunities {
 		}
 	}
 
+	// W01: boot the shared Rapier world once. A flat ground collider covers the
+	// whole district (buildings are added per-coin in enter(), once the district
+	// grid is built). Never throws — a WASM failure (unsupported browser, blocked
+	// worker) degrades to the legacy direct-mutation movement path instead of
+	// wedging boot.
+	async _initPhysics() {
+		try {
+			this._physics = await PhysicsWorld.create({ gravity: { x: 0, y: -GRAVITY, z: 0 } });
+			this._physics.addGround(0, DISTRICT.half + 40);
+			this._physicsOk = true;
+		} catch (err) {
+			log.warn('[coincommunities] physics init failed — falling back to legacy movement:', err?.message);
+			this._physicsOk = false;
+		}
+	}
+
 	async _hideBootLoader() {
 		const l = document.getElementById('kx-loading');
 		if (!l) return;
@@ -543,6 +588,10 @@ export class CoinCommunities {
 	// and the slowly turning coin totem.
 	_tickEnv(dt) {
 		this.env?.update(dt);
+		// W01: real time of day, deterministic from wall-clock time (worldClock) —
+		// every client in every world computes the identical sun/sky/lamp state
+		// with zero network sync, exactly like the /agent-screen ambient stage.
+		this._dayNight?.setTime(worldClock(Date.now()));
 		if (this._coinSpin) this._coinSpin.rotation.y += dt * 0.5;
 		if (this._screenPulse) {
 			this._screenT = (this._screenT || 0) + dt;
@@ -808,11 +857,37 @@ export class CoinCommunities {
 		// palette, and flora derived deterministically from the coin's mint, so
 		// every community has its own recognisable world.
 		this.env?.dispose();
+		this._district?.dispose();
 		// The flagship town pins its signature biome; every other coin draws its
 		// look from the mint seed.
 		const biomeOverride = this._biomePin || (isHomeTown(coin.mint) ? (coin.biome || HOME_TOWN.biome) : undefined);
 		this.env = createWorldEnvironment(this.scene, this.renderer, WORLD_RADIUS, { mint: coin.mint, biome: biomeOverride });
 		this.ui.toast(`${coin.symbol ? '$' + coin.symbol : coin.name || 'Community'} — ${this.env.biome.label}`, 'info');
+
+		// W01: the drivable street grid ringing Downtown — same seed as the biome
+		// so it's identical for every client, themed from the same palette. The
+		// day/night cycle drives its window/streetlamp glow via setNight().
+		this._district = createDistrict(this.scene, {
+			seed: this.env.seed, biome: this.env.biome, playRadius: WORLD_RADIUS,
+		});
+		this._dayNight = createDayNightCycle(this.env, this._district);
+
+		// W01: real collision. Await the one-time Rapier boot (usually long since
+		// resolved by the time a player clears the lobby + avatar load), then swap
+		// in this coin's building colliders and (re)place the kinematic character
+		// at the fresh spawn point. The character controller persists across coin
+		// switches — only its colliders and position change.
+		await this._physicsReady;
+		if (this._physicsOk && this._physics) {
+			this._physics.clearObstacles();
+			for (const c of this._district.colliders) this._physics.addStaticBox(c);
+			const spawn = { x: this.localPos.x, y: 0, z: this.localPos.z };
+			if (!this._character) this._character = this._physics.createCharacter({ position: spawn });
+			else this._character.setPosition(spawn);
+			this._physicsActivePrev = false; // resync _stepLocal to this fresh spawn next frame
+			this.vy = 0; this.grounded = true;
+		}
+		if (epoch !== this._enterEpoch) return; // backed out during the physics await
 
 		// Build the coin's world + local avatar.
 		this._buildTotem(coin);
@@ -2123,6 +2198,12 @@ export class CoinCommunities {
 					this._inspectNearest();
 					return;
 				}
+				// C cycles the camera: follow → cinematic → first person → top down.
+				if (k === 'c' && !this.buildHud.active && !e.repeat) {
+					e.preventDefault();
+					this._camModes.cycle(this.camera);
+					return;
+				}
 				// Q — hold to open the emote wheel, release to play the selected clip.
 				// Ignore auto-repeat (held key fires many keydowns) and build mode.
 				if (k === 'q' && !this.buildHud.active && !e.repeat) {
@@ -2888,6 +2969,10 @@ export class CoinCommunities {
 
 		if (this.phase === 'world') {
 			this._stepLocal(dt);
+			// Step the Rapier world AFTER _stepLocal so it consumes the character's
+			// queued kinematic move from this same frame (and advances any dynamic
+			// props/vehicles later briefs add).
+			if (this._physicsOk && this._physics) this._physics.step(dt);
 			this._checkFloorOccupancy();
 			this.localAnim?.update(dt);
 			this.localCosmetics?.tick(dt);
@@ -2917,7 +3002,7 @@ export class CoinCommunities {
 			}
 		}
 		this._tickEnv(dt);
-		this._updateCamera();
+		this._updateCamera(dt);
 		this.renderer.render(this.scene, this.camera);
 	}
 
@@ -2930,13 +3015,6 @@ export class CoinCommunities {
 	}
 
 	_stepLocal(dt) {
-		// Vertical integration first so a jump arcs even while standing still.
-		if (!this.grounded) {
-			this.vy -= GRAVITY * dt;
-			this.localPos.y += this.vy * dt;
-			if (this.localPos.y <= 0) { this.localPos.y = 0; this.vy = 0; this.grounded = true; }
-		}
-
 		// Build intent from keys + joystick, relative to camera yaw.
 		let ix = 0, iz = 0;
 		if (this.keys.has('w') || this.keys.has('arrowup')) iz -= 1;
@@ -2946,22 +3024,18 @@ export class CoinCommunities {
 		if (this._joy) { ix += this._joy.x; iz += this._joy.z; }
 		const running = this.keys.has('shift');
 		const mag = Math.hypot(ix, iz);
-		if (mag > 0.05) {
-			ix /= Math.max(1, mag); iz /= Math.max(1, mag);
+		const moving = mag > 0.05;
+		let wx = 0, wz = 0;
+		if (moving) {
+			const nx = ix / Math.max(1, mag), nz = iz / Math.max(1, mag);
 			// Map intent into world space using the camera's own basis so the
 			// keys read screen-relative: forward (W/up) goes straight away from
 			// the camera, D/right tracks screen-right. Camera forward is
 			// (sinYaw, cosYaw) and camera-right is (cosYaw, -sinYaw) — see
 			// _updateCamera. world = ix*right + (-iz)*forward.
 			const sin = Math.sin(this.camYaw), cos = Math.cos(this.camYaw);
-			const wx = ix * cos - iz * sin;
-			const wz = -ix * sin - iz * cos;
-			const speed = running ? RUN_SPEED : MOVE_SPEED;
-			this.localPos.x += wx * speed * dt;
-			this.localPos.z += wz * speed * dt;
-			// clamp to plaza
-			const r = Math.hypot(this.localPos.x, this.localPos.z);
-			if (r > WORLD_RADIUS) { this.localPos.x *= WORLD_RADIUS / r; this.localPos.z *= WORLD_RADIUS / r; }
+			wx = nx * cos - nz * sin;
+			wz = -nx * sin - nz * cos;
 			this.localYaw = Math.atan2(wx, wz);
 			const want = running ? 'run' : 'walk';
 			if (this.motion !== want) { this.motion = want; this.localAnim?.crossfadeTo(CLIP_WALK, 0.18); }
@@ -2972,6 +3046,53 @@ export class CoinCommunities {
 		if (this.localAnim?.currentName === CLIP_WALK) {
 			this.localAnim.setSpeed(this.motion === 'run' ? RUN_TIMESCALE : 1);
 		}
+
+		const speed = running ? RUN_SPEED : MOVE_SPEED;
+		// W01: the Rapier kinematic character controller is authoritative for
+		// collision (district buildings, ground) once physics has booted; it
+		// slides along walls, steps up curbs, and reports real ground contact
+		// instead of the flat y<=0 assumption the legacy path used. physics.step()
+		// (called from _loop, after this) consumes the queued move.
+		if (this._physicsOk && this._character) {
+			if (!this._physicsActivePrev) {
+				this._character.setPosition({ x: this.localPos.x, y: this.localPos.y, z: this.localPos.z });
+				this.vy = 0;
+				this._physicsActivePrev = true;
+			}
+			this.vy -= GRAVITY * dt;
+			if (this.vy < -40) this.vy = -40; // terminal velocity guard
+			const res = this._character.move({
+				x: moving ? wx * speed * dt : 0,
+				y: this.vy * dt,
+				z: moving ? wz * speed * dt : 0,
+			});
+			this.grounded = res.grounded;
+			if (this.grounded && this.vy < 0) this.vy = 0;
+			// Boundary safety — mirrors the server's square WORLD_BOUND clamp
+			// (world-zones.js DISTRICT.half) so client and server never disagree
+			// on the world's edge. Snap the body too so the next query starts clean.
+			const clamped = clampToBounds(res.position.x, res.position.z);
+			if (clamped.x !== res.position.x || clamped.z !== res.position.z) {
+				this._character.setPosition({ x: clamped.x, y: res.position.y, z: clamped.z });
+			}
+			this.localPos.set(clamped.x, res.position.y, clamped.z);
+		} else {
+			this._physicsActivePrev = false;
+			// Legacy direct-mutation fallback — only live for the brief window
+			// before Rapier's WASM finishes loading (or if it fails to load at all).
+			if (!this.grounded) {
+				this.vy -= GRAVITY * dt;
+				this.localPos.y += this.vy * dt;
+				if (this.localPos.y <= 0) { this.localPos.y = 0; this.vy = 0; this.grounded = true; }
+			}
+			if (moving) {
+				this.localPos.x += wx * speed * dt;
+				this.localPos.z += wz * speed * dt;
+				const clamped = clampToBounds(this.localPos.x, this.localPos.z);
+				this.localPos.x = clamped.x; this.localPos.z = clamped.z;
+			}
+		}
+
 		if (this.localRig) { this.localRig.position.copy(this.localPos); this.localRig.rotation.y = this.localYaw; }
 		this._checkBallKick();
 	}
@@ -3022,18 +3143,28 @@ export class CoinCommunities {
 		this.voice.update({ x: this.localPos.x, y: this.localPos.y, z: this.localPos.z }, peers, forward);
 	}
 
-	_updateCamera() {
-		// Track the avatar on the ground plane only — ignore jump height so the
-		// camera stays planted while the character hops.
-		const target = this.phase === 'world' && this.localRig
-			? new Vector3(this.localPos.x, 0, this.localPos.z)
-			: new Vector3(0, 2, 0);
-		const cp = Math.cos(this.camPitch), sp = Math.sin(this.camPitch);
-		const ox = Math.sin(this.camYaw) * cp * this.camDist;
-		const oz = Math.cos(this.camYaw) * cp * this.camDist;
-		const oy = sp * this.camDist + 1.4;
-		this.camera.position.set(target.x - ox, target.y + oy, target.z - oz);
-		this.camera.lookAt(target.x, target.y + 1.4, target.z);
+	// W01: four-mode chase camera (follow/cinematic/firstperson/topdown) via the
+	// shared camera-modes.js controller — see the constructor and the 'c' key in
+	// _bindInput. 'follow' reproduces the original fixed orbit exactly, so the
+	// default view is unchanged; the other three are new.
+	_updateCamera(dt) {
+		this._camTarget = this._camTarget || new Vector3();
+		// Track the avatar on the ground plane only in follow/cinematic/topdown —
+		// ignore jump height so those cameras stay planted while the character
+		// hops. First person tracks the real (jump-inclusive) height for the eye.
+		const inWorld = this.phase === 'world' && this.localRig;
+		const fp = this._camModes.isFirstPerson();
+		const target = inWorld
+			? this._camTarget.set(this.localPos.x, fp ? this.localPos.y : 0, this.localPos.z)
+			: this._camTarget.set(0, 2, 0);
+		this._camModes.tick(dt || 0);
+		this._camModes.apply(this.camera, target, this.localHeight || 1.7, {
+			// First person looks where the avatar faces (localYaw); every other
+			// mode orbits on the mouse-drag yaw (camYaw).
+			yaw: fp ? this.localYaw : this.camYaw,
+			pitch: this.camPitch, dist: this.camDist,
+		});
+		if (this.localRig) this.localRig.visible = !fp;
 	}
 
 	_updateLabels() {

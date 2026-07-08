@@ -1,36 +1,108 @@
 
-> 3d-agent@1.5.2 typecheck
-> tsc -p jsconfig.json
+> 3d-agent@1.5.2 gate
+> npm run test:gate && npm run test:gate-3d && npm run audit:mcp && npm run audit:mcp-golden && npm run audit:routes && npm run audit:handlers && npm run audit:pages && npm run audit:hidden-guard && npm run audit:x402-catalog && npm run audit:tokens
 
 
-> 3d-agent@1.5.2 test
-> vitest run && playwright test
+> 3d-agent@1.5.2 test:gate
+> node scripts/test-gate.mjs
+
+[test-gate] running 7 critical-path test files…
+
+ RUN  v4.1.9 /workspaces/three.ws
 
 
- RUN  v4.1.7 /workspaces/three.ws
+ Test Files  7 passed (7)
+      Tests  83 passed (83)
+   Start at  00:54:22
+   Duration  3.66s (transform 3.57s, setup 0ms, import 10.11s, tests 3.76s, environment 1ms)
 
- ❯ tests/api/x402-spec.test.js (23 tests | 23 skipped) 78772ms
- ❯ tests/forge-humanoid.test.js (31 tests | 1 failed) 610ms
-     × returns a non-humanoid verdict for empty input, never throws 86ms
-stderr | tests/auto-rig-completion.test.js > 6a — cron recovers an open job from its stored result_glb_url > finalizes via the stored URL and never re-polls the provider
-[auto-rig-sweep] job error { jobId: 'job-a', error: 'Invalid IP address: undefined' }
+[test-gate] ✓ all critical-path tests passed
 
- ❯ tests/auto-rig-completion.test.js (5 tests | 3 failed) 693ms
-     × finalizes via the stored URL and never re-polls the provider 466ms
-     × lets exactly one of two concurrent finalizes materialize the avatar 72ms
-     × a thrown winner releases the claim to a cron-selectable status (not done, not wedged) 106ms
- ❯ tests/branding.test.js (4 tests | 4 failed) 99729ms
-     × no "Avaturn" in user-facing files 97652ms
-     × no "Character Studio" in user-facing files 564ms
-     × no "Ready Player Me" in user-facing files 1097ms
-     × no "RPM" referring to Ready Player Me (heuristic: near avatar/selfie) 414ms
- ❯ tests/metering.test.js (11 tests | 1 failed) 2595ms
-     × issues a MeterUsage command with the product code, dimension, and idempotency allocation 2515ms
- ❯ tests/build-asset-paths.test.js (5 tests | 1 failed) 71ms
-     × serves /style.css from dist root 49ms
- ❯ tests/api/agent-memory.test.js (22 tests | 1 failed) 201ms
-     × truncates content longer than 10,000 characters 52ms
- ❯ tests/api/x402-discovery-parity.test.js (4 tests | 3 failed) 616332ms
-     × lists every paid /api/x402/* endpoint (no silent drift) 257172ms
-     × catalogs both hosted MCP servers with their own identities 199214ms
-     × every cataloged x402 resource carries a price and at least one accept 159682ms
+> 3d-agent@1.5.2 test:gate-3d
+> vitest run tests/glb-canonicalize.test.js tests/animation-retarget.test.js tests/animation-retarget-rest-pollution.test.js tests/viewer-framing.test.js
+
+
+ RUN  v4.1.9 /workspaces/three.ws
+
+
+ Test Files  4 passed (4)
+      Tests  244 passed (244)
+   Start at  00:54:29
+   Duration  2.03s (transform 682ms, setup 0ms, import 2.26s, tests 1.24s, environment 1ms)
+
+
+> 3d-agent@1.5.2 audit:mcp
+> node scripts/audit-mcp-manifests.mjs
+
+[audit:mcp] 16 MCP manifests consistent
+
+> 3d-agent@1.5.2 audit:mcp-golden
+> node scripts/audit-mcp-golden.mjs
+
+[audit:mcp-golden] api/_mcp3d/tools/spatial.js: tool ADDED: validate_spatial_response
+
+[audit:mcp-golden] 1 contract change(s) vs golden fixture.
+  If every change above is INTENTIONAL (reviewed as a public-contract change),
+  refresh the fixture:  node scripts/audit-mcp-golden.mjs --update
+=== npm run audit:routes ===
+
+> 3d-agent@1.5.2 audit:routes
+> node scripts/verify-routes.mjs
+
+Route verify — 294 catalog pages, 1058 main routes, 1 post-filesystem routes.
+  modeled dist files: 1510 · canonical-covered: 294 · literal page routes checked for shadows: 443
+  filesystem boundary (handle:filesystem) present: yes
+
+ℹ 1 advisory note(s):
+   TRAILSLASH /payments/  → notfound (lands on designed 404)
+
+✓ static checks pass: every catalog page reachable, unknown paths → designed 404, no shadowed page routes.
+
+=== npm run audit:handlers ===
+
+> 3d-agent@1.5.2 audit:handlers
+> node scripts/audit-empty-handlers.mjs
+
+✓ audit-empty-handlers: all API handlers export a body (1579 checked)
+
+=== npm run audit:pages ===
+
+> 3d-agent@1.5.2 audit:pages
+> node scripts/audit-page-index.mjs
+
+Route audit: 140 auditable page routes, 294 documented in pages.json.
+✓ Every auditable page route is documented.
+
+ℹ 6 manifest page(s) have no `added` date (omitted from /changelog). Fine for legacy pages; add dates as you touch them.
+
+=== npm run audit:hidden-guard ===
+
+> 3d-agent@1.5.2 audit:hidden-guard
+> node scripts/audit-hidden-guard.mjs
+
+✓ audit-hidden-guard: all 259 pages resolve the [hidden] guard
+
+=== npm run audit:x402-catalog ===
+
+> 3d-agent@1.5.2 audit:x402-catalog
+> node scripts/audit-x402-catalog.mjs
+
+✓ audit-x402-catalog: all 65 x402 endpoints are documented
+
+=== npm run audit:tokens ===
+> 3d-agent@1.5.2 audit:tokens
+> node scripts/audit-token-drift.mjs
+
+
+✗ design-token drift increased: 5 hardcoded token-hexes (baseline 0).
+
+  pages/bnb.html: 5 (was 0)
+
+These hexes literally equal a canonical token — use the var instead:
+  #4ade80 → var(--success)
+  #f87171 → var(--danger)
+  #fbbf24 → var(--warn)
+See DESIGN-TOKENS.md. If a page deliberately re-themes a token, define the
+token locally (a theme layer) rather than hardcoding the raw hex.
+
+

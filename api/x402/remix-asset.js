@@ -27,6 +27,7 @@ import { settleRemixRoyalty } from '../_lib/remix-settlement.js';
 import { atomicsToUsd } from '../_lib/remix-royalty.js';
 import { composeRefinement } from '../../mcp-server/src/tools/_lineage.js';
 import { generate, originFromReq, viewerUrl } from '../_mcp-studio/forge-client.js';
+import remixAssetListing from '../_lib/service-catalog/services/remix-asset.js';
 
 // $0.25 — the cost of a generation. The creator royalty comes OUT of this fee
 // (the platform's share), never as an extra charge to the remixer.
@@ -181,16 +182,16 @@ async function handleRemix({ req, requirement }) {
 	};
 }
 
+// Single source of truth: api/_lib/service-catalog/services/remix-asset.js is
+// the storefront listing copy — importing it here keeps the live 402 challenge
+// from drifting from what /.well-known/x402.json and the OKX projection
+// advertise (same pattern as forge.js → forge-listing.js).
 export default paidEndpoint({
 	route: '/api/x402/remix-asset',
 	method: 'POST',
 	priceAtomics: PRICE_ATOMICS,
 	networks: ['solana', 'base'],
-	description:
-		'Remix a published 3D asset: pay a fixed fee to generate a new model derived from another creator’s ' +
-		'remixable model, described in words ("make it metallic"). A creator-set royalty (≤20%) of the fee routes ' +
-		'on-chain to the original creator; durable parent→child provenance is recorded. Browse remixable assets and ' +
-		'their terms free at GET /api/remix-feed.',
+	description: remixAssetListing.description,
 	mimeType: 'application/json',
 	bazaar: BAZAAR,
 	// A duplicate call is materially expensive (a GPU generation + an on-chain

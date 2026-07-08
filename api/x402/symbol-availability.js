@@ -12,10 +12,12 @@
 //     taken_list, availability_ratio, headline, results[] }.
 //   It is a collision checker, not a market oracle: `availability_ratio` is
 //   simply available_count / scanned_count (a convenience roll-up), NOT a
-//   trading signal. The `signal`/`headline` fields are retained as an internal
-//   alias consumed by the autonomous scan loop's registry entry
-//   (`symbol-scan-common`); external callers should treat availability_ratio
-//   and the counts as the answer.
+//   trading signal. The 2026-07-08 storefront cleanup (prompt 18) removed the
+//   bullish/bearish/neutral `signal` field this endpoint used to return —
+//   this is a collision checker, sold as exactly that. The autonomous scan
+//   loop's registry entry (`symbol-scan-common`) now derives its own coarse
+//   bucket from `available_count`/`scanned_count` locally instead of reading
+//   it off the wire.
 //
 // Why this is defensible: three.ws indexes every mint deployed through its
 // own launch pipeline (pump_agent_mints). Pre-launch collision checks are
@@ -29,15 +31,18 @@ import { installAccessControl } from '../_lib/x402/access-control.js';
 import { withService } from '../_lib/x402/bazaar-helpers.js';
 import { sql } from '../_lib/db.js';
 import { priceFor } from '../_lib/x402-prices.js';
+import symbolAvailabilityListing from '../_lib/service-catalog/services/symbol-availability.js';
 
 const ROUTE = '/api/x402/symbol-availability';
 
-const DESCRIPTION =
-	'three.ws Symbol Availability — given a candidate ticker symbol, check for ' +
-	'exact and fuzzy collisions across pump.fun mints indexed by three.ws. ' +
-	'Returns exact matches (same symbol on the same network) plus trigram-similar ' +
-	'symbols (e.g. "USDC" vs "USDCC", "PUMP" vs "PMP"). Use before launching a ' +
-	'token to avoid name confusion and aggregator-search dilution.';
+// Single source of truth:
+// api/_lib/service-catalog/services/symbol-availability.js is the storefront
+// listing copy — importing it here keeps the live 402 challenge (single-ticker
+// GET) from drifting from what /.well-known/x402.json and the OKX projection
+// advertise (same pattern as forge.js → forge-listing.js). BATCH_DESCRIPTION
+// below stays local — the batch POST mode is intentionally not advertised to
+// external buyers.
+const DESCRIPTION = symbolAvailabilityListing.description;
 
 const INPUT_EXAMPLE = { ticker: 'HELIO', network: 'mainnet' };
 
@@ -204,11 +209,13 @@ const singleEndpoint = paidEndpoint({
 
 // ── Batch scan (POST) ────────────────────────────────────────────────────────
 // Accepts { symbols: string[], network?: string } and checks all symbols in
-// parallel. Returns counts + available/taken lists + availability_ratio. The
-// { signal, headline } pair is retained as an internal alias for the autonomous
-// scan loop's registry entry (`symbol-scan-common`), which upserts into
-// oracle_intel_signals (topic: 'symbol_availability') — it is not a market
-// signal and is not advertised to external buyers.
+// parallel. Returns counts + available/taken lists + availability_ratio + a
+// factual `headline` summary. It does not return a bullish/bearish/neutral
+// signal — this is a collision checker, not a market oracle. The autonomous
+// scan loop's registry entry (`symbol-scan-common` in autonomous-registry.js)
+// derives its own coarse bucket from available_count/scanned_count for its
+// internal oracle_intel_signals row; that classification never ships on the
+// wire to external buyers.
 
 const BATCH_MAX = 10;
 
@@ -270,16 +277,6 @@ async function readJsonBody(req) {
 	return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
 }
 
-// Internal-only: coarse availability bucket for the autonomous scan loop's
-// oracle_intel_signals row. This is a name-collision ratio, not a market signal;
-// it is never advertised to external buyers (see BATCH_DESCRIPTION).
-function classifyScanSignal({ availableCount, scannedCount }) {
-	const ratio = scannedCount > 0 ? availableCount / scannedCount : 0;
-	if (ratio >= 0.6) return 'bullish';
-	if (ratio >= 0.3) return 'neutral';
-	return 'bearish';
-}
-
 const batchEndpoint = paidEndpoint({
 	route: ROUTE,
 	method: 'POST',
@@ -337,8 +334,6 @@ const batchEndpoint = paidEndpoint({
 		const availabilityRatio = symbols.length > 0
 			? Number((availableCount / symbols.length).toFixed(3))
 			: 0;
-		// Internal alias kept for the autonomous scan loop consumer only.
-		const signal = classifyScanSignal({ availableCount, scannedCount: symbols.length });
 
 		const headline =
 			availableCount === symbols.length
@@ -354,7 +349,6 @@ const batchEndpoint = paidEndpoint({
 			available_list: availableList,
 			taken_list: takenList,
 			availability_ratio: availabilityRatio,
-			signal,
 			headline,
 			network,
 			results,

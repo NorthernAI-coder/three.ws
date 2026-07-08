@@ -28,6 +28,12 @@ import { log } from './shared/log.js';
 
 const MODES = ['inline', 'floating', 'section', 'fullscreen'];
 
+// Zero-config free brain: routed through the we-pay `/api/llm/anthropic` proxy
+// (src/runtime/providers.js), which resolves this id to OpenRouter's free tier.
+// `brain="free"` gets any ad-hoc embed talking with no API key, no backend code,
+// and no per-token cost to the embedder.
+const FREE_BRAIN_MODEL = 'meta-llama/llama-3.3-70b-instruct:free';
+
 // ── WebGL context budget ────────────────────────────────────────────────
 // Browsers cap the number of simultaneous WebGL contexts (~16 in Chrome).
 // Each booted <agent-3d> holds one (two when axes are shown) for its whole
@@ -2057,13 +2063,28 @@ class Agent3DElement extends HTMLElement {
 		}
 	}
 
+	// `brain="free"` resolves to the host-paid free model; any other value is
+	// passed through as a literal model id (paid Claude, a specific Groq/
+	// OpenRouter id, etc.); no attribute at all keeps the agent silent.
+	_brainConfig(instructionsAttr) {
+		const brainAttr = this.getAttribute('brain');
+		if (!brainAttr) return { provider: 'none' };
+		const model = brainAttr.trim().toLowerCase() === 'free' ? FREE_BRAIN_MODEL : brainAttr;
+		return {
+			provider: 'anthropic',
+			model,
+			instructions: instructionsAttr || 'You are an embodied three.ws.',
+		};
+	}
+
 	_defaultFallbackManifest() {
+		const instructionsAttr = this.getAttribute('instructions');
 		return {
 			spec: 'agent-manifest/0.1',
 			_baseURI: '',
 			name: this.getAttribute('name') || 'Agent',
 			body: { uri: 'https://three.ws/avatars/default.glb', format: 'gltf-binary' },
-			brain: { provider: 'none' },
+			brain: this._brainConfig(instructionsAttr),
 			voice: { tts: { provider: 'browser' }, stt: { provider: 'browser' } },
 			skills: [],
 		};
@@ -2094,12 +2115,13 @@ class Agent3DElement extends HTMLElement {
 			// them as if `body=` had been set so users don't need to know the
 			// distinction.
 			if (/\.(glb|gltf)(\?|$)/i.test(src)) {
+				const instructionsAttr = this.getAttribute('instructions');
 				return {
 					spec: 'agent-manifest/0.1',
 					_baseURI: '',
 					name: this.getAttribute('name') || 'Agent',
 					body: { uri: src, format: 'gltf-binary' },
-					brain: { provider: 'none' },
+					brain: this._brainConfig(instructionsAttr),
 					voice: { tts: { provider: 'browser' }, stt: { provider: 'browser' } },
 					skills: [],
 				};
@@ -2156,11 +2178,7 @@ class Agent3DElement extends HTMLElement {
 				_baseURI: '',
 				name: this.getAttribute('name') || 'Agent',
 				body: { uri: body, format: 'gltf-binary' },
-				brain: {
-					provider: this.getAttribute('brain') ? 'anthropic' : 'none',
-					model: this.getAttribute('brain') || undefined,
-					instructions: instructionsAttr || 'You are an embodied three.ws.',
-				},
+				brain: this._brainConfig(instructionsAttr),
 				instructions: instructionsAttr || 'You are an embodied three.ws.',
 				voice: { tts: { provider: 'browser' }, stt: { provider: 'browser' } },
 				skills: (this.getAttribute('skills') || '')

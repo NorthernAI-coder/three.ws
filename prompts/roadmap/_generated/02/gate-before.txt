@@ -1,425 +1,49 @@
 
-> 3d-agent@1.5.2 typecheck
-> tsc -p jsconfig.json
-
-
-> 3d-agent@1.5.2 test
-> vitest run && playwright test
-
-
- RUN  v4.1.7 /workspaces/three.ws
-
- ❯ tests/api/x402-spec.test.js (23 tests | 2 failed) 2012ms
-     × advertises only USDC on Solana by default (no THREE accept) 12ms
-     × adds a THREE Solana accept after USDC when X402_ACCEPT_THREE_SOLANA is on 4ms
- ❯ tests/refine-lineage.test.js (20 tests | 1 failed) 20ms
-     × is deterministic — same inputs give the same prompt 7ms
- ❯ tests/remix-royalty.test.js (15 tests | 1 failed) 18ms
-     × drops a sub-dust royalty rather than paying it 9ms
- ❯ tests/api/forge-lane-routing.test.js (16 tests | 1 failed) 21ms
-     × treats unknown/degraded health as usable (never blocks on missing telemetry) 8ms
-stderr | tests/auto-rig-completion.test.js > 6a — cron recovers an open job from its stored result_glb_url > finalizes via the stored URL and never re-polls the provider
-[auto-rig-sweep] job error { jobId: 'job-a', error: 'Invalid IP address: undefined' }
-
- ❯ tests/auto-rig-completion.test.js (5 tests | 3 failed) 119ms
-     × finalizes via the stored URL and never re-polls the provider 103ms
-     × lets exactly one of two concurrent finalizes materialize the avatar 4ms
-     × a thrown winner releases the claim to a cron-selectable status (not done, not wedged) 8ms
- ❯ tests/api/agent-memory.test.js (22 tests | 1 failed) 30ms
-     × truncates content longer than 10,000 characters 7ms
- ❯ tests/metering.test.js (11 tests | 1 failed) 55ms
-     × issues a MeterUsage command with the product code, dimension, and idempotency allocation 42ms
- ❯ tests/build-asset-paths.test.js (5 tests | 1 failed) 15ms
-     × serves /style.css from dist root 12ms
- ❯ tests/branding.test.js (4 tests | 4 failed) 8398ms
-     × no "Avaturn" in user-facing files 7728ms
-     × no "Character Studio" in user-facing files 308ms
-     × no "Ready Player Me" in user-facing files 191ms
-     × no "RPM" referring to Ready Player Me (heuristic: near avatar/selfie) 169ms
-stderr | tests/api/x402-discovery-green.test.js > x402 discovery catalog is fully green > every resource carries a real output.example for result cards
-[wk/x402-discovery] agent services unavailable Missing required env var: DATABASE_URL
-
-stderr | tests/api/x402-discovery-green.test.js > x402 discovery catalog is fully green
-[wk/x402-discovery] agent services unavailable Missing required env var: DATABASE_URL
-
- ❯ tests/api/x402-discovery-green.test.js (4 tests | 2 failed) 1957ms
-     × has no listing-quality warnings (every resource ranks and renders fully) 9ms
-     × every resource carries a real output.example for result cards 5ms
- ❯ tests/mcp-forge-free.test.js (7 tests | 3 failed) 30ms
-     × surfaces a not-configured deployment as a designed error 11ms
-     × surfaces a busy lane as a rate_limited error with retry hint 5ms
-     × reports a terminal generation failure from the poll loop 2ms
- ❯ tests/pose-presets.test.js (9 tests | 1 failed) 153ms
-     × no preset drives a hand or the head below the floor 103ms
-
-⎯⎯⎯⎯⎯⎯ Failed Tests 21 ⎯⎯⎯⎯⎯⎯⎯
-
- FAIL  tests/auto-rig-completion.test.js > 6a — cron recovers an open job from its stored result_glb_url > finalizes via the stored URL and never re-polls the provider
-AssertionError: expected +0 to be 1 // Object.is equality
-
-- Expected
-+ Received
-
-- 1
-+ 0
-
- ❯ tests/auto-rig-completion.test.js:206:26
-    204|   expect(body.ok).toBe(true);
-    205|   expect(body.scanned).toBe(1);
-    206|   expect(body.finalized).toBe(1);
-       |                          ^
-    207|
-    208|   // Req 4: the stored URL was reused — the provider's status() was NO…
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/21]⎯
-
- FAIL  tests/auto-rig-completion.test.js > 6c — finalizeAutoRigStage is concurrency-safe > lets exactly one of two concurrent finalizes materialize the avatar
-TypeError: Invalid IP address: undefined
- ❯ lookup api/_lib/ssrf-guard.js:172:5
-    170|   const agent = new AgentClass({
-    171|    lookup(_hostname, _options, cb) {
-    172|     cb(null, pinnedIp, net.isIPv6(pinnedIp) ? 6 : 4);
-       |     ^
-    173|    },
-    174|   });
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/21]⎯
-
- FAIL  tests/auto-rig-completion.test.js > 6c — finalizeAutoRigStage is concurrency-safe > a thrown winner releases the claim to a cron-selectable status (not done, not wedged)
-AssertionError: expected [Function] to throw error including 'r2 down' but got 'Invalid IP address: undefined'
-
-Expected: "r2 down"
-Received: "Invalid IP address: undefined"
-
- ❯ tests/auto-rig-completion.test.js:329:4
-    327|   await expect(
-    328|    finalizeAutoRigStage({ userId: 'u1', jobId: 'job-d', job, glbUrl: '…
-    329|   ).rejects.toThrow('r2 down');
-       |    ^
-    330|
-    331|   // The claim was released back to 'running' — cron-selectable, never…
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/21]⎯
-
- FAIL  tests/branding.test.js > three.ws branding lock > no "Avaturn" in user-facing files
-Error: Forbidden brand "Avaturn" found in 5 user-facing location(s):
-  docs/launch/go-no-go-2026-06-24.md:150
-    brands **"Avaturn" (×4), "Ready Player Me" (×7), "Character Studio" (×2), "RPM"** in user-facing
-  docs/tutorials/animate-your-avatar.md:170
-    **Facial expression** ([src/runtime/arkit52.js](../../src/runtime/arkit52.js)) — independent of the skeleton. If your avatar carries ARKit-52 blendshapes (most modern exports do — RPM, Avaturn, VRoid), the runtime resolves those morph targets and drives expression and lip-sync directly on the face. A skeletal clip plays the body; the blendshape layer plays the eyes, brows, and mouth on top.
-  docs/tutorials/animate-your-avatar.md:180
-    - **"This rig can't be retargeted — only N recognizable humanoid bones."** The model exposes fewer than 8 canonical bones. It's likely non-humanoid, a static prop, or a rig whose bone names the canonicalizer doesn't recognize. Re-export it as a standard humanoid (Mixamo, RPM, Avaturn, VRM all work), or auto-rig a rig-less mesh first.
-  docs/ux-flows/01-onboarding-creation.md:43
-    - **External calls / dependencies:** `GET /api/config`; `GET /api/avatars`; `GET /api/usage/summary`; `POST /api/avatars/fork`; `GET /api/avatars/:id` + raw GLB fetch (guest fork). Avaturn / Ready Player Me iframes loaded by `AvatarCreator`.
-  src/viewer/framing.js:50
-    * default, every Avaturn/RPM rig) are returned unchanged and never re-framed.
-
-Replace with three.ws-branded language, or add a documented exemption to tests/branding-allowlist.json.
- ❯ tests/branding.test.js:370:11
-
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/21]⎯
-
- FAIL  tests/branding.test.js > three.ws branding lock > no "Character Studio" in user-facing files
-Error: Forbidden brand "Character Studio" found in 3 user-facing location(s):
-  public/docs/index.html:131
-    ['character-studio', 'Character studio', 'Author and pose characters.'],
-  docs/internal/ISSUES-ARCHIVE-2026-06.md:11
-    vendored CharacterStudio fork that all predated the upgrade.
-  docs/launch/go-no-go-2026-06-24.md:150
-    brands **"Avaturn" (×4), "Ready Player Me" (×7), "Character Studio" (×2), "RPM"** in user-facing
-
-Replace with three.ws-branded language, or add a documented exemption to tests/branding-allowlist.json.
- ❯ tests/branding.test.js:370:11
-
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/21]⎯
-
- FAIL  tests/branding.test.js > three.ws branding lock > no "Ready Player Me" in user-facing files
-Error: Forbidden brand "Ready Player Me" found in 8 user-facing location(s):
-  public/demos/audio2face.html:95
-    (ARKit, Ready Player Me, VRM, Oculus visemes). If Audio2Face is unavailable, the
-  docs/launch/go-no-go-2026-06-24.md:150
-    brands **"Avaturn" (×4), "Ready Player Me" (×7), "Character Studio" (×2), "RPM"** in user-facing
-  docs/tutorials/import-avatar-url.md:3
-    You already have an avatar living somewhere else — a Ready Player Me model on a CloudFront link, a GLB on Arweave, an export sitting in your own storage. You don't need to download it, convert it, or re-host it. Paste the URL into [three.ws/import/rpm](/import/rpm) and the platform fetches it server-side, normalizes its skeleton, auto-rigs it so it can move, and saves it to your account as an avatar an agent can wear.
-  docs/tutorials/import-avatar-url.md:14
-    You:    paste  https://models.readyplayer.me/64c3….glb   into /import/rpm
-  docs/tutorials/import-avatar-url.md:31
-    Most avatar hosts (Ready Player Me's CloudFront CDN, Arweave gateways, arbitrary object storage) serve their GLBs **without CORS headers**. A browser `fetch()` to those URLs is blocked before a single byte arrives. So the importer doesn't rely on your browser reaching the file at all:
-  docs/tutorials/import-avatar-url.md:50
-    **Ready Player Me.** RPM gives you a model URL of the form `https://models.readyplayer.me/<id>.glb`. If you only have the avatar's web page, append `.glb` to the avatar ID, or open the page, then DevTools → **Network**, filter by `.glb`, and copy the request URL. RPM serves these from a CloudFront CDN with no CORS headers — exactly the case the server-side fetch is built for.
-  docs/tutorials/import-avatar-url.md:148
-    - **Paste a `.glb` URL** at [/import/rpm](/import/rpm) — Ready Player Me, any CDN, Arweave, or your own storage all work.
-  docs/ux-flows/01-onboarding-creation.md:43
-    - **External calls / dependencies:** `GET /api/config`; `GET /api/avatars`; `GET /api/usage/summary`; `POST /api/avatars/fork`; `GET /api/avatars/:id` + raw GLB fetch (guest fork). Avaturn / Ready Player Me iframes loaded by `AvatarCreator`.
-
-Replace with three.ws-branded language, or add a documented exemption to tests/branding-allowlist.json.
- ❯ tests/branding.test.js:370:11
-
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/21]⎯
-
- FAIL  tests/branding.test.js > three.ws branding lock > no "RPM" referring to Ready Player Me (heuristic: near avatar/selfie)
-Error: Found "RPM" near avatar/selfie context in 4 location(s) — assume Ready Player Me:
-  prompts/roadmap/REUSE-MAP.md:36
-    | Turnkey talking-avatar | met4citizen/TalkingHead (+HeadTTS) | ✅ MIT | Full Oculus OVR + ARKit viseme pipeline on RPM/Mixamo GLB. |
-  docs/tutorials/animate-your-avatar.md:170
-    **Facial expression** ([src/runtime/arkit52.js](../../src/runtime/arkit52.js)) — independent of the skeleton. If your avatar carries ARKit-52 blendshapes (most modern exports do — RPM, Avaturn, VRoid), the runtime resolves those morph targets and drives expression and lip-sync directly on the face. A skeletal clip plays the body; the blendshape layer plays the eyes, brows, and mouth on top.
-  docs/tutorials/import-avatar-url.md:50
-    **Ready Player Me.** RPM gives you a model URL of the form `https://models.readyplayer.me/<id>.glb`. If you only have the avatar's web page, append `.glb` to the avatar ID, or open the page, then DevTools → **Network**, filter by `.glb`, and copy the request URL. RPM serves these from a CloudFront CDN with no CORS headers — exactly the case the server-side fetch is built for.
-  docs/ux-flows/04-embed-widget-studio.md:167
-    - **avatar-embed runtime** (`src/avatar-embed.js`) backs `/embed/avatar/<handle>`, `/a-embed.html`, and the agent embed; exposes the `v1.avatar.*` postMessage bridge (speak, emote, morphs, lookAt, mocap, idle, hotkeys, mic, state) plus RPM-compatible event aliases and a same-origin BroadcastChannel control surface.
- ❯ tests/branding.test.js:407:10
-    405|     .map((h) => `  ${h.file}:${h.line}\n    ${h.text}`)
-    406|     .join('\n');
-    407|    throw new Error(
-       |          ^
-    408|     `Found "RPM" near avatar/selfie context in ${hits.length} location…
-    409|    );
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/21]⎯
-
- FAIL  tests/build-asset-paths.test.js > build asset paths > serves /style.css from dist root
-AssertionError: expected false to be true // Object.is equality
-
-- Expected
-+ Received
-
-- true
-+ false
-
- ❯ tests/build-asset-paths.test.js:19:50
-     17|
-     18|  it('serves /style.css from dist root', () => {
-     19|   expect(existsSync(resolve(dist, 'style.css'))).toBe(true);
-       |                                                  ^
-     20|  });
-     21|
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/21]⎯
-
- FAIL  tests/mcp-forge-free.test.js > forge_free — handler > surfaces a not-configured deployment as a designed error
-AssertionError: expected 'provider_error' to be 'not_configured' // Object.is equality
-
-Expected: "not_configured"
-Received: "provider_error"
-
- ❯ tests/mcp-forge-free.test.js:158:21
-    156|   const out = structured(envelope);
-    157|   expect(out.ok).toBe(false);
-    158|   expect(out.error).toBe('not_configured');
-       |                     ^
-    159|  });
-    160|
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/21]⎯
-
- FAIL  tests/mcp-forge-free.test.js > forge_free — handler > surfaces a busy lane as a rate_limited error with retry hint
-AssertionError: expected 'provider_error' to be 'rate_limited' // Object.is equality
-
-Expected: "rate_limited"
-Received: "provider_error"
-
- ❯ tests/mcp-forge-free.test.js:165:21
-    163|   const out = structured(await tool.handler({ prompt: 'a ceramic teapo…
-    164|   expect(out.ok).toBe(false);
-    165|   expect(out.error).toBe('rate_limited');
-       |                     ^
-    166|   expect(out.retryAfter).toBe(8);
-    167|  });
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/21]⎯
-
- FAIL  tests/mcp-forge-free.test.js > forge_free — handler > reports a terminal generation failure from the poll loop
-AssertionError: expected 'provider_error' to be 'generation_failed' // Object.is equality
-
-Expected: "generation_failed"
-Received: "provider_error"
-
- ❯ tests/mcp-forge-free.test.js:175:21
-    173|   const out = structured(await tool.handler({ prompt: 'a marble bust' …
-    174|   expect(out.ok).toBe(false);
-    175|   expect(out.error).toBe('generation_failed');
-       |                     ^
-    176|  });
-    177| });
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/21]⎯
-
- FAIL  tests/metering.test.js > AWS Marketplace — MeterUsage call shape (SDK boundary mocked) > issues a MeterUsage command with the product code, dimension, and idempotency allocation
-TypeError: vi.dontMock is not a function
- ❯ tests/metering.test.js:194:6
-    192|   // Idempotency allocation carries the dedupe key AWS bills against.
-    193|   expect(input.UsageAllocations[0].Tags[0].Value).toBe('alloc-1');
-    194|   vi.dontMock('@aws-sdk/client-marketplace-metering');
-       |      ^
-    195|   vi.dontMock('@aws-sdk/client-marketplace-entitlement-service');
-    196|   vi.dontMock('../api/_lib/env.js');
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/21]⎯
-
- FAIL  tests/pose-presets.test.js > pose geometry (real mannequin forward kinematics) > no preset drives a hand or the head below the floor
-AssertionError: sit-floor L hand: expected -0.19006247768508422 to be greater than -0.15
- ❯ tests/pose-presets.test.js:106:48
-    104|    // A small negative tolerance: floor-contact poses (push-up-style) …
-    105|    // graze y=0, but nothing should sink a hand far underground.
-    106|    expect(handTip(m, 'L').y, `${p.id} L hand`).toBeGreaterThan(-0.15);
-       |                                                ^
-    107|    expect(handTip(m, 'R').y, `${p.id} R hand`).toBeGreaterThan(-0.15);
-    108|    expect(head.y, `${p.id} head`).toBeGreaterThan(0.2);
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/21]⎯
-
- FAIL  tests/refine-lineage.test.js > composeRefinement > is deterministic — same inputs give the same prompt
-AssertionError: expected 'a knight helmet, bigger helmet' to be 'a knight helmet, helmet bigger' // Object.is equality
-
-Expected: "a knight helmet, helmet bigger"
-Received: "a knight helmet, bigger helmet"
-
- ❯ tests/refine-lineage.test.js:52:13
-     50|   const b = composeRefinement('a knight helmet', 'bigger helmet');
-     51|   expect(a).toBe(b);
-     52|   expect(a).toBe('a knight helmet, helmet bigger');
-       |             ^
-     53|  });
-     54|
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/21]⎯
-
- FAIL  tests/remix-royalty.test.js > computeRemixSplit — split math > drops a sub-dust royalty rather than paying it
-AssertionError: expected true to be false // Object.is equality
-
-- Expected
-+ Received
-
-- false
-+ true
-
- ❯ tests/remix-royalty.test.js:70:55
-     68|   // Tiny price where 10% rounds below the dust floor.
-     69|   const s = computeRemixSplit({ priceAtomics: 50_000n, royaltyBps: 100…
-     70|   expect(s.creatorAtomics < REMIX_MIN_PAYOUT_ATOMICS).toBe(false); // …
-       |                                                       ^
-     71|   expect(s.creatorAtomics).toBe(0n);
-     72|   expect(s.dust).toBe(true);
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/21]⎯
-
- FAIL  tests/api/agent-memory.test.js > POST /api/agent-memory > truncates content longer than 10,000 characters
-AssertionError: expected undefined to be defined
- ❯ tests/api/agent-memory.test.js:405:27
-    403|
-    404|   expect(status).toBe(201);
-    405|   expect(capturedContent).toBeDefined();
-       |                           ^
-    406|   expect(capturedContent.length).toBe(10_000);
-    407|  });
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/21]⎯
-
- FAIL  tests/api/forge-lane-routing.test.js > resolveBackendIdWithHealth — prefer healthy self-host → other free → paid > treats unknown/degraded health as usable (never blocks on missing telemetry)
-AssertionError: expected 'huggingface' to be 'trellis_selfhost' // Object.is equality
-
-Expected: "trellis_selfhost"
-Received: "huggingface"
-
- ❯ tests/api/forge-lane-routing.test.js:123:101
-    121|   // trellis_selfhost has no entry (unknown) → still picked, ahead of …
-    122|   const health = { huggingface: 'ok' };
-    123|   expect(resolveBackendIdWithHealth({ path: 'image', tier: 'standard',…
-       |                                                                                                     ^
-    124|    'trellis_selfhost',
-    125|   );
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/21]⎯
-
- FAIL  tests/api/x402-discovery-green.test.js > x402 discovery catalog is fully green > has no listing-quality warnings (every resource ranks and renders fully)
-AssertionError: Resources with listing-quality warnings:
-  ▲ /api/x402/token-intel: no output.example: expected [ { …(3) } ] to deeply equal []
-
-- Expected
-+ Received
-
-- []
-+ [
-+   {
-+     "errors": [],
-+     "label": "/api/x402/token-intel",
-+     "warnings": [
-+       "no output.example",
-+     ],
-+   },
-+ ]
-
- ❯ tests/api/x402-discovery-green.test.js:158:5
-    156|     .map((r) => `  ▲ ${r.label}: ${r.warnings.join('; ')}`)
-    157|     .join('\n')}`,
-    158|   ).toEqual([]);
-       |     ^
-    159|  });
-    160|
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/21]⎯
-
- FAIL  tests/api/x402-discovery-green.test.js > x402 discovery catalog is fully green > every resource carries a real output.example for result cards
-AssertionError: /api/x402/token-intel is missing bazaar.info.output.example: expected undefined to be truthy
-
-- Expected:
-true
-
-+ Received:
-undefined
-
- ❯ tests/api/x402-discovery-green.test.js:165:68
-    163|   for (const r of doc.resources || []) {
-    164|    const ex = (r.extensions?.bazaar || r.bazaar)?.info?.output?.exampl…
-    165|    expect(ex, `${label(r)} is missing bazaar.info.output.example`).toB…
-       |                                                                    ^
-    166|   }
-    167|  });
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/21]⎯
-
- FAIL  tests/api/x402-spec.test.js > paymentRequirements > advertises only USDC on Solana by default (no THREE accept)
-AssertionError: expected 2 to be 1 // Object.is equality
-
-- Expected
-+ Received
-
-- 1
-+ 2
-
- ❯ tests/api/x402-spec.test.js:243:25
-    241|    r.network.startsWith('solana:'),
-    242|   );
-    243|   expect(solana.length).toBe(1);
-       |                         ^
-    244|   expect(solana[0].extra.name).toBe('USDC');
-    245|  });
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/21]⎯
-
- FAIL  tests/api/x402-spec.test.js > paymentRequirements > adds a THREE Solana accept after USDC when X402_ACCEPT_THREE_SOLANA is on
-AssertionError: expected '10000000' to be '1000' // Object.is equality
-
-Expected: "1000"
-Received: "10000000"
-
- ❯ tests/api/x402-spec.test.js:261:28
-    259|   expect(solana[1].extra.feePayer).toBe(solana[0].extra.feePayer);
-    260|   // Default: reuses the USDC atomic price.
-    261|   expect(solana[1].amount).toBe(solana[0].amount);
-       |                            ^
-    262|  });
-    263|
-
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/21]⎯
-
-
- Test Files  12 failed | 580 passed | 3 skipped (595)
-      Tests  21 failed | 8504 passed | 18 skipped (8543)
-   Start at  22:43:37
-   Duration  182.83s (transform 21.96s, setup 0ms, import 187.03s, tests 155.75s, environment 25.75s)
+> 3d-agent@1.5.2 gate
+> npm run test:gate && npm run test:gate-3d && npm run audit:mcp && npm run audit:mcp-golden && npm run audit:routes && npm run audit:handlers && npm run audit:pages && npm run audit:hidden-guard && npm run audit:x402-catalog && npm run audit:tokens
 
+
+> 3d-agent@1.5.2 test:gate
+> node scripts/test-gate.mjs
+
+[test-gate] running 7 critical-path test files…
+
+ RUN  v4.1.9 /workspaces/three.ws
+
+
+ Test Files  7 passed (7)
+      Tests  83 passed (83)
+   Start at  00:50:45
+   Duration  2.74s (transform 1.53s, setup 0ms, import 3.21s, tests 2.80s, environment 1ms)
+
+[test-gate] ✓ all critical-path tests passed
+
+> 3d-agent@1.5.2 test:gate-3d
+> vitest run tests/glb-canonicalize.test.js tests/animation-retarget.test.js tests/animation-retarget-rest-pollution.test.js tests/viewer-framing.test.js
+
+
+ RUN  v4.1.9 /workspaces/three.ws
+
+
+ Test Files  4 passed (4)
+      Tests  244 passed (244)
+   Start at  00:50:49
+   Duration  525ms (transform 184ms, setup 0ms, import 560ms, tests 319ms, environment 1ms)
+
+
+> 3d-agent@1.5.2 audit:mcp
+> node scripts/audit-mcp-manifests.mjs
+
+[audit:mcp] 16 MCP manifests consistent
+
+> 3d-agent@1.5.2 audit:mcp-golden
+> node scripts/audit-mcp-golden.mjs
+
+[audit:mcp-golden] api/_mcp3d/tools/spatial.js: tool ADDED: validate_spatial_response
+
+[audit:mcp-golden] 1 contract change(s) vs golden fixture.
+  If every change above is INTENTIONAL (reviewed as a public-contract change),
+  refresh the fixture:  node scripts/audit-mcp-golden.mjs --update
 EXIT_CODE=1
+--- Note ---
+Baseline failure is PRE-EXISTING, caused by a concurrent agent's untracked work (api/_lib/spatial-mcp.js adds an MCP tool 'validate_spatial_response' not yet reflected in tests/fixtures/mcp-golden-tools.json). Unrelated to prompt 02 (forge generation quality). Captured as-is per gate doctrine; gate-after must be no worse.

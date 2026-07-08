@@ -103,6 +103,39 @@ drift outside this prompt's remit (introduced by unrelated work between the
 2026-07-04 baseline and this pass) and was resolved by a concurrent agent's
 commit, not by scope creep in this pass.
 
+## 2026-07-08 pass B — extend golden coverage to published packages + guard `title`
+
+The prior passes snapshotted only the **hosted** MCP servers (`api/_mcp*`, 76
+contracts / 16 files). The **32 published `packages/*-mcp`** — the tools other
+people install from the registry — had **zero** contract protection: a refactor
+could silently change any published tool's name, title, input schema, or safety
+annotations and nothing would fail. This pass closes that gap.
+
+1. **Coverage extended to `packages/*-mcp/src/tools/*.js`.** `scripts/audit-mcp-golden.mjs`
+   now discovers every `packages/<name>-mcp/src/tools/*.js` (skipping `index.js`
+   barrels) via a new `packageToolSources()` helper and folds them into `SOURCES`.
+   Fixture grew **76/16 → 223 tool contracts / 163 files** (+147 package files
+   across 32 packages). Same static-AST mechanism (acorn, no import, no network) —
+   fully consistent with the "never import catalogs" offline doctrine.
+2. **`title` now snapshotted *and* compared.** The extractor captured
+   name/description/annotations/schema but not `title`, and the diff loop only
+   checked `descHash`/`schemaHash`/`annotations` — so a tool's public title could
+   drift undetected (and prompt 01's own tripwire is a title change). Added `title`
+   to both the extracted contract and the compared-field list. All 223 contracts
+   now carry a snapshotted title.
+3. **Tripwire re-proven for the new surface + field.** Mutated
+   `three_price.title` in `packages/three-token-mcp/src/tools/three-price.js`;
+   `audit:mcp-golden` exited non-zero with
+   `three_price.title changed`; reverted → green. See `tripwire-proof.md`.
+
+Net: a published MCP package tool's contract can no longer change silently.
+Regenerate after an intentional change with `node scripts/audit-mcp-golden.mjs --update`.
+
+Concurrency note: this worktree is shared with other agents (CLAUDE.md "Known
+traps"). Only these paths were touched here — `scripts/audit-mcp-golden.mjs`,
+`tests/fixtures/mcp-golden-tools.json`, and this `_generated/01/` doc — staged
+explicitly, never `git add -A`.
+
 ## Pre-existing advisories (not fixed here, per prompt 01 hand-off rules)
 
 1. `TRAILSLASH /payments/` lands on the designed 404 (route audit advisory).

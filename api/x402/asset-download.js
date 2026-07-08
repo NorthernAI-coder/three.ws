@@ -16,15 +16,15 @@ import { sql } from '../_lib/db.js';
 import { presignGet } from '../_lib/r2.js';
 import { error } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
+import assetDownloadListing from '../_lib/service-catalog/services/asset-download.js';
 
 const ROUTE = '/api/x402/asset-download';
 
-const DESCRIPTION =
-	'three.ws Asset Bazaar — pay once in USDC to unlock a 3D asset (GLB, ' +
-	'avatar, or accessory) hosted on R2. Wallets that have already paid can ' +
-	're-download for free by signing in with SIWX (CAIP-122). Each asset has ' +
-	'its own price and creator payout address; the response carries a short- ' +
-	'lived presigned URL the client uses to fetch the file directly from R2.';
+// Single source of truth: api/_lib/service-catalog/services/asset-download.js
+// is the storefront listing copy — importing it here keeps the live 402
+// challenge from drifting from what /.well-known/x402.json and the OKX
+// projection advertise (same pattern as forge.js → forge-listing.js).
+const DESCRIPTION = assetDownloadListing.description;
 
 const INPUT_EXAMPLE = { slug: 'pole-dancer-rumba' };
 

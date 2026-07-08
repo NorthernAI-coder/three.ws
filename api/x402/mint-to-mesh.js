@@ -1,6 +1,8 @@
-// INTERNAL-USE ONLY; not an agent product. De-listed from the x402 discovery
-// catalog (api/wk.js) in the 2026-07 overhaul: the Mei foundry NPC in /play sells it; the real agent-facing text->3D product is Forge (/api/x402/forge).
-// The route stays live for those consumers; do not re-add it to the catalog.
+// Re-listed per the 2026-07-08 storefront cleanup (prompt 18): turning an
+// arbitrary on-chain SPL mint into an instantly renderable, themed 3D asset
+// on demand is a real, distinct capability (Forge is prompt-driven generation
+// — this is deterministic token-to-mesh rendering). The Mei foundry NPC in
+// /play also buys through this same route.
 // GET /api/x402/mint-to-mesh?mint=<solana-mint>
 //
 // Paid endpoint cataloged by the CDP x402 Bazaar (agentic.market) and the

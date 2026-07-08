@@ -23,6 +23,10 @@ const { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID, 
 const WALLET_PUBKEY = Keypair.fromSeed(new Uint8Array(32).fill(1)).publicKey;
 const RECIPIENT_PUBKEY = Keypair.fromSeed(new Uint8Array(32).fill(2)).publicKey;
 const MINT_PUBKEY = Keypair.fromSeed(new Uint8Array(32).fill(3)).publicKey;
+// A distinct mint for the Token-2022 case. resolveTokenProgramId memoizes a
+// mint's owning program (immutable on-chain), so the 2022 test must use its own
+// mint rather than reuse MINT_PUBKEY, which the classic-program tests already cached.
+const MINT_2022_PUBKEY = Keypair.fromSeed(new Uint8Array(32).fill(4)).publicKey;
 
 const SENDER_ATA = getAssociatedTokenAddressSync(
   MINT_PUBKEY, WALLET_PUBKEY, false, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -41,15 +45,16 @@ function makeConnection(
   senderExists: boolean,
   receiverExists: boolean,
   mintProgram: PublicKey = TOKEN_PROGRAM_ID,
+  mint: PublicKey = MINT_PUBKEY,
 ) {
   // ATAs are derived with whichever program owns the mint, so a Token-2022 test
   // must look its accounts up under the Token-2022 program.
-  const senderAta = getAssociatedTokenAddressSync(MINT_PUBKEY, WALLET_PUBKEY, false, mintProgram, ASSOCIATED_TOKEN_PROGRAM_ID);
-  const receiverAta = getAssociatedTokenAddressSync(MINT_PUBKEY, RECIPIENT_PUBKEY, false, mintProgram, ASSOCIATED_TOKEN_PROGRAM_ID);
+  const senderAta = getAssociatedTokenAddressSync(mint, WALLET_PUBKEY, false, mintProgram, ASSOCIATED_TOKEN_PROGRAM_ID);
+  const receiverAta = getAssociatedTokenAddressSync(mint, RECIPIENT_PUBKEY, false, mintProgram, ASSOCIATED_TOKEN_PROGRAM_ID);
   const getAccountInfo = jest.fn<(pubkey: PublicKey) => Promise<AccountInfo<Buffer> | null>>();
   getAccountInfo.mockImplementation(async (pubkey) => {
     // resolveTokenProgramId reads the mint account's owner to pick the program.
-    if (pubkey.equals(MINT_PUBKEY)) return ({ ...FAKE_ACCOUNT, owner: mintProgram } as unknown as AccountInfo<Buffer>);
+    if (pubkey.equals(mint)) return ({ ...FAKE_ACCOUNT, owner: mintProgram } as unknown as AccountInfo<Buffer>);
     if (pubkey.equals(senderAta)) return senderExists ? (FAKE_ACCOUNT as unknown as AccountInfo<Buffer>) : null;
     if (pubkey.equals(receiverAta)) return receiverExists ? (FAKE_ACCOUNT as unknown as AccountInfo<Buffer>) : null;
     return null;
@@ -135,8 +140,8 @@ describe("transferSpl", () => {
   it("uses the Token-2022 program for a Token-2022 mint (e.g. $THREE)", async () => {
     // Mint account owned by Token-2022 → ATAs and the transfer must build against
     // Token-2022, not the classic program (which would derive the wrong ATA).
-    await transferSpl(makeWallet(), makeConnection(true, true, TOKEN_2022_PROGRAM_ID), {
-      mint: MINT_PUBKEY, to: RECIPIENT_PUBKEY, amount: 1_000_000n,
+    await transferSpl(makeWallet(), makeConnection(true, true, TOKEN_2022_PROGRAM_ID, MINT_2022_PUBKEY), {
+      mint: MINT_2022_PUBKEY, to: RECIPIENT_PUBKEY, amount: 1_000_000n,
     });
 
     const [, , instructions] = mockBuildAndSendFn.mock.calls[0]!;
@@ -144,7 +149,7 @@ describe("transferSpl", () => {
     expect(transferIx.programId.equals(TOKEN_2022_PROGRAM_ID)).toBe(true);
     // And the source ATA is the Token-2022-derived address, not the classic one.
     const expectedSenderAta = getAssociatedTokenAddressSync(
-      MINT_PUBKEY, WALLET_PUBKEY, false, TOKEN_2022_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID,
+      MINT_2022_PUBKEY, WALLET_PUBKEY, false, TOKEN_2022_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID,
     );
     expect(transferIx.keys[0]!.pubkey.equals(expectedSenderAta)).toBe(true);
   });

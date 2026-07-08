@@ -132,7 +132,10 @@ const OUTPUT_SCHEMA = {
 };
 
 const BAZAAR = {
-	discoverable: true,
+	// De-listed per the 2026-07-08 storefront cleanup (prompt 18): a genuine
+	// internal consumer exists (the /tutor page + /play Schoolmarm NPC), so per
+	// the work order's own escape hatch this route is delisted, not deleted.
+	discoverable: false,
 	info: {
 		input: { type: 'http', method: 'POST', bodyType: 'json', body: INPUT_EXAMPLE },
 		output: { type: 'json', example: OUTPUT_EXAMPLE },

@@ -480,6 +480,16 @@ export const limits = {
 	// the Upstash quota without buying any real protection here.
 	mcp3dStatus: (key) =>
 		getLimiter('mcp3d:status', { limit: 240, window: '1 m', local: true }).limit(key),
+	// Persona wallet identity reads (balances, reputation, holdings, nameplate) —
+	// several live RPC/HTTP calls per invocation, so a tighter ceiling than plain
+	// status polling but generous enough for a chat turn to check before tipping.
+	mcp3dPersonaIdentity: (key) =>
+		getLimiter('mcp3d:persona:identity', { limit: 60, window: '1 m', local: true }).limit(key),
+	// Persona value-movement (persona_tip / persona_send) — moves real USDC, so it
+	// gets a hard, critical, low-throughput ceiling independent of the per-call and
+	// per-session USDC spend caps enforced inside the handler.
+	mcp3dPersonaSpend: (key) =>
+		getLimiter('mcp3d:persona:spend', { limit: 20, window: '1 h', critical: true }).limit(key),
 	// Platform-wide hourly circuit breaker across ALL free-studio IPs, so
 	// distributed callers each under their own studioGenHourly cap can't
 	// collectively flood the free NVIDIA / HF allocation. Enforced whenever Redis
@@ -515,6 +525,13 @@ export const limits = {
 	// for an agent screening a watchlist while capping a scripted enumeration flood.
 	// Non-critical: a Redis blip degrades to the per-instance memory limiter.
 	tokenSecurityIp: (ip) => getLimiter('token:security:ip', { limit: 20, window: '1 m' }).limit(ip),
+	// Free name resolution (api/v1/resolve) — wraps the same ENS RPC failover
+	// chain and SNS/Bonfida calls api/agents/ens/[name].js and api/sns.js already
+	// make, all with their own in-process caches, so this only gates cache-miss
+	// origin hits. 30/min per IP matches the spec's high-frequency-agent-primitive
+	// budget without inviting a scripted enumeration flood. Non-critical: a Redis
+	// blip degrades to the per-instance memory limiter, never blocks a resolution.
+	resolveIp: (ip) => getLimiter('v1:resolve:ip', { limit: 30, window: '1 m' }).limit(ip),
 	// Diorama composer (api/diorama action:compose) — one free-first LLM
 	// completion per call that decomposes a sentence into a placed object set.
 	// Paid upstream egress, so cap per IP and add a global hourly circuit breaker.
@@ -1016,6 +1033,20 @@ export const limits = {
 	// 10 per hour per IP is enough for manual setup; bots would need more.
 	oracleFollowIp: (ip) =>
 		getLimiter('oracle:follow:ip', { limit: 10, window: '1 h' }).limit(ip),
+
+	// Aggregator free tier (api/v1/x/[...slug].js). Endpoints in api/v1/_providers.js
+	// may carry a `free: { perMin, perDay }` quota — an unauthenticated caller (no
+	// BYOK key, no three.ws credentials) gets real, no-signup data before the x402
+	// 402 challenge kicks in. Two dynamic buckets, keyed per (provider/endpoint, IP)
+	// so each endpoint's own quota sizes its own counter (mirrors the widgetChat /
+	// embedLlmAgent per-resource-dynamic-limit pattern above). Non-critical: a Redis
+	// outage must never turn a free call into a false 402 — it degrades to the
+	// per-instance memory limiter, same posture as the other zero-marginal-cost free
+	// lanes (mcp3dGenerateFree, studioGenBurst) in this file.
+	apiV1FreeMin: (key, perMin) =>
+		getLimiter('v1:free:min', { limit: Math.max(1, Number(perMin) || 30), window: '1 m' }).limit(key),
+	apiV1FreeDay: (key, perDay) =>
+		getLimiter('v1:free:day', { limit: Math.max(1, Number(perDay) || 1000), window: '1 d' }).limit(key),
 };
 
 // Trust only proxy headers that Vercel itself sets and signs. Naively reading

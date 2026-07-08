@@ -1,0 +1,27 @@
+/*
+ * /categories — sector leaderboard. Reuses the shared cv-table / cv-stat-card
+ * system from coin-pages.css; this file adds only the stacked top-3 coin
+ * avatars that identify each category in the name cell.
+ */
+
+.cat-avatars {
+	display: inline-flex;
+	align-items: center;
+	flex-shrink: 0;
+}
+.cat-avatars img {
+	width: 22px;
+	height: 22px;
+	border-radius: 50%;
+	background: var(--cv-surface-3);
+	border: 2px solid var(--cv-surface);
+	object-fit: cover;
+}
+.cat-avatars img + img {
+	margin-left: -8px;
+}
+
+/* Keep the avatar stack visible even where the table hides the ticker on mobile. */
+.cv-table .name-cell .inner {
+	gap: 0.625rem;
+}

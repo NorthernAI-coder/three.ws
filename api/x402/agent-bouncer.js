@@ -24,18 +24,15 @@ import { withService } from '../_lib/x402/bazaar-helpers.js';
 import { priceFor } from '../_lib/x402-prices.js';
 import { isUuid } from '../_lib/validate.js';
 import { vetSolanaAgent } from '../_lib/trust/solana-bouncer.js';
+import agentBouncerListing from '../_lib/service-catalog/services/agent-bouncer.js';
 
 const ROUTE = '/api/x402/agent-bouncer';
 
-const DESCRIPTION =
-	'three.ws Agent Bouncer — the platform door check. Given a three.ws agent_id ' +
-	'and an optional trust policy, read the agent’s whole Solana track record ' +
-	'(confirmed on-chain payments, distinct payers, payment failure rate, ' +
-	'distribute/buyback follow-through, signed Solana attestations, and the Club ' +
-	'ban/tip ledger) and return an admit/refuse verdict with a door tier ' +
-	'(newcomer / regular / trusted / vip). Behavioral reputation from real ' +
-	'settled Solana actions — not a star rating. Use it to vet a counterparty ' +
-	'before paying, hiring, or delegating. Pay-per-call in USDC on Solana or Base.';
+// Single source of truth: api/_lib/service-catalog/services/agent-bouncer.js is
+// the storefront listing copy — importing it here keeps the live 402 challenge
+// from drifting from what /.well-known/x402.json and the OKX projection
+// advertise (same pattern as forge.js → forge-listing.js).
+const DESCRIPTION = agentBouncerListing.description;
 
 const INPUT_EXAMPLE = {
 	agent_id: '7b9a4f30-2d11-4e2d-9d12-1cdb1f6a3a55',

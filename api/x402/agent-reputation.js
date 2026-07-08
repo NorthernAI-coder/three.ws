@@ -40,18 +40,15 @@ import {
 	decayReportAgentReputation,
 	REPUTATION_FLAG_THRESHOLD,
 } from '../_lib/trust/solana-bouncer.js';
+import agentReputationListing from '../_lib/service-catalog/services/agent-reputation.js';
 
 const ROUTE = '/api/x402/agent-reputation';
 
-const DESCRIPTION =
-	'Cross-chain Agent Reputation — pay $0.01 USDC to get a deterministic 0–100 ' +
-	'trust score for ANY counterparty before you pay, trade, or delegate to it. ' +
-	'Accepts a Solana wallet, an EVM wallet, a pump.fun mint, an ERC-8004 agent id, ' +
-	'or a three.ws agent_id (auto-detected). Scored from real on-chain evidence — ' +
-	'transaction history, age, distinct counterparties, holdings, settlement ' +
-	'reliability, prior settled agent payments, and ERC-8004 feedback — with the ' +
-	'evidence and caveats returned. Unknown subjects return score:null, not a fake ' +
-	'score. Pay-per-call in USDC on Base or Solana mainnet.';
+// Single source of truth: api/_lib/service-catalog/services/agent-reputation.js
+// is the storefront listing copy — importing it here keeps the live 402
+// challenge from drifting from what /.well-known/x402.json and the OKX
+// projection advertise (same pattern as forge.js → forge-listing.js).
+const DESCRIPTION = agentReputationListing.description;
 
 const INPUT_EXAMPLE = { subject: 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump' };
 

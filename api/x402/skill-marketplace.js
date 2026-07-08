@@ -28,15 +28,17 @@ import { installAccessControl } from '../_lib/x402/access-control.js';
 import { withService } from '../_lib/x402/bazaar-helpers.js';
 import { sql } from '../_lib/db.js';
 import { priceFor } from '../_lib/x402-prices.js';
+import skillMarketplaceListing from '../_lib/service-catalog/services/skill-marketplace.js';
 
 const ROUTE = '/api/x402/skill-marketplace';
 
-const DESCRIPTION =
-	'three.ws Skill Marketplace — list active skill listings with pricing across ' +
-	'all three.ws agents. Optionally filter by skill name to find the cheapest ' +
-	'provider for a specific capability (e.g. inspect_model, render_avatar). ' +
-	'Returns price atomics, chain, currency, trial offer, and time-pass terms ' +
-	'when set by the agent owner. Use to route paid work to the cheapest agent.';
+// Single source of truth:
+// api/_lib/service-catalog/services/skill-marketplace.js is the storefront
+// listing copy — importing it here keeps the live 402 challenge from drifting
+// from what /.well-known/x402.json and the OKX projection advertise (same
+// pattern as forge.js → forge-listing.js). The POST (analytics) endpoint below
+// appends its own mode-specific sentence to this same base text.
+const DESCRIPTION = skillMarketplaceListing.description;
 
 const INPUT_EXAMPLE = { skill: 'inspect_model', limit: 20 };
 

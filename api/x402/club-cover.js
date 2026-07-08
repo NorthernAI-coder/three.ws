@@ -27,6 +27,7 @@ import {
 	membershipSnapshot,
 } from '../_lib/club/cover-pass.js';
 import { coverRevenueSummary } from '../_lib/club/cover-revenue.js';
+import clubCoverListing from '../_lib/service-catalog/services/club-cover.js';
 
 const ROUTE = '/api/x402/club-cover';
 
@@ -34,13 +35,11 @@ const ROUTE = '/api/x402/club-cover';
 // so the USDC door here and the $THREE door (api/club/cover-three.js) issue an
 // identical pass.
 
-const DESCRIPTION =
-	'three.ws Pole Club — pay the cover charge to get past the door. Pay ' +
-	'$0.01 USDC and the bouncer checks the paying wallet on-chain against the ' +
-	'club ban list and its prior club activity, then issues an entry pass with ' +
-	'a door tier (newcomer / regular / vip). Banned wallets are turned away. ' +
-	'The /club page consumes the pass to drop the velvet rope. Pay-per-call in ' +
-	'USDC on Solana mainnet.';
+// Single source of truth: api/_lib/service-catalog/services/club-cover.js is
+// the storefront listing copy — importing it here keeps the live 402 challenge
+// from drifting from what /.well-known/x402.json and the OKX projection
+// advertise (same pattern as forge.js → forge-listing.js).
+const DESCRIPTION = clubCoverListing.description;
 
 const INPUT_EXAMPLE = {};
 
