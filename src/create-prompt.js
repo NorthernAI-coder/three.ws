@@ -16,6 +16,7 @@
 
 import { log } from './shared/log.js';
 import { injectFestivePresets } from './shared/festive-presets.js';
+import { mountPromptDictation } from './voice/prompt-dictation.js';
 
 const SUBMIT_ENDPOINT = '/api/avatars/reconstruct';
 const STATUS_ENDPOINT = '/api/avatars/regenerate-status';
@@ -33,6 +34,12 @@ const buildPrompt = $('#build-prompt');
 const buildStatus = $('#build-status');
 const progressFill = $('#progress-fill');
 const elapsedEl = $('#elapsed');
+
+// Voice → prompt: dictate the avatar description instead of typing it. Feeds
+// the exact same #prompt textarea /api/avatars/reconstruct already consumes —
+// no new generation path, just a new way to fill the existing one. Renders
+// nothing when this browser can't dictate (see prompt-dictation.js).
+mountPromptDictation($('#prompt-dictate-slot'), promptEl);
 
 let _submitting = false;
 let _startedAt = 0;
