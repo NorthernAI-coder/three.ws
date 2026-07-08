@@ -237,16 +237,19 @@ const PLAYER_CSS = `
 }
 
 /* ── On-chain (BNB) presence toggle — prompt 16 ───────────────────────────
-   Sits just under the humans-presence pill, top-right. OFF by default;
-   .agora-oc-confirm is the "gracefully cancelable" opt-in prompt shown only
-   the first time a browser turns this on (no stored session key yet). */
+   Top-LEFT (mirrors the humans-presence pill's top offset on the opposite
+   side) — the entire right column above ~64px belongs to the economy
+   layer's job-board panel (agora-econ-board-panel, z-index 40), which both
+   visually and pointer-event-wise sits above anything placed there. OFF by
+   default; .agora-oc-confirm is the "gracefully cancelable" opt-in prompt
+   shown only the first time a browser turns this on (no stored key yet). */
 .agora-oc-wrap {
 	position: absolute;
-	top: 58px;
-	right: 14px;
+	top: 14px;
+	left: 14px;
 	display: flex;
 	flex-direction: column;
-	align-items: flex-end;
+	align-items: flex-start;
 	gap: 8px;
 	pointer-events: auto;
 	max-width: min(86vw, 300px);
@@ -315,7 +318,7 @@ const PLAYER_CSS = `
 	animation: agora-p-rise 0.2s ease;
 }
 @media (hover: none), (max-width: 640px) {
-	.agora-oc-wrap { top: auto; bottom: 128px; right: 8px; max-width: 62vw; }
+	.agora-oc-wrap { top: 8px; left: 8px; max-width: 62vw; }
 }
 @media (prefers-reduced-motion: reduce) {
 	.agora-oc-confirm, .agora-oc-hint { animation: none; }
