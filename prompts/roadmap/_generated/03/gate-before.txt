@@ -1,3 +1,12 @@
+[prompt-03 annotation — added by hand]
+`npm run gate`'s `&&` chain stopped at audit:mcp-golden (a pre-existing,
+unrelated failure from a concurrent agent's in-flight MCP tool — see the
+"validate_spatial_response" tool ADDED line below). That masked the
+remaining audits, so after the `gate` invocation below I ran each remaining
+`npm run audit:*` manually (appended below) to get a true baseline. Result:
+only audit:mcp-golden and audit:tokens (pages/bnb.html, pre-existing
+concurrent WIP) were red; routes/handlers/pages/hidden-guard/x402-catalog
+were all green. See gate-after.txt for the same audits post-change.
 
 > 3d-agent@1.5.2 gate
 > npm run test:gate && npm run test:gate-3d && npm run audit:mcp && npm run audit:mcp-golden && npm run audit:routes && npm run audit:handlers && npm run audit:pages && npm run audit:hidden-guard && npm run audit:x402-catalog && npm run audit:tokens
