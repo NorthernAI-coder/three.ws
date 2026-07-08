@@ -271,8 +271,8 @@
 				},
 				{
 					"path": "/create",
-					"title": "Create Agent",
-					"description": "Wizard for building a new agent: avatar, brain (LLM + prompt), skills, and on-chain identity.",
+					"title": "Create",
+					"description": "The front door for everything you can create on three.ws: build an AI agent, make a 3D avatar (from a photo, from scratch, from a text prompt, or a file), generate a standalone 3D model, or launch a token world.",
 					"priority": 0.9,
 					"changefreq": "weekly",
 					"added": "2026-04-16"
