@@ -125,9 +125,18 @@ def _remove_background(img: Image.Image) -> Image.Image:
         buf = io.BytesIO()
         img.save(buf, format="PNG")
         out = rembg.remove(buf.getvalue())
-        return Image.open(io.BytesIO(out)).convert("RGBA")
+        rgba = Image.open(io.BytesIO(out)).convert("RGBA")
     except Exception:
-        return img.convert("RGBA")
+        rgba = img.convert("RGBA")
+    # TripoSR's tokenizer normalizes with a 3-channel mean/std (see
+    # tsr/models/tokenizers/image.py) and errors on a 4-channel RGBA tensor
+    # ("size of tensor a (4) must match ... b (3)"). The upstream TripoSR demo
+    # (run.py) matting step fills the removed background with mid-gray (127)
+    # before flattening to RGB — do the same instead of shipping RGBA straight
+    # into the model.
+    background = Image.new("RGB", rgba.size, (127, 127, 127))
+    background.paste(rgba, mask=rgba.split()[3])
+    return background
 
 
 async def _run_inference(task_id: str, images: list[str], body_type: str) -> None:
