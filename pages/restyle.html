@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<script>/* three.ws theme boot — no-flash */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+		<meta charset="utf-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+		<title>Restyle Studio · three.ws</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta name="description" content="Re-skin any 3D model in the browser: apply PBR material presets (chrome, gold, glass, wood…), generate seeded colorway variants, fine-tune metalness and roughness, and export a validated GLB — non-destructively." />
+		<meta name="theme-color" content="#000000" />
+		<link rel="canonical" href="https://three.ws/restyle" />
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="three.ws" />
+		<meta property="og:title" content="Restyle Studio · three.ws" />
+		<meta property="og:description" content="Apply PBR material presets and seeded variants to any GLB, fine-tune materials live, and export a validated model — non-destructively." />
+		<meta property="og:url" content="https://three.ws/restyle" />
+		<meta property="og:image" content="https://three.ws/api/page-og?s=build&amp;t=Restyle+Studio&amp;d=Apply+PBR+material+presets+and+seeded+variants+to+any+GLB%2C+fine-tune+materials%2C+and+export+a+validated+model.&amp;p=%2Frestyle" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:site" content="@trythreews" />
+		<link rel="stylesheet" href="/style.css" />
+		<style>
+			.rs-main { max-width: 1240px; margin: 0 auto; padding: 28px 20px 64px; }
+			.rs-head { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 20px; margin-bottom: 20px; }
+			.rs-head h1 { font-size: clamp(24px, 4vw, 34px); font-weight: 700; letter-spacing: -0.02em; margin: 0; }
+			.rs-head p { color: var(--text-2); margin: 4px 0 0; max-width: 62ch; }
+			.rs-layout { display: grid; grid-template-columns: 1.5fr 1fr; gap: 18px; align-items: start; }
+			@media (max-width: 900px) { .rs-layout { grid-template-columns: 1fr; } }
+
+			.rs-stage { position: relative; aspect-ratio: 4 / 3; border-radius: 16px; overflow: hidden;
+				background: radial-gradient(120% 120% at 50% 0%, color-mix(in srgb, var(--text) 6%, transparent), transparent 60%), var(--bg-2, #0c0d12);
+				border: 1px solid var(--border, #23252d); }
+			.rs-canvas { position: absolute; inset: 0; }
+			.rs-canvas.is-hidden { opacity: 0; }
+			.rs-overlay { position: absolute; inset: 0; display: grid; place-content: center; text-align: center;
+				gap: 10px; padding: 24px; color: var(--text-2); }
+			.rs-spinner { width: 34px; height: 34px; border-radius: 50%; margin: 0 auto;
+				border: 3px solid color-mix(in srgb, var(--text) 18%, transparent); border-top-color: var(--text); animation: rs-spin 0.8s linear infinite; }
+			@keyframes rs-spin { to { transform: rotate(360deg); } }
+			.rs-stage-hint { position: absolute; left: 12px; bottom: 12px; font-size: 12px; color: var(--text-3);
+				background: color-mix(in srgb, var(--bg, #000) 60%, transparent); padding: 4px 8px; border-radius: 8px; pointer-events: none; }
+
+			.rs-panel { display: flex; flex-direction: column; gap: 18px; }
+			.rs-card { border: 1px solid var(--border, #23252d); border-radius: 14px; padding: 14px 15px; background: var(--bg-2, #0c0d12); }
+			.rs-card h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); margin: 0 0 10px; }
+
+			.rs-presets { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+			.rs-preset { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: 10px; cursor: pointer;
+				border: 1px solid var(--border, #23252d); background: transparent; color: var(--text); font-size: 13px; text-align: left;
+				transition: border-color 0.15s ease, background 0.15s ease, transform 0.05s ease; }
+			.rs-preset:hover { border-color: color-mix(in srgb, var(--text) 40%, transparent); background: color-mix(in srgb, var(--text) 5%, transparent); }
+			.rs-preset:active { transform: translateY(1px); }
+			.rs-preset:focus-visible { outline: 2px solid var(--accent, #7aa2ff); outline-offset: 2px; }
+			.rs-preset.is-active { border-color: var(--accent, #7aa2ff); background: color-mix(in srgb, var(--accent, #7aa2ff) 12%, transparent); }
+			.rs-preset__swatch { width: 20px; height: 20px; border-radius: 6px; flex: none;
+				box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 20%, transparent); }
+
+			.rs-slider { display: grid; grid-template-columns: 84px 1fr; align-items: center; gap: 10px; margin: 9px 0; font-size: 13px; color: var(--text-2); }
+			.rs-slider input[type="range"] { width: 100%; accent-color: var(--accent, #7aa2ff); }
+			.rs-colors { display: flex; gap: 14px; margin-top: 6px; }
+			.rs-color { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--text-2); }
+			.rs-color input[type="color"] { width: 34px; height: 26px; border: none; background: none; padding: 0; border-radius: 6px; cursor: pointer; }
+
+			.rs-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+			.rs-row label { font-size: 13px; color: var(--text-2); }
+			.rs-input { width: 66px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border, #23252d); background: var(--bg, #000); color: var(--text); font: inherit; }
+			.rs-strip { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+			.rs-swatch { width: 40px; height: 40px; border-radius: 9px; cursor: pointer; border: 1px solid color-mix(in srgb, var(--text) 22%, transparent);
+				transition: transform 0.08s ease; }
+			.rs-swatch:hover { transform: scale(1.08); }
+			.rs-swatch:focus-visible { outline: 2px solid var(--accent, #7aa2ff); outline-offset: 2px; }
+
+			.rs-btn { padding: 9px 14px; border-radius: 10px; border: 1px solid var(--border, #23252d); background: transparent;
+				color: var(--text); font: inherit; font-size: 13px; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; }
+			.rs-btn:hover { background: color-mix(in srgb, var(--text) 6%, transparent); }
+			.rs-btn:focus-visible { outline: 2px solid var(--accent, #7aa2ff); outline-offset: 2px; }
+			.rs-btn--primary { background: var(--text); color: var(--bg, #000); border-color: var(--text); font-weight: 600; }
+			.rs-btn--primary:hover { opacity: 0.9; background: var(--text); }
+			.rs-btn[disabled] { opacity: 0.5; cursor: default; }
+
+			.rs-history { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: var(--text-3); min-height: 18px; }
+			.rs-step { padding: 2px 7px; border-radius: 999px; background: color-mix(in srgb, var(--text) 8%, transparent); }
+			.rs-step.is-current { color: var(--text); background: color-mix(in srgb, var(--accent, #7aa2ff) 20%, transparent); }
+			.rs-arrow { color: var(--text-3); }
+			.rs-note { font-size: 12px; color: var(--text-3); margin-top: 8px; min-height: 16px; }
+			.rs-sources { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+			.rs-file { font-size: 12px; color: var(--text-2); }
+			.rs-hint { font-size: 12px; color: var(--text-3); margin-top: 8px; }
+			.rs-hint a { color: var(--accent, #7aa2ff); }
+		</style>
+	</head>
+	<body>
+		<header>
+			<div id="nav-container"></div>
+		</header>
+		<script src="/nav.js"></script>
+
+		<main class="rs-main">
+			<div class="rs-head">
+				<div>
+					<h1>Restyle Studio</h1>
+					<p>Re-skin any 3D model in your browser — apply a PBR material preset, fan out seeded colorway
+						variants, fine-tune metalness and roughness live, then export a validated GLB. Your original is
+						never touched; Reset restores it instantly.</p>
+				</div>
+			</div>
+
+			<div class="rs-layout">
+				<!-- Stage -->
+				<div class="rs-stage" id="stage">
+					<div class="rs-canvas" id="canvas-wrap"></div>
+					<div class="rs-overlay" id="status" hidden>
+						<div class="rs-spinner" aria-hidden="true"></div>
+						<div>Loading model…</div>
+					</div>
+					<div class="rs-overlay" id="empty" hidden>
+						<div>Drop a <strong>.glb</strong> here, upload one, or paste a model URL to start.</div>
+					</div>
+					<div class="rs-overlay" id="error" hidden>
+						<div id="error-msg">That model could not be loaded.</div>
+						<button class="rs-btn" id="retry">Load the sample model</button>
+					</div>
+					<div class="rs-stage-hint">Drag to orbit · scroll to zoom · drop a .glb to load</div>
+				</div>
+
+				<!-- Controls -->
+				<div class="rs-panel">
+					<div class="rs-card">
+						<h2>Load a model</h2>
+						<div class="rs-sources">
+							<label class="rs-btn" for="file">Upload GLB<input id="file" type="file" accept=".glb,.gltf,model/gltf-binary" hidden /></label>
+							<input class="rs-input" id="url-input" style="width: 150px" type="url" placeholder="https://…/model.glb" />
+							<button class="rs-btn" id="load-url">Load URL</button>
+						</div>
+						<div class="rs-hint">No model? The platform's sample avatar loads by default. Make one in <a href="/forge">Forge</a>.</div>
+					</div>
+
+					<div class="rs-card">
+						<h2>Material presets</h2>
+						<div class="rs-presets" id="presets"></div>
+					</div>
+
+					<div class="rs-card">
+						<h2>Fine-tune</h2>
+						<div class="rs-slider"><span>Metalness</span><input id="metalness" type="range" min="0" max="1" step="0.01" /></div>
+						<div class="rs-slider"><span>Roughness</span><input id="roughness" type="range" min="0" max="1" step="0.01" /></div>
+						<div class="rs-slider"><span>Emissive</span><input id="emissive" type="range" min="0" max="4" step="0.05" /></div>
+						<div class="rs-colors">
+							<label class="rs-color">Base <input id="basecolor" type="color" value="#888888" /></label>
+							<label class="rs-color">Glow <input id="emissivecolor" type="color" value="#000000" /></label>
+						</div>
+					</div>
+
+					<div class="rs-card">
+						<h2>Seeded variants</h2>
+						<div class="rs-row">
+							<label>Seed <input class="rs-input" id="seed" type="number" value="42" min="0" /></label>
+							<label>Count <input class="rs-input" id="variant-count" type="number" value="6" min="1" max="12" /></label>
+							<button class="rs-btn" id="gen-variants">Generate</button>
+						</div>
+						<div id="variants" hidden>
+							<div class="rs-strip" id="variant-strip"></div>
+						</div>
+						<div class="rs-hint">Same seed → same set, every time. Variants fan out from the last preset you applied.</div>
+					</div>
+
+					<div class="rs-card">
+						<h2>History &amp; export</h2>
+						<div class="rs-history" id="history"></div>
+						<div class="rs-row" style="margin-top: 12px">
+							<button class="rs-btn" id="reset">Reset to original</button>
+							<button class="rs-btn rs-btn--primary" id="export">Export GLB</button>
+						</div>
+						<div class="rs-note" id="export-note"></div>
+						<div class="rs-hint">Prompt-driven AI re-texture (UV-preserving) is available via the
+							<a href="/mcp">retexture_model MCP tool</a>.</div>
+					</div>
+				</div>
+			</div>
+		</main>
+
+		<div id="footer-container"></div>
+		<script src="/footer.js" defer></script>
+		<script type="module" src="/src/restyle.js"></script>
+	</body>
+</html>

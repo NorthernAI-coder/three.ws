@@ -943,6 +943,24 @@ export const RING_CATALOG = [
 		note: 'autobuy:false — every call runs a real Cloud Run GPU remesh worker job and persists a new GLB.',
 	},
 
+	// ── embody — real GPU generation, the priciest single-call service ──────────
+	{
+		slug: 'embody',
+		sourceFile: 'api/x402/embody.js',
+		path: '/api/x402/embody',
+		method: 'POST',
+		body: () => ({ name: 'Ring Canary Body', prompt: 'a small friendly robot mascot' }),
+		priceAtomicDefault: 1_000_000,
+		priceSlug: 'embody',
+		tier: 'commerce',
+		kind: 'service',
+		network: null,
+		autobuy: false,
+		weight: 0,
+		businessEffect: 'Generates a rigged, animated GLB + a durable embeddable persona (agent_id, viewer/profile URLs, embed_html) via the free NVIDIA TRELLIS generate→auto-rig chain.',
+		note: 'autobuy:false — every call is a real GPU generation ($1.00, the priciest single-call service in the catalog) and creates a durable persona row; not a cheap read-only ping.',
+	},
+
 	// ── remix — real generation + on-chain creator royalty ──────────────────────
 	{
 		slug: 'remix-asset',

@@ -11,6 +11,7 @@ import { paidEndpoint } from './x402-paid-endpoint.js';
 import { buildBazaarSchema } from './x402-spec.js';
 import { installAccessControl } from './x402/access-control.js';
 import { withService } from './x402/bazaar-helpers.js';
+import { readBody } from './http.js';
 
 const UPSTREAM_TIMEOUT_MS = 20_000;
 
@@ -180,28 +181,18 @@ export function getPaidHandler(provider, endpoint) {
 	return handler;
 }
 
-// Minimal JSON body reader for the paid POST path (paidEndpoint leaves the
-// stream untouched). Mirrors http.js readJson but without its content-type
-// hard-fail, since the x402 dance has already consumed headers.
-function readJsonStream(req, limit = 1_000_000) {
-	return new Promise((resolve, reject) => {
-		const chunks = [];
-		let total = 0;
-		req.on('data', (c) => {
-			total += c.length;
-			if (total > limit) {
-				req.destroy();
-				reject(Object.assign(new Error('payload too large'), { status: 413 }));
-			} else chunks.push(c);
-		});
-		req.on('end', () => {
-			if (!chunks.length) return resolve(undefined);
-			try {
-				resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')));
-			} catch {
-				reject(Object.assign(new Error('invalid JSON body'), { status: 400, code: 'validation_error' }));
-			}
-		});
-		req.on('error', reject);
-	});
+// Minimal JSON body reader for the paid POST path. Mirrors http.js readJson
+// but without its content-type hard-fail, since the x402 dance has already
+// consumed headers. Delegates to the shared readBody, which prefers the
+// pre-parsed req.rawBody/req.body the Cloud Run server already captured —
+// re-reading the raw stream (as this function used to) hangs forever once
+// Express has drained it.
+async function readJsonStream(req, limit = 1_000_000) {
+	const buf = await readBody(req, limit);
+	if (!buf.length) return undefined;
+	try {
+		return JSON.parse(buf.toString('utf8'));
+	} catch {
+		throw Object.assign(new Error('invalid JSON body'), { status: 400, code: 'validation_error' });
+	}
 }
