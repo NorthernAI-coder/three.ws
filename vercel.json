@@ -4696,6 +4696,14 @@
 			"dest": "/labs.html"
 		},
 		{
+			"src": "/fact-check",
+			"dest": "/fact-check.html"
+		},
+		{
+			"src": "/fact-check/",
+			"dest": "/fact-check.html"
+		},
+		{
 			"src": "/fact-checker",
 			"dest": "/fact-checker.html"
 		},
