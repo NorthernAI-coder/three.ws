@@ -902,3 +902,65 @@ confirmed by reading its `toPaymasterTx`/`sendGasless` signature validation dire
 
 **Status: DONE (code + tests + real fork-broadcast proof). Public testnet deploy BLOCKED on
 funded deployer key — owner action needed, identical unblock step as items 10/13/18.**
+
+---
+
+## 2026-07-08 — Prompt 06 (payments-bridge-docs): re-verified, one DoD gap closed (STRUCTURE.md row) — DONE
+
+**Starting state:** `docs/bnb-payments.md` and `specs/x402-mpp-bridge.md` were already SHIPPED
+and on `threews/main` (commit `818db3304`, folded into the "Prompts 04 + 05 + 06" entry above)
+and already independently re-verified once (the prompt-04 entry directly above this one).
+Re-read both doc files in full against the actual current `api/_lib/bnb/mpp-server.js` and
+`mpp-buyer.js` line-by-line (not the prompt's aspirational text) rather than trusting prior
+entries as-is.
+
+**Findings:**
+- `docs/bnb-payments.md` (157 lines): accurately describes MPP-as-x402-v2, the buyer-POV
+  curl-equivalent example against the real pilot endpoint (`GET /api/x402/three-intel`), the
+  `mppFetch` example matching `mpp-buyer.js`'s real signature (`account`, hard `maxSpend`,
+  `network`), the `sendGasless` gasless example matching `megafuel.js`'s real export, the
+  honest MegaFuel/BEP-414-Draft caveats, and an env-var config table — all consistent with
+  current code. Linked from `docs/start-here.md` line 73. No TODO/placeholder strings.
+- `specs/x402-mpp-bridge.md` (108 lines): precise contract — credential mapping (EIP-3009
+  only, `permit2` documented as a parseable-not-settled gap), network dispatch rule, header
+  precedence (one `X-PAYMENT`, precedence by decoded network not header name), requirement
+  pinning order, replay guarantees (Redis `SET NX PX`, local-map fallback), and the full
+  settlement-outcome state table including the one non-idempotent case (`facilitator_unreachable`
+  502 → reconcile on-chain). Matches `mpp-server.js`/`mpp-buyer.js` exactly, function names
+  and error codes verified against source.
+- `data/changelog.json`: both entries present (feature "three.ws now speaks BNB Chain's
+  payment protocol (MPP), both ways" + docs "New guide: BNB Chain payments (MPP) and gasless
+  sends", tag `docs`), holder-readable, dated 2026-07-08.
+- `data/pages.json`: correctly has NO entry for `docs/bnb-payments.md` — confirmed by grepping
+  every other `docs/*.md` file in the repo, none are registered there (docs/ markdown is not
+  a served public route in this codebase's convention), so the prompt's conditional pages.json
+  step does not apply.
+- **Gap found and closed:** `STRUCTURE.md` had rows for the BNB hub, BABT check, and latency
+  race, but no row for the MPP-payments surface itself — the DoD's "add or update a row for
+  the BNB payments surface" was unmet. Added one row (after the BABT row) covering both the
+  accept side (`mpp-server.js`), pay side (`mpp-buyer.js`), gasless rail (`megafuel.js`), and
+  the pilot dual-protocol endpoint, cross-linked to the guide, the spec, and both test files.
+
+**Test proof (real, this session):**
+```
+$ npx vitest run tests/bnb-mpp-server.test.js tests/bnb-mpp-buyer.test.js tests/api/three-intel.test.js
+ Test Files  3 passed (3)
+      Tests  35 passed (35)
+```
+35/35 green — the docs' claims and the code they describe are in sync; the existing x402 path
+on the pilot endpoint remains untouched by the MPP wiring.
+
+**Runnable-example proof:** not re-run against live testnet this session (would duplicate the
+prompt-04 re-verification entry's HTTP-layer proof directly above — same server process, same
+`buildEip3009Payment`/`encodeXPayment` primitives the doc's examples use, already exercised
+live with real EIP-3009 signatures: verify success → business logic ran → settle correctly
+`503 mpp_not_configured`, replay → `409`, tampered offer → `400 offer_mismatch`). That proof
+stands as the runnable-example verification for this doc; re-running it would be redundant
+motion, not new coverage.
+
+**No code changes.** Only doc-adjacent change: the `STRUCTURE.md` row above (swept into commit
+`3599057e8` "feat(bnb-chain): add payments support for MPP and x402 bridge" by this worktree's
+automated snapshot process before this session issued its own commit — verified byte-identical
+via `git show 3599057e8 -- STRUCTURE.md`).
+
+**Status: DONE (docs + spec re-verified accurate, STRUCTURE.md gap closed, tests green).**
