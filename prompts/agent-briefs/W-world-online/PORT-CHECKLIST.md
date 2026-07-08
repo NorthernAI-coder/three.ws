@@ -260,6 +260,61 @@ cards fetched from `/api/cosmetics/catalog`; the Fitting Room leg confirms Nell 
 `CosmeticsWardrobe` panel via the identical `onInteract` → `world.openWardrobe()` path — zero
 unexpected console errors/warnings.
 
+## W07 — Combat & weapons — SHIPPED 2026-07-08
+
+Maps to [W07-combat-and-weapons.md](W07-combat-and-weapons.md). Depends on W01 (physics,
+district bounds). Independent of W02–W06.
+
+- [x] **Mob AI + PvE.** `multiplayer/src/combat-handlers.js` (new) seeds a difficulty
+  gradient of roaming mobs into the three named `DANGER_ZONES` and ticks their AI every
+  200ms — idle, chase, or swing at the nearest live player, clamped so a chase never
+  leaves its home zone (the town stays lawful by construction). Killing one grants
+  XP/gold and spills a lootable tombstone.
+- [x] **`attack`/`loot` intents wired into `WalkRoom`.** Both were fully designed
+  (`combat.js`, `items.js` WEAPONS/MOB_STATS/LOOT_TABLES, `world-features.js`
+  DANGER_ZONES) and completely unreachable — `grep` for the combat helpers in
+  `WalkRoom.js` hit only the import line. `registerCombatHandlers`/`seedMobs`/
+  `tickMobs`/`tickHeat` now wire it in, mirroring `activities.js`'s split exactly.
+- [x] **Safe/danger zone gating, for real.** Attacking is rejected server-side outside a
+  `DANGER_ZONES` circle — not just visually signposted.
+- [x] **Wanted/heat meter.** PvP raises the attacker's heat (`combat.addHeat`), decaying
+  faster in town; the public star count rides on `Player.heat` (already in schemas.js,
+  never populated before this).
+- [x] **Death, tombstones, respawn.** A kill (mob or player) calls `killPlayer`:
+  `dropCarried` spills a tombstone, `player.dead=true` flags the downed state on the
+  shared schema (a `move` from a dead player is now rejected server-side — a real bug
+  found while wiring this in), and a 5.5s timer respawns at `SPAWN_POINT` via
+  `reviveProfile`.
+- [x] **Client vitals HUD.** `src/game/hud/world-hud.js` — fully built, dormant, never
+  imported — is now mounted by the new `src/game/combat-system.js`, feeding
+  `setHealth`/`setArmor`/`setWanted` (this brief) and `setCash`/`setBanked`/minimap
+  viewer (closing the same dormant-HUD gap for W04's money readout as a side effect).
+- [x] **Mob rendering reuses W08's already-built (but dormant) `MobSystem`.** `src/game/npc/mobs.js`
+  was already written against a `window.twsCombat` contract ("when W07 ships, mobs light
+  up with zero changes here" — confirmed true). Rather than ship a second, competing mob
+  renderer, `combat-system.js` **is** that contract: it installs `window.twsCombat` before
+  `WorldLife` constructs `MobSystem` and feeds it this module's own per-frame-interpolated,
+  server-authoritative positions. `MOB_TINT` in `mobs.js` gained the real W07 kinds
+  (goblin/ogre/troll/dummy) alongside its original placeholders.
+- [x] **Tombstones, danger-zone ground, hit feedback, death overlay, wanted nameplate
+  badge.** All new in `combat-system.js` + a small `RemotePlayer` extension in
+  `coincommunities.js` (a downed peer tilts flat and dims — an honest static pose, not a
+  fabricated ragdoll; a wanted peer's nameplate carries a star badge).
+
+**Real gap found and closed in passing:** `src/game/items.js` (client display/glyph
+registry) was missing `bat`/`pistol`/`bow`/`ammo`/`arrow`/`vest` — the server already had
+icons for all of them; the client would have rendered a bare first-letter fallback.
+
+**Phase done when:** a player equips a weapon, walks into a named danger zone (attacking
+is rejected outside one), kills a PvE mob and loots its tombstone, damages a second
+player (raising wanted heat, visible on both the HUD and the victim's nameplate), and a
+kill drops the victim's carried valuables + auto-respawns them in town at full health —
+all real Rapier-driven movement, a real freshly-started `WalkRoom`, zero mocked combat
+math. Verified end-to-end with two independent Chromium contexts against a live server:
+[scripts/tmp-verify-w07-combat.mjs](../../../scripts/tmp-verify-w07-combat.mjs).
+
+---
+
 ---
 
 ## Phase 3 — Persistent, buildable world (the Hyperfy parity items)

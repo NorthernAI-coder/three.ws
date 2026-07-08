@@ -62,6 +62,9 @@ import { registerActivityHandlers } from '../activities.js';
 import {
 	selectTarget, rollDamage, applyDamage, addHeat, decayHeat, heatStars,
 } from '../combat.js';
+import {
+	registerCombatHandlers, seedMobs, tickMobs, tickHeat, MOB_TICK_MS, HEAT_TICK_MS,
+} from '../combat-handlers.js';
 import { interactZoneInRange, zoneAt } from '../quest-zones.js';
 import {
 	missionDef, isHeist, utcDayKey,
@@ -270,6 +273,9 @@ const ACTION_RATES = {
 	// General store, bank/ATM, and the $THREE boutique (W04) — low-frequency,
 	// currency-mutating actions, throttled tighter than the gather loop.
 	store: 6, storeBuy: 6, storeSell: 6, bank: 6, boutique: 4, boutiqueQuote: 3, boutiqueSettle: 3,
+	// Combat (W07): attack rides at a swing/shot cadence a touch above the fastest
+	// weapon's cooldown (pistol ~430ms); loot is a deliberate, rare action.
+	attack: 5, loot: 4,
 };
 
 // Spatial voice signaling. The room only relays SDP/ICE between two peers (the
@@ -509,6 +515,7 @@ export class WalkRoom extends Room {
 		// receives the authoritative result via profile/inv/xpgain/levelup/notice.
 		this.onMessage('fish', (client) => this._handleFish(client));
 		registerActivityHandlers(this); // W06 gather/craft: chop, mine, cook
+		registerCombatHandlers(this); // W07 combat: attack, loot
 		this.onMessage('equip', (client, payload) => this._handleEquip(client, payload));
 		this.onMessage('consume', (client, payload) => this._handleConsume(client, payload));
 		// General store, bank/ATM, and the $THREE boutique (W04). Cash trades and
@@ -610,6 +617,13 @@ export class WalkRoom extends Room {
 		// room is created); persistence of parked vehicles is a later concern.
 		this._seedVehicles();
 
+		// W07: seed the PvE mob roster into the danger zones, then start the AI +
+		// heat-decay ticks. Two independent intervals (mob AI is coarser than the
+		// per-second heat decay) so tuning one never nudges the other's cadence.
+		seedMobs(this);
+		this.clock.setInterval(() => tickMobs(this, MOB_TICK_MS), MOB_TICK_MS);
+		this.clock.setInterval(() => tickHeat(this, HEAT_TICK_MS), HEAT_TICK_MS);
+
 		// R05: spawn the shared beach ball at world centre and start its physics tick.
 		// Server-owned (ownerId = SERVER_OBJECT_OWNER) so no client can move or remove
 		// it via the generic obj:update / obj:remove channels.
@@ -707,7 +721,7 @@ export class WalkRoom extends Room {
 		if (!this.state.players.has(client.sessionId)) return;
 		const saved = loadPlayer(playerId);
 		const profile = restoreProfile(saved?.profile, playerId);
-		profile.cd = { fish: 0, consume: 0, chop: 0, mine: 0, cook: 0 }; // per-action cooldown clocks (runtime only)
+		profile.cd = { fish: 0, consume: 0, chop: 0, mine: 0, cook: 0, attack: 0 }; // per-action cooldown clocks (runtime only)
 		// Quest log (W05): the player's accepted/completed missions + daily state,
 		// persisted alongside the pack/purse. Stale dailies roll over to today on load.
 		profile.quests = restoreQuestState(saved?.profile?.quests, utcDayKey());
@@ -734,6 +748,9 @@ export class WalkRoom extends Room {
 		// Then publish the equipped loadout on the schema so peers render the look.
 		this._applyJoinCosmetics(profile, options?.cosmetics);
 		player.cosmetics = serializeLoadout(profile.cosmetics.equipped);
+		// W07: publish the wanted-star count peers can see (dead defaults false).
+		// A restored profile can carry saved heat from a prior session's crimes.
+		player.heat = heatStars(profile.heat);
 		this._sendProfile(client);
 		this._sendQuests(client);
 		// Build permissions: the per-player cap, current usage, and whether this player
@@ -875,6 +892,10 @@ export class WalkRoom extends Room {
 	_handleMove(client, payload) {
 		const player = this.state.players.get(client.sessionId);
 		if (!player) return;
+		// W07: a downed player is off their feet until the respawn timer clears
+		// them (killPlayer teleports to SPAWN_POINT itself) — reject stray moves so
+		// a "ragdolled" peer can't be walked around mid-death.
+		if (player.dead) return;
 
 		if (!this._rateOk(client.sessionId)) return;
 
@@ -1537,6 +1558,11 @@ export class WalkRoom extends Room {
 			gold: profile.gold,
 			hp: profile.hp,
 			maxHp: profile.maxHp,
+			// W07: armor + wanted heat ride along on every inv delta so the combat
+			// HUD never has to guess at a value a hit/consume/loot just changed.
+			armor: profile.armor,
+			maxArmor: profile.maxArmor,
+			heat: profile.heat,
 		});
 	}
 

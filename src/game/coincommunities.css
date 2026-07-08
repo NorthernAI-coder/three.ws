@@ -959,6 +959,12 @@ html[data-bg="transparent"] #cc-lobby {
 }
 .cc-label.cc-speaking { color: #fff; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9), 0 0 10px rgba(255, 255, 255, 0.5); }
 .cc-label.cc-speaking::before { background: #fff; box-shadow: 0 0 10px rgba(255, 255, 255, 0.9); animation: cc-voice-pulse 0.7s ease-in-out infinite; }
+/* Wanted peers (W07): star count trails the name, matching WorldHud's own
+   star row so the wanted vocabulary reads the same on the HUD and in-world. */
+.cc-label.cc-wanted::after {
+	content: attr(data-wanted); margin-left: 5px; color: #ff5a4d;
+	text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 8px rgba(255, 90, 77, 0.6);
+}
 .cc-bubble {
 	background: #fff; color: var(--cc-ink); font-size: 13px; font-weight: 600; text-align: center;
 	padding: 7px 12px; border-radius: var(--cc-radius); max-width: 220px; white-space: normal;
@@ -1932,6 +1938,22 @@ html[data-bg="transparent"] #cc-lobby {
 .cc-wardrobe-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 .cc-wardrobe-btn-ico { font-size: 14px; line-height: 1; }
 @media (max-width: 480px) { .cc-wardrobe-btn-text { display: none; } }
+
+/* "Jobs" board button (W08) — mirrors the shop/wardrobe buttons. */
+.cc-jobs-btn {
+	flex: none; pointer-events: auto;
+	display: inline-flex; align-items: center; gap: 7px;
+	margin-left: 4px; padding: 9px 13px;
+	background: rgba(255, 255, 255, 0.04); color: var(--cc-text);
+	border: 1px solid var(--cc-edge); border-radius: var(--cc-radius);
+	font-weight: 700; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase;
+	cursor: pointer; transition: border-color 0.14s ease, background 0.14s ease, transform 0.1s ease;
+}
+.cc-jobs-btn:hover { border-color: var(--cc-edge-hi); background: rgba(255, 255, 255, 0.08); transform: translateY(-1px); }
+.cc-jobs-btn:active { transform: translateY(1px); }
+.cc-jobs-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.cc-jobs-btn-ico { font-size: 14px; line-height: 1; }
+@media (max-width: 480px) { .cc-jobs-btn-text { display: none; } }
 
 /* Creator-only holders-gate button (R24) — mirrors the shop button, accented. */
 .cc-gate-cfg-btn {

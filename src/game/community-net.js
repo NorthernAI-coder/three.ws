@@ -143,7 +143,14 @@ export class CommunityNet {
 			boutiqueQuote: new Set(),  // ({id, price, quoteToken, txBase64}) — unsigned $THREE purchase to sign
 			quests: new Set(),      // ({offers, active, day}) — jobs board + active runs (W05)
 			questComplete: new Set(), // ({id, title, reward, kind, coop}) — a mission/heist finished
-			combat: new Set(),      // ({node, kind, mobHp, mobMaxHp, playerHp, playerMaxHp, dealt, dead, ...}) — combat-lite exchange
+			combat: new Set(),      // ({role:'attacker'|'victim', target:'mob'|'player', kind?, mobHp?, mobMaxHp?, playerHp, playerMaxHp, dealt, dead, attacker?}) — a swing/shot's result
+			// W07 combat world entities: roaming PvE mobs + lootable death tombstones.
+			// add/change/remove mirror the vehicle callbacks below.
+			mobAdd: new Set(),        // (mob, id) — a mob entered our view (spawn/restore)
+			mobChange: new Set(),     // (mob, id) — its position/hp/state changed
+			mobRemove: new Set(),     // (id) — a mob left the world (respawn cycle)
+			tombstoneAdd: new Set(),    // (tombstone, id) — a death dropped a lootable marker
+			tombstoneRemove: new Set(), // (id) — looted or expired
 			// Vehicles (synced world entities). add/change/remove mirror the player
 			// callbacks; `vehicle` carries the server's targeted enter/exit/deny ack.
 			vehicleAdd: new Set(),    // (vehicle, id) — a vehicle entered our view (spawn/restore)
@@ -371,6 +378,24 @@ export class CommunityNet {
 				$vehicles.onRemove((_v, id) => this._emit('vehicleRemove', id));
 			}
 
+			// Combat world entities (W07): roaming PvE mobs + lootable death tombstones.
+			// Both are server-owned synced state (everyone must see them, like
+			// vehicles) — mirrors the vehicles wiring above exactly. Optional fields
+			// (servers pre-dating combat omit them) — guarded like blocks/vehicles.
+			const $mobs = $state?.mobs;
+			if ($mobs) {
+				$mobs.onAdd((mob, id) => {
+					this._emit('mobAdd', mob, id);
+					$(mob).onChange(() => this._emit('mobChange', mob, id));
+				});
+				$mobs.onRemove((_m, id) => this._emit('mobRemove', id));
+			}
+			const $tombstones = $state?.tombstones;
+			if ($tombstones) {
+				$tombstones.onAdd((ts, id) => this._emit('tombstoneAdd', ts, id));
+				$tombstones.onRemove((_t, id) => this._emit('tombstoneRemove', id));
+			}
+
 			// Generic world objects (R01): the server is authoritative for every object,
 			// so the scene is driven entirely by these state callbacks — local spawn/
 			// move/remove only *send*; the object appears when the server echoes it back.
@@ -526,6 +551,9 @@ export class CommunityNet {
 	mine() { this._send('mine'); }
 	cook() { this._send('cook'); }
 	attack() { this._send('attack'); }
+	// Claim a tombstone's cash + items (W07). Server-gated by proximity; the
+	// result rides back over the usual profile/inv/notice channels.
+	lootTombstone(id) { this._send('loot', { id }); }
 	equip(slot) { this._send('equip', { slot }); }
 	consume(ref) { this._send('consume', { slot: ref }); }
 	requestProfile() { this._send('profileReq'); }

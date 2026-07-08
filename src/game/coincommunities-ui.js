@@ -1164,6 +1164,13 @@ export class CommunityUI {
 			'aria-label': 'Open my cosmetics wardrobe',
 			onclick: () => this.h.onWardrobe?.(),
 		}, [el('span', { class: 'cc-wardrobe-btn-ico', 'aria-hidden': 'true', text: '👗' }), el('span', { class: 'cc-wardrobe-btn-text', text: 'My Fits' })]);
+		// Open the Jobs Board (W08 hooking W05) — dailies, repeatable work, and
+		// the co-op vault heist, the same board every quest-giver NPC opens.
+		this.jobsBtn = el('button', {
+			class: 'cc-jobs-btn', type: 'button', title: 'Jobs Board — dailies, courier runs, and the vault heist',
+			'aria-label': 'Open the jobs board',
+			onclick: () => this.h.onJobs?.(),
+		}, [el('span', { class: 'cc-jobs-btn-ico', 'aria-hidden': 'true', text: '🎯' }), el('span', { class: 'cc-jobs-btn-text', text: 'Jobs' })]);
 		const banner = el('div', { class: 'cc-coin-banner' }, [
 			this.coinImg,
 			el('div', { class: 'cc-coin-info' }, [
@@ -1174,6 +1181,7 @@ export class CommunityUI {
 					this.tierBadge,
 				]),
 			]),
+			this.jobsBtn,
 			this.wardrobeBtn,
 			this.shopBtn,
 			this.gateBtn,

@@ -21,7 +21,12 @@
 
 import { Group, Mesh, Vector3, CapsuleGeometry, SphereGeometry, MeshStandardMaterial } from 'three';
 
-const MOB_TINT = { enforcer: 0x3a4656, bandit: 0x5a2a2a };
+// Real W07 mob kinds (multiplayer/src/items.js MOB_STATS) plus the original
+// placeholder kinds, kept for any caller still spawning by the old vocabulary.
+const MOB_TINT = {
+	enforcer: 0x3a4656, bandit: 0x5a2a2a,
+	dummy: 0x9aa3b2, goblin: 0x5f8a3a, ogre: 0x8a6a3a, troll: 0x4a6a6a,
+};
 const CONTACT_RANGE = 1.6;       // metres — when we tell W07 the mob is in melee
 const REPATH_INTERVAL = 0.6;     // s between navmesh queries while chasing
 
