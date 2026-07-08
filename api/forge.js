@@ -1346,7 +1346,7 @@ async function startJob(req, res) {
 					console.warn('[forge] NVIDIA NIM TRELLIS lane in cooldown; routing to reconstruct lane');
 					nimGatewayDegraded = true;
 					backendId = 'trellis';
-				} else if (await runNvidiaTextLane({ req, res, ip, prompt, aspect, tier, path })) {
+				} else if (await runNvidiaTextLane({ req, res, ip, prompt, aspect, tier, path, opts, cacheKey })) {
 					return;
 				} else {
 					// nvidia failed → fall through to the image-intermediate TRELLIS path
@@ -1596,6 +1596,8 @@ async function startJob(req, res) {
 					mode: isImageMode ? 'image_to_3d' : 'text_to_3d',
 					previewImageUrl: referenceImageUrl,
 					textToImageModel,
+					opts,
+					cacheKey,
 				})
 			)
 				return;
@@ -1631,6 +1633,8 @@ async function startJob(req, res) {
 					mode: isImageMode ? 'image_to_3d' : 'text_to_3d',
 					previewImageUrl: referenceImageUrl,
 					textToImageModel,
+					opts,
+					cacheKey,
 				})
 			)
 				return;
@@ -1741,6 +1745,8 @@ async function startJob(req, res) {
 						mode: isImageMode ? 'image_to_3d' : 'text_to_3d',
 						previewImageUrl: referenceImageUrl,
 						textToImageModel,
+						opts,
+						cacheKey,
 					})
 				) {
 					return;
@@ -1866,7 +1872,7 @@ async function startJob(req, res) {
 					`[forge] paid TRELLIS lane unavailable (${err?.providerStatus || err?.code}); degrading text→3D to free NVIDIA NIM`,
 				);
 				try {
-					if (await runNvidiaTextLane({ req, res, ip, prompt, aspect, tier, path })) return;
+					if (await runNvidiaTextLane({ req, res, ip, prompt, aspect, tier, path, opts, cacheKey })) return;
 				} catch (fallbackErr) {
 					console.warn(`[forge] NVIDIA NIM fallback also failed: ${fallbackErr?.message || fallbackErr}`);
 				}

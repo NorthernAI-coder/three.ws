@@ -3,6 +3,24 @@
 	"entries": [
 		{
 			"date": "2026-07-08",
+			"title": "Spatial MCP: 3D models are now a native, interactive response type",
+			"summary": "We published an open standard — Spatial MCP — for returning a live, interactive 3D scene as a first-class AI tool result instead of a link in text. Every three.ws 3D tool now emits a conformant artifact (camera, lighting, animation, AR handoff), a public validator checks conformance with actionable errors, and a framework-free reference renderer displays any conformant payload — including ones transformed from other tools. It carries no wallet or token surface, so it works everywhere. Try the reference renderer.",
+			"tags": [
+				"feature",
+				"docs"
+			],
+			"link": "/spatial-mcp"
+		},
+		{
+			"date": "2026-07-08",
+			"title": "Fixed: the \"View it\" link on every generated 3D model now opens a real viewer",
+			"summary": "The viewer link returned with every generated model (/viewer?src=…) previously returned a 404. It now opens a polished, interactive 3D viewer — orbit, zoom, AR on mobile, one-tap GLB download — with designed loading, empty, and error states. This affects every model made through the 3D Studio, in chat or on the web.",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-07-08",
 			"title": "New free API: check if a wallet holds a Binance Account Bound Token (BABT)",
 			"summary": "GET /api/bnb/babt-check?address=0x... tells you whether a BSC address holds a BABT — Binance's non-transferable, KYC-backed on-chain token. It's a real, live signal (1.16M+ holders on BSC mainnet) that developers can use as a free, no-signup uniqueness check for allowlists, anti-sybil gating, or airdrop targeting on BNB Chain.",
 			"tags": [

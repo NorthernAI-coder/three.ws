@@ -145,3 +145,77 @@ real generated GLB URL + viewer link. See `claude-reviewer-guide.md` §"Funded r
 - Free path (`forge_free`) produces a viewable, durable GLB end-to-end with no auth/payment.
 - Review entitlement returns real results (demonstrated on `get_pose_seed`); generation
   tools return real GLBs on a credentialed instance and clean structured errors otherwise.
+
+---
+
+## 2026-07-08 re-verification (prompt 02 close-out audit)
+
+Re-ran the free smoke test live against production ahead of marking this prompt complete.
+Two findings — one operational, one architectural. Neither changes the verdict above (the
+implementation is correct and real), but both matter for submission timing.
+
+### A. Free lane currently exceeds the reviewer's patience window
+
+Four consecutive live attempts against production hung with **zero response**:
+
+| # | Method | Payload | Result |
+|---|---|---|---|
+| 1 | `forge_free` (MCP tool) | `{"prompt":"a small friendly owl mascot...","tier":"draft"}` | `timeout` after 90003ms |
+| 2 | `forge_free` (MCP tool) | `{"prompt":"a small owl mascot, blue feathers","tier":"draft"}` | `timeout` after 90006ms |
+| 3 | `curl -X POST /api/forge` | `{"prompt":"a small owl mascot...","tier":"draft","free":true}` | no response, 100s client timeout |
+| 4 | `curl -X POST /api/forge` | `{"prompt":"a red toy car","tier":"draft","free":true,"backend":"nvidia","path":"image"}` | no response, 60s client timeout |
+
+None of these four requests appear in Cloud Run's `run.googleapis.com/requests` log for the
+matching window (`resource.labels.service_name="three-ws-api"`), while other production
+traffic to `/api/forge` (health polls, `?action=rig` calls) logged and returned normally in
+the same window — so the request IS reaching the origin and being worked, just not completing
+inside 60–100s.
+
+Cross-checked against `GET https://three.ws/api/forge?health=1` (fast, 1.5s): `nvidia`,
+`huggingface`, and `trellis` backends all report `status: "ok"` (auth/quota checks pass), but
+`limiter.status: "down"` ("The rate-limiter store is unconfigured — paid generation lanes fail
+closed"). Tracing the code path (`api/forge.js` → `runNvidiaTextLane` →
+`api/_providers/nvidia.js`, `SUBMIT_TIMEOUT_MS = 45_000`) shows the free NIM lane has its own
+45s submit timeout before falling back to the image-intermediate TRELLIS/FLUX lane inside the
+*same* request — so a cold/degraded NIM gateway plus a slow fallback can legitimately push
+total server-side latency past the 90–100s window a reviewer's client will wait, even though
+every individual upstream call is timeout-bounded and the handler is designed to degrade
+gracefully (see `runForgeFree`'s retry/durability logic in `mcp-server/src/tools/_studio-core.js`).
+This reads as a **live reliability regression in the free lane**, not a flaw in the reviewer
+guide or the review-mode entitlement — but it means the guide's central "free end-to-end
+proof" claim is **not reproducible right now** and must be re-verified green immediately
+before the Claude Connectors Directory submission is filed. Action for whoever files the
+submission: re-run `forge_free` right before submitting; if it still hangs, treat as a P1 (the
+free path is the whole point of the reviewer story) — check `/api/forge?health=1` first, and
+if `nvidia`/`huggingface`/`trellis` all show `ok` while a live submit still hangs, the fault is
+in the submit/fallback chain latency, not backend availability.
+
+### B. Review-mode entitlement is self-activatable on the stdio transport (architectural note)
+
+`reviewModeActive()` (`mcp-server/src/payments.js`) is a straight string-equality check between
+two `process.env` reads — `MCP_REVIEW_SECRET` and `MCP_REVIEW_MODE`. Because this connector's
+transport is **stdio** (the "server" is the same local `npx`-spawned process the caller
+controls), there is no operator-vs-caller boundary to enforce the shared-secret model against:
+anyone installing the package can pass `-e MCP_REVIEW_SECRET=x -e MCP_REVIEW_MODE=x` themselves
+and activate review mode for free — no operator provisioning required. This is real, working
+code (not a mock), so it satisfies prompt 02's "no mock bypass" requirement, but it is **not**
+a reviewer-exclusive gate the way an OAuth-flagged account would be.
+
+Actual exposure is bounded, checked per tool family:
+- **Read tools that proxy to already-public three.ws endpoints** (`aixbt_intel` →
+  `/api/aixbt/intel`, `sentiment_pulse` → `/api/social/sentiment-pulse`, etc.) — those HTTP
+  endpoints are public and unauthenticated already (rate-limited only), so self-activating
+  review mode just skips a $0.01–$0.01 convenience fee on data anyone could `curl` for free
+  regardless. Low/no real exposure.
+- **Generation tools that need real vendor credentials** (`text_to_avatar` needs
+  `REPLICATE_API_TOKEN`+`REPLICATE_TEXT_TO_AVATAR_MODEL` in the *caller's own* local env) —
+  review mode alone does not unlock these; a self-activator without those keys still gets a
+  clean `not_configured` error, exactly as demonstrated in §3 above.
+- **`vanity_grinder`** runs its grind loop as real local/CPU work regardless of payment gate,
+  so bypassing the charge only saves the caller their own compute cost, not the operator's.
+
+Net: this is a known trade-off of the shared-secret pattern applied to a stdio transport, not
+a code defect — flagging for owner awareness, not blocking submission. If tighter enforcement
+is wanted later, the fix is architectural (move the paid-tool-bypass decision to something the
+caller cannot self-supply, e.g. an OAuth-gated remote transport instead of stdio-local env
+vars) and is out of scope for this prompt.

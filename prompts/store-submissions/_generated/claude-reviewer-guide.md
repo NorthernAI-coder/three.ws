@@ -49,6 +49,15 @@ boots with a built-in default payout address, so every paid tool advertises a va
 
 ---
 
+> **Live-status note (2026-07-08).** A close-out re-audit of this prompt re-ran the free smoke
+> test live and found the production free lane currently exceeding a reviewer client's
+> patience window (90–100s) during degraded conditions, plus documented an architectural
+> caveat on the review-mode entitlement below (real, working, but self-activatable on this
+> stdio transport — low real exposure since most read tools proxy to already-public
+> endpoints). **Re-run §2 immediately before filing the Claude submission** and treat a repeat
+> hang as a P1. Full analysis: [`claude-tool-call-evidence.md` §"2026-07-08
+> re-verification"](./claude-tool-call-evidence.md#2026-07-08-re-verification-prompt-02-close-out-audit).
+
 ## 2. Free smoke test (no auth, no payment) — do this first
 
 Call **`forge_free`**:
@@ -127,7 +136,11 @@ claude mcp add 3d-agent \
 
 (The reviewer token is supplied in the **private reviewer notes** of the submission, not in
 this repo. Review mode is **off** unless `MCP_REVIEW_SECRET` is set, so it can never be
-abused on a normal install.)
+abused on a normal install. Caveat: because this connector's transport is stdio, the "server"
+and the caller are the same locally-spawned process — a technically inclined installer could
+set both env vars to a matching value themselves. Real exposure is low: most read tools proxy
+to already-public three.ws endpoints, and generation tools still require real vendor
+credentials the self-activator won't have. See the evidence file for the full breakdown.)
 
 With the entitlement active:
 

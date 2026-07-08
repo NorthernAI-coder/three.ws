@@ -327,7 +327,6 @@ function wireControls() {
 	el['gen-variants'].addEventListener('click', generateVariants);
 	el.reset.addEventListener('click', resetModel);
 	el.export.addEventListener('click', exportModel);
-	el['ai-run'].addEventListener('click', aiRestyle);
 	el.retry.addEventListener('click', () => loadModel(DEFAULT_MODEL, 'sample'));
 
 	el.file.addEventListener('change', (e) => {

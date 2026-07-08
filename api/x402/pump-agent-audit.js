@@ -25,6 +25,7 @@ import { withService } from '../_lib/x402/bazaar-helpers.js';
 import { sql } from '../_lib/db.js';
 import { priceFor } from '../_lib/x402-prices.js';
 import { recentPumpLaunches } from '../_lib/pump-launch-feed.js';
+import { readBody } from '../_lib/http.js';
 
 const ROUTE = '/api/x402/pump-agent-audit';
 

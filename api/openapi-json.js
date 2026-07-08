@@ -46,7 +46,7 @@ export default wrap(async (req, res) => {
 					'/oauth/authorize, or use a Bearer API key from the dashboard. ' +
 					'Available MCP tools: list_my_avatars, get_avatar, search_public_avatars, ' +
 					'render_avatar, delete_avatar, validate_model, inspect_model, optimize_model. ' +
-					'Paid REST endpoints under /api/x402/* and /api/insights/* settle in USDC over ' +
+					'Paid REST endpoints under /api/x402/* settle in USDC over ' +
 					'x402 (HTTP 402); pay programmatically with @x402/fetch — no API key required.',
 			},
 			servers: [{ url: origin }],
