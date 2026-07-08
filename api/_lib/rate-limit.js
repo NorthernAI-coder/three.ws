@@ -488,6 +488,15 @@ export const limits = {
 	// track. Tight per-IP ceiling; a seller listing dozens of items per hour is
 	// already an outlier, and each call carries real Greenfield gas cost.
 	bnbVaultUploadIp: (ip) => getLimiter('bnb:vault:upload:ip', { limit: 20, window: '1 h' }).limit(ip),
+	// BNB vault reads (api/vault/list.js, api/vault/status.js) — free, no
+	// write cost, but each call does a real `eth_getLogs`/`eth_call` against a
+	// public RPC (list.js) or a Storage-Provider fetch (manifest joins), so a
+	// generous but real ceiling, not unlimited.
+	bnbVaultReadIp: (ip) => getLimiter('bnb:vault:read:ip', { limit: 120, window: '10 m' }).limit(ip),
+	// BNB vault unlock (api/vault/unlock.js) — the one call in this track that
+	// releases a real (wrapped) secret. Tighter than the read ceiling; a
+	// legitimate buyer unlocks the same object at most a handful of times.
+	bnbVaultUnlockIp: (ip) => getLimiter('bnb:vault:unlock:ip', { limit: 30, window: '10 m', critical: true }).limit(ip),
 	// Status polling is the highest-frequency call in the generation flow (every
 	// active job polls every few seconds, plus the /forge health pill). It only
 	// guards against pathological poll floods, so it is enforced per instance

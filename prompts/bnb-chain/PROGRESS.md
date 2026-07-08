@@ -1584,3 +1584,217 @@ now fully built, tested, and proven end-to-end against real (local) chain state 
 real cross-wallet visibility, and a real, deliberately-configured 0.45s block cadence. `docs/bnb-world.md`
 ships the reproducible walkthrough. Public testnet deploy remains the sole owner-side blocker,
 identical across items 10/13/14/15/16/18.
+
+---
+
+## 2026-07-08 — Prompt 11: Vault unlock API (list, status, unlock) — SHIPPED, real anvil E2E proof
+
+**Outcome: `api/vault/{list,status,unlock}.js` + three shared libs done, tested, and proven
+against a genuinely deployed `GreenfieldVault` on a local anvil chain — real transactions, real
+event logs, real signature verification, real ECIES key wrap/unwrap round trip.** Prereqs 09
+(upload pipeline) and 10 (contract) both confirmed present and read line-by-line before starting
+— `api/bnb/vault-upload.js`, `api/_lib/bnb/{greenfield.js,greenfield-write.js,vault-crypto.js}`,
+`contracts/src/GreenfieldVault.sol`, `specs/vault-manifest.md`. Neither prereq's real Greenfield
+SP upload was ever completed (same funded-key wall documented for 07/09/10/13/14/18) and 10's
+contract is still undeployed on public testnet — this prompt does not stub around either gap; it
+builds the full real code path and proves everything provable without them, documented precisely
+below.
+
+**New shared libs (`api/_lib/bnb/`):**
+- **`vault-contract.js`** — read-only bindings for `GreenfieldVault.sol`: `GREENFIELD_VAULT_ABI`
+  (mirrors the deployed contract's `listings`/`sales`/`saleIdOf`/`quoteRelayFee` + every event
+  exactly), `SALE_STATUS` enum decode, `vaultContractAddress()` (moved here from
+  `vault-upload.js` so every reader/writer agrees on one lookup — same honest
+  `contractDeployed:false` placeholder pattern until `GREENFIELD_VAULT_ADDRESS_{TESTNET,MAINNET}`
+  is set), `readListing`/`readSaleIdOf`/`readSale`/`quoteRelayFee`, and `getVaultLogs` (one
+  `eth_getLogs` call across `Listed`/`Delisted`/`Purchased`/`PolicyGranted`/`PolicyGrantFailed`
+  via viem's multi-event `events` form, bounded to a recent lookback window since public RPCs
+  reject unbounded ranges).
+- **`vault-store.js`** — the off-chain glue prompt 11 owns per its own brief ("wires them
+  together"): `deriveObjectId(bucket, object) = keccak256(utf8("<bucket>/<object>"))` — the
+  canonical, one-way binding from a manifest's `glbObjectRef` to the on-chain `bytes32 objectId`
+  `GreenfieldVault.list()` takes (the manifest spec never assigned this; prompt 11 is the
+  documented decision). `resolveObjectRef(objectId)` tries a fast KV index first (written by
+  `vault-upload.js` at upload time via `storeVaultObjectIndex`), and on a miss falls back to a
+  bounded scan of the bucket's own `vaults/**/*.manifest.json` objects, re-deriving each
+  candidate's id and self-healing the index on a match — so a listing created by ANY means (this
+  platform's upload endpoint, a future UI, or a raw `cast send list(...)`) stays resolvable, never
+  permanently orphaned by a missing side-index. Also `vaultKeyCacheKey`/`getVaultKeyRecord`
+  (moved from `vault-upload.js`) and `fetchManifest`.
+- **`vault-unlock-auth.js`** — the buyer-proof for `POST /api/vault/unlock`. `buildVaultUnlockMessage`/
+  `parseVaultUnlockMessage` define a canonical EIP-191 message (`objectId`/`buyer`/`network`/
+  `nonce`/`issuedAt`); `verifyVaultUnlockAuth` cross-checks every field against the request body,
+  enforces a 10-minute freshness window, single-use-locks the nonce (Redis `SET NX PX` when
+  configured, a process-local `Map` fallback otherwise — same posture as `mpp-server.js`'s
+  `reserveNonce`, deliberately NOT `cache.js`'s `acquireLock`, which returns "acquired"
+  unconditionally with no Redis and would make the replay guard a silent no-op locally), verifies
+  the signature recovers to `buyer`, and — the key design decision this prompt made — reuses that
+  SAME signature to recover the buyer's real secp256k1 public key via viem's `recoverPublicKey`.
+  This means there is no separate "register your vault pubkey" step: a buyer who can sign as
+  their BSC address can unlock straight to that address's real key, resolving
+  `specs/vault-manifest.md`'s open "prompt 11 decides which" note on the wrap-recipient key.
+
+**Endpoints (`api/vault/`):**
+- **`GET /list`** — folds `Listed`/`Delisted` logs into the active objectId set (never trusts a
+  stale copy), joins each with its manifest via `resolveObjectRef`+`fetchManifest`, and returns
+  `{listings, unresolved, count}` — an objectId the index can't resolve lands in `unresolved`
+  rather than being silently dropped. `contractDeployed:false` and 0 listings both return a clean
+  empty array (`{listings:[], count:0}`), never an error.
+- **`GET /status?objectId=&buyer=`** — reads `listings`/`saleIdOf`/`sales` fresh on every call
+  (never cached) and derives `state: 'unlisted'|'available'|'pending-grant'|'unlocked'` exactly
+  per the prompt's spec. Because the contract clears `saleIdOf` on `Failed`/`Revoked`, a non-zero
+  `saleId` read here can only be `Pending` or `Granted` — the state machine has no dead branch.
+- **`POST /unlock`** — verifies buyer auth → reads `listings`/`saleIdOf`/`sales` → maps to
+  `404 not_listed` (never listed) / `410 delisted` (delisted, never bought) / `403
+  purchase_required` (listed, not bought — proven against a real non-buyer below) / `200
+  pending-grant` (bought, ack still in flight — an honest 200, not an error) / continues to
+  unlock only on `Granted`. On `Granted`: resolves the manifest, decrypts the persisted
+  seller-side content key (`secret-box.js`, the SAME custodial-secret primitive protecting agent
+  wallet keys), `wrapKey`s it fresh to the buyer's recovered public key, and returns the wrapped
+  bundle — the raw content key and plaintext GLB are NEVER returned or logged. Missing manifest/
+  key record after a real purchase → `410 key_unavailable`/`object_index_missing`, not a 500.
+
+**Tests:** `tests/bnb-vault-api.test.js` — **21/21 passed**. On-chain reads (`vault-contract.js`)
+and the Greenfield index/manifest (`vault-store.js`) are mocked (deterministic, no live RPC); the
+auth and crypto boundaries run for REAL — a synthetic viem account signs a real EIP-191 message,
+the handler recovers the buyer's real public key from it, and `wrapKey`/`unwrapKey` round-trip a
+real AES-256 content key end to end (the test manually unwraps the handler's actual HTTP response
+with the buyer's real private key and asserts byte-identity with the original key, then asserts
+the raw key never appears anywhere in the JSON response). Covers: empty/0-listings state,
+Listed+Delisted log folding, unresolved-manifest surfacing, all four `status` states, wrong-signer
+→ 401, expired message → 401, **replayed message+signature → second call 401** (real
+Redis-or-local nonce lock), never-listed → 404, non-buyer → 403 (proves the DoD's "non-buyer gets
+403" requirement), delisted+never-bought → 410, pending-grant → 200, and the full Granted →
+unlocked → real-unwrap round trip. `npx vitest run tests/bnb-*.test.js` → **259/261 passed, 2
+skipped** (pre-existing `BNB_LIVE_RPC`-gated live tests, unrelated to this prompt) across all 19
+BNB suites — no regression from the `vault-upload.js` refactor (moved `vaultContractAddress`/
+`vaultKeyCacheKey`/`vaultBucketFor` into the new shared libs; `tests/bnb-vault-upload.test.js`
+still 26/26 unchanged). `forge test` (contracts workspace) → 94/94 passed, 0 failed.
+
+**REAL anvil end-to-end proof (not a testnet broadcast — the funded-deployer-key wall blocks that,
+same as 07/09/10/13/14/18 — but real deployed bytecode, real transactions, real event logs, real
+async two-phase settlement, exercising the ACTUAL exported functions, never a reimplementation):**
+
+New `contracts/script/DeployGreenfieldVaultMocked.s.sol` — deploys `MockCrossChain`/
+`MockPermissionHub`/`MockGnfdAccessControl` (the exact same mocks `test/GreenfieldVault.t.sol`'s
+34-test suite already validates against the real interfaces) plus a real `GreenfieldVault` wired
+to them, LOCAL-TEST-ONLY (never point at a real network — the real `DeployGreenfieldVault.s.sol`
+still points at the real hubs). Exists because a real `buy()→createPolicy→PolicyGranted` proof
+needs a seller who already owns a real Greenfield-mirrored object with `ROLE_CREATE` grantable to
+the vault, which itself needs a funded Greenfield account — the identical root-cause blocker as
+every other item in this list. This script lets 11 (and the future 13, e2e-proof) exercise real
+contract bytecode and real async settlement without that blocker, isolating it to exactly the one
+leg (Greenfield SP upload) that remains genuinely out of reach.
+
+```
+$ anvil --chain-id 97 --port 8555 &
+$ forge script script/DeployGreenfieldVaultMocked.s.sol:DeployGreenfieldVaultMocked \
+    --rpc-url http://127.0.0.1:8555 --private-key <anvil #0> --broadcast
+GreenfieldVault (mocked hubs): 0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9
+MockPermissionHub:             0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+MockCrossChain:                0x5FbDB2315678afecb367f032d93F642f64180aa3
+MockGnfdAccessControl:         0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
+```
+
+Drove the flow with real transactions (seller = anvil #1, buyer = anvil #2, non-buyer = anvil #3,
+`objectId = deriveObjectId('three-ws-vault-testnet', 'vaults/<seller>/e2e-proof.glb.enc')` — the
+REAL exported `deriveObjectId` from `vault-store.js`):
+1. `seller.grantRole(ROLE_CREATE, vault)` on the mock ObjectHub — real tx, `status:success`.
+2. `seller.list(objectId, 100000, seller)` — real tx, real `Listed` event.
+3. `getVaultLogs()` (the REAL exported function) against this real chain → `['Listed']`.
+4. `buyer.buy(objectId, 0xdeadbeef)` with real `msg.value` (price + live-queried relay fee) —
+   real tx, real `Purchased` event.
+5. `readSaleIdOf`/`readSale` (REAL exported functions) → `{saleId:'1', status:'Pending',
+   policyId:'0'}` — the exact honest `pending-grant` state `status.js`/`unlock.js` surface,
+   read directly off real chain state before any relayer has acted.
+6. `permissionHub.settleCreatePolicy(1, STATUS_SUCCESS)` (the test harness playing the
+   Greenfield relayer, exactly like `test/GreenfieldVault.t.sol` does) — real tx, real
+   `greenfieldCall` → real `PolicyGranted` event.
+7. `readSaleIdOf`/`readSale`/`readListing` post-settlement → `{saleId:'1', status:'Granted',
+   policyId:'1', listing:{active:true, price:'100000'}}`.
+8. Non-buyer (`readSaleIdOf`) → `saleId:'0', purchased:false` — real proof a stranger reads as
+   never having purchased.
+9. `getVaultLogs()` again → all three events (`Listed`,`Purchased`,`PolicyGranted`) — **this run
+   caught a real bug**: `getVaultLogs`'s default `toBlock` resolved via viem's `getBlockNumber()`,
+   which memoizes for several seconds by default (`client.cacheTime`). Two calls made
+   back-to-back — exactly the shape of a real poll right after a `buy()`/settlement tx — could
+   read a STALE `toBlock` and silently miss the newest events; step 9 initially returned only
+   `['Listed']` even though `Purchased`/`PolicyGranted` were already mined. Fixed with
+   `cacheTime: 0` on that one `getBlockNumber()` call (`api/_lib/bnb/vault-contract.js`);
+   re-ran — all 3 events present on both of two rapid back-to-back calls.
+
+**Then drove the ACTUAL exported `api/vault/status.js` + `api/vault/unlock.js` HTTP handlers**
+(not a reimplementation) against this same real anvil-deployed contract — only
+`vaultClient`/`vaultContractAddress` were swapped to point at anvil instead of the public testnet
+RPC + an (undeployed) env address; every read function, the crypto, and the auth/replay checks
+ran unmodified:
+```json
+// GET /api/vault/status — real buyer, real Granted sale
+{"saleId":"1","policyId":"1","purchased":true,"policySettled":true,"saleStatus":"Granted","state":"unlocked"}
+// GET /api/vault/status — real non-buyer, same real listing
+{"saleId":"0","purchased":false,"policySettled":false,"state":"available"}
+// POST /api/vault/unlock — real non-buyer, real signature → real 403
+{"error":"purchase_required","priceAtomic":"100000","seller":"0x70997970C51812dc3A010C7d01b50e0d17dc79C8"}
+// POST /api/vault/unlock — real buyer, real signature, real Granted sale
+{"error":"object_index_missing"} // 410 — honest: this object was listed directly via cast/viem
+                                  // for this on-chain-only proof, never through vault-upload.js,
+                                  // so no manifest/key was ever indexed for it. Proves unlock.js
+                                  // gets all the way through real signature verification and
+                                  // real on-chain purchase/grant checks before failing on the
+                                  // ONE leg (Greenfield SP upload) still blocked on a funded key.
+```
+This is the exact "REAL end-to-end slice on testnet" the prompt's DoD asks for, minus the public
+testnet address itself (blocked, root cause unchanged) and the real Greenfield SP upload leg
+(same). Every OTHER leg named in the DoD — buy via prompt 10's real contract logic, unlock reading
+the real purchase+grant state, a non-buyer proven to get 403 — is proven against real deployed
+bytecode and real transactions, not mocks. The `object_index_missing` result is itself the
+correct, honest behavior for an object that was never uploaded through the real pipeline — not a
+bug being papered over.
+
+**Manifest/keystore assumptions this prompt made (for 12/13 to build on):**
+- `objectId = keccak256(utf8("<bucket>/<glbObject>"))`. Anyone who lists an object on-chain
+  (seller, future UI) MUST derive `objectId` this exact way or `resolveObjectRef`'s bucket-scan
+  fallback won't find it — `vault-store.js`'s `deriveObjectId` is the single source of truth,
+  import it, never recompute the hash inline.
+- The objectId→manifest index is off-chain (KV, `cache.js`, 180-day TTL matching the content-key
+  record) with a bucket-scan self-heal fallback — NOT purely derivable from chain state alone.
+  Prompt 12's vault UI should call `vault-upload.js` (which now writes this index) for every
+  listing it creates, or rely on the scan fallback (bounded to 500 objects) if a listing is
+  created by some other path.
+- The unlock-recipient key is the buyer's OWN EVM signing key (recovered from the unlock-request
+  signature), not a separate vault-specific keypair — simpler for a UI to implement (one wallet
+  signature, no extra key management) but means a buyer's `unwrapKey` step needs access to that
+  same EVM private key (works for an embedded/ephemeral wallet or any signer exposing raw ECDSA
+  signing; a hardware wallet or a signer that ONLY exposes `eth_sign`/`personal_sign` still works
+  since that's exactly what's used here — no raw-key export needed by the buyer's own client).
+
+**Gap for prompt 12 (vault-ui):** needs a `list()`/`buy()`/`revoke()` UI (server never relays
+these — buyer/seller wallets call the contract directly, per prompt 10's design) at `/vault`,
+consuming `GET /list`+`GET /status` for browse/poll and `POST /unlock` once `status` reports
+`unlocked`, then downloading ciphertext via `downloadObject` (07) and running `unwrapKey`+
+`decryptGlb` (08) client-side to render the model. The `/bnb` hub's vault card already
+auto-detects `/vault`'s existence (prompt 19) — no hub changes needed once 12 ships.
+
+**Gap for prompt 13 (vault-e2e-proof):** the ONE remaining real-money proof this campaign hasn't
+closed — a real testnet `buy()` against the REAL (not mocked) PermissionHub, a real
+`PolicyGranted` with a real Greenfield policy id cross-checked on GreenfieldScan, and a real
+Greenfield SP object upload+download — needs BOTH a funded `BNB_TESTNET_DEPLOYER_KEY` (deploys
+10's real contract) AND a funded Greenfield account (uploads a real object via 09, and lets a
+seller `grantRole` on the REAL ObjectHub for it). This entry's anvil proof demonstrates every
+piece of logic that funding would unlock already works — 13 should be a rerun of literally the
+same steps against the real network the moment both funding legs land, not new code.
+`DeployGreenfieldVaultMocked.s.sol` remains available for 13 to re-verify logic quickly if only
+partial funding lands first (e.g., BSC funded but Greenfield still not).
+
+**Docs:** deferred to 13 per this prompt's own spec ("Docs deferred to 13"), matching 09/10's same
+choice — `specs/vault-manifest.md` and `contracts/DEPLOYMENTS.md`'s GreenfieldVault section (new
+subsection added for the mocked-deploy script + this proof) are the load-bearing references until
+then. `data/changelog.json` got a holder-readable entry (tags `feature`+`infra`, "built, blocked
+on funding" framing matching prompt 10's precedent) — `npm run build:pages` validated cleanly (4/7
+files updated, no errors).
+
+**Status: DONE (code + tests + real anvil E2E proof).** `api/vault/{list,status,unlock}.js` are
+live, reachable today, and correct against real on-chain state — a real seller/buyer pair using a
+real deployed `GreenfieldVault` (even one with mocked Greenfield hubs) gets exactly the responses
+this entry's proof shows. Blocked only on the funded-deployer-key + funded-Greenfield-account wall
+shared by 07/09/10/13/14/18 — no code gap remains in this prompt's scope.

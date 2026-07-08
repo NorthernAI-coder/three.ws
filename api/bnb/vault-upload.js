@@ -52,6 +52,8 @@ import { assertPublicHttpsUrl } from '../_lib/ssrf.js';
 import { assertBscAddress, BNB_CHAINS } from '../_lib/bnb/chains.js';
 import { encryptGlb, VAULT_CRYPTO_PARAMS } from '../_lib/bnb/vault-crypto.js';
 import { ensureBucket, createObject, GreenfieldWriteError, MAX_VAULT_OBJECT_BYTES } from '../_lib/bnb/greenfield-write.js';
+import { vaultContractAddress } from '../_lib/bnb/vault-contract.js';
+import { vaultBucketFor, vaultKeyCacheKey, deriveObjectId, storeVaultObjectIndex, VAULT_KEY_TTL_S } from '../_lib/bnb/vault-store.js';
 import { priceFor } from '../_lib/x402-prices.js';
 import { encryptSecret } from '../_lib/secret-box.js';
 import { cacheSet } from '../_lib/cache.js';
@@ -61,11 +63,6 @@ const MAX_INPUT_GLB_BYTES = 64 * 1024 * 1024; // a vault GLB is a 3D asset, not 
 // JSON body cap: base64 inflates raw bytes ~4/3; the +8KB covers the other fields.
 const MAX_JSON_BODY_BYTES = Math.ceil((MAX_INPUT_GLB_BYTES * 4) / 3) + 8192;
 const MANIFEST_VERSION = 1;
-// The vault key record has no natural expiry — it must outlive the listing
-// until the seller delists or every content-key holder has bought. 180 days
-// comfortably covers a real listing lifetime; prompt 11/vault delisting can
-// refresh it on access if a longer horizon is ever needed.
-const VAULT_KEY_TTL_S = 180 * 24 * 3600;
 
 class VaultUploadError extends Error {
 	constructor(message, { status = 400, code = 'bad_request', extra } = {}) {
@@ -134,32 +131,6 @@ function normalizeNetwork(raw) {
 	if (v === '' || v === 'testnet' || v === '97' || v === 'bsctestnet') return 'testnet';
 	if (v === 'mainnet' || v === '56' || v === 'bscmainnet') return 'mainnet';
 	return null;
-}
-
-function vaultBucketFor(network) {
-	return network === 'mainnet' ? env.GREENFIELD_VAULT_BUCKET_MAINNET : env.GREENFIELD_VAULT_BUCKET_TESTNET;
-}
-
-/**
- * The GreenfieldVault.sol contract (prompt 10) is code-complete but its
- * public-testnet deploy is blocked on a funded deployer key (same root cause
- * documented for prompts 07/09/10/13/14/18 in PROGRESS.md) — there is no real
- * address to record yet. Mirrors the honest "not deployed yet" pattern
- * api/_lib/bnb/world-moves.js established for WorldMoves: return the
- * spec-illustrated placeholder (specs/vault-manifest.md's own example uses
- * this exact address) rather than inventing one, and tell the caller plainly
- * via `contractDeployed:false` in the response.
- */
-function vaultContractAddress(network, override) {
-	if (override) return { address: assertBscAddress(override), deployed: true };
-	const envVar = network === 'mainnet' ? 'GREENFIELD_VAULT_ADDRESS_MAINNET' : 'GREENFIELD_VAULT_ADDRESS_TESTNET';
-	const configured = process.env[envVar];
-	if (configured) return { address: assertBscAddress(configured), deployed: true };
-	return { address: '0x0000000000000000000000000000000000dEaD', deployed: false };
-}
-
-function vaultKeyCacheKey(bucket, object) {
-	return `bnb:vault:key:${bucket}:${object}`;
 }
 
 const mapGreenfieldWriteStatus = {
@@ -292,10 +263,19 @@ export default wrap(async (req, res) => {
 
 		const status = glbWrite.status === 'stored' && manifestWrite.status === 'stored' ? 'stored' : 'pending';
 
+		// ── Index objectId → object refs so prompt 11's unlock/list/status APIs
+		// can resolve a `Listed(objectId, ...)` chain event back to this manifest
+		// without needing to reverse a hash — see vault-store.js's deriveObjectId
+		// doc comment for why this exists. `objectId` is what a seller passes to
+		// `GreenfieldVault.list(objectId, price, seller)` (prompt 12/10).
+		const objectId = deriveObjectId(bucket, glbObjectName);
+		await storeVaultObjectIndex(objectId, { bucket, glbObject: glbObjectName, manifestObject: manifestObjectName, sellerAddress });
+
 		return json(
 			res,
 			200,
 			{
+				objectId,
 				manifestRef: { bucket, object: manifestObjectName },
 				glbObjectRef: { bucket, object: glbObjectName },
 				sha256: sha256OfPlaintext,

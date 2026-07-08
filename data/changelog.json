@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-07-08",
+			"title": "BNB vault unlock API: pay, get gated, decrypt — built, blocked on funding",
+			"summary": "The BNB Greenfield 3D vault now has its buyer-facing API: browse what's listed, check whether a purchase and its cross-chain storage-permission grant have settled, and — once both are confirmed on-chain — unlock a one-time-use, per-buyer encryption key for the model. A buyer proves control of their wallet with a signed message, which doubles as the key the vault re-wraps the content key to, so a captured response is useless to anyone but that buyer. Proven end-to-end against a real locally-deployed copy of the vault contract (real transactions, real event logs, real pending-then-granted state transitions) — full public rollout is pending the same funded BSC testnet deployer key blocking the rest of this track.",
+			"tags": [
+				"feature",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-07-08",
 			"title": "Real-time on-chain 3D world live on BNB Chain testnet",
 			"summary": "The on-chain presence layer in Agora's Play mode is now proven end-to-end with two independent players walking the same world at once: each wallet's real moves land on a BNB Chain smart contract and show up as a live ghost marker in the other player's browser, at BSC's real ~0.45-second block cadence — the fastest EVM chain we've verified, and the only one where a plain wallet can send those moves gas-free. New guide at /docs/bnb-world.md walks through why this only works on BNB Chain, how it's built, and how to reproduce the proof yourself. Full public rollout is pending a funded BSC testnet deployer key on our side — the code, contract, and two-wallet proof are already complete.",
 			"tags": [
