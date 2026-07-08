@@ -23,6 +23,28 @@
  * (request header `x-forge-provider-key`, or the signed-in user's stored key).
  * Without one, the geometry path returns a designed `needs_key` state.
  *
+ * Optional output controls (every field off by default — see
+ * api/_lib/forge-options.js — an old request that never sends any of these
+ * behaves exactly as before):
+ *   • seed              — integer, reproducible generation on lanes that expose one.
+ *   • output_format      — "glb" (default) | "glb-draco" | "glb-meshopt": a real
+ *     post-generation @gltf-transform compression pass (api/_lib/glb-compress.js).
+ *   • texture_size / target_polycount — poly-aware backends only (Hunyuan3D,
+ *     Meshy, Tripo, Rodin, TripoSG); ignored (never 422s) on TRELLIS.
+ *   • director: true    — runs the same IBM Granite "art director" prompt
+ *     rewrite the free MCP tools use before a text prompt synthesizes its
+ *     reference image. Off by default; fails soft to the raw prompt.
+ *   • force_regenerate: true — skip the result cache read for this call (the
+ *     cache still gets refreshed with the new result).
+ * A finished generation's metadata carries `quality` (api/_lib/glb-quality.js
+ * — valid/flag/score/reasons) and, when compression was requested,
+ * `compression` (mode + before/after byte counts). A flagged degenerate/low
+ * result is retried once automatically on the lanes that complete inline
+ * within one request (free NVIDIA NIM, HuggingFace Spaces, BYOK-sync).
+ * Identical text→3D requests on a platform-keyed (never BYOK), non-high-tier
+ * lane are served from a short-lived result cache (api/_lib/forge-cache.js)
+ * instead of re-running the GPU pipeline; the response carries `cached: true`.
+ *
  * This is the public, auth-free twin of the 3D Studio MCP server (api/mcp-3d.js).
  * No mock paths: if a selected backend isn't configured the endpoint returns a
  * clean 503/501 and the page renders a designed state — it never fabricates a

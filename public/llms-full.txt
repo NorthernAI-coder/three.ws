@@ -262,11 +262,11 @@ URL: https://three.ws/forge
 
 Type a prompt — or drop in photos or a sketch — and get a downloadable textured 3D model (GLB). Pick from multiple generation engines with live health status.
 
-### Restyle Studio — material presets & variants
+### Restyle Studio — material presets, AI restyle & variants
 
 URL: https://three.ws/restyle
 
-Re-skin any 3D model in the browser: apply PBR material presets (chrome, gold, glass, wood…), generate seeded colorway variants, fine-tune metalness and roughness, and export a validated GLB — non-destructively.
+Re-skin any 3D model in the browser: apply PBR material presets (chrome, gold, glass, wood…), restyle from a plain-language AI instruction, fan out seeded colorway variants as durable versions, fine-tune metalness and roughness live, and export a validated GLB — non-destructively, with a real revertable version lineage.
 
 ### Avatar Engines Atlas
 
@@ -944,6 +944,12 @@ Every major stablecoin ranked by circulating market cap, with live peg health, b
 URL: https://three.ws/bnb
 
 The BNB Chain campaign's front door: gasless agent onboarding, an on-chain-gated 3D vault, and a real-time on-chain world, each traced to a capability independently verified live on BNB Chain — plus a live block-time widget proving the ~0.45s block claim on every page load. Cards auto-light-up from coming-soon to live as each track ships.
+
+### BNB Chain Live Block Race — 0.45s vs Base, Ethereum, Solana
+
+URL: https://three.ws/bnb-latency
+
+A live, honest race: BNB Chain, Base, Ethereum, and Solana block times measured fresh off real public RPCs every few seconds, with a rolling sparkline per lane. No wallet, no payment, no hardcoded numbers — a lane that goes quiet shows 'reconnecting' while the others keep racing.
 
 ### watsonx Constellation
 

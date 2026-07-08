@@ -732,6 +732,139 @@ curl -s -X POST https://three.ws/api/v1/ai/text-to-3d \
 
 ---
 
+## Material Studio API
+
+Re-skin *any* GLB — not just avatars — without regenerating its mesh. Generalizes
+the Avatar Studio re-skin idea (`src/avatar-studio-colorpicker.js`,
+`src/avatar-wardrobe.js`) to arbitrary models: apply a curated PBR material
+preset live in the browser (see [Restyle Studio](https://three.ws/restyle)), ask
+an AI for a restyle from a plain-language instruction, or fan one preset out into
+N reproducible colorway variants. Free and hosted — rate-limited, not x402 — the
+same implementation the paid `restyle_material` [MCP tool](mcp-tools.md) calls as
+a thin client, so the free web page and the paid agent tool never drift.
+
+Every mesh edit is **non-destructive**: geometry and UVs are never touched (only
+material factors), the source GLB is never mutated, and every restyle or variant
+is minted as its own durable, `gltf-validator`-checked object. Every call is also
+recorded in an immutable parent → child version lineage — the exact shape
+`refine_model` uses (`mcp-server/src/tools/_lineage.js`) — so a caller can revert
+to, or branch off, any earlier version instead of losing history.
+
+Implementation: [`api/_lib/material-studio-store.js`](../api/_lib/material-studio-store.js)
+(core logic) and [`api/material-studio.js`](../api/material-studio.js) (HTTP
+surface). Preset library: [`packages/viewer-presets`](../packages/viewer-presets).
+
+### Upload a checkpoint
+
+```
+POST /api/material-studio?action=upload
+```
+
+Body: raw GLB bytes, `content-type: model/gltf-binary`. Validates the bytes
+(magic header + `gltf-validator`) and mirrors them into durable object storage.
+Used to turn a locally-loaded file into a public https URL the other two actions
+can operate on, and to checkpoint a manually fine-tuned (slider/preset) edit as a
+new lineage version.
+
+**Response**
+
+```json
+{ "ok": true, "url": "https://cdn.three.ws/material-studio/checkpoints/<uuid>.glb", "bytes": 842113 }
+```
+
+### AI restyle
+
+```
+POST /api/material-studio?action=restyle
+```
+
+| Body field       | Type    | Description                                                                 |
+| ---------------- | ------- | ----------------------------------------------------------------------------- |
+| `glb_url`        | string  | Public https URL of the GLB to restyle. Required.                             |
+| `instruction`    | string  | Plain-language look, e.g. `"make it chrome"`, `"wooden"`, `"cyberpunk neon"`. 2–300 characters. Required. |
+| `material_index` | integer | Optional — restyle only this material (by index) instead of every material.   |
+| `parent_lineage` | array   | Optional — the `lineage` array a previous restyle/variants call returned, to extend the same version history. |
+| `parent_index`   | integer | Optional — branch off an earlier version in `parent_lineage` instead of the latest. |
+
+IBM Granite (watsonx.ai) proposes a glTF 2.0 PBR material (base color,
+metalness, roughness, emissive) from the instruction; `@gltf-transform` applies
+those factors onto the target material(s) and re-exports. Mesh geometry and UVs
+are byte-identical to the source.
+
+**Response**
+
+```json
+{
+	"ok": true,
+	"glbUrl": "https://cdn.three.ws/material-studio/restyle/<uuid>.glb",
+	"sourceGlbUrl": "https://cdn.three.ws/creations/<id>/mesh.glb",
+	"instruction": "make it chrome",
+	"factors": { "name": "Polished chrome", "baseColorFactor": [0.79, 0.81, 0.83], "metallicFactor": 1, "roughnessFactor": 0.05, "emissiveFactor": [0, 0, 0] },
+	"materialsEdited": 1,
+	"lineage": [
+		{ "index": 0, "parentIndex": null, "glbUrl": "https://cdn.three.ws/creations/<id>/mesh.glb", "refKind": "origin" },
+		{ "index": 1, "parentIndex": 0, "glbUrl": "https://cdn.three.ws/material-studio/restyle/<uuid>.glb", "instruction": "make it chrome", "refKind": "restyle" }
+	],
+	"activeIndex": 1
+}
+```
+
+### Seeded colorway variants
+
+```
+POST /api/material-studio?action=variants
+```
+
+| Body field       | Type    | Description                                                                 |
+| ---------------- | ------- | ----------------------------------------------------------------------------- |
+| `glb_url`        | string  | Public https URL of the GLB to fan out. Required.                             |
+| `preset`         | string  | Base PBR preset to vary from — one of the [`@three-ws/viewer-presets`](../packages/viewer-presets) names (`chrome`, `gold`, `copper`, `brushedSteel`, `gunmetal`, `matte`, `glossy`, `rubber`, `ceramic`, `glass`, `wood`, `stone`, `neon`, `holographic`). Default `chrome`. |
+| `seed`           | integer | Deterministic seed — same preset + seed always produces the same set. Default `0`. |
+| `count`          | integer | How many variants (1–12). Default `6`.                                        |
+| `material_index` | integer | Optional — vary only this material index.                                     |
+| `parent_lineage` / `parent_index` | | Same as the restyle action, above — every variant branches off the same parent (the source model). |
+
+Fans one preset out into `count` reproducible colorways (mulberry32 seeded
+PRNG — byte-identical output for the same base + seed) and persists **each one
+as its own real, validated GLB**, not just a live preview swap.
+
+**Response**
+
+```json
+{
+	"ok": true,
+	"sourceGlbUrl": "https://cdn.three.ws/creations/<id>/mesh.glb",
+	"preset": "chrome",
+	"seed": 42,
+	"count": 3,
+	"variants": [
+		{ "glbUrl": "https://cdn.three.ws/material-studio/variants/<uuid1>.glb", "label": "Chrome 1", "seed": 42, "config": { "color": "#c9ced4", "metalness": 1, "roughness": 0.05 }, "lineageIndex": 1 },
+		{ "glbUrl": "https://cdn.three.ws/material-studio/variants/<uuid2>.glb", "label": "Chrome 2", "seed": 43, "config": { "color": "#a1c9d4", "metalness": 0.94, "roughness": 0.09 }, "lineageIndex": 2 }
+	],
+	"lineage": [
+		{ "index": 0, "parentIndex": null, "glbUrl": "https://cdn.three.ws/creations/<id>/mesh.glb", "refKind": "origin" },
+		{ "index": 1, "parentIndex": 0, "glbUrl": "https://cdn.three.ws/material-studio/variants/<uuid1>.glb", "instruction": "Chrome 1", "refKind": "variant" },
+		{ "index": 2, "parentIndex": 0, "glbUrl": "https://cdn.three.ws/material-studio/variants/<uuid2>.glb", "instruction": "Chrome 2", "refKind": "variant" }
+	],
+	"activeIndex": 0
+}
+```
+
+**Errors** (shared across all three actions)
+
+| Status | Code                    | Meaning                                                          |
+| ------ | ----------------------- | ------------------------------------------------------------------ |
+| `400`  | `missing_glb_url`       | `glb_url` missing                                                 |
+| `400`  | `missing_instruction`   | `instruction` missing (restyle action)                             |
+| `400`  | `invalid_url`           | `glb_url` failed the public-https / SSRF check                     |
+| `400`  | `invalid_preset`        | `preset` isn't a known name (variants action)                      |
+| `415`  | `unsupported_media_type`| Fetched bytes aren't a binary glTF                                  |
+| `422`  | `invalid_output`        | The restyled/variant GLB failed `gltf-validator` (never persisted)  |
+| `429`  | `rate_limited`          | Per-IP rate limit hit — restyle/variants: 40/hour, upload: 120/hour |
+| `503`  | `not_configured`        | AI restyle needs `WATSONX_API_KEY` + `WATSONX_PROJECT_ID` set       |
+
+---
+
 ## AI API — text→image
 
 Text→image for agents over x402 — no API key, no account. The first **5 images/day
