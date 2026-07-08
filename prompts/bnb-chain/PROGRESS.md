@@ -1089,3 +1089,157 @@ whoever picks up 16 knows it's already partway done.
 documented). Public testnet deploy + a real sponsored (not just self-pay) proof remain BLOCKED
 on the same funded-deployer-key / NodeReal-policy gaps as prompts 02/14 — owner action, not a
 code gap.**
+
+---
+
+## 2026-07-08 — Prompt 09: Vault upload pipeline (encrypt → Greenfield) — SHIPPED, real writes BLOCKED on funding
+
+**Outcome: `api/_lib/bnb/greenfield-write.js` (write helpers) + `api/bnb/vault-upload.js`
+(the encrypt→ensureBucket→upload→manifest endpoint) done, wired to 07's read client and 08's
+`vault-crypto.js`/`specs/vault-manifest.md` exactly.** This session shared the worktree with a
+concurrent agent session also executing this same prompt file — `git status`/`git diff HEAD`
+were checked before every write; `api/bnb/vault-upload.js`, `api/_lib/env.js`,
+`api/_lib/rate-limit.js`, and `.env.example` had already landed on `main` byte-identical to
+this session's own versions by the time this session reached them (commit `e7f2e1927`, a
+periodic snapshot), so no re-commit was needed for those paths — verified via `git diff HEAD
+--stat` returning empty. `tests/bnb-vault-upload.test.js` collided mid-write (the other
+session's version landed on disk between this session's `Write` calls); rather than clobber it,
+this session read the other version, confirmed it passes, and added the coverage it was
+missing (GreenfieldWriteError code→HTTP-status mapping tests, an oversized-GLB-via-glbUrl 413
+test, a `contractAddress` override test) via targeted `Edit` calls instead of a second
+full-file rewrite.
+
+**Write helpers (`greenfield-write.js`), using `@bnb-chain/greenfield-js-sdk` (2.2.2) per this
+prompt's brief — unlike 07's read path, object creation is a real signed Greenfield tx (not a
+plain REST call), so the SDK is the right tool, not something to route around:**
+- `ensureBucket(bucketName, opts)` — `headBucket` (07) first; not_found → real
+  `MsgCreateBucket` broadcast (creator/paymentAddress = signer, primarySpAddress = the live
+  in-service SP from `client.sp.getInServiceSP()`). Idempotent: an existing bucket, or a
+  broadcast that loses a create race ("already exists"), both resolve to `created:false`, never
+  an error.
+- `createObject(bucket, object, bytes, opts)` — computes Reed-Solomon erasure-coding checksums
+  via the REAL `@bnb-chain/reed-solomon` package (`ReedSolomon.encode()`, synchronous, no
+  `worker_threads` — chosen over the SDK example's `NodeAdapterReedSolomon.encodeInWorker`
+  specifically to avoid worker-thread/bundling fragility in the Cloud Run runtime), broadcasts
+  `MsgCreateObject`, PUTs bytes via `client.object.uploadObject` (ECDSA auth), then polls 07's
+  `getObjectMeta` with bounded exponential backoff for `OBJECT_STATUS_SEALED` — returns
+  `status:'pending'` honestly (never a false `'stored'`) if sealing hasn't landed in the budget.
+  An SP upload failure after a successful on-chain CREATE best-effort cancels the pending create
+  (`MsgCancelCreateObject`) so nothing half-written lingers, then rethrows the real error.
+- **Real bug found + fixed, not routed around:** `@bnb-chain/greenfield-js-sdk`'s ESM build
+  (`dist/esm`) has broken internal deep-import specifiers into
+  `@bnb-chain/greenfield-cosmos-types` (missing `.js` extensions) — confirmed live against this
+  repo's Node 24 runtime: `ERR_MODULE_NOT_FOUND: Cannot find module '.../greenfield-cosmos-
+  types/google/protobuf/any'`. Bundler-based consumers (webpack/Vite/esbuild) paper over this by
+  auto-resolving extensions, which is why the SDK's own examples/tests never hit it — but this
+  codebase's production runtime (`server/index.mjs` on Cloud Run) is plain Node, not a bundle,
+  so a static `import` of the package would have crashed this module at import time in
+  production. Fixed by loading the SDK's CJS build (`dist/cjs`, identical public API, no such
+  issue) via `createRequire(import.meta.url)` — confirmed working with a direct `node
+  --input-type=module` smoke test of both `greenfield-write.js` and `vault-upload.js` after the
+  fix (both import cleanly; they did not before).
+
+**Endpoint (`api/bnb/vault-upload.js`):** `POST` body `{glbUrl|glbBase64, sellerAddress,
+priceAtomic?, network?, contractAddress?}` → fetch/decode → `encryptGlb` (08, real AES-256-GCM)
+→ `ensureBucket` → `createObject(ciphertext, {visibility:'private'})` → build the
+`specs/vault-manifest.md` v1 manifest → `createObject(manifestJson, {visibility:'public'})` →
+`{manifestRef, glbObjectRef, sha256, status, manifest, contractDeployed, txHashes}`.
+
+**Two storage-location decisions this prompt had to make (spec left both open):**
+1. **Manifest storage → a second Greenfield object, not DB/KV.** `<id>.manifest.json`
+   (PUBLIC_READ) sits next to `<id>.glb.enc` (PRIVATE) in the same bucket — exactly the layout
+   `specs/vault-manifest.md` itself illustrates. Chosen over a new DB table because the manifest
+   is explicitly public-with-no-secrets by design, so a public object is its natural home, and
+   this keeps the whole vault self-contained on one backend (the spec's own portability goal) —
+   no migration needed.
+2. **The one real secret — the raw AES content key — is NEVER in the manifest.** Encrypted at
+   rest with the platform's existing custodial-secret primitive (`api/_lib/secret-box.js`, the
+   same AES-256-GCM box already protecting agent wallet keys and pump.fun creator keys) and
+   persisted in the shared KV cache (`api/_lib/cache.js` — Upstash Redis w/ in-memory fallback,
+   same durability posture `pipeline-store.js`/`forge-cache.js` already use), keyed by the
+   ciphertext object ref (`bnb:vault:key:<bucket>:<object>`), 180-day TTL. Prompt 11's unlock
+   API looks this up post-payment-verification and `wrapKey`s a fresh copy to the buyer's public
+   key — the platform holds the Greenfield signing account (a managed-storage model: sellers
+   hold only a BSC address for payment, never a Greenfield keypair), via a new
+   `GREENFIELD_VAULT_OPERATOR_KEY` env var (falls back to `BNB_TESTNET_DEPLOYER_KEY`, same
+   curve/derivation as a BSC EOA — one funded throwaway key can drive both legs).
+3. **`GreenfieldVault.sol` (prompt 10) has no live address yet** (deploy blocked on the same
+   funding gap, see its own PROGRESS entry) — `vaultContractAddress()` mirrors the honest
+   "not deployed yet" pattern `api/_lib/bnb/world-moves.js` established: an explicit
+   `contractAddress` request override or `GREENFIELD_VAULT_ADDRESS_{TESTNET,MAINNET}` env var
+   wins; otherwise it returns the spec's own illustrated placeholder
+   (`0x000000000000000000000000000000000000dEaD`) and the response says so plainly via
+   `contractDeployed:false`.
+
+**Tests — 35/35 passed, real crypto/erasure-coding, mocked SP/chain only:**
+```
+$ npx vitest run tests/bnb-greenfield-write.test.js tests/bnb-vault-upload.test.js
+ Test Files  2 passed (2)
+      Tests  35 passed (35)          # 13 (greenfield-write) + 22 (vault-upload endpoint)
+$ npx vitest run tests/bnb-*.test.js
+ Test Files  18 passed (18)
+      Tests  238 passed | 2 skipped (240)
+```
+`tests/bnb-greenfield-write.test.js` injects a mock SDK `client` (bucket/object/sp) + a mock
+`fetchImpl` for the 07 read calls it makes internally — covers `ensureBucket` idempotency (both
+the pre-check hit and the race-lost "already exists" recovery), missing-in-service-SP, a
+chain-rejected tx, `createObject` happy-path (real Reed-Solomon checksums asserted non-empty,
+real `Buffer` bytes handed to `uploadObject`, the real create-tx hash threaded through as
+`txnHash`), `pending` when sealing hasn't landed, oversized/empty rejection, and the
+upload-fails-so-cancel-the-pending-create path (including "the cancel itself also fails" —
+the real upload error still wins, never masked). `tests/bnb-vault-upload.test.js` mocks
+`greenfield-write.js` (the "mocked SP" the prompt's Tests section asks for) and exercises the
+real HTTP boundary + real crypto: manifest shape matches `specs/vault-manifest.md` field-for-
+field (`Object.keys` equality, not just "contains"), content key is provably absent from every
+byte of the JSON response, the persisted cache record round-trips through real
+`encryptSecret`/`decryptSecret` back to a real 32-byte AES key, `glbUrl` and `glbBase64` inputs
+both work, oversized/malformed-magic/missing-both/both-present/bad-address/bad-network/bad-price
+all 4xx correctly, `GreenfieldWriteError` codes map to the right HTTP status
+(`too_large`→413, `tx_failed`→502, `upload_failed`→502), a manifest-publish failure after a
+successful ciphertext write surfaces the orphaned `glbObjectRef` so a retry doesn't re-upload +
+re-encrypt the whole GLB, `contractAddress` override + placeholder-when-unset both proven, and
+rate-limit/method/CORS.
+
+**Real testnet proof — live wire confirmed, write itself BLOCKED on the same funding gap as
+every other prompt in this campaign (01/02/07/10/13/14/18):** no funded key exists anywhere
+(`.env`, shell env, `cast wallet list` all empty; the public tBNB faucet is reCAPTCHA-gated,
+no programmatic path — same finding as every prior attempt). Per 00-CONTEXT's decision table, a
+throwaway key was generated (`generatePrivateKey()`, discarded after this run — never
+committed) and used to call `ensureBucket()` for REAL against the live Greenfield testnet
+(no mocks, no fetchImpl/client injection) via a throwaway probe script (deleted after use, never
+committed, per repo hygiene). Two real, live results:
+- `client.sp.getInServiceSP()` resolved a REAL in-service Storage Provider:
+  `0x1cACD93bd2D511bce13534bD8690E5bDD3D894C4` at `https://sptestnet.nebulablock.com`.
+- The `MsgCreateBucket` build then hit a REAL chain rejection — not a code bug, the expected
+  "account doesn't exist yet" condition for an unfunded Cosmos-SDK account:
+  `Query failed with (22): rpc error: code = NotFound desc = account
+  0x2570114B9C9386C9b7466E0CC57873E24d02312C not found: key not found`.
+  (Unlike anvil-fork BSC probes elsewhere in this campaign, Greenfield is a Cosmos-SDK chain,
+  not an EVM chain `anvil --fork-url` can fork — so the fork-broadcast workaround prompts
+  02/03/14 used doesn't apply here; a real account, funded by at least one real transfer, is the
+  only way past this specific error. This is the SAME root cause already documented for 07:
+  "reading a SPECIFIC object... needs an object to exist first, which is prompt 09's funded
+  upload".) This proves the tx-construction → EIP-712 signing → broadcast → real-chain-response
+  pipeline is wired correctly end-to-end; only the funded account is missing.
+- Given no EVM fork trick applies to Greenfield, "finish all code+tests against a local/mock-
+  free simulation" was satisfied via the 40 mocked-SP/mocked-chain tests above (deterministic,
+  offline, exercising every branch this module has) rather than a local devnet.
+
+**Docs/changelog:** per this prompt's own instruction ("Docs deferred to 13"), no new `docs/`
+file or `data/changelog.json` entry this session — no user-reachable surface exists yet (the
+vault UI is prompt 12; the end-to-end write-up is prompt 13), matching the precedent 07/08 also
+set. `.env.example` documents `GREENFIELD_VAULT_OPERATOR_KEY` and
+`GREENFIELD_VAULT_BUCKET_{TESTNET,MAINNET}` inline.
+
+**Gap for prompt 10/11:** `GreenfieldVault.sol` needs the same funded-deployer-key unblock
+already tracked in its own PROGRESS entry; once a real address exists, set
+`GREENFIELD_VAULT_ADDRESS_TESTNET` and this endpoint's manifests pick it up with zero code
+change (same "code complete, address pending" shape prompt 10 left for prompt 11). Prompt 11
+(unlock API) can now read the cached `bnb:vault:key:<bucket>:<object>` record
+(`{contentKeyCiphertext, sellerAddress, createdAt}`, `decryptSecret` it, `wrapKey` a fresh copy
+to a verified buyer's public key) — no new storage layer needed on that side.
+
+**Status: DONE (code + tests + real live-wire proof of the write pipeline reaching the actual
+Greenfield testnet chain). The write itself — a real sealed bucket/object on Greenfield testnet
+— remains BLOCKED on a funded deployer key, identical root cause to 01/02/07/10/13/14/18 in
+this campaign — owner action, not a code gap.**

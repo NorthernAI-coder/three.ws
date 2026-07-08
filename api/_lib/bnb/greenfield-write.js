@@ -34,12 +34,26 @@
  * a future self-custodied mode — see `tests/bnb-greenfield-write.test.js`.
  */
 
-import { Client, Long, VisibilityType, RedundancyType } from '@bnb-chain/greenfield-js-sdk';
-import { bytesFromBase64 } from '@bnb-chain/greenfield-cosmos-types/helpers.js';
+import { createRequire } from 'node:module';
 import { ReedSolomon } from '@bnb-chain/reed-solomon';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import { greenfieldNetwork, headBucket, getObjectMeta, GreenfieldError } from './greenfield.js';
+
+// `@bnb-chain/greenfield-js-sdk`'s ESM build (dist/esm) has broken internal
+// deep-import specifiers into `@bnb-chain/greenfield-cosmos-types` (missing
+// `.js` extensions) — confirmed live against this repo's Node runtime:
+// `ERR_MODULE_NOT_FOUND: Cannot find module '.../greenfield-cosmos-types/
+// google/protobuf/any'`. Bundler-based consumers (webpack/Vite/esbuild) paper
+// over this by auto-resolving extensions, which is why the SDK's own tests
+// never hit it — but this codebase's production runtime (server/index.mjs on
+// Cloud Run) is plain Node, not a bundle, so a static `import` of the ESM
+// entrypoint would crash this module at import time in production. The
+// package's CJS build (dist/cjs) exports the identical public API with no
+// such issue, so this loads it via `createRequire` — the standard Node
+// interop for "the ESM build of a dependency is broken, the CJS build isn't."
+const require = createRequire(import.meta.url);
+const { Client, Long, VisibilityType, RedundancyType, bytesFromBase64 } = require('@bnb-chain/greenfield-js-sdk');
 
 // Fallback gas price when the chain's own simulate() doesn't return one (the
 // exact fallback the official SDK example uses — 5 gwei-equivalent in GNFD's
