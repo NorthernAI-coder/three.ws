@@ -23,6 +23,13 @@
 # from the image), and vercel.json (the route table the server interprets).
 # character-studio ships manifest-only (216 MB of frontend source npm ci
 # doesn't need); animation-sources (2.6 GB) and dist-lib/ stay out entirely.
+# agents/ (fact-checker, tutor, endpoint-shopper, unstoppable, x402-buildout —
+# 492K total, no node_modules) was missing from this allowlist entirely, so
+# api/x402/fact-check.js and api/x402/tutor.js's `../../agents/...` imports
+# 500'd ERR_MODULE_NOT_FOUND on every request in every deployed revision —
+# found live in prod during the 2026-07-08 storefront cleanup (prompt 18)
+# when the endpoint was re-listed as a real product. Root-caused via Cloud
+# Run stderr logs (gcloud logging read), not guessed.
 !/server/
 !/Dockerfile
 !/vercel.json
@@ -43,6 +50,7 @@
 !/multiplayer/
 !/walk-sdk/
 !/tour-sdk/
+!/agents/
 !/character-studio/
 /character-studio/*
 !/character-studio/package.json
