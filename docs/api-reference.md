@@ -1723,12 +1723,16 @@ feeds directly (`source: "rss"`).
 One catch-all route (`api/v1/x/[...slug].js`) bundles every third-party API
 three.ws re-offers as one API, registered in `api/v1/_providers.js`. Adding a
 new upstream — or a new endpoint on an existing one — is a descriptor there;
-no new route file. Providers today: **CoinGecko** (`coingecko`), **DefiLlama**
-(`defillama`), **Jupiter** (`jupiter`, Solana prices/quotes/search),
-**DexScreener** (`dexscreener`, DEX pairs/search/profiles/boosts for any
-token), **Solana reads** (`solana`, balance/token-holdings/token-supply/
-largest-holders/transaction/account/priority-fees via public RPC),
-**OpenAI-compatible LLM** (`openai`).
+no new route file. Providers today: **CoinGecko** (`coingecko`, price/markets/
+coin/trending/token-price/global/ohlc), **DefiLlama** (`defillama`, protocols/
+tvl/chains/protocol/chain-tvl), **DefiLlama Prices** (`llama-prices`, current
+price for any `chain:address` pair), **DefiLlama Stablecoins**
+(`llama-stablecoins`, every tracked stablecoin ranked by circulating supply),
+**Jupiter** (`jupiter`, Solana prices/quotes/search), **DexScreener**
+(`dexscreener`, DEX pairs/search/profiles/boosts for any token), **Solana
+reads** (`solana`, balance/token-holdings/token-supply/largest-holders/
+transaction/account/priority-fees via public RPC), **OpenAI-compatible LLM**
+(`openai`).
 
 ```
 GET  /api/v1/x                              # discovery: every provider + endpoint
@@ -1788,12 +1792,51 @@ every endpoint's `free` field is `{ perMin, perDay }` or `false`):
 | Provider/endpoint                                                                                                      | perMin                                                     | perDay |
 | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ------ |
 | `coingecko/price`, `coingecko/markets`                                                                                 | 30                                                         | 2000   |
-| `defillama/protocols`, `defillama/tvl`                                                                                 | 30                                                         | 2000   |
+| `coingecko/coin`, `/trending`, `/token-price`, `/global`, `/ohlc`                                                      | 20                                                         | 1500   |
+| `defillama/protocols`, `defillama/tvl`, `/chains`, `/protocol`, `/chain-tvl`                                           | 30                                                         | 2000   |
+| `llama-prices/current`                                                                                                 | 30                                                         | 2000   |
+| `llama-stablecoins/list`                                                                                               | 30                                                         | 2000   |
 | `jupiter/price`, `jupiter/quote`, `jupiter/token-search`                                                               | 20                                                         | 2000   |
 | `dexscreener/token`, `dexscreener/search`, `dexscreener/pair`                                                          | 30                                                         | 3000   |
 | `dexscreener/profiles`, `dexscreener/boosts`                                                                           | 10                                                         | 500    |
 | `solana/balance`, `/token-holdings`, `/token-supply`, `/largest-holders`, `/transaction`, `/account`, `/priority-fees` | 20                                                         | 2000   |
 | `openai/chat`                                                                                                          | not free — real per-call LLM spend, BYOK or plan/x402 only |
+
+**CoinGecko** (`coingecko`) — beyond spot price and ranked markets: a full
+per-coin snapshot, trending coins/categories, token price by contract address,
+the global market snapshot, and OHLC candles.
+
+```bash
+curl -s "https://three.ws/api/v1/x/coingecko/coin?id=solana"
+curl -s "https://three.ws/api/v1/x/coingecko/trending"
+curl -s "https://three.ws/api/v1/x/coingecko/token-price?addresses=FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump"
+curl -s "https://three.ws/api/v1/x/coingecko/global"
+curl -s "https://three.ws/api/v1/x/coingecko/ohlc?id=solana&days=7"
+```
+
+**DefiLlama** (`defillama`) — every chain by TVL, one protocol's full profile
+(current TVL per chain + the last 30 days of its total series), and 90 days of
+historical TVL for one chain.
+
+```bash
+curl -s "https://three.ws/api/v1/x/defillama/chains"
+curl -s "https://three.ws/api/v1/x/defillama/protocol?slug=uniswap"
+curl -s "https://three.ws/api/v1/x/defillama/chain-tvl?chain=Solana"
+```
+
+**DefiLlama Prices** (`llama-prices`) — DefiLlama's own coin-price oracle,
+covering long-tail tokens CoinGecko and Jupiter don't index yet:
+
+```bash
+curl -s "https://three.ws/api/v1/x/llama-prices/current?coins=solana:FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump"
+```
+
+**DefiLlama Stablecoins** (`llama-stablecoins`) — every tracked stablecoin,
+peg type, price, and circulating supply, ranked:
+
+```bash
+curl -s "https://three.ws/api/v1/x/llama-stablecoins/list"
+```
 
 **DexScreener** (`dexscreener`) — live DEX pair data for any token: price,
 liquidity, volume, 24h change, txns. Works for any chain DexScreener indexes,

@@ -293,11 +293,11 @@ function isPaidCreditFailure(err) {
 // Returns true once it has written a 200 response, or false when the lane is
 // itself unavailable (so the caller can fall through to the next lane). Prompt
 // is required — NVCF is text-only; photo submissions never reach here.
-async function runNvidiaTextLane({ req, res, ip, prompt, aspect, tier, path }) {
+async function runNvidiaTextLane({ req, res, ip, prompt, aspect, tier, path, opts = null, cacheKey = null }) {
 	let submitted;
 	try {
 		const nv = await loadNvidiaProvider();
-		submitted = await nv.textTo3d({ prompt, tier });
+		submitted = await nv.textTo3d({ prompt, tier, seed: opts?.seed ?? undefined });
 	} catch (err) {
 		// A timed-out / unreachable / throttled / 5xx NIM lane is degraded — cool it
 		// down so the next request skips the submit-timeout gamble and fails over
@@ -343,17 +343,78 @@ async function runNvidiaTextLane({ req, res, ip, prompt, aspect, tier, path }) {
 			tier: tier.id,
 			path,
 		});
-		const durable = await materializeCreation({
+		let durable = await materializeCreation({
 			replicateJobId: syntheticJob,
 			clientKey,
 			glbUrl: submitted.resultGlbUrl,
+			quality: true,
+			compress: opts?.compression && opts.compression !== 'none' ? opts.compression : null,
 		});
+
+		// One auto-retry on a flagged low-quality/degenerate output (CLAUDE.md: no
+		// silent mediocrity). Only worth attempting when the free NIM lane already
+		// completed synchronously once — a second synchronous completion is the
+		// common case, so this stays a bounded, in-request retry rather than a
+		// background job. Best-effort: any retry failure just keeps the first result.
+		let retried = false;
+		if (shouldRetryForQuality(durable?.quality)) {
+			try {
+				const nv = await loadNvidiaProvider();
+				const retry = await nv.textTo3d({ prompt, tier, seed: opts?.seed ?? undefined });
+				if (!retry.taskId && retry.resultGlbUrl) {
+					const retryJob = randomUUID().replace(/-/g, '');
+					await createCreation({
+						clientKey,
+						ipHash: hashIp(ip),
+						prompt,
+						aspect,
+						previewImageUrl: null,
+						replicateJobId: retryJob,
+						textToImageModel: null,
+						viewsRequested: 0,
+						viewsUsed: null,
+						multiview: false,
+						backend: backendId,
+						tier: tier.id,
+						path,
+					});
+					const retryDurable = await materializeCreation({
+						replicateJobId: retryJob,
+						clientKey,
+						glbUrl: retry.resultGlbUrl,
+						quality: true,
+						compress: opts?.compression && opts.compression !== 'none' ? opts.compression : null,
+					});
+					if (retryDurable) {
+						durable = retryDurable;
+						retried = true;
+					}
+				}
+			} catch (err) {
+				console.warn(`[forge] quality auto-retry (nvidia) failed, keeping first result: ${err?.message || err}`);
+			}
+		}
+
+		if (cacheKey && durable?.glbUrl) {
+			await putCachedForgeResult(cacheKey, {
+				glb_url: durable.glbUrl,
+				backend: backendId,
+				tier: tier.id,
+				path,
+				quality: durable.quality || null,
+			});
+		}
+
 		json(res, 200, {
 			job_id: null,
 			creation_id: durable?.id ?? creationId,
 			status: 'done',
 			glb_url: durable?.glbUrl ?? submitted.resultGlbUrl,
 			durable: Boolean(durable),
+			quality: durable?.quality || null,
+			quality_retried: retried,
+			compression: durable?.compression || null,
+			options: opts?.hasOptions ? summarizeForgeOptions(opts) : undefined,
 			...provenance,
 		});
 		return true;
@@ -381,10 +442,13 @@ async function runNvidiaTextLane({ req, res, ip, prompt, aspect, tier, path }) {
 		tier: tier.id,
 		path,
 	});
+	if (cacheKey) await bindJobToCacheKey(token, cacheKey);
+	if (opts) await bindJobToOptions(token, opts);
 	json(res, 200, {
 		job_id: token,
 		creation_id: creationId,
 		status: 'queued',
+		options: opts?.hasOptions ? summarizeForgeOptions(opts) : undefined,
 		...provenance,
 	});
 	return true;
@@ -421,6 +485,8 @@ async function runHfImageLane({
 	mode = 'image_to_3d',
 	previewImageUrl = null,
 	textToImageModel = null,
+	opts = null,
+	cacheKey = null,
 }) {
 	let provider;
 	try {
@@ -464,7 +530,7 @@ async function runHfImageLane({
 		const submitted = await provider.submit({
 			mode: 'reconstruct',
 			sourceUrl: imageUrls[0],
-			params: { images: imageUrls, prompt: prompt || undefined },
+			params: { images: imageUrls, prompt: prompt || undefined, seed: opts?.seed ?? undefined },
 		});
 		// submit() blocks and packs the finished GLB into extJobId; status() echoes
 		// it back without re-hitting the Space.
@@ -500,17 +566,87 @@ async function runHfImageLane({
 	});
 	// Best-effort copy to R2 so the model survives the Space's ephemeral file URL;
 	// fail-soft to the raw HF url so the client still gets a model either way.
-	const durable = await materializeCreation({
+	const wantCompress = opts?.compression && opts.compression !== 'none' ? opts.compression : null;
+	let durable = await materializeCreation({
 		replicateJobId: syntheticJob,
 		clientKey,
 		glbUrl: resultGlbUrl,
+		quality: true,
+		compress: wantCompress,
 	});
+
+	// One auto-retry on a flagged low-quality/degenerate output. Only attempted
+	// when a concurrency slot is free right now — the HF lane is capacity-capped,
+	// so a busy fleet keeps the first (flagged) result rather than starving
+	// other callers of their turn on the free Spaces.
+	let retried = false;
+	if (shouldRetryForQuality(durable?.quality)) {
+		const retrySlot = await acquireBlockingSlot('hf', { max: SCALE_LIMITS.hfConcurrent, ttlMs: SCALE_LIMITS.hfSlotTtlMs });
+		if (retrySlot.ok) {
+			try {
+				const retrySubmitted = await provider.submit({
+					mode: 'reconstruct',
+					sourceUrl: imageUrls[0],
+					params: { images: imageUrls, prompt: prompt || undefined, seed: opts?.seed ?? undefined },
+				});
+				const retryFinished = await provider.status(retrySubmitted.extJobId);
+				if (retryFinished?.resultGlbUrl) {
+					const retryJob = randomUUID().replace(/-/g, '');
+					await createCreation({
+						clientKey,
+						ipHash: hashIp(ip),
+						prompt: prompt || (isImageMode ? 'image-to-3d' : ''),
+						aspect,
+						previewImageUrl: preview,
+						replicateJobId: retryJob,
+						textToImageModel: isImageMode ? null : textToImageModel,
+						viewsRequested: imageUrls.length,
+						viewsUsed: imageUrls.length,
+						multiview: imageUrls.length > 1,
+						backend: backendId,
+						tier: tier.id,
+						path,
+					});
+					const retryDurable = await materializeCreation({
+						replicateJobId: retryJob,
+						clientKey,
+						glbUrl: retryFinished.resultGlbUrl,
+						quality: true,
+						compress: wantCompress,
+					});
+					if (retryDurable) {
+						durable = retryDurable;
+						retried = true;
+					}
+				}
+			} catch (err) {
+				console.warn(`[forge] quality auto-retry (huggingface) failed, keeping first result: ${err?.message || err}`);
+			} finally {
+				await retrySlot.release();
+			}
+		}
+	}
+
+	if (cacheKey && !isImageMode && durable?.glbUrl) {
+		await putCachedForgeResult(cacheKey, {
+			glb_url: durable.glbUrl,
+			backend: backendId,
+			tier: tier.id,
+			path,
+			quality: durable.quality || null,
+		});
+	}
+
 	json(res, 200, {
 		job_id: null,
 		creation_id: durable?.id ?? creationId,
 		status: 'done',
 		glb_url: durable?.glbUrl ?? resultGlbUrl,
 		durable: Boolean(durable),
+		quality: durable?.quality || null,
+		quality_retried: retried,
+		compression: durable?.compression || null,
+		options: opts?.hasOptions ? summarizeForgeOptions(opts) : undefined,
 		mode,
 		path,
 		tier: tier.id,

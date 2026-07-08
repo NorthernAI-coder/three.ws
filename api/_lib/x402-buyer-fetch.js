@@ -194,3 +194,14 @@ function safeJson(text) {
 		return null;
 	}
 }
+
+// ── BNB Chain (MPP / b402) buyer ────────────────────────────────────────────
+// Re-exported from the same surface so an agent that already imports the x402
+// buyer can also pay MPP-protected endpoints on BNB Chain (eip155:56/97) with
+// the same 402 → pay → retry ergonomics. MPP is x402 v2, so the only real
+// difference is the network + an EIP-3009 credential signed by @bnb-chain/mpp.
+//
+//   import { buyerFetch, mppFetch } from './x402-buyer-fetch.js';
+//   // Solana/Base:  await buyerFetch(url, { signPayment, caps });
+//   // BNB Chain:    await mppFetch(url, { method: 'GET' }, { account, maxSpend: '20000' });
+export { mppFetch, MPP_BUYER_NETWORKS, MppBuyerError } from './bnb/mpp-buyer.js';

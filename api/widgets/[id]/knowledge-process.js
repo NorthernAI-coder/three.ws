@@ -5,27 +5,18 @@
 // can trigger processing. Reads the queued doc by ID, embeds its chunks,
 // marks ready. Idempotent — safe to retry on transient failures.
 
-import { wrap, json, error, method } from '../../_lib/http.js';
+import { wrap, json, error, method, readBody } from '../../_lib/http.js';
 import { verifyQstashSignature, qstashEnabled } from '../../_lib/qstash.js';
 import { processQueuedDoc } from './_knowledge.js';
 import { env } from '../../_lib/env.js';
 
-function readRawBody(req, limit = 1_000_000) {
-	return new Promise((resolve, reject) => {
-		const chunks = [];
-		let total = 0;
-		req.on('data', (c) => {
-			total += c.length;
-			if (total > limit) {
-				reject(Object.assign(new Error('payload too large'), { status: 413 }));
-				req.destroy();
-				return;
-			}
-			chunks.push(c);
-		});
-		req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
-		req.on('error', reject);
-	});
+// Delegates to the shared readBody (api/_lib/http.js), which prefers the
+// pre-parsed req.rawBody the Cloud Run server already captured pre-parse, so
+// the QStash signature below checks the exact signed bytes — re-reading the
+// raw stream here (as this function used to) hangs forever once Express has
+// drained it.
+async function readRawBody(req, limit = 1_000_000) {
+	return (await readBody(req, limit)).toString('utf8');
 }
 
 export default wrap(async (req, res) => {

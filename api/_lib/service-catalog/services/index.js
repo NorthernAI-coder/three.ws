@@ -12,8 +12,11 @@ import modelCheck from './model-check.js';
 import agentReputation from './agent-reputation.js';
 import agentBouncer from './agent-bouncer.js';
 import onchainIdentityVerify from './onchain-identity-verify.js';
+import factCheck from './fact-check.js';
 import pumpLaunch from './pump-launch.js';
 import forge from './forge.js';
+import mintToMesh from './mint-to-mesh.js';
+import mintToMeshBatch from './mint-to-mesh-batch.js';
 import skillMarketplace from './skill-marketplace.js';
 import symbolAvailability from './symbol-availability.js';
 import vanity from './vanity.js';
@@ -60,8 +63,11 @@ export const PAID_SERVICES = Object.freeze([
 	agentReputation,
 	agentBouncer,
 	onchainIdentityVerify,
+	factCheck,
 	pumpLaunch,
 	forge,
+	mintToMesh,
+	mintToMeshBatch,
 	skillMarketplace,
 	symbolAvailability,
 	vanity,

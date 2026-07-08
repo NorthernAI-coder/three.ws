@@ -12,6 +12,7 @@
  */
 
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
+import { Readable } from 'node:stream';
 
 beforeAll(() => {
 	Object.assign(process.env, {
@@ -81,14 +82,17 @@ function makeRes() {
 	};
 }
 
+// A real Readable stream (not a plain async-iterable object) so it matches
+// production `req` semantics — the shared readBody() helper (api/_lib/http.js)
+// reads via `.on('data'/'end')`, which only a real stream implements.
 function makeReq({ method = 'POST', url = '/api/v1/ai/image', headers = {}, body = null } = {}) {
 	const payload = body == null ? '' : typeof body === 'string' ? body : JSON.stringify(body);
-	return {
-		method,
-		url,
-		headers: { 'content-type': 'application/json', 'x-forwarded-for': '203.0.113.9', ...headers },
-		async *[Symbol.asyncIterator]() { if (payload) yield Buffer.from(payload, 'utf8'); },
-	};
+	const buf = Buffer.from(payload, 'utf8');
+	const req = Readable.from(buf.length ? [buf] : []);
+	req.method = method;
+	req.url = url;
+	req.headers = { 'content-type': 'application/json', 'x-forwarded-for': '203.0.113.9', 'content-length': String(buf.length), ...headers };
+	return req;
 }
 
 const LANE_ENV = ['NVIDIA_API_KEY', 'GOOGLE_CLOUD_PROJECT', 'GCP_SERVICE_ACCOUNT_JSON', 'REPLICATE_API_TOKEN', 'VERTEX_IMAGEN_ENABLED', 'X402_PRICE_AI_IMAGE'];

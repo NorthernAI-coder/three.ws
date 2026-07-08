@@ -227,9 +227,18 @@ function imageExtFor(url) {
 
 // Copy a finished generation into durable storage and flip the row to 'done'.
 // Copies the mesh (required) and the reference image (best-effort). Returns the
-// durable { id, glbUrl, previewImageUrl } or null on any failure so the caller
-// can fall back to the provider URL.
-export async function materializeCreation({ replicateJobId, clientKey, glbUrl }) {
+// durable { id, glbUrl, previewImageUrl, quality, compression } or null on any
+// failure so the caller can fall back to the provider URL.
+//
+// Two additive, opt-in params:
+//   quality  — when true, scores the mesh (glb-quality.js) and returns the
+//              signal in `quality`. Off by default so an existing caller's
+//              response shape and latency are unaffected.
+//   compress — 'draco' | 'meshopt' to deliver a geometry-compressed variant
+//              (glb-compress.js) instead of the raw provider bytes. Falls back
+//              to uncompressed on any compression failure — never blocks
+//              delivery. Omitted/null preserves today's uncompressed behavior.
+export async function materializeCreation({ replicateJobId, clientKey, glbUrl, quality = false, compress = null }) {
 	if (!forgeStoreEnabled() || !replicateJobId || !glbUrl) return null;
 	const existing = await findByJob({ replicateJobId, clientKey });
 	if (!existing) return null;
@@ -239,6 +248,8 @@ export async function materializeCreation({ replicateJobId, clientKey, glbUrl })
 			id: existing.id,
 			glbUrl: existing.glb_url,
 			previewImageUrl: existing.preview_image_url ?? null,
+			quality: null,
+			compression: null,
 		};
 	}
 
@@ -249,6 +260,8 @@ export async function materializeCreation({ replicateJobId, clientKey, glbUrl })
 			key: `${keyPrefix}.glb`,
 			fallbackContentType: 'model/gltf-binary',
 			maxBytes: MAX_GLB_BYTES,
+			computeQuality: quality,
+			compress,
 		});
 
 		// Reference image is part of the training pair but never blocks the mesh.
@@ -293,7 +306,13 @@ export async function materializeCreation({ replicateJobId, clientKey, glbUrl })
 			latencyMs,
 			source: 'materialize',
 		});
-		return { id: existing.id, glbUrl: glb.publicUrl, previewImageUrl: preview.url };
+		return {
+			id: existing.id,
+			glbUrl: glb.publicUrl,
+			previewImageUrl: preview.url,
+			quality: glb.quality ?? null,
+			compression: glb.compression ?? null,
+		};
 	} catch (err) {
 		// A 404/410 means the provider's ephemeral asset (e.g. a HuggingFace Space's
 		// gradio /tmp mesh) expired before we could copy it — expected and fully

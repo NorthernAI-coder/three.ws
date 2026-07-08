@@ -22,7 +22,7 @@
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { sql } from '../_lib/db.js';
-import { json, method, wrap, error } from '../_lib/http.js';
+import { json, method, wrap, error, readBody } from '../_lib/http.js';
 import { finalizeReconstructStage } from '../_lib/reconstruct-finalize.js';
 import { finalizeAutoRigStage } from '../_lib/auto-rig.js';
 // Provider-result URL guard, shared with the poll, cron, and rig-poller paths so
@@ -75,28 +75,14 @@ function translateStatus(s) {
 	}
 }
 
-async function readRaw(req, limit = 1_000_000) {
-	const chunks = [];
-	let total = 0;
-	return new Promise((resolve, reject) => {
-		req.on('data', (c) => {
-			total += c.length;
-			if (total > limit) {
-				reject(Object.assign(new Error('payload too large'), { status: 413 }));
-				req.destroy();
-				return;
-			}
-			chunks.push(c);
-		});
-		req.on('end', () => resolve(Buffer.concat(chunks)));
-		req.on('error', reject);
-	});
-}
-
 export default wrap(async (req, res) => {
 	if (!method(req, res, ['POST'])) return;
 
-	const raw = await readRaw(req);
+	// readBody prefers req.rawBody (captured pre-parse by the Cloud Run server's
+	// express.json() `verify` hook) so the signature below checks the exact bytes
+	// Replicate signed — re-reading the raw stream here would hang forever once
+	// Express has already drained it (see api/_lib/http.js readBody for why).
+	const raw = await readBody(req, 1_000_000);
 	const bodyText = raw.toString('utf8');
 
 	const signingKey = process.env.REPLICATE_WEBHOOK_SIGNING_KEY

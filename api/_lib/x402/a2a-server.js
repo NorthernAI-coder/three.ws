@@ -685,28 +685,17 @@ export function a2aPaidEndpoint(spec) {
 	};
 }
 
-function readJsonBody(req) {
-	return new Promise((resolve, reject) => {
-		const chunks = [];
-		let total = 0;
-		const limit = 1_000_000;
-		req.on('data', (c) => {
-			total += c.length;
-			if (total > limit) {
-				reject(Object.assign(new Error('payload too large'), { status: 413 }));
-				req.destroy();
-				return;
-			}
-			chunks.push(c);
-		});
-		req.on('end', () => {
-			if (!chunks.length) return resolve({});
-			try {
-				resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')));
-			} catch (err) {
-				reject(Object.assign(new Error(`invalid JSON: ${err.message}`), { status: 400 }));
-			}
-		});
-		req.on('error', reject);
-	});
+// Delegates to the shared readBody (api/_lib/http.js), which prefers the
+// pre-parsed req.rawBody/req.body the Cloud Run server already captured —
+// re-reading the raw stream here (as this function used to) hangs forever
+// once Express has drained it. See http.js readBody for the full rationale;
+// this was a live production incident on every A2A JSON-RPC POST.
+async function readJsonBody(req) {
+	const buf = await readBody(req, 1_000_000);
+	if (!buf.length) return {};
+	try {
+		return JSON.parse(buf.toString('utf8'));
+	} catch (err) {
+		throw Object.assign(new Error(`invalid JSON: ${err.message}`), { status: 400 });
+	}
 }

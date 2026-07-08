@@ -401,6 +401,18 @@ export const env = {
 		return opt('VANITY_SERVICE_KEY');
 	},
 
+	// Master seed for deterministic persona↔wallet derivation
+	// (api/_lib/persona-wallet.js): the same persona_id always re-derives the same
+	// Solana keypair via HMAC-SHA256(secret, persona_id), so no private key is ever
+	// stored — it exists only transiently in memory while signing, then is
+	// discarded. Dedicated by preference; falls back to WALLET_ENCRYPTION_KEY then
+	// JWT_SECRET so the feature works in dev/CI without extra config. Production
+	// should set a distinct value: rotating it re-derives every persona to a NEW
+	// wallet, so treat it as append-only once personas hold real funds.
+	get PERSONA_WALLET_SECRET() {
+		return opt('PERSONA_WALLET_SECRET') || opt('WALLET_ENCRYPTION_KEY') || this.JWT_SECRET;
+	},
+
 	// ── Agent-to-agent (A2A) autonomous payments ────────────────────────────
 	// Secret that signs Intent Mandates (AP2-style budgeted spend authorizations).
 	// Dedicated by preference; falls back to JWT_SECRET so the feature works in

@@ -75,5 +75,6 @@ If you're here to create and share agents rather than write code, follow this pa
 - **Developer docs** → Read the [Introduction](./introduction.md) for the full technical picture
 - **Your agent needs a face?** → [OKX.AI marketplace services](./okx-marketplace.md) — the Agent Identity Studio and the pay-per-call 3D services other agents buy from us; demo identities at [/agent-identities](/agent-identities)
 - **Buying 3D asset work per call?** → [The 3D Asset Pipeline](./3d-pipeline.md) — pay a few cents in USDC to rig, remesh, make game-ready, stylize, or background-remove an asset; one call, one finished URL, no account or API key
+- **Want your agent to have a body?** → [Embodiment](./embody.md) — one $1 USDC call turns a prompt or image into a rigged, animated, voiced 3D avatar plus a one-tag embed for any website; no account, no separate rigging step
 - **Building UI?** → [ui-juice](./ui-juice.md) is the shared game-feel library (count-ups, sparklines, ring gauges, live dots, the "it shipped" ripple) every surface animates with
 - **Teaching another AI to use three.ws?** → [The Agent Skills pack](./agent-skills.md) — portable `SKILL.md` folders that give any Claude surface (Claude Code, the Claude apps, the Agent SDK) three.ws's 3D-creation, wallet, and x402-economy skills; the 3D subset is cross-platform-safe

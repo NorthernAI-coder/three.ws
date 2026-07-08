@@ -12,7 +12,7 @@
 // Security: every inbound POST must carry a valid Upstash-Signature header
 // signed by QStash. Requests without it are rejected 401.
 
-import { error, json, method, wrap } from '../_lib/http.js';
+import { error, json, method, wrap, readBody } from '../_lib/http.js';
 import { verifyQstashSignature } from '../_lib/qstash.js';
 import { flushUsageBuffer } from '../_lib/usage.js';
 import { flushAuditBuffer } from '../_lib/x402/audit-log.js';
@@ -20,13 +20,11 @@ import { flushAuditBuffer } from '../_lib/x402/audit-log.js';
 export default wrap(async (req, res) => {
 	if (!method(req, res, ['POST'])) return;
 
-	// Collect the raw body for signature verification.
-	const raw = await new Promise((resolve, reject) => {
-		const chunks = [];
-		req.on('data', (c) => chunks.push(c));
-		req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
-		req.on('error', reject);
-	});
+	// Collect the raw body for signature verification. readBody prefers
+	// req.rawBody (captured pre-parse by the Cloud Run server's express.json()
+	// `verify` hook) so the QStash HMAC check below sees the exact signed bytes
+	// — re-reading the raw stream here hangs forever once Express has drained it.
+	const raw = (await readBody(req, 1_000_000)).toString('utf8');
 
 	try {
 		const origin = process.env.APP_ORIGIN || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '');

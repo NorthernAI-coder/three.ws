@@ -966,6 +966,10 @@
 			"dest": "/stablecoins.html"
 		},
 		{
+			"src": "/bnb/?",
+			"dest": "/bnb.html"
+		},
+		{
 			"src": "/coin/([a-zA-Z0-9][a-zA-Z0-9_-]{0,99})/?",
 			"dest": "/coin.html"
 		},
@@ -1215,6 +1219,10 @@
 		{
 			"src": "/viewer/?",
 			"dest": "/viewer.html"
+		},
+		{
+			"src": "/spatial-mcp/?",
+			"dest": "/spatial-mcp/index.html"
 		},
 		{
 			"src": "/pose-mini/?",

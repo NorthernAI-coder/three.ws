@@ -56,8 +56,12 @@ Boundaries that still hold:
 
 **Refuted / unverified — NEVER claim these in docs, UI copy, or marketing:** "20,000 TPS"
 and the chain-level "AI agent framework" are roadmap promises, not shipped. Greenfield
-mirror-NFTs are control handles, NOT freely composable ERC-721s. BABT sybil-gating is
-unverified (prompt 20 settles it). No unique precompiles / native LST hooks substantiated.
+mirror-NFTs are control handles, NOT freely composable ERC-721s. No unique precompiles /
+native LST hooks substantiated. **BABT is SETTLED, not refuted:** prompt 20 confirmed it
+real, live on BSC mainnet (`0x2B09d47D550061f995A3b5C6F0Fd58005215D7c8`, 1.16M+ holders)
+AND testnet, and freely third-party-queryable via `balanceOf`/`tokenIdOf` — see
+`docs/bnb-babt-findings.md` and `api/_lib/bnb/babt.js`. Do claim it as a real KYC-backed
+signal; do NOT claim it's a permanent identity anchor (Binance can revoke/re-mint).
 Honest-docs rule: any "only on BNB Chain" claim you write must trace to the verified list.
 
 ## Networks & endpoints
