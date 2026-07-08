@@ -1267,6 +1267,14 @@
 					"added": "2026-07-08"
 				},
 				{
+					"path": "/bnb-latency",
+					"title": "BNB Chain Live Block Race — 0.45s vs Base, Ethereum, Solana",
+					"description": "A live, honest race: BNB Chain, Base, Ethereum, and Solana block times measured fresh off real public RPCs every few seconds, with a rolling sparkline per lane. No wallet, no payment, no hardcoded numbers — a lane that goes quiet shows 'reconnecting' while the others keep racing.",
+					"priority": 0.7,
+					"changefreq": "daily",
+					"added": "2026-07-08"
+				},
+				{
 					"path": "/constellation",
 					"title": "watsonx Constellation",
 					"description": "Live Solana tokens in a 3D galaxy, positioned in semantic space by IBM Granite embeddings on watsonx.ai. Click a star for a live IBM Granite analysis.",

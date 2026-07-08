@@ -23,6 +23,14 @@
 			<description>The BNB Chain campaign's front door: gasless agent onboarding, an on-chain-gated 3D vault, and a real-time on-chain world, each traced to a capability independently verified live on BNB Chain — plus a live block-time widget proving the ~0.45s block claim on every page load. Cards auto-light-up from coming-soon to live as each track ships.</description>
 		</item>
 		<item>
+			<title>BNB Chain Live Block Race — 0.45s vs Base, Ethereum, Solana</title>
+			<link>https://three.ws/bnb-latency</link>
+			<guid isPermaLink="false">2026-07-08:BNB Chain Live Block Race — 0.45s vs Base, Ethereum, Solana</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>A live, honest race: BNB Chain, Base, Ethereum, and Solana block times measured fresh off real public RPCs every few seconds, with a rolling sparkline per lane. No wallet, no payment, no hardcoded numbers — a lane that goes quiet shows 'reconnecting' while the others keep racing.</description>
+		</item>
+		<item>
 			<title>Crypto Categories by Market Cap</title>
 			<link>https://three.ws/categories</link>
 			<guid isPermaLink="false">2026-07-08:Crypto Categories by Market Cap</guid>
@@ -79,12 +87,12 @@
 			<description>Paste any public glTF/GLB URL and preview it inline — the lightweight, unauthenticated model viewer every 3D Studio tool's shared asset link opens.</description>
 		</item>
 		<item>
-			<title>Restyle Studio — material presets &amp; variants</title>
+			<title>Restyle Studio — material presets, AI restyle &amp; variants</title>
 			<link>https://three.ws/restyle</link>
-			<guid isPermaLink="false">2026-07-08:Restyle Studio — material presets &amp; variants</guid>
+			<guid isPermaLink="false">2026-07-08:Restyle Studio — material presets, AI restyle &amp; variants</guid>
 			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
 			<category>launch</category>
-			<description>Re-skin any 3D model in the browser: apply PBR material presets (chrome, gold, glass, wood…), generate seeded colorway variants, fine-tune metalness and roughness, and export a validated GLB — non-destructively.</description>
+			<description>Re-skin any 3D model in the browser: apply PBR material presets (chrome, gold, glass, wood…), restyle from a plain-language AI instruction, fan out seeded colorway variants as durable versions, fine-tune metalness and roughness live, and export a validated GLB — non-destructively, with a real revertable version lineage.</description>
 		</item>
 		<item>
 			<title>Spatial MCP — reference renderer</title>
@@ -189,6 +197,14 @@
 			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>The viewer link returned with every generated model (/viewer?src=…) previously returned a 404. It now opens a polished, interactive 3D viewer — orbit, zoom, AR on mobile, one-tap GLB download — with designed loading, empty, and error states. This affects every model made through the 3D Studio, in chat or on the web.</description>
+		</item>
+		<item>
+			<title>Forge generations get a real quality gate, an art director, and instant repeats</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-07-08:Forge generations get a real quality gate, an art director, and instant repeats</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Every Forge generation — free NVIDIA lane, self-hosted TRELLIS/Hunyuan3D, Hugging Face Spaces, and BYOK — now runs through an automatic quality check after it finishes: a degenerate or near-empty mesh is caught and regenerated once before it ever reaches you, and every result now carries a quality score in its metadata. New optional params (all off by default, so nothing existing changes): `seed` for reproducible generations, `output_format: glb-draco` or `glb-meshopt` for a smaller compressed download, `texture_size` and `target_polycount` for poly-aware engines. Identical text-to-3D prompts on the free lanes are now served instantly from a result cache instead of re-running the GPU pipeline (skip it per-request with `force_regenerate: true`). The IBM Granite &quot;art director&quot; that rewrites a rough idea into a detailed generation spec — already used by the free MCP tools — is now also available on the public /forge API behind an opt-in `director: true`, and its prompt itself got sharper: explicit per-part PBR material cues, one consistently held art style, and stronger composition constraints for cleaner reconstructions.</description>
 		</item>
 		<item>
 			<title>Free live DEX data and Solana on-chain reads, no RPC setup</title>

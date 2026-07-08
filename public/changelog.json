@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-08T01:20:24.466Z",
+	"generated_at": "2026-07-08T01:25:30.586Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -22,6 +22,16 @@
 			"title": "BNB Chain — Three Genuinely-Unique Demos",
 			"summary": "The BNB Chain campaign's front door: gasless agent onboarding, an on-chain-gated 3D vault, and a real-time on-chain world, each traced to a capability independently verified live on BNB Chain — plus a live block-time widget proving the ~0.45s block claim on every page load. Cards auto-light-up from coming-soon to live as each track ships.",
 			"link": "/bnb",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "launch",
+			"title": "BNB Chain Live Block Race — 0.45s vs Base, Ethereum, Solana",
+			"summary": "A live, honest race: BNB Chain, Base, Ethereum, and Solana block times measured fresh off real public RPCs every few seconds, with a rolling sparkline per lane. No wallet, no payment, no hardcoded numbers — a lane that goes quiet shows 'reconnecting' while the others keep racing.",
+			"link": "/bnb-latency",
 			"tags": [
 				"launch"
 			]
@@ -99,8 +109,8 @@
 		{
 			"date": "2026-07-08",
 			"type": "launch",
-			"title": "Restyle Studio — material presets & variants",
-			"summary": "Re-skin any 3D model in the browser: apply PBR material presets (chrome, gold, glass, wood…), generate seeded colorway variants, fine-tune metalness and roughness, and export a validated GLB — non-destructively.",
+			"title": "Restyle Studio — material presets, AI restyle & variants",
+			"summary": "Re-skin any 3D model in the browser: apply PBR material presets (chrome, gold, glass, wood…), restyle from a plain-language AI instruction, fan out seeded colorway variants as durable versions, fine-tune metalness and roughness live, and export a validated GLB — non-destructively, with a real revertable version lineage.",
 			"link": "/restyle",
 			"tags": [
 				"launch"
@@ -239,6 +249,17 @@
 			"link": null,
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
+			"title": "Forge generations get a real quality gate, an art director, and instant repeats",
+			"summary": "Every Forge generation — free NVIDIA lane, self-hosted TRELLIS/Hunyuan3D, Hugging Face Spaces, and BYOK — now runs through an automatic quality check after it finishes: a degenerate or near-empty mesh is caught and regenerated once before it ever reaches you, and every result now carries a quality score in its metadata. New optional params (all off by default, so nothing existing changes): `seed` for reproducible generations, `output_format: glb-draco` or `glb-meshopt` for a smaller compressed download, `texture_size` and `target_polycount` for poly-aware engines. Identical text-to-3D prompts on the free lanes are now served instantly from a result cache instead of re-running the GPU pipeline (skip it per-request with `force_regenerate: true`). The IBM Granite \"art director\" that rewrites a rough idea into a detailed generation spec — already used by the free MCP tools — is now also available on the public /forge API behind an opt-in `director: true`, and its prompt itself got sharper: explicit per-part PBR material cues, one consistently held art style, and stronger composition constraints for cleaner reconstructions.",
+			"link": "/forge",
+			"tags": [
+				"feature",
+				"improvement"
 			]
 		},
 		{

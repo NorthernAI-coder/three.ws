@@ -31,11 +31,19 @@ exposes **only** 3D generation/inspection — no account, no payment, no token. 
 
 ## Material Studio (hosted, free) — `/api/material-studio`
 
-A free, rate-limited (not x402) REST endpoint backing the [Material Studio](/material-studio)
-web page: live PBR material editing, AI restyle, and seeded colorway variants for
-any GLB. Not an MCP tool itself — the paid `restyle_material` tool above (and the
-web page) both call it as a thin client, so the free and paid surfaces share one
-implementation. See [`api/_lib/material-studio-store.js`](../api/_lib/material-studio-store.js).
+A free, rate-limited (not x402) REST endpoint backing the [Restyle Studio](/restyle)
+web page: live PBR material editing, AI restyle, seeded colorway variants, and
+texture swaps for any GLB. Not an MCP tool itself — the paid `restyle_material`
+tool above (and the web page) both call it as a thin client, so the free and paid
+surfaces share one implementation. See
+[`api/_lib/material-studio-store.js`](../api/_lib/material-studio-store.js) and the
+[Material Studio API reference](api-reference.md#material-studio-api).
+
+Every restyle and every persisted variant set is recorded in an immutable
+parent → child version lineage — the same shape `refine_model` uses
+(`mcp-server/src/tools/_lineage.js`) — so a caller can revert to, or branch off,
+any earlier version. Pass the `lineage` array a previous call returned back in as
+`parent_lineage` to extend one thread.
 
 ## Paid 3D Studio — `/api/mcp-3d`
 
@@ -77,7 +85,7 @@ generation lane**; the rest are paid and quote their price in the
 | `rig_mesh` | paid | Auto-rig a GLB into an animation-ready model. |
 | `forge_avatar` | paid | One call: text → rigged avatar (mesh + auto-rig, humanoid-gated). |
 | `refine_model` | paid | Conversational iteration — describe a change ("make it metallic", "bigger helmet") on a prior model; anchored re-generation with a revertable/branchable version lineage. |
-| `restyle_material` | paid | Re-skin a GLB without regenerating its mesh — AI PBR restyle from an instruction ("make it chrome", "wooden", "cyberpunk neon") or seeded, reproducible colorway variant fan-out from a PBR preset. See [Material Studio](/material-studio). |
+| `restyle_material` | paid | Re-skin a GLB without regenerating its mesh — AI PBR restyle from an instruction ("make it chrome", "wooden", "cyberpunk neon") or seeded, reproducible colorway variant fan-out from a PBR preset; parent → child lineage. See [Restyle Studio](/restyle). |
 | `get_pose_seed` | paid | Pose generation. |
 | `ens_sns_resolve` | paid | ENS + SNS name resolution. |
 | `pump_snapshot` | free (no signer) | Live Solana token snapshot (price, volume, metadata). |
