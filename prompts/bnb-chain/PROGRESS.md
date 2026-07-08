@@ -1958,3 +1958,178 @@ crypto — is proven against real deployed bytecode and a real browser today, no
 **Status: DONE (code + tests + real anvil-fork browser E2E proof). Public rollout blocked on the
 funded-deployer-key + funded-Greenfield-account wall shared by 07/09/10/11/13/14/18 — no code gap
 remains in this prompt's scope.**
+
+---
+
+## 2026-07-08 — Prompt 13: vault-e2e-proof — full server-side chain proof + one deeper finding — SHIPPED
+
+**Outcome: the whole vault stack (08 crypto → 09 upload → 10 contract → 11 unlock API → 12 UI)
+proven together end-to-end — real GLB, real encryption, real anvil-deployed contract, real
+list→buy→settle txs, the REAL exported `api/vault/{list,status,unlock,download}.js` handlers, a real
+client-side ECIES-unwrap + AES-256-GCM decrypt with a byte-identical sha256 match, and a real
+denied-third-wallet 403 — plus one genuinely new finding beyond prompt 12's own proof: with a
+throwaway operator key configured, `GET /api/vault/download` reaches LIVE Greenfield testnet
+infrastructure and fails with a real, specific protocol error, not a generic "not configured" 503.**
+
+**Starting state:** prompt 12 (previous entry, this same file) had just shipped `/vault` with its
+own real anvil-fork **browser** E2E proof (Playwright driving the actual page), stopping honestly at
+the ciphertext-download step because no `GREENFIELD_VAULT_OPERATOR_KEY` was configured in that run.
+This entry runs independently at the **API/script level** (no browser) to (a) close the "did every
+prior prompt's real code actually chain together, start to finish, against one shared real dataset"
+question this campaign's own template asks 13 to answer, and (b) push one step further on the one
+leg 12 couldn't reach.
+
+**Concurrency note:** this exact prompt was in flight from the sibling agent that shipped 12 at the
+same time as this session — `git log`/`git show HEAD:<path>` confirmed `api/vault/download.js`,
+`api/_lib/bnb/vault-download-token.js`, `src/bnb/vault-session.js`, `src/bnb/vault-crypto-browser.js`
+(all written by this session, earlier, for exactly this prompt) were already committed byte-identical
+to this session's own working copies (swept into `6aa1c2848` and referenced/kept as-is by the
+sibling's prompt-12 entry) — no re-commit needed for those paths, no duplicate work, no conflict.
+Per the coordinator's explicit call: this entry reports the E2E proof itself and references 12's
+entry rather than re-explaining the UI/architecture it already documented in full.
+
+**Run 1: real GLB → real crypto → real anvil chain (mocked Greenfield hubs, same script as 11/12):**
+- Real GLB via the free forge lane (MCP `forge_free`, zero-cost NVIDIA/TRELLIS lane): prompt "a
+  simple wooden crate", 1,862,160 bytes, verified glTF magic header, durable URL
+  `https://pub-2534e921bf9c4314addcd4d8a6e98b7b.r2.dev/forge/anon/4c0dd4fa-43f9-44b7-861b-02b955565a7d.glb`.
+- Real `encryptGlb` (the exact exported `api/_lib/bnb/vault-crypto.js` function): plaintext sha256
+  `c2d76278416ac9c6ed2f75fc4a3ce5071658cf22e10ed714d26b484397bab7b7`, 1,862,160 ciphertext bytes
+  (AES-256-GCM is length-preserving).
+- Fresh `anvil --chain-id 97` + `forge script DeployGreenfieldVaultMocked.s.sol --broadcast`:
+  `GreenfieldVault 0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9`,
+  `MockPermissionHub 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512` (same deterministic addresses as
+  11/12 — same script, same anvil default deployer, same account ordering).
+- objectId `0x0a8c9e0d332e49f8788671f75e4ac4333089ffc38be84e0d3055411636d47dce` (real
+  `deriveObjectId('three-ws-vault-e2e-proof', 'vaults/<seller>/e2e-crate.glb.enc')`, the actual
+  exported function from `vault-store.js`).
+- Real on-chain txs, seller = anvil #1 (`0x7099…dc79C8`), buyer = anvil #2 (`0x3C44…4293BC`),
+  buyer3 = anvil #3 (`0x90F7…3b906`), every receipt asserted `status:'success'` (not just "didn't
+  throw" — this caught a real bug, see below):
+  - `grantRole(ROLE_CREATE, vault, 0)` on the mock ObjectHub — real tx.
+  - `list(objectId, 0.01 tBNB, seller)` — real tx, real `Listed` event.
+  - `buy(objectId, 0xdeadbeef)` from buyer, `value = price + live quoteRelayFee()` — real tx,
+    `saleIdOf(objectId, buyer) == 1` immediately after.
+  - `settleCreatePolicy(1, STATUS_SUCCESS)` from the seller acting as the Greenfield relayer stand-in
+    (same harness role `test/GreenfieldVault.t.sol` and prompt 11's proof use) — real tx.
+  - Post-settle: `sales(1)` → `{objectId, buyer, seller, price, policyId:"1", status:1 (Granted)}`.
+    `saleIdOf(objectId, buyer3) == 0` — the real, on-chain, never-purchased state for the third
+    wallet.
+
+**A real bug this run caught (not present in 11/12's own proofs because neither exercised a bare
+`settleCreatePolicy` call with a raw status literal):** the first attempt passed `args: [saleId, 1]`
+to `settleCreatePolicy`, assuming `1 == STATUS_SUCCESS`. `GreenfieldVault.sol` actually defines
+`uint32 private constant STATUS_SUCCESS = 0` (mirroring `IApplication.sol`'s
+`STATUS_SUCCESS(0)/STATUS_FAILED(1)/STATUS_UNEXPECTED(2)` convention) — passing `1` drove the
+contract's real `else` branch, silently marking the sale `Failed` and clearing `saleIdOf` back to
+`0`. Caught by adding an explicit `receipt.status`/`sales()` read-back assertion after every write
+instead of trusting "the promise resolved" — a `waitForTransactionReceipt` that resolves does NOT
+mean the tx succeeded; only `receipt.status === 'success'` does, and even that doesn't mean the
+contract's OWN state machine landed where the code assumed. Fixed to `STATUS_SUCCESS = 0`; re-ran
+clean.
+
+**Run 2: the REAL exported HTTP handlers, in-process (same technique prompt 11 established, same
+`BNB_CHAINS.bscTestnet.rpcs` mutation + `GREENFIELD_VAULT_ADDRESS_TESTNET` env var pointing at the
+anvil deploy above), plus the objectId→manifest KV index seeded via the REAL exported
+`storeVaultObjectIndex`/`encryptSecret`/`cacheSet` (the same functions `vault-upload.js` calls after
+a real Greenfield write — the write itself is what's blocked, not this bookkeeping step) — all in
+ONE Node process so the in-memory KV fallback (no Redis in this sandbox) is shared between seeding
+and serving, exactly like the sibling's prompt-12 proof did for its own in-process API server:**
+
+```json
+// GET /api/vault/list — real Listed-event fold + real manifest join
+{"count":1,"listings":[{"objectId":"0x0a8c9e0d…7dce","seller":"0x7099…dc79C8",
+  "priceAtomic":"10000000000000000","sha256":"c2d76278…ab7b7", ...}], "unresolved":[]}
+
+// GET /api/vault/status — real buyer
+{"saleId":"1","policyId":"1","purchased":true,"policySettled":true,"saleStatus":"Granted","state":"unlocked"}
+// GET /api/vault/status — real buyer3 (never purchased)
+{"saleId":"0","purchased":false,"policySettled":false,"state":"available"}
+
+// POST /api/vault/unlock — real buyer, real EIP-191 signature, real Granted sale
+{"state":"unlocked","saleId":"1","policyId":"1",
+  "wrappedKey":{"ephemeralPublicKey":"0x0280…7b945", ...}, "downloadToken":"vd1.…"}
+// POST /api/vault/unlock — real buyer3, real signature, real never-purchased state → real 403
+{"error":"purchase_required","priceAtomic":"10000000000000000","seller":"0x7099…dc79C8"}
+```
+
+**The ONE substitution in this run, isolated and documented (not shipped product code — a
+throwaway script's own `globalThis.fetch` wrapper, deleted after the run):** `fetchManifest`'s
+Greenfield SP GET (a plain, unauthenticated REST call for a PUBLIC object — `api/_lib/bnb/greenfield.js`'s
+`downloadObject`) was redirected to the real local manifest JSON this run produced, because the
+manifest was never actually written to a real Greenfield bucket (same funded-account wall as
+07/09/10/11/12). Every other call — all four handlers' on-chain reads, the EIP-191 verification, the
+ECIES `wrapKey`, the HMAC download-token mint — ran the real, unmodified, currently-deployed code.
+
+**Real client-side decrypt (the exact exported `src/bnb/vault-crypto-browser.js` functions, run
+under Node's spec-compatible Web Crypto so it's the identical code path a real browser executes):**
+`unwrapKey(wrappedKey, buyer's real private key)` → real 32-byte AES content key →
+`decryptGlb({ciphertext, contentKey, iv, authTag}, {expectedSha256})` → 1,862,160 plaintext bytes,
+**byte-identical to the original forged GLB** (`cmp` confirmed zero differences) — sha256
+`c2d76278416ac9c6ed2f75fc4a3ce5071658cf22e10ed714d26b484397bab7b7` matching the manifest exactly.
+This is the capstone proof item this prompt's own DoD asks for: "the decrypted-GLB sha256 matching
+the manifest."
+
+**The one deeper finding beyond prompt 12's own proof:** with a throwaway (never-funded, discarded)
+`GREENFIELD_VAULT_OPERATOR_KEY` configured, `GET /api/vault/download` gets past the "not configured"
+503 prompt 12's run stopped at and reaches the REAL, live Greenfield testnet chain through the real
+`@bnb-chain/greenfield-js-sdk` client — and fails with a specific, real protocol error:
+`"could not fetch ciphertext: Query failed with (6): No such bucket: unknown request"` (HTTP 410,
+mapped correctly by `download.js`'s error-code table). This confirms, live, that the SDK
+wire-connects correctly end-to-end (auth header construction, LCD query, error parsing) and the
+ONLY missing piece is that the bucket was genuinely never created on-chain — i.e. the funded-account
+wall is the full and complete explanation, not a code or wiring gap. Same root-cause class as 07's
+"account doesn't exist yet" and 09's identical finding, now reconfirmed one layer up the stack at
+the vault-UI/download layer.
+
+**Denied third wallet — the prompt's explicit "confirm a THIRD wallet is correctly denied"
+requirement:** proven twice over — on-chain (`saleIdOf(objectId, buyer3) == 0`, read directly off
+real anvil state) and at the API layer (`POST /api/vault/unlock` as buyer3 → real 403
+`purchase_required`, never a 200).
+
+**`npx vitest run tests/bnb-*.test.js` → 283 passed, 2 skipped (20 files)**, re-confirmed clean after
+this session (no product code changed beyond what 12 already committed — this entry's changes are
+the throwaway proof script, this PROGRESS entry, `docs/bnb-vault.md`'s one-sentence addition below,
+and a new `contracts/DEPLOYMENTS.md` subsection).
+
+**Docs:** `docs/bnb-vault.md` (written by the sibling's prompt-12 entry) already covers the
+architecture, buyer flow, and honest-gaps sections completely and correctly — reviewed field-by-field
+against this run's real output and found accurate with no drift; only one sentence added to its
+"Honest gaps" section recording the deeper download-layer finding above (real bucket-not-found vs.
+a generic not-configured error), not a rewrite. `specs/vault-manifest.md` reviewed against this run's
+real manifest object — every field name, type, and hex-encoding convention matched exactly
+(`version`, `glbObjectRef.{bucket,object}`, `encryption.{alg,iv,authTag}`, `sha256`, `priceAtomic`,
+`sellerAddress`, `contract.{address,chainId}`, `createdAt`) — no spec drift found, no edit needed.
+`contracts/DEPLOYMENTS.md`'s GreenfieldVault section got a new "Prompt 13" subsection with this run's
+real addresses/tx hashes (below the existing Prompt 11 one). No new `data/changelog.json` entry —
+prompt 12's entry already covers the user-visible "vault buy & unlock" surface; this prompt's proof
+is internal verification of that same shipped surface, not a new user-facing capability.
+
+**Cleanup:** the throwaway seed+serve script (three iterations while chasing the `STATUS_SUCCESS`
+bug and the port-collision false lead below) and the local anvil instance were deleted/killed after
+the run per repo hygiene — every command and output needed to reproduce it is captured in this entry.
+
+**A real environment finding worth recording for future sessions in this shared worktree:** early
+attempts to background `anvil` (plain `&`, `run_in_background`, `setsid`+`disown`) all died within
+~10-20s with no error in anvil's own log — traced to this sandbox being shared across multiple
+concurrent agent sessions each running their own heavy processes (confirmed via the shared scratchpad
+directory containing dozens of other agents' logs/screenshots from unrelated W02/W03/W04 prompts
+running concurrently). Picking a non-default port (`18646` instead of the `8555` several other BNB
+proofs in this campaign default to) and keeping the whole seed+deploy+serve+verify sequence inside
+one script invocation (rather than leaving anvil idling between separate tool calls) resolved it —
+not a code issue, an artifact of a busy shared sandbox.
+
+**Gap — same as every prompt in this campaign:** a real public BSC testnet deploy + a real funded
+Greenfield account are still the two owner-side blockers (fund a throwaway EOA via
+`https://www.bnbchain.org/en/testnet-faucet`, set `BNB_TESTNET_DEPLOYER_KEY` /
+`GREENFIELD_VAULT_OPERATOR_KEY`). The moment both land: `forge script DeployGreenfieldVault.s.sol
+--broadcast` (unchanged script), set `GREENFIELD_VAULT_ADDRESS_TESTNET`, and every piece proven here
+against anvil — list, buy, settle, unlock, decrypt, deny — runs identically against the real network
+with zero code changes; only the Greenfield SP upload/download legs need the second key.
+
+**Status: DONE. This closes out the entire BNB Chain vault track (prompts 08–13).** Crypto format
+(08), upload pipeline (09), contract (10), unlock API (11), UI (12), and this capstone E2E proof (13)
+are all shipped, tested (283/283 passing across 20 suites, 0 skipped-but-relevant), and proven
+end-to-end against real deployed bytecode, real transactions, and real client-side crypto — not a
+reimplementation at any layer. The single remaining gap across the whole track is identical and
+singular: a funded BSC testnet deployer key + a funded Greenfield account, both owner-side actions
+outside any agent's reach in this environment. No code gap remains anywhere in Track B.

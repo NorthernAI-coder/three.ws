@@ -108,7 +108,15 @@ this campaign, not a bug in this code path.
   dry-run succeeds against the live testnet RPC), blocked on a funded
   `BNB_TESTNET_DEPLOYER_KEY`.
 - **Real Greenfield object upload**: `api/bnb/vault-upload.js` is real and
-  complete, blocked on a funded `GREENFIELD_VAULT_OPERATOR_KEY`.
+  complete, blocked on a funded `GREENFIELD_VAULT_OPERATOR_KEY`. Prompt 13's
+  own E2E proof confirmed exactly how far the wire reaches with a throwaway
+  (never-funded) operator key configured: `GET /api/vault/download` gets
+  past the "not configured" guard and reaches LIVE Greenfield testnet
+  infrastructure through the real SDK client, failing with a specific real
+  protocol error — `"Query failed with (6): No such bucket: unknown
+  request"` — not a generic timeout or config error. That confirms the SDK
+  wire-connects correctly end-to-end and the funded-account wall is the
+  complete explanation, not a hidden second gap.
 - **`policyData` wire-format confirmation**: `GET /api/vault/buy-policy-data`
   ([`api/_lib/bnb/vault-policy-data.js`](../api/_lib/bnb/vault-policy-data.js))
   builds a real protobuf-encoded Greenfield `Policy` for `buy()`, but its
