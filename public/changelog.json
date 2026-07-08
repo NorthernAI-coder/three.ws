@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-08T01:33:47.056Z",
+	"generated_at": "2026-07-08T01:47:02.462Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -233,6 +233,18 @@
 		{
 			"date": "2026-07-08",
 			"type": "update",
+			"title": "Crypto API now has a home page and a real OpenAPI spec",
+			"summary": "The free /api/v1/x crypto aggregator (CoinGecko, DefiLlama, Jupiter, DexScreener, Solana RPC) has a public storefront at three.ws/crypto-api with a live endpoint table, and every endpoint now shows up in the OpenAPI 3.1 spec at three.ws/openapi.json. Also fixed a bug where the discovery endpoint (GET /api/v1/x) 404'd in production.",
+			"link": "/crypto-api",
+			"tags": [
+				"feature",
+				"docs",
+				"fix"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
 			"title": "Embodied on-chain identity — every agent persona now carries a real wallet",
 			"summary": "Personas minted with create_agent_persona are now bound to a real, deterministic Solana wallet — the same persona always re-derives the same address, and its private key is never stored, returned, or logged anywhere. persona_identity reads the wallet's live balance, ERC-8004-style reputation, token holdings, and a resolved SNS name; persona_tip and persona_send move real USDC from the persona's own wallet, hard-capped per call and per session with a confirmation threshold above which the caller must confirm explicitly. The living body now visually reflects its chain state: an aura ring colored by reputation, a cosmetic badge for holdings tier, a muted look on a low balance, and a nameplate for a verified name.",
 			"link": "/docs/mcp-3d-studio",
@@ -315,6 +327,16 @@
 		{
 			"date": "2026-07-08",
 			"type": "update",
+			"title": "Live block-speed race: watch BNB Chain confirm in ~0.45s",
+			"summary": "A new /bnb-latency page races BNB Chain against Base, Ethereum, and Solana in real time, sampling real blocks off public RPCs every few seconds — never a hardcoded number. Each lane shows its live measured average and a rolling sparkline; a chain going quiet shows \"reconnecting\" instead of a frozen fake reading.",
+			"link": "/bnb-latency",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
 			"title": "Markets goes deep — Screener, Categories, Exchanges, Derivatives, Converter, DeFi, Chains, Stablecoins",
 			"summary": "Eight new tools join the Markets suite, all live data and all free. Screener filters the top 250 coins by market cap, volume, and 24h move. Categories ranks every crypto sector so you can see which narrative leads. Exchanges ranks venues by trust score and volume. Derivatives shows perpetual-futures funding, open interest, and volume. Converter turns any crypto into any major fiat at live rates. And a DeFi trio — DeFi TVL by protocol, Chains by total value locked, and Stablecoins with peg health — brings on-chain liquidity into view via DeFiLlama. Every one is cross-linked from the markets table.",
 			"link": "/screener",
@@ -365,12 +387,34 @@
 		{
 			"date": "2026-07-08",
 			"type": "update",
+			"title": "On-chain gated 3D asset vault on BNB Chain — built, blocked on funding",
+			"summary": "A new smart contract grants BNB Greenfield storage read permissions automatically when a buyer pays, via a real cross-chain call to Greenfield's PermissionHub — on-chain access control gating decentralized storage, with no equivalent on Ethereum, Base, or Solana. Fully built and tested (94 passing tests, including reentrancy proofs); testnet deployment is pending a funded deployer wallet.",
+			"link": null,
+			"tags": [
+				"feature",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
 			"title": "Paid API endpoints now stay up through a cache-provider outage",
 			"summary": "Hardened the pay-per-call x402 API surface — every /api/x402/* and /api/okx/3d/* endpoint — so it degrades gracefully instead of failing when the shared Redis cache is unreachable. Previously a missing cache configuration could take these paid endpoints offline; they now serve normally on a safe per-instance fallback, with on-chain payment safety unchanged (each payment authorization is still single-use, so no double-charge is possible).",
 			"link": null,
 			"tags": [
 				"fix",
 				"infra"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
+			"title": "Register your agent identity on BNB Chain with zero gas",
+			"summary": "A brand-new wallet holding zero tBNB can now mint its ERC-8004 on-chain identity on BSC Testnet in one click — no faucet, no funding. The /deploy wizard's Review & Deploy step gets a new ⚡ Register gasless button when BSC Testnet is selected: it generates a page-local wallet in your browser, signs the registration transaction, and relays it through BNB Chain's MegaFuel paymaster, which sponsors the gas atomically at the block-builder layer — a trick that's mechanically impossible on Ethereum or Base. If sponsorship isn't available for a given wallet, it falls back cleanly to a small self-paid transaction (well under a cent) instead of failing.",
+			"link": "/deploy",
+			"tags": [
+				"feature",
+				"sdk"
 			]
 		},
 		{
@@ -490,6 +534,16 @@
 		{
 			"date": "2026-07-08",
 			"type": "update",
+			"title": "Vanity addresses now deliver instantly when in stock",
+			"summary": "GET /api/x402/vanity and the pump-launch vanity upsell now check pre-ground inventory before grinding a fresh address — a match is served immediately at the same price, no match still grinds fresh as before.",
+			"link": "/vanity",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
 			"title": "Verify a 3D model's authenticity — free, on-chain content credentials",
 			"summary": "Models generated on three.ws can now carry a signed content credential — who made it, from what prompt, by which model, when, and the model's exact content hash — with that hash anchored on Solana. Anyone can check a model for free at /api/provenance?src=… or with the verify_provenance tool, and get a clear verdict: verified, tampered (a single changed byte is caught), or unverified. The 3D viewer shows a Verified · three.ws badge. It's C2PA-style provenance for 3D — the verify path has no wallet or token surface.",
 			"link": null,
@@ -506,6 +560,17 @@
 			"link": null,
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
+			"title": "WorldMoves on-chain move stream (BSC) — built, blocked on funding",
+			"summary": "Added an event-only smart contract for recording real-time player movement on BNB Chain, designed for BSC's 0.45s blocks. Fully built and tested (19 passing tests, ~4,800 gas per move); testnet deployment is pending a funded deployer wallet.",
+			"link": null,
+			"tags": [
+				"feature",
+				"infra"
 			]
 		},
 		{

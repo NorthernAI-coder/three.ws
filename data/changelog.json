@@ -3,6 +3,53 @@
 	"entries": [
 		{
 			"date": "2026-07-08",
+			"title": "Crypto API now has a home page and a real OpenAPI spec",
+			"summary": "The free /api/v1/x crypto aggregator (CoinGecko, DefiLlama, Jupiter, DexScreener, Solana RPC) has a public storefront at three.ws/crypto-api with a live endpoint table, and every endpoint now shows up in the OpenAPI 3.1 spec at three.ws/openapi.json. Also fixed a bug where the discovery endpoint (GET /api/v1/x) 404'd in production.",
+			"tags": [
+				"feature",
+				"docs",
+				"fix"
+			],
+			"link": "/crypto-api"
+		},
+		{
+			"date": "2026-07-08",
+			"title": "Vanity addresses now deliver instantly when in stock",
+			"summary": "GET /api/x402/vanity and the pump-launch vanity upsell now check pre-ground inventory before grinding a fresh address — a match is served immediately at the same price, no match still grinds fresh as before.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/vanity"
+		},
+		{
+			"date": "2026-07-08",
+			"title": "Live block-speed race: watch BNB Chain confirm in ~0.45s",
+			"summary": "A new /bnb-latency page races BNB Chain against Base, Ethereum, and Solana in real time, sampling real blocks off public RPCs every few seconds — never a hardcoded number. Each lane shows its live measured average and a rolling sparkline; a chain going quiet shows \"reconnecting\" instead of a frozen fake reading.",
+			"tags": [
+				"feature"
+			],
+			"link": "/bnb-latency"
+		},
+		{
+			"date": "2026-07-08",
+			"title": "On-chain gated 3D asset vault on BNB Chain — built, blocked on funding",
+			"summary": "A new smart contract grants BNB Greenfield storage read permissions automatically when a buyer pays, via a real cross-chain call to Greenfield's PermissionHub — on-chain access control gating decentralized storage, with no equivalent on Ethereum, Base, or Solana. Fully built and tested (94 passing tests, including reentrancy proofs); testnet deployment is pending a funded deployer wallet.",
+			"tags": [
+				"feature",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"title": "WorldMoves on-chain move stream (BSC) — built, blocked on funding",
+			"summary": "Added an event-only smart contract for recording real-time player movement on BNB Chain, designed for BSC's 0.45s blocks. Fully built and tested (19 passing tests, ~4,800 gas per move); testnet deployment is pending a funded deployer wallet.",
+			"tags": [
+				"feature",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-07-08",
 			"title": "Register your agent identity on BNB Chain with zero gas",
 			"summary": "A brand-new wallet holding zero tBNB can now mint its ERC-8004 on-chain identity on BSC Testnet in one click — no faucet, no funding. The /deploy wizard's Review & Deploy step gets a new ⚡ Register gasless button when BSC Testnet is selected: it generates a page-local wallet in your browser, signs the registration transaction, and relays it through BNB Chain's MegaFuel paymaster, which sponsors the gas atomically at the block-builder layer — a trick that's mechanically impossible on Ethereum or Base. If sponsorship isn't available for a given wallet, it falls back cleanly to a small self-paid transaction (well under a cent) instead of failing.",
 			"tags": [
