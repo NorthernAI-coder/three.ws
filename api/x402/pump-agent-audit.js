@@ -689,18 +689,17 @@ const whaleEndpoint = paidEndpoint({
 export default function pumpAgentAuditRouter(req, res) {
 	const httpMethod = String(req.method || 'GET').toUpperCase();
 	if (httpMethod === 'POST') {
-		// Buffer the body once so readJsonBody inside the paidEndpoint handler can
-		// drain it as if the stream was never touched (same idiom as agent-reputation.js).
-		return new Promise((resolve) => {
-			const chunks = [];
-			req.on('data', (c) => chunks.push(c));
-			req.on('end', () => {
-				const raw = Buffer.concat(chunks);
+		// Buffer the body once (via the shared readBody, which prefers the
+		// pre-parsed req.rawBody/req.body the Cloud Run server already captured)
+		// so readJsonBody inside the paidEndpoint handler can drain it as if the
+		// stream was never touched. Re-reading the raw stream directly here (the
+		// old implementation) hangs forever once Express has drained it.
+		return readBody(req, 1_000_000)
+			.then((raw) => {
 				req[Symbol.asyncIterator] = async function* () { yield raw; };
-				resolve(whaleEndpoint(req, res));
-			});
-			req.on('error', () => resolve(whaleEndpoint(req, res)));
-		});
+			})
+			.catch(() => {})
+			.then(() => whaleEndpoint(req, res));
 	}
 	if (httpMethod === 'OPTIONS') {
 		const requested = String(req.headers['access-control-request-method'] || '').toUpperCase();

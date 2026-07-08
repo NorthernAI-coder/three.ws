@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Republish stale/new three.ws MCP servers to the official MCP registry.
-# GENERATED 2026-07-07 by build-registry-republish.mjs — regenerate after any manifest bump.
+# GENERATED 2026-07-08 by build-registry-republish.mjs — regenerate after any manifest bump.
 # DO NOT run unattended. A human must be logged in and review each publish.
 # 30 servers need a republish; 12 are already current.
 set -euo pipefail
@@ -98,7 +98,7 @@ mcp-publisher publish "packages/vision-mcp/server.json"
 # io.github.nirholas/x402-mcp: registry 0.1.0 -> local 0.2.1   [STALE]
 mcp-publisher publish "packages/x402-mcp/server.json"
 
-# io.github.nirholas/threews-3d-studio-free: registry — -> local 1.0.0   [NEW]
+# io.github.nirholas/threews-3d-studio-free: registry — -> local 1.0.1   [NEW]
 mcp-publisher publish "server-studio.json"
 
 # 3. Verify all versions match the manifests:

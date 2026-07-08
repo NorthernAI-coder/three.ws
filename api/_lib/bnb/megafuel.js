@@ -184,6 +184,34 @@ export async function sendGasless(network, { account, tx }, opts = {}) {
 	return selfPay(key, { account, tx }, publicClient, opts, probe.reason);
 }
 
+/**
+ * Relay an ALREADY-SIGNED raw transaction through MegaFuel's paymaster
+ * `eth_sendRawTransaction`, without touching a private key or building the
+ * transaction ourselves. `sendGasless()` above signs internally via a
+ * server-held viem Account — the right shape for a demo/ops account (e.g. the
+ * anvil-fork proof in the prompt-02 PROGRESS entry), but wrong for a flow
+ * where the CLIENT signs (browser wallet or an in-page ephemeral key) and the
+ * server only ever sees bytes it can relay, never a key. That's exactly the
+ * gasless ERC-8004 registration relay (api/_lib/bnb/erc8004-gasless.js,
+ * prompt 03) needs: this is the low-level primitive `sendGasless` doesn't
+ * expose.
+ *
+ * @param {'bscMainnet'|'bscTestnet'|56|97} network
+ * @param {`0x${string}`} signedTx  RLP-encoded, fully signed raw transaction hex
+ * @param {{ megafuelRpc?:Function, fetchImpl?:Function, timeoutMs?:number }} [opts]
+ * @returns {Promise<`0x${string}`>} transaction hash
+ */
+export async function submitRawTx(network, signedTx, opts = {}) {
+	if (typeof signedTx !== 'string' || !/^0x[0-9a-fA-F]+$/.test(signedTx)) {
+		throw new MegaFuelError('submitRawTx requires a 0x-prefixed signed raw transaction hex', { code: 'bad_raw_tx' });
+	}
+	const key = normalizeNetwork(network);
+	const call = opts.megafuelRpc
+		? (m, p) => opts.megafuelRpc(m, p)
+		: (m, p) => rpc(megafuelEndpoint(key), m, p, opts);
+	return call('eth_sendRawTransaction', [signedTx]);
+}
+
 /** Self-pay path: a normal, gas-paying send via the standard public/wallet client. */
 async function selfPay(network, { account, tx }, publicClient, opts, reason) {
 	try {

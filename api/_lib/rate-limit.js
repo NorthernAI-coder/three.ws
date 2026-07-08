@@ -473,6 +473,16 @@ export const limits = {
 			limit: Math.max(FREE_HOURLY_BASE, Math.round(FREE_HOURLY_BASE * (Number(multiplier) || 1))),
 			window: '1 h',
 		}).limit(key),
+	// Material Studio (api/material-studio.js): non-destructive material edits,
+	// AI restyle (one watsonx call + one gltf-transform mutation pass — cheap,
+	// no GPU job), and seeded variant fan-out. Free, hosted, and non-critical
+	// like mcp3dGenerateFree — a Redis outage must never deny a zero-cost edit.
+	// Uploads (exporting/checkpointing a lineage version) get a higher ceiling
+	// than restyle/variants since they carry no LLM/CPU-heavy cost.
+	materialStudioRestyle: (key) =>
+		getLimiter('material-studio:restyle', { limit: 40, window: '1 h' }).limit(key),
+	materialStudioUpload: (key) =>
+		getLimiter('material-studio:upload', { limit: 120, window: '1 h' }).limit(key),
 	// Status polling is the highest-frequency call in the generation flow (every
 	// active job polls every few seconds, plus the /forge health pill). It only
 	// guards against pathological poll floods, so it is enforced per instance

@@ -71,6 +71,14 @@
 			<description>Paste any public glTF/GLB URL and preview it inline — the lightweight, unauthenticated model viewer every 3D Studio tool's shared asset link opens.</description>
 		</item>
 		<item>
+			<title>Restyle Studio — material presets &amp; variants</title>
+			<link>https://three.ws/restyle</link>
+			<guid isPermaLink="false">2026-07-08:Restyle Studio — material presets &amp; variants</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Re-skin any 3D model in the browser: apply PBR material presets (chrome, gold, glass, wood…), generate seeded colorway variants, fine-tune metalness and roughness, and export a validated GLB — non-destructively.</description>
+		</item>
+		<item>
 			<title>Stablecoins Market Cap &amp; Peg Health</title>
 			<link>https://three.ws/stablecoins</link>
 			<guid isPermaLink="false">2026-07-08:Stablecoins Market Cap &amp; Peg Health</guid>
@@ -103,6 +111,14 @@
 			<description>New /bnb landing page tells the whole BNB Chain story: gasless agent onboarding (a zero-balance wallet mints an on-chain identity, no faucet), an on-chain-gated 3D vault backed by Greenfield storage permissions, and a real-time on-chain world riding BNB's ~0.45s blocks — each claim traced to what we independently verified live, never BNB's own roadmap promises. The page embeds a live block-time widget that measures the real average off a public RPC on every load, and each feature card auto-detects whether its track has actually shipped on this deployment, showing an honest &quot;coming soon&quot; instead of a dead link until it has.</description>
 		</item>
 		<item>
+			<title>Fixed: the &quot;View it&quot; link on every generated 3D model now opens a real viewer</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-08:Fixed: the &quot;View it&quot; link on every generated 3D model now opens a real viewer</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The viewer link returned with every generated model (/viewer?src=…) previously returned a 404. It now opens a polished, interactive 3D viewer — orbit, zoom, AR on mobile, one-tap GLB download — with designed loading, empty, and error states. This affects every model made through the 3D Studio, in chat or on the web.</description>
+		</item>
+		<item>
 			<title>Give your agent a 3D body in one call — the new Embodiment endpoint</title>
 			<link>https://three.ws/docs/embody</link>
 			<guid isPermaLink="false">2026-07-08:Give your agent a 3D body in one call — the new Embodiment endpoint</guid>
@@ -127,6 +143,14 @@
 			<description>GET /api/bnb/babt-check?address=0x... tells you whether a BSC address holds a BABT — Binance's non-transferable, KYC-backed on-chain token. It's a real, live signal (1.16M+ holders on BSC mainnet) that developers can use as a free, no-signup uniqueness check for allowlists, anti-sybil gating, or airdrop targeting on BNB Chain.</description>
 		</item>
 		<item>
+			<title>New guide: BNB Chain payments (MPP) and gasless sends</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-08:New guide: BNB Chain payments (MPP) and gasless sends</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>docs</category>
+			<description>A zero-context developer guide covering how to pay three.ws endpoints over MPP on BNB Chain, how our agents pay MPP endpoints, and how BNB Chain's block-level gas sponsorship (MegaFuel) lets a plain wallet send a transaction with zero gas — with an honest self-pay fallback for when sponsorship isn't available. Includes a wire-level bridge spec pinning how x402 and MPP map to each other.</description>
+		</item>
+		<item>
 			<title>New shared DeFi utility library: one source of truth for chain and token constants across EVM and Solana</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-07-08:New shared DeFi utility library: one source of truth for chain and token constants across EVM and Solana</guid>
@@ -135,12 +159,28 @@
 			<description>Added @three-ws/defi-utils, a zero-dependency internal package with chain IDs, native-token symbols, common token addresses (including SPA and USDs on Arbitrum), and minimal ERC-20 ABI fragments for nine EVM chains, plus a Solana extension (SOL/USDC/$THREE mint resolution and base58 address validation). Also ships address and amount validators and USD/percent/token-amount formatters. It replaces ad hoc constant duplication across the codebase's API handlers and frontend modules going forward.</description>
 		</item>
 		<item>
+			<title>New tool-authoring SDK: define an agent tool once — typed params, permissions, and rate limits included</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-08:New tool-authoring SDK: define an agent tool once — typed params, permissions, and rate limits included</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>sdk</category>
+			<description>Internal SDK release for developers extending three.ws's 38 MCP servers: @three-ws/tool-sdk lets a tool be declared once with defineTool (Zod parameter schemas, auto-derived JSON Schema, a per-tool permission manifest for network access/rate limits/wallet use) and wired up with defineExecutor (typed handlers, automatic validation, uniform error wrapping) — then adapted into a live MCP server registration with a single toMcpTools() call. Proven by refactoring the naming MCP server's sns_resolve tool onto it with byte-identical behavior.</description>
+		</item>
+		<item>
 			<title>Paid API endpoints now stay up through a cache-provider outage</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-07-08:Paid API endpoints now stay up through a cache-provider outage</guid>
 			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>Hardened the pay-per-call x402 API surface — every /api/x402/* and /api/okx/3d/* endpoint — so it degrades gracefully instead of failing when the shared Redis cache is unreachable. Previously a missing cache configuration could take these paid endpoints offline; they now serve normally on a safe per-instance fallback, with on-chain payment safety unchanged (each payment authorization is still single-use, so no double-charge is possible).</description>
+		</item>
+		<item>
+			<title>Spatial MCP: 3D models are now a native, interactive response type</title>
+			<link>https://three.ws/spatial-mcp</link>
+			<guid isPermaLink="false">2026-07-08:Spatial MCP: 3D models are now a native, interactive response type</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>We published an open standard — Spatial MCP — for returning a live, interactive 3D scene as a first-class AI tool result instead of a link in text. Every three.ws 3D tool now emits a conformant artifact (camera, lighting, animation, AR handoff), a public validator checks conformance with actionable errors, and a framework-free reference renderer displays any conformant payload — including ones transformed from other tools. It carries no wallet or token surface, so it works everywhere. Try the reference renderer.</description>
 		</item>
 		<item>
 			<title>The free crypto API goes deeper: CoinGecko, DefiLlama, and two new DeFi price feeds</title>
@@ -157,6 +197,14 @@
 			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Any unauthenticated call to the unified /api/v1/x API (CoinGecko, DefiLlama, Jupiter Solana prices/quotes/search) now gets real data with zero setup, up to a per-endpoint quota — no wallet, no key, no signup. curl https://three.ws/api/v1/x/coingecko/price?ids=solana just works. Every response carries rate-limit headers so an agent can see exactly how much free budget is left; once it's used up, the same URL falls through to pay-per-call USDC (x402) or a three.ws API key instead of dead-ending.</description>
+		</item>
+		<item>
+			<title>three.ws now speaks BNB Chain's payment protocol (MPP), both ways</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-08:three.ws now speaks BNB Chain's payment protocol (MPP), both ways</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Our paid endpoints now accept payments over MPP — BNB Chain's Machine Payments Protocol — in addition to the x402 payments we already take on Solana and Base. Because MPP is x402 v2 under the hood, the same signed-stablecoin credential works; agents from the BNB ecosystem can now pay us on BNB Chain, settling through the Binance OnchainPay facilitator, while every existing Solana/Base payment path is untouched. The $THREE Town Oracle is the first endpoint to accept both. Our own agents can pay any MPP-protected endpoint too, with a hard per-call spending cap that refuses an over-quote before any money moves.</description>
 		</item>
 		<item>
 			<title>3D API</title>

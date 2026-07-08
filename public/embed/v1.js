@@ -62,21 +62,185 @@
 	}
 
 	// Resolver cache — embeds for the same agent on a single page share one
-	// fetch. Cleared on navigation, never persisted.
+	// fetch. Cleared on navigation, never persisted. Only the plain, ungated
+	// response is cached: a gated response (locked teaser, or an unlocked
+	// payload tied to one visitor's private access token) is never shared
+	// across callers and is re-checked every time.
 	var resolverCache = Object.create(null);
-	function resolve(id) {
-		if (resolverCache[id]) return resolverCache[id];
-		resolverCache[id] = fetch(
-			ORIGIN + '/api/embed/resolve?id=' + encodeURIComponent(id),
-			{ credentials: 'omit' },
-		).then(function (r) {
-			if (!r.ok) throw new Error('resolve failed: ' + r.status);
-			return r.json();
-		}).catch(function (err) {
-			delete resolverCache[id]; // allow retry
-			throw err;
+	function resolve(id, gateToken) {
+		var cacheKey = gateToken ? null : id;
+		if (cacheKey && resolverCache[cacheKey]) return resolverCache[cacheKey];
+		var qs = '?id=' + encodeURIComponent(id) + (gateToken ? '&gate_token=' + encodeURIComponent(gateToken) : '');
+		var p = fetch(ORIGIN + '/api/embed/resolve' + qs, { credentials: 'omit' })
+			.then(function (r) {
+				if (!r.ok) throw new Error('resolve failed: ' + r.status);
+				return r.json();
+			})
+			.then(function (data) {
+				if (data && data.gated && cacheKey) delete resolverCache[cacheKey];
+				return data;
+			});
+		if (cacheKey) {
+			resolverCache[cacheKey] = p.catch(function (err) {
+				delete resolverCache[cacheKey]; // allow retry
+				throw err;
+			});
+			return resolverCache[cacheKey];
+		}
+		return p;
+	}
+
+	// -------- Token gate: cached access token (per asset, per tab) ---------
+
+	var GATE_TOKEN_PREFIX = 'threeWsGateToken:';
+
+	function gateTokenKey(assetId) {
+		return GATE_TOKEN_PREFIX + assetId;
+	}
+
+	function loadCachedGateToken(assetId) {
+		try {
+			var raw = sessionStorage.getItem(gateTokenKey(assetId));
+			if (!raw) return null;
+			var parsed = JSON.parse(raw);
+			if (!parsed || !parsed.token || !parsed.exp) return null;
+			// 5s safety margin so a token that's about to expire mid-request isn't
+			// handed to the server, which would just bounce it back locked anyway.
+			if (parsed.exp <= Date.now() + 5000) {
+				sessionStorage.removeItem(gateTokenKey(assetId));
+				return null;
+			}
+			return parsed;
+		} catch (_) {
+			return null;
+		}
+	}
+
+	function saveGateToken(assetId, token, expiresInSec) {
+		try {
+			sessionStorage.setItem(
+				gateTokenKey(assetId),
+				JSON.stringify({ token: token, exp: Date.now() + Math.max(0, Number(expiresInSec) || 0) * 1000 }),
+			);
+		} catch (_) {
+			/* sessionStorage unavailable (private mode / disabled) — token just isn't persisted */
+		}
+	}
+
+	function clearCachedGateToken(assetId) {
+		try {
+			sessionStorage.removeItem(gateTokenKey(assetId));
+		} catch (_) {}
+	}
+
+	// -------- Token gate: wallet connect + SIWS verify ----------------------
+
+	function detectSolanaProvider() {
+		if (typeof window === 'undefined') return null;
+		return (
+			(window.phantom && window.phantom.solana) ||
+			window.solana ||
+			(window.backpack && window.backpack.solana) ||
+			window.solflare ||
+			null
+		);
+	}
+
+	function bytesToBase64(bytes) {
+		var bin = '';
+		for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+		return btoa(bin);
+	}
+
+	function gatePost(path, body) {
+		return fetch(ORIGIN + path, {
+			method: 'POST',
+			credentials: 'omit',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify(body),
+		}).then(function (r) {
+			return r.json().then(
+				function (data) {
+					return { ok: r.ok, data: data };
+				},
+				function () {
+					return { ok: false, data: null };
+				},
+			);
 		});
-		return resolverCache[id];
+	}
+
+	function friendlyError(message, extra) {
+		var err = new Error(message);
+		if (extra) {
+			for (var k in extra) if (Object.prototype.hasOwnProperty.call(extra, k)) err[k] = extra[k];
+		}
+		return err;
+	}
+
+	// Full connect → sign → verify round trip for one asset. Resolves
+	// { accessToken, expiresIn } on success; rejects with a `.userMessage` the
+	// locked card can render directly (no provider, connection cancelled, bad
+	// signature, or a real, server-checked insufficient balance).
+	async function verifyGateOwnership(assetId) {
+		var provider = detectSolanaProvider();
+		if (!provider) {
+			throw friendlyError('no wallet', {
+				userMessage: 'No Solana wallet found in this browser.',
+				installUrl: 'https://phantom.app',
+			});
+		}
+
+		var wallet;
+		try {
+			var resp = provider.connect ? await provider.connect() : null;
+			var pk = (resp && resp.publicKey) || provider.publicKey;
+			wallet = pk && pk.toString ? pk.toString() : pk ? String(pk) : null;
+		} catch (e) {
+			throw friendlyError('connect rejected', {
+				userMessage: /reject|4001/i.test((e && e.message) || '') ? 'Wallet connection was cancelled.' : 'Could not connect to your wallet.',
+			});
+		}
+		if (!wallet) throw friendlyError('no address', { userMessage: 'Could not read your wallet address.' });
+
+		var phase1 = await gatePost('/api/embed/gate-verify', { assetId: assetId, walletAddress: wallet });
+		if (!phase1.ok || !phase1.data || !phase1.data.message) {
+			throw friendlyError('phase1 failed', {
+				userMessage: (phase1.data && phase1.data.message) || 'This embed is not gated (or the gate was removed).',
+			});
+		}
+		var message = phase1.data.message;
+
+		var signature;
+		try {
+			var msgBytes = new TextEncoder().encode(message);
+			var signed = await provider.signMessage(msgBytes, 'utf8');
+			var sigBytes = signed && signed.signature ? signed.signature : signed;
+			signature = bytesToBase64(sigBytes);
+		} catch (e) {
+			throw friendlyError('signature rejected', {
+				userMessage: /reject|4001/i.test((e && e.message) || '') ? 'Signature request was cancelled.' : 'Could not sign the verification message.',
+			});
+		}
+
+		var phase2 = await gatePost('/api/embed/gate-verify', {
+			assetId: assetId,
+			walletAddress: wallet,
+			signature: signature,
+			message: message,
+		});
+		if (!phase2.ok || !phase2.data) {
+			throw friendlyError('verify failed', { userMessage: 'Verification failed. Try again.' });
+		}
+		if (!phase2.data.allowed) {
+			var have = phase2.data.amount != null ? Number(phase2.data.amount).toLocaleString() : '0';
+			var need = phase2.data.minAmount != null ? Number(phase2.data.minAmount).toLocaleString() : '?';
+			throw friendlyError('insufficient balance', {
+				userMessage: 'You hold ' + have + ', need ' + need + '.',
+				insufficientBalance: true,
+			});
+		}
+		return { accessToken: phase2.data.accessToken, expiresIn: phase2.data.expiresIn };
 	}
 
 	var REDUCED_MOTION = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -147,6 +311,41 @@
 		+ '.fail{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;'
 		+ 'font-size:13px;color:rgba(255,255,255,.6);padding:24px;text-align:center;}'
 		+ '@media (prefers-reduced-motion: reduce){model-viewer{--progress-bar-height:0;}}'
+		// ── Token-gated locked state ──────────────────────────────────────
+		+ '.gate{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;'
+		+ 'justify-content:center;gap:10px;padding:28px 22px;text-align:center;opacity:0;'
+		+ 'transition:opacity .32s ease;background:radial-gradient(120% 120% at 50% 0%,rgba(40,40,46,.9),rgba(6,6,8,.96));}'
+		+ '.gate.gate--poster{background-size:cover;background-position:center;}'
+		+ '.gate.gate--poster::before{content:"";position:absolute;inset:0;'
+		+ 'backdrop-filter:blur(18px) saturate(70%);-webkit-backdrop-filter:blur(18px) saturate(70%);'
+		+ 'background:rgba(8,8,10,.72);}'
+		+ '.gate.gate--in{opacity:1;}'
+		+ '.gate>*{position:relative;z-index:1;}'
+		+ '.gate-icon{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;'
+		+ 'background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);color:#fff;margin-bottom:2px;}'
+		+ '.gate-icon svg{width:16px;height:16px;}'
+		+ '.gate-title{font-size:15px;font-weight:700;letter-spacing:-.005em;color:#fff;margin:0;line-height:1.35;max-width:280px;}'
+		+ '.gate-sub{font-size:12px;color:rgba(255,255,255,.55);margin:0;max-width:260px;line-height:1.5;}'
+		+ '.gate-btn{appearance:none;border:1px solid rgba(255,255,255,.22);border-radius:999px;'
+		+ 'background:#fff;color:#0a0a0a;font:700 13px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;'
+		+ 'padding:10px 20px;cursor:pointer;margin-top:6px;transition:transform .15s,background .15s,opacity .15s;'
+		+ 'text-decoration:none;display:inline-flex;align-items:center;gap:6px;}'
+		+ '.gate-btn:hover{background:#f0f0f0;transform:translateY(-1px);}'
+		+ '.gate-btn:active{transform:translateY(0);}'
+		+ '.gate-btn[aria-busy="true"]{opacity:.65;cursor:default;pointer-events:none;}'
+		+ '.gate-btn:focus-visible{outline:2px solid #7dd3fc;outline-offset:2px;}'
+		+ '.gate-note{font-size:11.5px;color:rgba(255,255,255,.5);min-height:14px;margin-top:2px;max-width:260px;line-height:1.5;}'
+		+ '.gate-note[data-tone="warn"]{color:#f5c98a;}'
+		+ '.gate-mint{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:10.5px;'
+		+ 'color:rgba(255,255,255,.4);letter-spacing:.02em;}'
+		+ ':host([theme="light"]) .gate{background:radial-gradient(120% 120% at 50% 0%,rgba(255,255,255,.94),rgba(240,240,242,.98));}'
+		+ ':host([theme="light"]) .gate.gate--poster::before{background:rgba(255,255,255,.78);}'
+		+ ':host([theme="light"]) .gate-title{color:#111;}'
+		+ ':host([theme="light"]) .gate-sub,:host([theme="light"]) .gate-mint{color:rgba(0,0,0,.5);}'
+		+ ':host([theme="light"]) .gate-icon{background:rgba(0,0,0,.06);border-color:rgba(0,0,0,.14);color:#111;}'
+		+ ':host([theme="light"]) .gate-btn{background:#111;color:#fff;border-color:rgba(0,0,0,.2);}'
+		+ ':host([theme="light"]) .gate-btn:hover{background:#000;}'
+		+ '@media (prefers-reduced-motion: reduce){.gate,.gate-btn{transition:none;}}'
 		+ '';
 
 	function ThreeWsAgentElement() {
@@ -227,11 +426,18 @@
 		var resolved = null;
 
 		if (!src && agentSpec) {
+			var cachedGate = loadCachedGateToken(agentSpec);
 			try {
-				resolved = await resolve(agentSpec);
+				resolved = await resolve(agentSpec, cachedGate ? cachedGate.token : null);
 			} catch (e) {
 				throw new Error('Could not resolve agent "' + agentSpec + '"');
 			}
+			if (resolved && resolved.locked) {
+				if (cachedGate) clearCachedGateToken(agentSpec); // stale/expired — drop it
+				self.__renderLocked(resolved, agentSpec);
+				return;
+			}
+			self.__clearLocked();
 			src = resolved.glbUrl;
 			nameAttr = nameAttr || resolved.name;
 			posterAttr = posterAttr || resolved.poster;
@@ -332,6 +538,133 @@
 			this.__stage.appendChild(d);
 		}
 		this.dispatchEvent(new CustomEvent('three-error', { detail: err, bubbles: true }));
+	};
+
+	// ── Token-gated locked state ────────────────────────────────────────────
+	// Renders a designed teaser in place of the 3D scene: what it is, what it
+	// takes to unlock, and a real connect-wallet CTA. Never leaves a blank box
+	// or a bare error — every branch (no wallet, cancelled, wrong balance,
+	// network hiccup) gets specific, actionable copy.
+
+	var LOCK_SVG =
+		'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+		'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+		'<rect x="4.5" y="10.5" width="15" height="9.5" rx="2"/>' +
+		'<path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>';
+
+	ThreeWsAgentElement.prototype.__clearLocked = function () {
+		if (this.__gateEl) {
+			this.__gateEl.remove();
+			this.__gateEl = null;
+		}
+	};
+
+	ThreeWsAgentElement.prototype.__renderLocked = function (resolved, assetId) {
+		var self = this;
+		this.__clearLocked();
+		if (this.__mv) {
+			this.__mv.remove();
+			this.__mv = null;
+		}
+
+		var gate = resolved.gate || {};
+		var amount = gate.minAmount != null ? Number(gate.minAmount).toLocaleString() : '?';
+		var symbol = gate.symbol || 'tokens';
+
+		var el = document.createElement('div');
+		el.className = 'gate';
+		el.setAttribute('role', 'group');
+		el.setAttribute('aria-label', 'Locked — token-gated 3D embed');
+		if (resolved.poster) {
+			el.classList.add('gate--poster');
+			el.style.backgroundImage = 'url("' + String(resolved.poster).replace(/"/g, '%22') + '")';
+		}
+
+		var icon = document.createElement('div');
+		icon.className = 'gate-icon';
+		icon.innerHTML = LOCK_SVG;
+		el.appendChild(icon);
+
+		var title = document.createElement('p');
+		title.className = 'gate-title';
+		title.textContent = 'Hold ' + amount + ' ' + symbol + ' to unlock';
+		el.appendChild(title);
+
+		var sub = document.createElement('p');
+		sub.className = 'gate-sub';
+		sub.textContent = resolved.name
+			? '"' + resolved.name + '" is a token-gated 3D embed on three.ws.'
+			: 'This is a token-gated 3D embed on three.ws.';
+		el.appendChild(sub);
+
+		var btn = document.createElement('button');
+		btn.type = 'button';
+		btn.className = 'gate-btn';
+		btn.textContent = 'Connect wallet';
+		el.appendChild(btn);
+
+		var note = document.createElement('p');
+		note.className = 'gate-note';
+		note.setAttribute('role', 'status');
+		note.setAttribute('aria-live', 'polite');
+		el.appendChild(note);
+
+		if (!this.hasAttribute('hide-chrome') && gate.mint) {
+			var mintEl = document.createElement('p');
+			mintEl.className = 'gate-mint';
+			mintEl.textContent = gate.mint === symbol ? '' : gate.mint;
+			if (mintEl.textContent) el.appendChild(mintEl);
+		}
+
+		var busy = false;
+		btn.addEventListener('click', function () {
+			if (busy) return;
+			var provider = detectSolanaProvider();
+			if (!provider) {
+				note.textContent = 'No Solana wallet found — install Phantom, then try again.';
+				note.dataset.tone = 'warn';
+				btn.textContent = 'Get a wallet';
+				btn.onclick = null;
+				var link = document.createElement('a');
+				link.href = 'https://phantom.app';
+				link.target = '_blank';
+				link.rel = 'noopener';
+				link.className = 'gate-btn';
+				link.textContent = 'Get a wallet';
+				btn.replaceWith(link);
+				return;
+			}
+			busy = true;
+			btn.setAttribute('aria-busy', 'true');
+			btn.textContent = 'Connecting…';
+			note.textContent = '';
+			note.dataset.tone = '';
+			verifyGateOwnership(assetId)
+				.then(function (result) {
+					saveGateToken(assetId, result.accessToken, result.expiresIn);
+					self.__booted = true; // already true, but keep intent explicit
+					return self.__boot();
+				})
+				.catch(function (err) {
+					busy = false;
+					btn.removeAttribute('aria-busy');
+					btn.textContent = 'Connect wallet';
+					note.textContent = (err && err.userMessage) || 'Verification failed. Try again.';
+					note.dataset.tone = 'warn';
+				});
+		});
+
+		this.__stage.appendChild(el);
+		this.__gateEl = el;
+		requestAnimationFrame(function () {
+			el.classList.add('gate--in');
+		});
+		this.dispatchEvent(
+			new CustomEvent('three-gate:locked', {
+				detail: { assetId: assetId, mint: gate.mint, minAmount: gate.minAmount },
+				bubbles: true,
+			}),
+		);
 	};
 
 	ThreeWsAgentElement.prototype.disconnectedCallback = function () {

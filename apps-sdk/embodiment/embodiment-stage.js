@@ -28,7 +28,7 @@
 
 import {
 	Scene, PerspectiveCamera, WebGLRenderer, AmbientLight, DirectionalLight,
-	PMREMGenerator, Box3, Vector3, Group, Color,
+	PMREMGenerator, Box3, Vector3, Group, Color, RingGeometry, MeshBasicMaterial, Mesh,
 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -43,6 +43,7 @@ import { inspectRig, decideRigMode } from '../../src/embodiment/rig-mode.js';
 import { expressionForText, expressionFor } from '../../src/embodiment/emotion.js';
 import { TextVisemeEnvelope, estimateSpeechDuration } from '../../src/embodiment/text-visemes.js';
 import { FaceExpression } from '../../src/embodiment/face-expression.js';
+import { mapChainStateToVisuals } from './chain-visuals.js';
 
 const REDUCED_MOTION =
 	typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -112,13 +113,18 @@ export class EmbodimentStage {
 		this.renderer.domElement.setAttribute('aria-label', 'Interactive 3D agent');
 		this.renderer.domElement.setAttribute('role', 'img');
 
-		this.scene.add(new AmbientLight(0xffffff, 0.6));
-		const key = new DirectionalLight(0xffffff, 1.6);
-		key.position.set(2, 4, 3);
-		this.scene.add(key);
-		const rim = new DirectionalLight(0x99bbff, 0.5);
-		rim.position.set(-3, 2, -2);
-		this.scene.add(rim);
+		this.ambient = new AmbientLight(0xffffff, 0.6);
+		this.scene.add(this.ambient);
+		this.keyLight = new DirectionalLight(0xffffff, 1.6);
+		this.keyLight.position.set(2, 4, 3);
+		this.scene.add(this.keyLight);
+		this.rimLight = new DirectionalLight(0x99bbff, 0.5);
+		this.rimLight.position.set(-3, 2, -2);
+		this.scene.add(this.rimLight);
+		// Base light intensities, so the muted chain-state can dim relative to the
+		// designed baseline (and un-mute can restore it exactly) instead of
+		// compounding repeated multiplications across calls.
+		this._baseLightIntensity = { ambient: this.ambient.intensity, key: this.keyLight.intensity, rim: this.rimLight.intensity };
 
 		const pmrem = new PMREMGenerator(this.renderer);
 		this._envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
@@ -135,6 +141,18 @@ export class EmbodimentStage {
 
 		this.root = new Group();
 		this.scene.add(this.root);
+
+		// The chain-state aura: a flat emissive ring at the avatar's feet, colored
+		// and intensity-scaled by reputation tier (see chain-visuals.js). Hidden
+		// until setChainState() is called with a real identity read, so a persona
+		// with no wallet binding renders exactly as before.
+		this._auraMat = new MeshBasicMaterial({ color: 0x5b6472, transparent: true, opacity: 0, depthWrite: false });
+		this._auraRing = new Mesh(new RingGeometry(0.42, 0.56, 48), this._auraMat);
+		this._auraRing.rotation.x = -Math.PI / 2;
+		this._auraRing.position.y = 0.01;
+		this._auraRing.visible = false;
+		this.root.add(this._auraRing);
+		this._chainVisuals = null;
 	}
 
 	_resize() {
@@ -268,6 +286,43 @@ export class EmbodimentStage {
 		this.camera.far = dist * 50;
 		this.camera.updateProjectionMatrix();
 		this.controls.update();
+	}
+
+	// ── on-chain identity → visuals ───────────────────────────────────────────
+
+	/**
+	 * Drive the body's appearance from a persona's live on-chain identity
+	 * (api/_lib/persona-wallet.js#getPersonaIdentity, or its already-computed
+	 * `.visual` field). Pure mapping (chain-visuals.js) → three concrete effects:
+	 *   - an aura ring at the feet, colored + intensity-scaled by reputation tier
+	 *   - the whole scene dims toward the muted baseline on a low/zero balance
+	 *   - the resolved cosmetic tier + nameplate are returned for the host page's
+	 *     DOM overlay (apps-sdk/embodiment/overlay.js#setIdentity) to render as
+	 *     badges — geometry it doesn't own.
+	 * Never throws: called with `null`/`undefined` (identity read failed or was
+	 * never requested) it clears back to the undecorated baseline, which is
+	 * itself a designed state, not an error.
+	 * @param {object|null} identity
+	 * @returns {{aura:object, cosmetic:object, muted:boolean, nameplate:(string|null)}}
+	 */
+	setChainState(identity) {
+		const visuals = mapChainStateToVisuals(identity || {});
+		this._chainVisuals = visuals;
+
+		if (this._auraRing && this._auraMat) {
+			this._auraMat.color.set(visuals.aura.color);
+			this._auraMat.opacity = Math.max(0, Math.min(1, visuals.aura.intensity));
+			this._auraRing.visible = visuals.aura.intensity > 0.01;
+		}
+
+		// Muted balance dims the whole stage toward a designed low-key look —
+		// never fully dark (the body must stay legible), just visibly subdued.
+		const dim = visuals.muted ? 0.45 : 1;
+		if (this.ambient) this.ambient.intensity = this._baseLightIntensity.ambient * dim;
+		if (this.keyLight) this.keyLight.intensity = this._baseLightIntensity.key * dim;
+		if (this.rimLight) this.rimLight.intensity = this._baseLightIntensity.rim * dim;
+
+		return visuals;
 	}
 
 	// ── conversational states ─────────────────────────────────────────────────
@@ -453,6 +508,8 @@ export class EmbodimentStage {
 		this._endSpeech(false);
 		this.mouth.dispose?.();
 		if (this._model) this._disposeObject(this._model);
+		this._auraRing?.geometry?.dispose?.();
+		this._auraMat?.dispose?.();
 		this._envTex?.dispose?.();
 		this.controls?.dispose?.();
 		this.renderer?.dispose?.();

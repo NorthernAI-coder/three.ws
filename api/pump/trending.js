@@ -13,18 +13,13 @@
 import { cors, json, method, wrap, error, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { normalizeGatewayURL } from '../../src/ipfs.js';
+import { getTrendingSlim } from '../_lib/pump-trending.js';
 
-const BIRDEYE_API_KEY = process.env.BIRDEYE_API_KEY;
 const PUMP_FRONTEND_BASE = 'https://frontend-api-v3.pump.fun';
 
-// Process-local cache. Trending shifts slowly; many tabs polling on nav into the
-// dashboard would otherwise hammer the upstreams. Warm-starts share this map.
-// `storedAt` lets us serve the value as STALE (past its TTL) when every live
-// upstream is down — a slowly-changing market feed is far better shown a few
-// minutes old than blanked out with a 502 during an upstream blip.
-let _cache = { value: null, storedAt: 0, expiresAt: 0, limit: 0 };
 // Separate cache slot for the rich (full-coin) payload — it carries far more per
-// token than the thin projection, so it must not collide with `_cache`.
+// token than the thin projection api/_lib/pump-trending.js caches, so it must
+// not collide with that cache.
 let _richCache = { value: null, storedAt: 0, expiresAt: 0, limit: 0 };
 const TTL_MS = 30_000;
 // How long a cached feed may be served as a stale fallback after every live
@@ -33,11 +28,6 @@ const STALE_MAX_MS = 10 * 60_000;
 // Upstream fetch timeout. Trending is a fast feed behind a 30s cache + stale
 // fallback, so a long wait buys nothing — fail fast and fall through.
 const UPSTREAM_TIMEOUT_MS = 5000;
-// Birdeye circuit breaker: after a failure, skip Birdeye entirely for a cooldown
-// so an influx during a Birdeye outage stops paying the per-request timeout on
-// the way to the pump.fun fallback. Auto-recovers when the cooldown elapses.
-const BIRDEYE_COOLDOWN_MS = 60_000;
-let _birdeyeCooldownUntil = 0;
 
 // Serve a cached feed past its TTL when live upstreams are down. Returns the
 // sliced value if the slot holds enough items and is within the stale window,
@@ -46,80 +36,6 @@ function serveStale(slot, limit, now) {
 	if (!slot.value || slot.limit < limit) return null;
 	if (now - slot.storedAt > STALE_MAX_MS) return null;
 	return slot.value.slice(0, limit);
-}
-
-// Primary: Birdeye trending feed. Returns null (not throws) on any failure so the
-// caller can transparently fall back.
-async function fetchBirdeye(limit) {
-	if (!BIRDEYE_API_KEY) return null;
-	// Circuit open: a recent Birdeye failure put it in cooldown — skip straight to
-	// the fallback instead of paying the timeout again.
-	if (Date.now() < _birdeyeCooldownUntil) return null;
-	const url =
-		`https://public-api.birdeye.so/defi/token_trending` +
-		`?sort_by=rank&sort_type=asc&offset=0&limit=${limit}`;
-	let upstream;
-	try {
-		upstream = await fetch(url, {
-			headers: { 'X-API-KEY': BIRDEYE_API_KEY, 'x-chain': 'solana', accept: 'application/json' },
-			signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
-		});
-	} catch {
-		_birdeyeCooldownUntil = Date.now() + BIRDEYE_COOLDOWN_MS;
-		return null;
-	}
-	if (!upstream.ok) {
-		// 429 / 5xx — trip the breaker so the next requests skip the timeout.
-		_birdeyeCooldownUntil = Date.now() + BIRDEYE_COOLDOWN_MS;
-		return null;
-	}
-	const payload = await upstream.json().catch(() => null);
-	const tokens = payload?.data?.tokens;
-	if (!Array.isArray(tokens)) return null;
-	const data = tokens
-		.map((t) => ({
-			mint: t.address,
-			symbol: t.symbol || '?',
-			name: t.name || t.symbol || '',
-			logo: t.logoURI || null,
-			price_usd: typeof t.price === 'number' ? t.price : null,
-			rank: typeof t.rank === 'number' ? t.rank : null,
-		}))
-		.filter((t) => typeof t.mint === 'string' && t.mint.length >= 32);
-	return data.length ? data : null;
-}
-
-// Fallback: pump.fun's public frontend feed (no API key). Mapped into the exact
-// same shape so every consumer keeps working. pump.fun doesn't expose a clean
-// per-token USD price here, so price_usd is left null rather than fabricated.
-async function fetchPumpFun(limit) {
-	const url = new URL('/coins', PUMP_FRONTEND_BASE);
-	url.searchParams.set('offset', '0');
-	url.searchParams.set('limit', String(limit));
-	url.searchParams.set('sort', 'market_cap');
-	url.searchParams.set('order', 'DESC');
-	url.searchParams.set('includeNsfw', 'false');
-	let upstream;
-	try {
-		upstream = await fetch(url, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS) });
-	} catch {
-		return null;
-	}
-	if (!upstream.ok) return null;
-	const body = await upstream.json().catch(() => null);
-	const coins = Array.isArray(body) ? body : Array.isArray(body?.coins) ? body.coins : null;
-	if (!Array.isArray(coins)) return null;
-	const data = coins
-		.map((c, i) => ({
-			mint: c.mint || c.address || '',
-			symbol: c.symbol || '?',
-			name: c.name || c.symbol || '',
-			logo: normalizeGatewayURL(c.image_uri || c.image || '') || null,
-			price_usd: null,
-			rank: i + 1,
-		}))
-		.filter((t) => typeof t.mint === 'string' && t.mint.length >= 32);
-	return data.length ? data : null;
 }
 
 // Rich variant: the full pump.fun coin objects (market cap, image, ATH, replies,
@@ -197,27 +113,17 @@ export default wrap(async (req, res) => {
 		return json(res, 200, { data: richData }, { 'cache-control': 'public, max-age=15, s-maxage=30' });
 	}
 
-	if (_cache.value && _cache.limit >= limit && _cache.expiresAt > now) {
-		return json(res, 200, { data: _cache.value.slice(0, limit) }, {
-			'cache-control': 'public, max-age=15, s-maxage=30',
-		});
-	}
-
-	let data = await fetchBirdeye(limit);
-	if (!data) data = await fetchPumpFun(limit);
+	// Thin projection: fetch+cache+fallback lives in api/_lib/pump-trending.js,
+	// shared with the free GET /api/v1/pump/trending endpoint.
+	const { data, stale } = await getTrendingSlim(limit);
 	if (!data) {
-		// Both live sources are down — serve the last good feed as stale so the home
-		// card, communities, constellation, and visualizer keep rendering through the
-		// blip instead of dead-ending on a 502. Shorter edge cache so we retry soon.
-		const stale = serveStale(_cache, limit, now);
-		if (stale) {
-			return json(res, 200, { data: stale, stale: true }, {
-				'cache-control': 'public, max-age=10, s-maxage=20',
-			});
-		}
+		// Both live sources are down and no usable stale cache exists — the home
+		// card, communities, constellation, and visualizer would otherwise dead-end
+		// on a 502 during the blip; getTrendingSlim already tried the stale fallback.
 		return error(res, 502, 'upstream_error', 'Trending market data is temporarily unavailable');
 	}
-
-	_cache = { value: data, storedAt: now, expiresAt: now + TTL_MS, limit };
+	if (stale) {
+		return json(res, 200, { data, stale: true }, { 'cache-control': 'public, max-age=10, s-maxage=20' });
+	}
 	return json(res, 200, { data }, { 'cache-control': 'public, max-age=15, s-maxage=30' });
 });

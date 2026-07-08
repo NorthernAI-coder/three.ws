@@ -82,7 +82,8 @@
 		"packages/loom-mcp",
 		"walk-sdk",
 		"tour-sdk",
-		"packages/alibaba-cloud-mcp"
+		"packages/alibaba-cloud-mcp",
+		"packages/tool-sdk"
 	],
 	"main": "src/app.js",
 	"browserslist": [

@@ -89,6 +89,13 @@ const OUT_DIR = cliFlags.out ? resolve(ROOT, cliFlags.out) : resolve(ANIM_DIR, '
 const REFERENCE_GLB = resolve(ROOT, 'public/avatars/cz.glb');
 const CONFIG = cliFlags.config ? resolve(ROOT, cliFlags.config) : resolve(__dirname, 'animations.config.json');
 const MANIFEST_OUT = cliFlags.manifest ? resolve(ROOT, cliFlags.manifest) : resolve(ANIM_DIR, 'manifest.json');
+// Hand-authored clips that were never retargeted from an FBX/GLB source (e.g. a
+// short pose baked directly as AnimationClip JSON). They still live in OUT_DIR
+// as real clip files, but since main() rebuilds `manifest` purely from CONFIG
+// entries, anything not in CONFIG would silently vanish from the manifest on
+// every rebuild. Merged in below — for the curated build only — so they stay
+// permanently reachable instead of regressing every time this script runs.
+const EXTRA_CLIPS_FILE = resolve(__dirname, 'animations-extra-clips.json');
 const URL_PREFIX = typeof cliFlags['url-prefix'] === 'string' ? cliFlags['url-prefix'] : '/animations/clips/';
 const IS_CUSTOM_BUILD = !!(cliFlags.config || cliFlags.out || cliFlags.manifest);
 const HASH_CACHE = resolve(OUT_DIR, '.input-hashes.json');
@@ -386,6 +393,33 @@ async function main() {
 				'[animations] Fix: run `npm run extract:animations` to regenerate extracted sources, restore the missing FBX in animation-sources/, or remove the entry from scripts/animations.config.json if the clip is truly retired. The existing manifest was left untouched.',
 			);
 			process.exit(1);
+		}
+	}
+
+	// Merge in hand-authored extra clips (see EXTRA_CLIPS_FILE comment above).
+	// Curated build only — a staging/bulk build (--out/--manifest flags) has its
+	// own OUT_DIR that never contains these files.
+	if (!IS_CUSTOM_BUILD && existsSync(EXTRA_CLIPS_FILE)) {
+		const extras = JSON.parse(readFileSync(EXTRA_CLIPS_FILE, 'utf8'));
+		const already = new Set(manifest.map((c) => c.name));
+		for (const extra of extras) {
+			if (already.has(extra.name)) continue;
+			const clipPath = resolve(OUT_DIR, `${extra.name}.json`);
+			if (!existsSync(clipPath)) {
+				console.warn(`[animations] SKIP extra clip "${extra.name}": no baked file at ${clipPath}`);
+				continue;
+			}
+			const { duration } = JSON.parse(readFileSync(clipPath, 'utf8'));
+			manifest.push({
+				name: extra.name,
+				url: `${URL_PREFIX}${extra.name}.json`,
+				label: extra.label,
+				icon: extra.icon,
+				loop: extra.loop !== false,
+				...(duration ? { duration } : {}),
+			});
+			already.add(extra.name);
+			console.log(`[animations] EXTRA ${extra.name.padEnd(12)} merged from ${basename(EXTRA_CLIPS_FILE)}`);
 		}
 	}
 

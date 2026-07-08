@@ -84,6 +84,7 @@ packages/avatar-cli/          → @three-ws/avatar-cli
 packages/retarget/            → @three-ws/retarget          (humanoid bone canonicalizer + clip retargeting engine, extracted from src/)
 packages/viewer-presets/      → @three-ws/viewer-presets
 packages/defi-utils/          → @three-ws/defi-utils        (zero-dependency chain/token constants + address/amount validation + formatters, EVM + Solana; ported from SperaxOS)
+packages/tool-sdk/            → @three-ws/tool-sdk          (typed MCP tool authoring — defineTool/defineExecutor + permission manifests + toMcpTools adapter; ported from SperaxOS)
 packages/avatar-agent-mcp/    → @three-ws/avatar-agent-mcp  (MCP server — avatar agent tools)
 packages/pumpfun-mcp/         → @three-ws/pumpfun-mcp       (MCP server — pump.fun launch tools)
 packages/ibm-watsonx-mcp/     → @three-ws/ibm-watsonx-mcp   (MCP server — IBM watsonx.ai)

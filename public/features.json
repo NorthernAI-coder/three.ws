@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-08T00:58:37.616Z",
+	"generated_at": "2026-07-08T01:01:12.266Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -417,6 +417,16 @@
 					"title": "Forge — Text to 3D",
 					"description": "Type a prompt — or drop in photos or a sketch — and get a downloadable textured 3D model (GLB). Pick from multiple generation engines with live health status.",
 					"added": "2026-06-04",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/restyle",
+					"title": "Restyle Studio — material presets & variants",
+					"description": "Re-skin any 3D model in the browser: apply PBR material presets (chrome, gold, glass, wood…), generate seeded colorway variants, fine-tune metalness and roughness, and export a validated GLB — non-destructively.",
+					"added": "2026-07-08",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

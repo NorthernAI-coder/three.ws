@@ -169,6 +169,7 @@ describe('MCP tool surface', () => {
 			'forge_free',
 			'rig_mesh',
 			'forge_avatar',
+			'refine_model',
 			'agent_delegate_action',
 			'agent_hire',
 		];

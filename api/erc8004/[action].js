@@ -13,7 +13,7 @@ import { z } from 'zod';
 
 import { sql } from '../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer, hasScope } from '../_lib/auth.js';
-import { cors, json, method, wrap, error, readJson, rateLimited } from '../_lib/http.js';
+import { cors, json, method, wrap, error, readJson, readBody, rateLimited } from '../_lib/http.js';
 import { parse } from '../_lib/validate.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import {
@@ -513,20 +513,11 @@ async function uploadToNftStorage(token, ext, body, ct) {
 	return { cid, uri, url };
 }
 
+// Delegates to the shared readBody (api/_lib/http.js). For the binary/model
+// content-types this endpoint accepts, the Cloud Run server's Express body
+// parsers never touch the stream, so this behaves exactly as the old
+// raw-stream reader did; for the json/octet-stream types they DO pre-parse,
+// re-reading the raw stream directly (the old implementation) hangs forever.
 function readRaw(req, limit) {
-	return new Promise((resolve, reject) => {
-		const chunks = [];
-		let total = 0;
-		req.on('data', (chunk) => {
-			total += chunk.length;
-			if (total > limit) {
-				reject(Object.assign(new Error('payload too large'), { status: 413 }));
-				req.destroy();
-				return;
-			}
-			chunks.push(chunk);
-		});
-		req.on('end', () => resolve(Buffer.concat(chunks)));
-		req.on('error', reject);
-	});
+	return readBody(req, limit);
 }

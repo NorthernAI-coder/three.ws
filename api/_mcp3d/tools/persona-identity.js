@@ -90,9 +90,10 @@ async function handlePersonaIdentity(args, auth) {
 	const identity = await getPersonaIdentity(args.persona_id, { network: args.network || 'mainnet' });
 	const persona = personaPublicView(record);
 	const v = identity.visual;
+	const card = buildIdentityCard({ persona, identity });
 
 	const lines = [
-		`${persona.name}'s on-chain identity`,
+		`${persona.name}'s on-chain identity — ${summarizeIdentityCard(card)}`,
 		`Wallet: ${identity.address} (${identity.network})`,
 		`Balance: ${identity.balances.sol.toFixed(4)} SOL, ${identity.balances.usdc.toFixed(2)} USDC` +
 			(identity.balances.total_usd != null ? ` (~$${identity.balances.total_usd})` : ''),
@@ -105,10 +106,9 @@ async function handlePersonaIdentity(args, auth) {
 	return {
 		content: [
 			{ type: 'text', text: lines.join('\n') },
-			renderIdentityCard({ persona, identity }),
 			embodimentArtifact({ persona, state: 'idle' }),
 		],
-		structuredContent: { ...identity, status: 'ok' },
+		structuredContent: { ...identity, identity_card: card, status: 'ok' },
 	};
 }
 

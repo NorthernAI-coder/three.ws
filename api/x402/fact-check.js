@@ -3,17 +3,26 @@
 // the 2026-07 overhaul's "internal-use only" de-listing is superseded. The
 // fact-checker app (src/fact-checker-app.js) and the Sheriff Boone NPC in
 // /play also buy through this same route.
-// POST /api/x402/fact-check
+// POST /api/x402/fact-check — free daily lane → x402 metered overage.
 //
-// Real-Time Fact Checker — paid x402 micropayment endpoint.
-// $0.10 base (100_000 atomics). Per check: generate queries, multi-source
-// search, LLM stance extraction, weighted verdict, SHA-256 attestation.
+// Real-Time Fact Checker.
+//   • Free tier: 3 checks/day per IP — the REAL search+LLM chain, never a
+//     degraded fake (see 00-CONTEXT.md's no-mocks rule). Response carries
+//     `lane: "free"` and `free_remaining_today`.
+//   • Above the free tier (quota exhausted OR an X-PAYMENT header is present)
+//     the request falls through to the x402 rail: $0.10 base (100_000
+//     atomics) per check on Base or Solana USDC. Response carries
+//     `lane: "paid"`.
+// Per check either way: generate queries, multi-source search, LLM stance
+// extraction, weighted verdict, SHA-256 attestation.
 //
-// Body: { claim: string, strictness: "high"|"medium"|"low" }
+// Body: { claim: string, strictness?: "high"|"medium"|"low", imageUrl?: string }
 // Response 200: { verdict, confidence, claim, strictness, sources,
-//                 costBreakdown, cachedAt?, attestation }
+//                 costBreakdown, cachedAt?, attestation, lane, free_remaining_today? }
 
 import { createHash } from 'crypto';
+import { wrap, error, json, readBody } from '../_lib/http.js';
+import { clientIp, limits } from '../_lib/rate-limit.js';
 import { paidEndpoint } from '../_lib/x402-paid-endpoint.js';
 import { buildBazaarSchema } from '../_lib/x402-spec.js';
 import { installAccessControl } from '../_lib/x402/access-control.js';
@@ -25,6 +34,11 @@ import { imageEvidence } from '../../agents/fact-checker/src/image-evidence.js';
 
 const ROUTE = '/api/x402/fact-check';
 const CACHE_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
+const MAX_BODY_BYTES = 32 * 1024; // claims are short text; 32KB is generous headroom
+// Kept in one place and re-exported so the /fact-check page and 402-quote copy
+// can render the real cap instead of a hardcoded, driftable number. Must match
+// limits.factCheckFreeIp's `limit` in api/_lib/rate-limit.js.
+export const FREE_DAILY_LIMIT = 3;
 
 // ── Redis helpers ──────────────────────────────────────────────────────────────
 
@@ -235,15 +249,78 @@ async function runFactCheck(claim, strictness, imageUrl = null) {
 	return result;
 }
 
+// Cache-checked wrapper shared by both the free and paid lanes so a claim
+// already checked (by anyone, on either lane) within the last 7 days never
+// re-runs the live chain — same idempotency guarantee both lanes get.
+async function checkClaim(claim, strictness, imageUrl) {
+	const key = cacheKey(claim, strictness, imageUrl);
+	const cached = await redisGet(key);
+	if (cached && typeof cached.verdict === 'string') {
+		return { ...cached, cachedAt: cached.cachedAt || new Date().toISOString() };
+	}
+	const result = await runFactCheck(claim, strictness, imageUrl);
+	await redisSet(key, result, CACHE_TTL_SECONDS);
+	return result;
+}
+
+// Validate + normalize the request body. Throws a { status, code, message }
+// error on anything malformed — shared by both lanes so a bad request gets
+// the identical 400 whether or not a payment would have been required.
+function parseFactCheckBody(body) {
+	const claim = String(body?.claim || '').trim();
+	if (!claim || claim.length < 5) {
+		const err = new Error('"claim" must be at least 5 characters');
+		err.status = 400;
+		err.code = 'invalid_claim';
+		throw err;
+	}
+	if (claim.length > 1000) {
+		const err = new Error('"claim" must be at most 1000 characters');
+		err.status = 400;
+		err.code = 'claim_too_long';
+		throw err;
+	}
+
+	const strictness = ['high', 'medium', 'low'].includes(body?.strictness) ? body.strictness : 'medium';
+
+	// Optional image attachment — validated at the boundary as an http(s) URL.
+	let imageUrl = null;
+	if (body?.imageUrl != null) {
+		imageUrl = String(body.imageUrl).trim();
+		if (imageUrl && (!/^https?:\/\//i.test(imageUrl) || imageUrl.length > 2048)) {
+			const err = new Error('"imageUrl" must be an http(s) URL under 2048 characters');
+			err.status = 400;
+			err.code = 'invalid_image_url';
+			throw err;
+		}
+		if (!imageUrl) imageUrl = null;
+	}
+
+	return { claim, strictness, imageUrl };
+}
+
+function parseJsonBody(buf) {
+	const raw = buf.toString('utf8');
+	try {
+		return raw ? JSON.parse(raw) : {};
+	} catch {
+		const err = new Error('Request body must be valid JSON');
+		err.status = 400;
+		err.code = 'invalid_json';
+		throw err;
+	}
+}
+
 // ── Bazaar schema ──────────────────────────────────────────────────────────────
 
 const DESCRIPTION =
-	'three.ws Real-Time Fact Checker — submit a claim and receive a ' +
-	'sourced verdict (supported/contradicted/mixed/insufficient) backed by ' +
-	'live web search and LLM analysis. Each result includes cited sources, ' +
-	'authority weights, confidence score, cost breakdown, and a SHA-256 ' +
-	'attestation. Strictness controls how aggressively low-authority sources ' +
-	'are downweighted. Price: $0.10 base per check on Base or Solana USDC.';
+	'three.ws Real-Time Fact Checker — sourced verdicts with cryptographic attestations you can ' +
+	'audit, backed by a published accuracy benchmark. Submit a claim and receive a sourced verdict ' +
+	'(supported/contradicted/mixed/insufficient) from live web search and LLM analysis: cited ' +
+	'sources, authority weights, confidence score, cost breakdown, and a SHA-256 attestation. ' +
+	`${FREE_DAILY_LIMIT} free checks/day per IP (the same real chain, marked lane:"free") before ` +
+	'the $0.10 base x402 price per check on Base or Solana USDC. Strictness controls how ' +
+	'aggressively low-authority sources are downweighted. See /fact-check for the live benchmark.';
 
 const INPUT_EXAMPLE = {
 	claim: 'The Eiffel Tower is 330 meters tall.',
@@ -297,12 +374,13 @@ const OUTPUT_EXAMPLE = {
 	],
 	costBreakdown: { searchCalls: 3, llmTokens: 1420, totalUsdc: '0.100355' },
 	attestation: 'sha256:abcdef1234567890...',
+	lane: 'paid',
 };
 
 const OUTPUT_SCHEMA = {
 	$schema: 'https://json-schema.org/draft/2020-12/schema',
 	type: 'object',
-	required: ['verdict', 'confidence', 'claim', 'strictness', 'sources', 'costBreakdown', 'attestation'],
+	required: ['verdict', 'confidence', 'claim', 'strictness', 'sources', 'costBreakdown', 'attestation', 'lane'],
 	properties: {
 		verdict: { type: 'string', enum: ['supported', 'contradicted', 'mixed', 'insufficient'] },
 		confidence: { type: 'number', minimum: 0, maximum: 1 },
@@ -346,6 +424,8 @@ const OUTPUT_SCHEMA = {
 		},
 		cachedAt: { type: 'string', format: 'date-time' },
 		attestation: { type: 'string' },
+		lane: { type: 'string', enum: ['free', 'paid'], description: 'Which lane served this check.' },
+		free_remaining_today: { type: 'number', description: `Present only on lane:"free" responses — free checks left today (of ${FREE_DAILY_LIMIT}).` },
 	},
 };
 
@@ -368,83 +448,89 @@ const BAZAAR = {
 	}),
 };
 
-// ── Endpoint ──────────────────────────────────────────────────────────────────
+// ── Paid lane (x402) ─────────────────────────────────────────────────────────
+// Built once, lazily, and reused for every over-quota / already-paying request
+// (mirrors api/v1/ai/asr.js's free-lane-then-x402 shape).
 
-export default paidEndpoint({
-	route: ROUTE,
-	method: 'POST',
-	priceAtomics: 100_000, // $0.10
-	networks: ['base', 'solana'],
-	description: DESCRIPTION,
-	bazaar: BAZAAR,
-	service: withService({
-		serviceName: 'three.ws Fact Checker',
-		tags: ['fact-check', 'search', 'verification'],
-	}),
-	requiredScope: 'x402:bypass',
-	accessControl: installAccessControl({ requiredScope: 'x402:bypass' }),
+let _paid = null;
+function paidHandler() {
+	if (_paid) return _paid;
+	_paid = paidEndpoint({
+		route: ROUTE,
+		method: 'POST',
+		priceAtomics: 100_000, // $0.10
+		networks: ['base', 'solana'],
+		description: DESCRIPTION,
+		bazaar: BAZAAR,
+		service: withService({
+			serviceName: 'three.ws Fact Checker',
+			tags: ['fact-check', 'search', 'verification'],
+		}),
+		requiredScope: 'x402:bypass',
+		accessControl: installAccessControl({ requiredScope: 'x402:bypass' }),
 
-	async handler({ req }) {
-		// Parse body from raw Node.js readable stream.
-		const chunks = [];
-		for await (const c of req) chunks.push(c);
-		const rawBody = Buffer.concat(chunks).toString();
+		async handler({ req }) {
+			// The free-lane gate above already buffered the body once (req._factCheckBody);
+			// a direct paid call (X-PAYMENT present on the first request) reads it fresh.
+			const buf = req._factCheckBody ?? (await readBody(req, MAX_BODY_BYTES));
+			const body = parseJsonBody(buf);
+			const { claim, strictness, imageUrl } = parseFactCheckBody(body);
+			const result = await checkClaim(claim, strictness, imageUrl);
+			return { ...result, lane: 'paid' };
+		},
+	});
+	return _paid;
+}
 
-		let body;
-		try {
-			body = JSON.parse(rawBody);
-		} catch {
-			const err = new Error('Request body must be valid JSON');
-			err.status = 400;
-			err.code = 'invalid_json';
-			throw err;
-		}
+// ── Entry point: free daily quota → x402 fall-through ────────────────────────
 
-		const claim = String(body?.claim || '').trim();
-		if (!claim || claim.length < 5) {
-			const err = new Error('"claim" must be at least 5 characters');
-			err.status = 400;
-			err.code = 'invalid_claim';
-			throw err;
-		}
-		if (claim.length > 1000) {
-			const err = new Error('"claim" must be at most 1000 characters');
-			err.status = 400;
-			err.code = 'claim_too_long';
-			throw err;
-		}
+export default wrap(async function handler(req, res) {
+	if (req.method !== 'POST') return paidHandler()(req, res); // let the paid rail's own 405 speak
 
-		const strictness = ['high', 'medium', 'low'].includes(body?.strictness)
-			? body.strictness
-			: 'medium';
+	// Buffer the body once; the paid rail re-reads the same bytes
+	// (req._factCheckBody) so the stream is never consumed twice.
+	let buf;
+	try {
+		buf = await readBody(req, MAX_BODY_BYTES);
+	} catch (e) {
+		return error(res, e?.status || 413, e?.code || 'payload_too_large', e?.message || `request body exceeds the ${MAX_BODY_BYTES}-byte limit`);
+	}
+	req._factCheckBody = buf;
 
-		// Optional image attachment — validated at the boundary as an http(s) URL.
-		let imageUrl = null;
-		if (body?.imageUrl != null) {
-			imageUrl = String(body.imageUrl).trim();
-			if (imageUrl && (!/^https?:\/\//i.test(imageUrl) || imageUrl.length > 2048)) {
-				const err = new Error('"imageUrl" must be an http(s) URL under 2048 characters');
-				err.status = 400;
-				err.code = 'invalid_image_url';
-				throw err;
-			}
-			if (!imageUrl) imageUrl = null;
-		}
+	// A payment header means the caller is already on the paid rail.
+	const paymentPresent = Boolean(req.headers['x-payment'] || req.headers['payment-signature']);
+	if (paymentPresent) return paidHandler()(req, res);
 
-		// Idempotency cache — 7-day TTL. Shape-check the hit: records written by
-		// the old envelope-body redisSet parse to `{value, ex}` and must be
-		// treated as misses, not served as verdicts.
-		const key = cacheKey(claim, strictness, imageUrl);
-		const cached = await redisGet(key);
-		if (cached && typeof cached.verdict === 'string') {
-			return { ...cached, cachedAt: cached.cachedAt || new Date().toISOString() };
-		}
+	// Parse/validate against the boundary so genuinely broken input never
+	// becomes a payment prompt or burns a free-quota slot.
+	let body;
+	try {
+		body = parseJsonBody(buf);
+	} catch (e) {
+		return error(res, e.status || 400, e.code || 'invalid_json', e.message);
+	}
+	let parsed;
+	try {
+		parsed = parseFactCheckBody(body);
+	} catch (e) {
+		return error(res, e.status || 400, e.code || 'bad_request', e.message);
+	}
 
-		const result = await runFactCheck(claim, strictness, imageUrl);
+	// Free daily quota (per IP). Exhausted → the x402 402 challenge.
+	const rl = await limits.factCheckFreeIp(clientIp(req));
+	if (!rl.success) return paidHandler()(req, res);
 
-		// Persist to cache (fire-and-forget on failure).
-		await redisSet(key, result, CACHE_TTL_SECONDS);
-
-		return result;
-	},
+	try {
+		const result = await checkClaim(parsed.claim, parsed.strictness, parsed.imageUrl);
+		return json(
+			res,
+			200,
+			{ ...result, lane: 'free', free_remaining_today: Math.max(0, rl.remaining) },
+			{ 'cache-control': 'no-store' },
+		);
+	} catch (e) {
+		return error(res, e?.status || 502, e?.code || 'provider_error', e?.message || 'fact-check failed');
+	}
 });
+
+export { parseFactCheckBody as _parseFactCheckBody, checkClaim as _checkClaim };

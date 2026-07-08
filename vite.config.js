@@ -358,6 +358,7 @@ const appConfig = {
 				dad: resolve(__dirname, 'pages/dad.html'),
 				'forge-studio': resolve(__dirname, 'pages/forge-studio.html'),
 				'forge-embed': resolve(__dirname, 'pages/forge-embed.html'),
+				restyle: resolve(__dirname, 'pages/restyle.html'),
 				scene: resolve(__dirname, 'pages/scene.html'),
 				segment: resolve(__dirname, 'pages/segment.html'),
 				'create-selfie': resolve(__dirname, 'pages/create-selfie.html'),

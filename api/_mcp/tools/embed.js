@@ -20,6 +20,8 @@ import {
 	forgeEmbedTarget,
 	oembedUrl,
 } from '../../_lib/embed.js';
+import { isEmbedAssetRef, resolveEmbedAsset } from '../../_lib/embed-asset.js';
+import { DEFAULT_GATE_MINT, createEmbedGate, checkAssetOwnership } from '../../_lib/embed-gate.js';
 
 function rpcError(code, message, data) {
 	const e = new Error(message);
@@ -213,6 +215,96 @@ export const toolDefs = [
 							mimeType: 'text/html',
 							text: `<!doctype html><meta charset="utf-8"><body style="margin:0;background:transparent">${embedHtml}</body>`,
 						},
+					},
+				],
+				structuredContent,
+			};
+		},
+	},
+	{
+		name: 'create_gated_embed',
+		title: 'Create a token-gated embed',
+		annotations: {
+			readOnlyHint: false,
+			destructiveHint: false,
+			idempotentHint: false,
+			openWorldHint: true,
+		},
+		description:
+			'Turn an avatar or on-chain agent you own into a holder-only interactive 3D embed. Visitors must prove — with a real, server-verified Solana SPL token balance, never a client-reported number — they hold at least min_amount of mint before the live scene renders; below that they see a designed locked teaser with a connect-wallet CTA. mint defaults to $THREE but accepts any SPL mint at runtime. Returns a ready-to-paste <three-d> embed snippet.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				asset_id: {
+					type: 'string',
+					description: 'The embed asset to gate: "avatar:<uuid>" or "<chainId>:<agentId>" (on-chain agent you own).',
+				},
+				mint: {
+					type: 'string',
+					description: `SPL token mint holders must have a balance of. Defaults to $THREE (${DEFAULT_GATE_MINT}) — pass a different mint to gate with another community's token.`,
+				},
+				min_amount: {
+					type: 'number',
+					exclusiveMinimum: 0,
+					description: 'Minimum token balance a visitor must hold to unlock the embed.',
+				},
+			},
+			required: ['asset_id', 'min_amount'],
+			additionalProperties: false,
+		},
+		scope: 'avatars:write',
+		async handler(args, auth, req) {
+			if (!isEmbedAssetRef(args.asset_id)) {
+				throw rpcError(-32602, 'asset_id must be "<chainId>:<agentId>" or "avatar:<uuid>"');
+			}
+			const asset = await resolveEmbedAsset(args.asset_id);
+			if (!asset) throw new Error(`embed asset "${args.asset_id}" not found`);
+
+			const ownership = await checkAssetOwnership(args.asset_id, auth.userId);
+			if (!ownership.ok) {
+				if (ownership.reason === 'not_owner') {
+					throw new Error(
+						'you do not own this asset — link the owning wallet (or account) to gate it',
+					);
+				}
+				throw new Error(`embed asset "${args.asset_id}" not found`);
+			}
+
+			let gate;
+			try {
+				gate = await createEmbedGate({
+					assetId: args.asset_id,
+					ownerUserId: auth.userId,
+					mint: args.mint || DEFAULT_GATE_MINT,
+					minAmount: args.min_amount,
+					chain: 'solana',
+				});
+			} catch (err) {
+				throw rpcError(-32602, err.message);
+			}
+
+			const origin = resolveOrigin(req);
+			const scriptSrc = `${origin}/embed/v1.js`;
+			const snippet =
+				`<script src="${scriptSrc}" async></script>\n` +
+				`<three-d agent="${args.asset_id}" interactive></three-d>`;
+			const symbol = gate.mint === DEFAULT_GATE_MINT ? '$THREE' : gate.mint;
+
+			const structuredContent = {
+				ok: true,
+				gate_id: gate.gateId,
+				asset_id: gate.assetId,
+				gate: { mint: gate.mint, min_amount: gate.minAmount, chain: gate.chain },
+				embed_snippet: snippet,
+			};
+
+			return {
+				content: [
+					{
+						type: 'text',
+						text:
+							`Gated "${asset.name || args.asset_id}" — visitors need ≥ ${gate.minAmount} ${symbol} to unlock it. ` +
+							`Paste this anywhere HTML is allowed:\n\n${snippet}`,
 					},
 				],
 				structuredContent,

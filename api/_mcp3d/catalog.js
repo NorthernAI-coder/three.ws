@@ -5,6 +5,8 @@ import { buildGettingStartedTool } from '../_lib/mcp-getting-started.js';
 import { priceUsdcForTier } from '../_lib/forge-tiers.js';
 import { toolDefs as studioDefs } from './tools/studio.js';
 import { toolDefs as spatialDefs } from './tools/spatial.js';
+import { toolDefs as arDefs } from './tools/ar.js';
+import { toolDefs as personaIdentityDefs } from './tools/persona-identity.js';
 import { toolDefs as modelDefs } from '../_mcp/tools/models.js';
 import { toolDefs as animationDefs } from '../_mcp/tools/animations.js';
 
@@ -19,7 +21,7 @@ const reusedModelDefs = modelDefs.filter(
 // The animation library (list_animations + apply_animation) completes the
 // pipeline: text_to_3d → auto_rig_model → apply_animation. Same retarget engine
 // the main server exposes — reused here, not duplicated.
-const baseDefs = [...studioDefs, ...spatialDefs, ...reusedModelDefs, ...animationDefs];
+const baseDefs = [...studioDefs, ...spatialDefs, ...arDefs, ...personaIdentityDefs, ...reusedModelDefs, ...animationDefs];
 
 // Free, public entry point — listed first so discovery clients see it up top.
 // Annotations: a static, local overview built at module load — read-only,

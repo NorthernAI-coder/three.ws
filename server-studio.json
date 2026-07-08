@@ -10,12 +10,12 @@
 			"sizes": ["any"]
 		}
 	],
-	"description": "Free text/image → 3D: generate, rig, and avatar-ify GLB models. No auth, no payment, five tools.",
+	"description": "Free text/image → 3D: generate, rig, avatar-ify, and conversationally refine GLB models, plus persistent lip-syncing agent personas. No auth, no payment, nine tools.",
 	"repository": {
 		"url": "https://github.com/nirholas/three.ws",
 		"source": "github"
 	},
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"remotes": [
 		{
 			"type": "streamable-http",
