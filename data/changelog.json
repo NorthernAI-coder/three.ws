@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-07-08",
+			"title": "Restyle Studio can now AI-restyle any model and remembers every version",
+			"summary": "Restyle Studio (/restyle) now takes a plain-language instruction — \"make it chrome\", \"worn copper\", \"cyberpunk neon\" — and asks IBM Granite for a real PBR material plus a generated seamless texture, applied live to any GLB. Seeded colorway variants can now be saved as real, separately downloadable models instead of just a browser preview: one click mints all N as durable, glTF-validated GLBs. Every AI restyle and every saved variant is recorded in an immutable parent \u2192 child version lineage \u2014 the same versioning refine_model uses \u2014 so you can click back to any earlier look without losing your place; the original is never touched. The restyle_material MCP tool exposes the same engine to agents.",
+			"tags": [
+				"feature"
+			],
+			"link": "/restyle"
+		},
+		{
+			"date": "2026-07-08",
 			"title": "Talk to your model, and remix the bazaar — right in Forge Studio",
 			"summary": "Conversational iteration and the remix economy are now live in the Forge Studio UI, not just over the API and MCP tools. After any generation, an Iterate panel lets you describe a change — \"make it metallic\", \"bigger helmet\" — and Apply regenerates a new version anchored to the one you see, with a version-strip you can click to revert instantly or branch a new line of changes from any earlier point; the viewer cross-fades in the new version, never a pop or a frozen frame. A new Remix economy panel lets you publish a model you made as remixable — pick a license, a royalty rate up to 20%, and the Solana wallet that collects it — and browse everyone else's published, remixable models with their provenance and royalty terms shown up front. Remixing one is a real $0.25 USDC payment; the platform generates the new version and automatically routes the source creator's royalty on-chain, with the settlement receipt shown inline. Iteration stays free and payment-free on every track; publishing and remixing are Claude/paid-track only.",
 			"tags": [
