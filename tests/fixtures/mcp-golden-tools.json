@@ -2567,6 +2567,21 @@
 			"schemaHash": "4324bb5ace2b"
 		}
 	],
+	"packages/scene-mcp/src/tools/build-world.js": [
+		{
+			"name": "build_world",
+			"title": "Build a complete 3D world from one sentence (no browser needed)",
+			"descHead": "One sentence → a fully forged, exported 3D world, entirely server-side: ",
+			"descHash": "2ddf7bfcb02d",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "29ac5e687952"
+		}
+	],
 	"packages/scene-mcp/src/tools/compose-scene.js": [
 		{
 			"name": "compose_scene",
@@ -2580,6 +2595,21 @@
 				"openWorldHint": true
 			},
 			"schemaHash": "cc6d79ff4756"
+		}
+	],
+	"packages/scene-mcp/src/tools/export-scene.js": [
+		{
+			"name": "export_scene",
+			"title": "Export a forged diorama as one GLB scene",
+			"descHead": "Merge an already-forged diorama (objects with real glbUrl values, e.g. f",
+			"descHash": "910a519b23de",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "ac725edfea3d"
 		}
 	],
 	"packages/scene-mcp/src/tools/get-scene.js": [
