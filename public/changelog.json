@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-08T00:58:37.633Z",
+	"generated_at": "2026-07-08T01:01:12.281Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -89,6 +89,16 @@
 		{
 			"date": "2026-07-08",
 			"type": "launch",
+			"title": "Restyle Studio — material presets & variants",
+			"summary": "Re-skin any 3D model in the browser: apply PBR material presets (chrome, gold, glass, wood…), generate seeded colorway variants, fine-tune metalness and roughness, and export a validated GLB — non-destructively.",
+			"link": "/restyle",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "launch",
 			"title": "Stablecoins Market Cap & Peg Health",
 			"summary": "Every major stablecoin ranked by circulating market cap, with live peg health, backing mechanism (fiat-backed, crypto-backed, algorithmic), and the chains it lives on. Live from DeFiLlama.",
 			"link": "/stablecoins",
@@ -130,6 +140,16 @@
 		{
 			"date": "2026-07-08",
 			"type": "update",
+			"title": "Fixed: the \"View it\" link on every generated 3D model now opens a real viewer",
+			"summary": "The viewer link returned with every generated model (/viewer?src=…) previously returned a 404. It now opens a polished, interactive 3D viewer — orbit, zoom, AR on mobile, one-tap GLB download — with designed loading, empty, and error states. This affects every model made through the 3D Studio, in chat or on the web.",
+			"link": null,
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
 			"title": "Give your agent a 3D body in one call — the new Embodiment endpoint",
 			"summary": "Any AI agent can now buy itself a real presence in a single USDC payment: POST a name plus a text description (or a reference photo) to the new Embodiment endpoint and get back a rigged, animated, talking 3D avatar, a durable persona id that reloads in any future session, and a one-tag embed snippet for any website. It's the same free generate-and-rig chain that powers the 3D Studio, packaged as one paid call — no separate rigging step, no account. Generation failures never settle, so a buyer is only ever charged for a finished body.",
 			"link": "/docs/embody",
@@ -160,8 +180,28 @@
 		{
 			"date": "2026-07-08",
 			"type": "update",
+			"title": "New guide: BNB Chain payments (MPP) and gasless sends",
+			"summary": "A zero-context developer guide covering how to pay three.ws endpoints over MPP on BNB Chain, how our agents pay MPP endpoints, and how BNB Chain's block-level gas sponsorship (MegaFuel) lets a plain wallet send a transaction with zero gas — with an honest self-pay fallback for when sponsorship isn't available. Includes a wire-level bridge spec pinning how x402 and MPP map to each other.",
+			"link": null,
+			"tags": [
+				"docs"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
 			"title": "New shared DeFi utility library: one source of truth for chain and token constants across EVM and Solana",
 			"summary": "Added @three-ws/defi-utils, a zero-dependency internal package with chain IDs, native-token symbols, common token addresses (including SPA and USDs on Arbitrum), and minimal ERC-20 ABI fragments for nine EVM chains, plus a Solana extension (SOL/USDC/$THREE mint resolution and base58 address validation). Also ships address and amount validators and USD/percent/token-amount formatters. It replaces ad hoc constant duplication across the codebase's API handlers and frontend modules going forward.",
+			"link": null,
+			"tags": [
+				"sdk"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
+			"title": "New tool-authoring SDK: define an agent tool once — typed params, permissions, and rate limits included",
+			"summary": "Internal SDK release for developers extending three.ws's 38 MCP servers: @three-ws/tool-sdk lets a tool be declared once with defineTool (Zod parameter schemas, auto-derived JSON Schema, a per-tool permission manifest for network access/rate limits/wallet use) and wired up with defineExecutor (typed handlers, automatic validation, uniform error wrapping) — then adapted into a live MCP server registration with a single toMcpTools() call. Proven by refactoring the naming MCP server's sns_resolve tool onto it with byte-identical behavior.",
 			"link": null,
 			"tags": [
 				"sdk"
@@ -176,6 +216,17 @@
 			"tags": [
 				"fix",
 				"infra"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
+			"title": "Spatial MCP: 3D models are now a native, interactive response type",
+			"summary": "We published an open standard — Spatial MCP — for returning a live, interactive 3D scene as a first-class AI tool result instead of a link in text. Every three.ws 3D tool now emits a conformant artifact (camera, lighting, animation, AR handoff), a public validator checks conformance with actionable errors, and a framework-free reference renderer displays any conformant payload — including ones transformed from other tools. It carries no wallet or token surface, so it works everywhere. Try the reference renderer.",
+			"link": "/spatial-mcp",
+			"tags": [
+				"feature",
+				"docs"
 			]
 		},
 		{
@@ -196,6 +247,17 @@
 			"link": "/docs/api-reference",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
+			"title": "three.ws now speaks BNB Chain's payment protocol (MPP), both ways",
+			"summary": "Our paid endpoints now accept payments over MPP — BNB Chain's Machine Payments Protocol — in addition to the x402 payments we already take on Solana and Base. Because MPP is x402 v2 under the hood, the same signed-stablecoin credential works; agents from the BNB ecosystem can now pay us on BNB Chain, settling through the Binance OnchainPay facilitator, while every existing Solana/Base payment path is untouched. The $THREE Town Oracle is the first endpoint to accept both. Our own agents can pay any MPP-protected endpoint too, with a hard per-call spending cap that refuses an over-quote before any money moves.",
+			"link": null,
+			"tags": [
+				"feature",
+				"sdk"
 			]
 		},
 		{
