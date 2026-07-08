@@ -191,7 +191,38 @@
 			"schemaHash": "5d9b231c5a24"
 		}
 	],
+	"api/_mcp/tools/crypto-data.js": [
+		{
+			"name": "crypto_data",
+			"title": "Crypto Data API",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": "ref:READ_ONLY_LIVE_FEED",
+			"schemaHash": "87529a9dd287"
+		},
+		{
+			"name": "token_snapshot",
+			"title": "Crypto token snapshot",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": "ref:READ_ONLY_LIVE_FEED",
+			"schemaHash": "1ba25dd7ff2b"
+		}
+	],
 	"api/_mcp/tools/embed.js": [
+		{
+			"name": "create_gated_embed",
+			"title": "Create a token-gated embed",
+			"descHead": "Turn an avatar or on-chain agent you own into a holder-only interactive ",
+			"descHash": "c75c31fa64bd",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "a8039900c799"
+		},
 		{
 			"name": "get_embed_code",
 			"title": "Get embed code",
@@ -442,6 +473,90 @@
 			"descHash": "aaff472b3eae",
 			"annotations": "ref:LIVE",
 			"schemaHash": "4dc84b2cce04"
+		}
+	],
+	"api/_mcp3d/tools/ar.js": [
+		{
+			"name": "export_ar",
+			"title": "Export a model for AR (\"View in your space\")",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"destructiveHint": false,
+				"idempotentHint": true,
+				"openWorldHint": false
+			},
+			"schemaHash": "e5d96ef9555d"
+		}
+	],
+	"api/_mcp3d/tools/persona-identity.js": [
+		{
+			"name": "persona_identity",
+			"title": "Read a persona's on-chain identity — wallet, reputation, holdings",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": "ref:READ_ANNOTATIONS",
+			"schemaHash": "a9b240149140"
+		},
+		{
+			"name": "persona_send",
+			"title": "Send USDC from a persona's own wallet",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": "ref:VALUE_ANNOTATIONS",
+			"schemaHash": "f4e3dc8d161c"
+		},
+		{
+			"name": "persona_tip",
+			"title": "Tip USDC from a persona's own wallet",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": "ref:VALUE_ANNOTATIONS",
+			"schemaHash": "f4e3dc8d161c"
+		}
+	],
+	"api/_mcp3d/tools/provenance.js": [
+		{
+			"name": "anchor_provenance",
+			"title": "Anchor a signed content credential for a 3D model",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "ab4040f2db3a"
+		},
+		{
+			"name": "verify_provenance",
+			"title": "Verify a 3D model authenticity (content credential)",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"destructiveHint": false,
+				"idempotentHint": true,
+				"openWorldHint": true
+			},
+			"schemaHash": "892619deae7b"
+		}
+	],
+	"api/_mcp3d/tools/spatial.js": [
+		{
+			"name": "validate_spatial_response",
+			"title": "Validate a Spatial MCP 3D artifact",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"destructiveHint": false,
+				"idempotentHint": true,
+				"openWorldHint": false
+			},
+			"schemaHash": "ea35f61d6c1f"
 		}
 	],
 	"api/_mcp3d/tools/studio.js": [
@@ -2193,8 +2308,7 @@
 				"readOnlyHint": true,
 				"idempotentHint": false,
 				"openWorldHint": true
-			},
-			"schemaHash": "665d28ca0f6a"
+			}
 		}
 	],
 	"packages/naming-mcp/src/tools/sns-reverse.js": [
