@@ -17,6 +17,7 @@
 import { openChat } from './npc-chat.js';
 import { openAixbtTerminal } from './npc-aixbt.js';
 import { openZauthScanner } from './npc-zauth.js';
+import { spawnsOfType } from '../world-zones.js';
 
 const AVATAR_A = '/avatars/default.glb';
 const AVATAR_B = '/avatars/cz.glb';
@@ -265,6 +266,52 @@ export function npcCatalogFor() {
 			persona: 'You are Banker Cole, the smooth-talking frontier banker who runs the launchpad — you front the SOL and put a live coin on the board. Polished, persuasive, a dealmaker who makes launching sound easy. Confident without being pushy.',
 		}),
 	});
+
+	// The boutique (W03) — two physical storefronts on the 'boutique' stalls
+	// world-zones.js reserves for them. Walking up opens the real CosmeticsShop
+	// / CosmeticsWardrobe panels (server-authoritative catalog + x402 purchase +
+	// persisted equip — the same system the HUD's Shop/My Fits buttons already
+	// drive). This just gives that system a place to stand in the world instead
+	// of only a menu button. world.openShop / world.openWardrobe are bound by
+	// coincommunities.js. (Distinct from the 'vendor' stalls, which the general
+	// store/W04 economy NPCs occupy — see economy-npcs.js.)
+	const [tailorStall, fittingStall] = spawnsOfType('boutique');
+
+	if (tailorStall) {
+		list.push({
+			id: 'npc-tailor',
+			name: 'Roux · Tailor',
+			role: 'vendor',
+			avatar: AVATAR_B,
+			pos: { x: tailorStall.x, z: tailorStall.z },
+			yaw: tailorStall.yaw,
+			range: 5,
+			prompt: 'Browse the wardrobe',
+			onInteract: ({ npc, world }) => {
+				npc.say('Fresh fits, hats, and paint jobs — come take a look.');
+				npc.emote('av-call-me');
+				if (typeof world?.openShop === 'function') world.openShop();
+			},
+		});
+	}
+
+	if (fittingStall) {
+		list.push({
+			id: 'npc-fitting-room',
+			name: 'Nell · Fitting Room',
+			role: 'vendor',
+			avatar: AVATAR_A,
+			pos: { x: fittingStall.x, z: fittingStall.z },
+			yaw: fittingStall.yaw,
+			range: 5,
+			prompt: 'Open your fits',
+			onInteract: ({ npc, world }) => {
+				npc.say('Everything you already own is right here — pick your look.');
+				npc.emote('av-call-me');
+				if (typeof world?.openWardrobe === 'function') world.openWardrobe();
+			},
+		});
+	}
 
 	return list;
 }

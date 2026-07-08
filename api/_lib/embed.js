@@ -68,12 +68,24 @@ export function onchainEmbedTarget(origin, chainId, agentId) {
 	};
 }
 
-export function forgeEmbedTarget(origin, id) {
+// glbUrl/title are optional so callers that only have the id (e.g. building a
+// shareUrl before the row is loaded) still get a valid, if generic, target.
+// When glbUrl is supplied, embedUrl points at the lightweight, zero-dependency
+// /forge/embed viewer (orbit + AR + branding) — the same route
+// src/forge-embed-snippets.js hands out in copy-paste snippets — rather than the
+// full Forge app, so an <iframe src="embedUrl"> stays small and AR-capable.
+export function forgeEmbedTarget(origin, id, glbUrl, title) {
 	const enc = encodeURIComponent(String(id));
+	const embedUrl = glbUrl
+		? `${origin}/forge/embed?${new URLSearchParams({
+				src: glbUrl,
+				...(title ? { title: String(title).slice(0, 120) } : {}),
+			})}`
+		: `${origin}/forge?share=${enc}`;
 	return {
-		embedUrl: `${origin}/forge?share=${enc}`,
+		embedUrl,
 		shareUrl: `${origin}/forge/share/${id}`,
-		thumbnailUrl: `${origin}/api/forge/${id}/og`,
+		thumbnailUrl: `${origin}/api/forge-og?id=${enc}`,
 	};
 }
 

@@ -1181,6 +1181,10 @@ export class CoinCommunities {
 				symbol: coin.symbol,
 				seed: seedFromString(coin.mint) >>> 0,
 				biome: this.env?.biome,
+				// Boutique NPCs (W03) call these to open the real cosmetics shop /
+				// wardrobe panels — same panels the HUD buttons drive.
+				openShop: () => this._toggleShop(),
+				openWardrobe: () => this._toggleWardrobe(),
 			},
 			radius: WORLD_RADIUS - 4,
 		});

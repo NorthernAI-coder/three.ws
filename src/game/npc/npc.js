@@ -24,6 +24,7 @@ const BUBBLE_MS = 4600;
 const ROLE_TINT = {
 	vendor: 'rgba(120, 220, 160, 0.95)',
 	quest:  'rgba(255, 210, 120, 0.95)',
+	bank:   'rgba(230, 180, 34, 0.95)',
 	flavor: 'rgba(255, 255, 255, 0.92)',
 };
 

@@ -314,6 +314,13 @@
 .ps-cos-card.is-equipped { border-color: #fff; background: rgba(255, 255, 255, 0.14); box-shadow: var(--cc-glow); cursor: default; }
 .ps-cos-card.is-locked { opacity: 0.5; cursor: default; }
 .ps-cos-card.is-locked:hover { transform: none; }
+/* A locked item with a real $THREE price is a working buy action, not a dead
+ * end (CLAUDE.md: every button/link must do something) — dim it less than an
+ * unpurchasable placeholder and restore the normal interactive affordance. */
+.ps-cos-card.is-locked[role="button"] { opacity: 0.82; cursor: pointer; }
+.ps-cos-card.is-locked[role="button"]:hover { background: rgba(255, 255, 255, 0.1); border-color: var(--cc-edge); transform: translateY(-2px); }
+.ps-cos-card.is-locked[role="button"].ps-cos-busy { opacity: 0.55; cursor: wait; pointer-events: none; }
+.ps-cos-status.ps-cos-price { color: var(--cc-text); font-weight: 700; }
 .ps-cos-preview {
 	position: relative;
 	aspect-ratio: 1;

@@ -108,6 +108,17 @@ export const SPAWN_POINTS = [
 	{ id: 'vendor-ne', type: 'vendor', x: 44, z: -44, yaw: -Math.PI * 0.75, zone: 'streets' },
 	{ id: 'vendor-sw', type: 'vendor', x: -44, z: 44, yaw: Math.PI * 0.25, zone: 'streets' },
 
+	// The bank/ATM (W04) — one teller on the Downtown plaza, close enough to
+	// spawn that a fresh player finds it without a hike, clear of both the
+	// Agent Exchange roster (x ≈ -16..16) and the vendor stalls above.
+	{ id: 'atm-downtown', type: 'atm', x: 0, z: -30, yaw: Math.PI, zone: 'downtown' },
+
+	// Cosmetics boutique storefronts (W03) — mirrors the vendor stalls onto the
+	// ring's other diagonal so the general-store clerks (vendor-ne/sw) and the
+	// boutique never share a spot.
+	{ id: 'boutique-se', type: 'boutique', x: 44, z: 44, yaw: Math.PI * 0.75, zone: 'streets' },
+	{ id: 'boutique-nw', type: 'boutique', x: -44, z: -44, yaw: -Math.PI * 0.25, zone: 'streets' },
+
 	// Race start grid down the dock front (race / mission briefs).
 	{ id: 'race-dock-1', type: 'race-grid', x: 150, z: -10, yaw: Math.PI, zone: 'docks' },
 	{ id: 'race-dock-2', type: 'race-grid', x: 150, z: 0, yaw: Math.PI, zone: 'docks' },

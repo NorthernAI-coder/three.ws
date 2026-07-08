@@ -137,6 +137,10 @@ export class CommunityNet {
 			xpgain: new Set(),      // ({skill, amount, xp, level, levelXp, nextXp})
 			levelup: new Set(),     // ({skill, level})
 			notice: new Set(),      // ({kind, text, ...}) — activity result toast (fish/eat/tool/full/quest)
+			// General store, bank/ATM & the $THREE boutique (W04).
+			store: new Set(),          // ({sell:[{item,label,price}], buy:[{item,qty,price,label}]})
+			boutique: new Set(),       // ({listings, owned, configured}) — premium cosmetics priced in $THREE
+			boutiqueQuote: new Set(),  // ({id, price, quoteToken, txBase64}) — unsigned $THREE purchase to sign
 			quests: new Set(),      // ({offers, active, day}) — jobs board + active runs (W05)
 			questComplete: new Set(), // ({id, title, reward, kind, coop}) — a mission/heist finished
 			combat: new Set(),      // ({node, kind, mobHp, mobMaxHp, playerHp, playerMaxHp, dealt, dead, ...}) — combat-lite exchange
@@ -284,6 +288,10 @@ export class CommunityNet {
 			this.room.onMessage('xpgain', (msg) => this._emit('xpgain', msg || {}));
 			this.room.onMessage('levelup', (msg) => this._emit('levelup', msg || {}));
 			this.room.onMessage('notice', (msg) => this._emit('notice', msg || {}));
+			// General store, bank/ATM & the $THREE boutique (W04).
+			this.room.onMessage('store', (msg) => this._emit('store', msg || {}));
+			this.room.onMessage('boutique', (msg) => this._emit('boutique', msg || {}));
+			this.room.onMessage('boutiqueQuote', (msg) => this._emit('boutiqueQuote', msg || {}));
 			// Quests, jobs & heists (W05): the board + active runs and completion events.
 			this.room.onMessage('quests', (msg) => this._emit('quests', msg || {}));
 			this.room.onMessage('questComplete', (msg) => this._emit('questComplete', msg || {}));
@@ -521,6 +529,21 @@ export class CommunityNet {
 	equip(slot) { this._send('equip', { slot }); }
 	consume(ref) { this._send('consume', { slot: ref }); }
 	requestProfile() { this._send('profileReq'); }
+	// General store & bank/ATM (W04). Cash trades and banking settle purely
+	// off-schema; the result streams back via the 'store'/'profile'/'inv'/
+	// 'notice' events above.
+	requestStore() { this._send('storeReq'); }
+	storeBuy(item) { this._send('storeBuy', { item }); }
+	storeSell(slot, qty) { this._send('storeSell', { slot, qty }); }
+	bank(amount) { this._send('bank', { amount }); }
+	// The $THREE boutique (W04). requestBoutique() fetches the catalog + owned
+	// set; boutiqueQuote() prices one item and returns the unsigned tx to sign
+	// (the reply arrives via the 'boutiqueQuote' event); boutiqueSettle() hands
+	// back the broadcast signature for the server to verify on-chain before it
+	// grants anything.
+	requestBoutique() { this._send('boutiqueReq'); }
+	boutiqueQuote(id, wallet) { this._send('boutiqueQuote', { id, wallet }); }
+	boutiqueSettle(quoteToken, txSig) { this._send('boutiqueSettle', { quoteToken, txSig }); }
 	// Quests, jobs & heists (W05). Server-authoritative: accept/abandon a mission and
 	// interact at a quest object; the board + progress arrive via the 'quests' event
 	// and completions via 'questComplete'. questInteract acts on the zone the server

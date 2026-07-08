@@ -30,8 +30,10 @@ import {
 	hashClient,
 	forgeStoreEnabled,
 	listRemixable,
+	listMostRemixed,
 	setRemixable,
 	getLineage,
+	validModelCategory,
 } from './_lib/forge-store.js';
 import { clampRoyaltyBps } from './_lib/remix-royalty.js';
 
@@ -57,10 +59,32 @@ function publicItem(it) {
 		royaltyPayable: Boolean(it.royaltyPayable),
 		isDerived: Boolean(it.isDerived),
 		lineageIndex: it.lineageIndex ?? 0,
+		remixCount: it.remixCount ?? 0,
 		category: it.model_category ?? 'other',
 		createdAt: it.created_at,
 	};
 }
+
+// Trending item: a most-remixed asset, which may since have been unpublished
+// (remixable: false) — its remix history is a fact even if the terms changed.
+function trendingItem(it) {
+	return {
+		id: it.id,
+		prompt: it.prompt,
+		glbUrl: it.glb_url,
+		previewImageUrl: it.preview_image_url ?? null,
+		viewerUrl: `https://three.ws/viewer?src=${encodeURIComponent(it.glb_url)}`,
+		royaltyBps: it.royaltyBps ?? 0,
+		royaltyPercent: Math.round(((it.royaltyBps ?? 0) / 100) * 10) / 10,
+		royaltyPayable: Boolean(it.royaltyPayable),
+		remixable: Boolean(it.remixable),
+		remixCount: it.remixCount ?? 0,
+		category: it.model_category ?? 'other',
+		createdAt: it.created_at,
+	};
+}
+
+const SORTS = new Set(['recent', 'royalty', 'remixed']);
 
 async function handleGet(req, res) {
 	const url = new URL(req.url, 'http://localhost');
@@ -84,15 +108,35 @@ async function handleGet(req, res) {
 		return json(res, 200, { enabled: true, lineage }, { 'cache-control': 'public, s-maxage=30, stale-while-revalidate=120' });
 	}
 
+	// The trending half of the creator marketplace leaderboard (prompt 09) —
+	// the most-remixed published assets platform-wide, a real count of child
+	// creations, not a synthetic popularity score.
+	if (action === 'trending') {
+		const limit = Math.min(Math.max(Number(url.searchParams.get('limit')) || 10, 1), 24);
+		const rows = await listMostRemixed({ limit });
+		return json(
+			res,
+			200,
+			{ enabled: true, items: rows.map(trendingItem) },
+			{ 'cache-control': 'public, s-maxage=60, stale-while-revalidate=300' },
+		);
+	}
+
 	const limit = Math.min(Math.max(Number(url.searchParams.get('limit')) || 24, 1), 48);
 	const before = (url.searchParams.get('before') || '').trim() || undefined;
-	const rows = await listRemixable({ limit, before });
+	const category = validModelCategory((url.searchParams.get('category') || '').trim()) || undefined;
+	const q = (url.searchParams.get('q') || '').trim() || undefined;
+	const sortRaw = (url.searchParams.get('sort') || '').trim();
+	const sort = SORTS.has(sortRaw) ? sortRaw : 'recent';
+	const rows = await listRemixable({ limit, before, category, q, sort });
 	const items = rows.map(publicItem);
-	const next = items.length === limit ? items[items.length - 1].createdAt : null;
+	// A non-recent sort returns a fixed top-N leaderboard slice (see
+	// listRemixable) — no cursor, no infinite scroll, by design.
+	const next = sort === 'recent' && items.length === limit ? items[items.length - 1].createdAt : null;
 	return json(
 		res,
 		200,
-		{ enabled: true, items, next },
+		{ enabled: true, items, next, sort, category: category ?? null, q: q ?? null },
 		{ 'cache-control': 'public, s-maxage=30, stale-while-revalidate=120' },
 	);
 }

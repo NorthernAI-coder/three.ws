@@ -31,6 +31,7 @@ import { itemDisplay } from './items.js';
 import {
 	COSMETICS, SLOTS, SLOT_LABELS, getCosmetic, DEFAULT_LOADOUT,
 } from '../../multiplayer/src/cosmetics-catalog.js';
+import { buyBoutiqueItem } from './boutique-purchase.js';
 import './play-systems.css';
 
 // Rarity → display label + accent, shared by the inventory cards. Keeps the
@@ -534,13 +535,21 @@ export class PlaySystems {
 	}
 
 	// One wardrobe card: preview (GLB thumb or colour swatch), name, rarity, and a
-	// state-appropriate action — Equipped (current), Equip (owned), or Locked (a
-	// premium item not yet purchased, routed to the shop).
+	// state-appropriate action — Equipped (current), Equip (owned), or a real Buy
+	// action priced in $THREE (locked + purchasable — the W04 boutique). A locked
+	// item with no price (shouldn't happen for a premium tier, but guarded) stays
+	// inert rather than offering a dead click.
 	_cosmeticCard(item, { owned, isEquipped }) {
 		const rarity = RARITY_META[item.rarity] || RARITY_META.common;
 		const preview = item.thumb
 			? el('img', { class: 'ps-cos-thumb', src: item.thumb, alt: '', loading: 'lazy', draggable: 'false' })
 			: el('span', { class: 'ps-cos-swatch', style: `background:${item.swatch || '#888'}`, 'aria-hidden': 'true' });
+
+		const buyable = !owned && Number(item.price) > 0;
+		const statusText = isEquipped ? 'Equipped'
+			: owned ? 'Owned'
+			: buyable ? `${Number(item.price).toLocaleString()} $THREE`
+			: 'Locked';
 
 		const card = el('div', {
 			class: `ps-cos-card ${rarity.cls}${isEquipped ? ' is-equipped' : ''}${owned ? '' : ' is-locked'}`,
@@ -551,12 +560,24 @@ export class PlaySystems {
 				isEquipped ? el('span', { class: 'ps-cos-check', text: '✓', 'aria-hidden': 'true' }) : null,
 			]),
 			el('span', { class: 'ps-cos-name', text: item.name }),
-			el('span', { class: 'ps-cos-status', text: isEquipped ? 'Equipped' : (owned ? 'Owned' : 'Locked') }),
+			el('span', { class: `ps-cos-status${buyable ? ' ps-cos-price' : ''}`, text: statusText }),
 		]);
 
 		if (!owned) {
-			card.setAttribute('title', 'Unlock this in the shop');
-			card.setAttribute('aria-disabled', 'true');
+			if (!buyable) {
+				card.setAttribute('title', 'Not yet purchasable');
+				card.setAttribute('aria-disabled', 'true');
+				return card;
+			}
+			card.setAttribute('role', 'button');
+			card.setAttribute('tabindex', '0');
+			card.setAttribute('title', `Buy ${item.name} for ${item.price} $THREE`);
+			card.setAttribute('aria-label', `Buy ${item.name} for ${item.price} $THREE`);
+			const buy = () => this._buyPremium(item, card);
+			card.addEventListener('click', buy);
+			card.addEventListener('keydown', (e) => {
+				if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); buy(); }
+			});
 			return card;
 		}
 		// Owned + not equipped → clickable to equip. Equipped → inert (use Remove).
@@ -573,6 +594,35 @@ export class PlaySystems {
 			card.setAttribute('aria-label', `${item.name}, equipped`);
 		}
 		return card;
+	}
+
+	// Buy a locked premium cosmetic with $THREE (W04 boutique): connect wallet →
+	// server-priced quote → sign → broadcast → the server re-verifies the
+	// confirmed transaction on-chain before granting anything. A fresh 'profile'
+	// snapshot (sent by the server on a successful grant) re-renders this panel
+	// with the item now owned — no optimistic local mutation.
+	async _buyPremium(item, card) {
+		if (!this.net || card?.classList.contains('ps-cos-busy')) return;
+		card?.classList.add('ps-cos-busy');
+		const stageText = {
+			connecting: 'Connecting your wallet…',
+			pricing: 'Pricing the purchase…',
+			signing: 'Approve the purchase in your wallet…',
+			broadcasting: 'Submitting on-chain…',
+			settling: 'Confirming your unlock…',
+		};
+		try {
+			const res = await buyBoutiqueItem({
+				net: this.net,
+				item,
+				onStage: (stage) => { if (stageText[stage]) this.ui?.toast?.(stageText[stage], 'info'); },
+			});
+			this.ui?.toast?.(res.text || `Unlocked ${item.name}.`, 'success');
+		} catch (err) {
+			this.ui?.toast?.(err?.message || `Could not buy ${item.name}.`, 'warn');
+		} finally {
+			card?.classList.remove('ps-cos-busy');
+		}
 	}
 
 	// Send the equip intent. The server validates ownership, persists the loadout to

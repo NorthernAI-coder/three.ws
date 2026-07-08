@@ -94,10 +94,16 @@ export default wrap(async (req, res) => {
 	// otherwise prefer the richer raw thumbnail when the avatar is public.
 	const forcedOgImage = walletShare ? ogImage : null;
 
+	// /api/oembed (extractAgentId) only resolves the canonical /agent/:id shape —
+	// not the /share or /wallet variants — so discovery is only offered here.
+	const oembedJsonUrl = walletShare
+		? null
+		: `${origin}/api/oembed?url=${encodeURIComponent(deepUrl)}&format=json`;
+
 	res.statusCode = 200;
 	res.setHeader('content-type', 'text/html; charset=utf-8');
 	res.setHeader('cache-control', 'public, max-age=60, s-maxage=600, stale-while-revalidate=3600');
-	res.end(renderHtml({ title, desc, pageUrl, deepUrl, ogImage, thumbUrl, forcedOgImage, name, origin }));
+	res.end(renderHtml({ title, desc, pageUrl, deepUrl, ogImage, thumbUrl, forcedOgImage, name, origin, oembedJsonUrl }));
 });
 
 function redirect(res, to) {
@@ -120,7 +126,7 @@ function esc(s) {
 	);
 }
 
-function renderHtml({ title, desc, pageUrl, deepUrl, ogImage, thumbUrl, forcedOgImage, name, origin }) {
+function renderHtml({ title, desc, pageUrl, deepUrl, ogImage, thumbUrl, forcedOgImage, name, origin, oembedJsonUrl }) {
 	const t = esc(title);
 	const d = esc(desc);
 	// A wallet share forces the SVG card (it carries the wallet identity); otherwise
@@ -163,6 +169,7 @@ function renderHtml({ title, desc, pageUrl, deepUrl, ogImage, thumbUrl, forcedOg
 	<meta property="fc:frame:button:2:target" content="${esc(origin)}/agents">
 
 	<link rel="canonical" href="${esc(pageUrl)}">
+	${oembedJsonUrl ? `<link rel="alternate" type="application/json+oembed" href="${esc(oembedJsonUrl)}" title="${t} oEmbed">` : ''}
 	<link rel="shortcut icon" href="/favicon.ico">
 
 	<style>

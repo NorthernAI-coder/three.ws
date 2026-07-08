@@ -200,14 +200,21 @@ describe('on-chain agent embed', () => {
 // ── Forge creation embed ─────────────────────────────────────────────────────
 describe('forge creation embed', () => {
 	it('returns a forge embed snippet for a finished creation', async () => {
-		sqlState.queue = [[{ id: CREATION_ID, status: 'done', glb_url: 'https://cdn.test/m.glb' }]];
+		sqlState.queue = [[{ id: CREATION_ID, status: 'done', glb_url: 'https://cdn.test/m.glb', prompt: 'a robot' }]];
 		const { body } = await invoke(call({ creation_id: CREATION_ID, height: 540 }));
 		const sc = body.result.structuredContent;
 		expect(sc.ok).toBe(true);
-		expect(sc.embed_html).toContain(`https://three.ws/forge?share=${CREATION_ID}`);
+		// The lightweight /forge/embed viewer (AR-capable, zero-dependency) — not
+		// the full /forge app — so an <iframe src=embed_html> stays small.
+		expect(sc.embed_html).toContain('https://three.ws/forge/embed?src=');
+		expect(sc.embed_html).toContain(encodeURIComponent('https://cdn.test/m.glb'));
 		expect(sc.embed_html).toContain('height="540"');
 		expect(sc.share_url).toBe(`https://three.ws/forge/share/${CREATION_ID}`);
-		expect(sc.oembed_url).toBeNull();
+		// /api/oembed now resolves /forge/share/:id (extractForgeId), so Forge
+		// creations get a real oEmbed URL like every other embeddable target.
+		expect(sc.oembed_url).toBe(
+			`https://three.ws/api/oembed?url=${encodeURIComponent(`https://three.ws/forge/share/${CREATION_ID}`)}`,
+		);
 	});
 
 	it('rejects a still-generating creation with a designed error', async () => {

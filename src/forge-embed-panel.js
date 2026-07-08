@@ -1,15 +1,22 @@
 // Forge embed panel — turn a finished creation into a one-line embed for any
-// website. Self-contained: it reads the live GLB URL straight off the result
-// bar's Download link, so it never needs Forge's internal state and stays
-// decoupled from src/forge.js (which is edited often).
+// website, agent, or companion. Self-contained: it reads the live GLB URL
+// straight off the result bar's Download link, so it never needs Forge's
+// internal state and stays decoupled from src/forge.js (which is edited often).
 //
-// Two embed flavours, both real:
-//   • iframe  — points at /forge/embed?src=<glb>, a zero-dependency three.ws
-//     viewer page (orbit + AR + branding). Works on any site, no scripts,
-//     no CORS to worry about (the iframe document is same-origin with the GLB
-//     host the way Forge already loads it).
-//   • web component — a <model-viewer> snippet for builders who want the model
-//     inline in their own DOM with their own controls.
+// Five flavours, all real:
+//   • iframe        — points at /forge/embed?src=<glb>, a zero-dependency
+//     three.ws viewer page (orbit + AR + branding). Works on any site, no
+//     scripts, no CORS to worry about.
+//   • web component  — a <model-viewer> snippet for builders who want the
+//     model inline in their own DOM with their own controls.
+//   • <agent-3d>     — the platform's own pure-3D web component.
+//   • page-agent     — "add to your agent": a @three-ws/page-agent guide that
+//     narrates your page with this exact body (Option B custom-avatar path).
+//   • walk companion — "add to your site": a @three-ws/walk corner companion
+//     roster entry for this exact body.
+// The last two turn a Forge creation into distribution beyond a static
+// viewer — the same rigged model becomes a talking guide or a walking
+// companion elsewhere, one paste.
 
 import { Modal } from './shared/modal.js';
 import {
@@ -22,6 +29,8 @@ import {
 	buildIframeSnippet,
 	buildWebComponentSnippet,
 	buildAgentThreeDSnippet,
+	buildPageAgentSnippet,
+	buildWalkCompanionSnippet,
 } from './forge-embed-snippets.js';
 
 const STYLE_ID = 'tws-forge-embed-styles';
@@ -58,9 +67,27 @@ function agentThreeDSnippet() {
 	return buildAgentThreeDSnippet(state.glbUrl, state.title, state.sizeId);
 }
 
+function pageAgentSnippet() {
+	return buildPageAgentSnippet(state.glbUrl, state.title);
+}
+
+function walkCompanionSnippet() {
+	return buildWalkCompanionSnippet(state.glbUrl, state.title);
+}
+
+const TAB_FOOTERS = {
+	iframe: 'Drops a live, orbitable model on any site — AR-ready on phones.',
+	component: 'A <model-viewer> element you style and control yourself.',
+	agent3d: "Drops the platform's own pure-3D web component — no third-party script.",
+	'page-agent': 'Add to your agent: a talking, lipsync guide that narrates your page as this body.',
+	walk: 'Add to your site: a corner companion visitors can walk around as this body.',
+};
+
 function currentSnippet() {
 	if (state.tab === 'iframe') return iframeSnippet();
 	if (state.tab === 'agent3d') return agentThreeDSnippet();
+	if (state.tab === 'page-agent') return pageAgentSnippet();
+	if (state.tab === 'walk') return walkCompanionSnippet();
 	return webComponentSnippet();
 }
 
@@ -91,6 +118,8 @@ function bodyHtml() {
 					${tabBtn('iframe', 'iframe')}
 					${tabBtn('component', 'Web component')}
 					${tabBtn('agent3d', esc('<agent-3d>'))}
+					${tabBtn('page-agent', 'Page agent')}
+					${tabBtn('walk', 'Walk companion')}
 				</div>
 				<div class="tws-emb-seg" role="group" aria-label="Size">
 					${SIZES.map(sizeBtn).join('')}
@@ -106,7 +135,7 @@ function bodyHtml() {
 			</button>
 
 			<p class="tws-emb-foot">
-				Drops a live, orbitable model on any site — AR-ready on phones.
+				${esc(TAB_FOOTERS[state.tab] || TAB_FOOTERS.iframe)}
 				<a href="${esc(embedPageUrl())}" target="_blank" rel="noopener">Open the standalone viewer ↗</a>
 			</p>
 		</div>
@@ -123,6 +152,12 @@ function rerender(modalBody) {
 	}
 	for (const b of modalBody.querySelectorAll('.tws-emb-size')) {
 		b.setAttribute('aria-pressed', String(b.dataset.size === state.sizeId));
+	}
+	const foot = modalBody.querySelector('.tws-emb-foot');
+	if (foot) {
+		const link = foot.querySelector('a');
+		foot.firstChild.textContent = `${TAB_FOOTERS[state.tab] || TAB_FOOTERS.iframe} `;
+		if (link) link.href = embedPageUrl();
 	}
 }
 
@@ -224,7 +259,7 @@ const CSS = `
 .tws-emb-frame { display: block; width: 100%; height: 100%; border: 0; }
 .tws-emb-controls { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; }
 .tws-emb-seg {
-	display: inline-flex; gap: 2px; padding: 2px;
+	display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 2px;
 	background: var(--surface-1, rgba(255,255,255,0.03));
 	border: 1px solid var(--stroke, rgba(255,255,255,0.1));
 	border-radius: 10px;

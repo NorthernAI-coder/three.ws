@@ -34,13 +34,20 @@ import {
 	restoreProfile, serializeProfile, profileSnapshot,
 	addItem, hasRoomFor, resolveSlot, grantXp, consumeSlot,
 	countItem, removeItem,
-	dropCarried, reviveProfile, bankTransfer,
+	dropCarried, reviveProfile, bankTransfer, grantCosmetic,
 	equipCosmetic, ownedCosmeticSet, mergeOwnedFromLedger,
 	HOTBAR_SIZE,
 } from '../economy.js';
 import {
 	serializeLoadout, getCosmetic, canWear, DEFAULT_LOADOUT,
 } from '../cosmetics-catalog.js';
+import {
+	clientStoreCatalog, sellPrice, isSellable, buyEntry,
+	boutiqueListings, boutiquePrice,
+} from '../shop.js';
+import {
+	buildTokenPurchase, verifyTokenPurchase, isWalletAddress, tokenConfigured, TOKEN_DECIMALS,
+} from '../game-token.js';
 import { readOwnedCosmetics } from '../cosmetics-ownership.js';
 import {
 	itemLabel, fishCatchChance, fishDoubleChance,
@@ -257,7 +264,13 @@ const COOK_COOLDOWN_MS = 900;    // pace between fish on the fire
 // Per-action rate ceilings (messages/sec/client) — a flooding client is dropped.
 // vsync rides at the same 15Hz the move netcode uses; allow 2× for jitter, like
 // MOVES_PER_SEC_LIMIT. enter/exit are deliberate, rare actions.
-const ACTION_RATES = { fish: 6, consume: 6, equip: 30, chop: 6, mine: 6, cook: 8, vsync: PATCH_RATE_HZ * 2, venter: 4, vexit: 4, quest: 8, questInteract: 6, clear: 2 };
+const ACTION_RATES = {
+	fish: 6, consume: 6, equip: 30, chop: 6, mine: 6, cook: 8, vsync: PATCH_RATE_HZ * 2,
+	venter: 4, vexit: 4, quest: 8, questInteract: 6, clear: 2,
+	// General store, bank/ATM, and the $THREE boutique (W04) — low-frequency,
+	// currency-mutating actions, throttled tighter than the gather loop.
+	store: 6, storeBuy: 6, storeSell: 6, bank: 6, boutique: 4, boutiqueQuote: 3, boutiqueSettle: 3,
+};
 
 // Spatial voice signaling. The room only relays SDP/ICE between two peers (the
 // audio itself flows peer-to-peer over WebRTC), so the cap just has to clear a
@@ -399,6 +412,10 @@ export class WalkRoom extends Room {
 		// stable persistence id + per-action cooldowns). Never synced to peers.
 		this.econ = new Map();
 		this._actionCounters = new Map(); // sessionId → { [action]: { windowStart, count } }
+		// $THREE boutique (W04) replay guard: settled quote nonces, pruned past the
+		// quote TTL so a verified purchase can never re-grant a cosmetic twice, while
+		// memory stays bounded (a nonce only needs to outlive its ~90s quote window).
+		this._boutiqueNonces = new Map(); // nonce → settledAt (ms)
 		// Build permissions & anti-grief (R19). Ownership and density are tracked
 		// off-schema (peers don't render them) but persisted with the build so they
 		// survive a restart. blockOwners: key → owner id. blockCounts: owner id → how
@@ -494,6 +511,16 @@ export class WalkRoom extends Room {
 		registerActivityHandlers(this); // W06 gather/craft: chop, mine, cook
 		this.onMessage('equip', (client, payload) => this._handleEquip(client, payload));
 		this.onMessage('consume', (client, payload) => this._handleConsume(client, payload));
+		// General store, bank/ATM, and the $THREE boutique (W04). Cash trades and
+		// banking settle purely off-schema; the boutique settles a real on-chain
+		// $THREE payment (game-token.js) before granting a premium cosmetic.
+		this.onMessage('storeReq', (client) => this._sendStore(client));
+		this.onMessage('storeBuy', (client, payload) => this._handleStoreBuy(client, payload));
+		this.onMessage('storeSell', (client, payload) => this._handleStoreSell(client, payload));
+		this.onMessage('bank', (client, payload) => this._handleBank(client, payload));
+		this.onMessage('boutiqueReq', (client) => this._sendBoutique(client));
+		this.onMessage('boutiqueQuote', (client, payload) => this._handleBoutiqueQuote(client, payload));
+		this.onMessage('boutiqueSettle', (client, payload) => this._handleBoutiqueSettle(client, payload));
 		// Equip/unequip a cosmetic from the owned-inventory (R23). Server-authoritative:
 		// validates ownership, persists the loadout to the account, re-publishes it on
 		// the schema so peers re-render, and echoes the owner a fresh profile.
@@ -1708,6 +1735,223 @@ export class WalkRoom extends Room {
 		this._sendInv(client, profile);
 		client.send('notice', { kind: 'eat', text: `+${res.gained} HP.` });
 		this._persistEcon(client.sessionId);
+	}
+
+	// --- General store & bank/ATM (W04) --------------------------------------
+	//
+	// Cash economy, entirely off-schema like the rest of the purse/pack: the
+	// server prices every trade from shop.js (never a client-supplied number),
+	// mutates the profile, and echoes the owner a fresh inv/profile snapshot.
+
+	// The general store's catalog — sell prices + the buy list — so the client
+	// renders exactly what the server will charge/pay, no drift possible.
+	_sendStore(client) {
+		client.send('store', clientStoreCatalog());
+	}
+
+	// Buy `item` from the general store for cash. Validates the catalog entry,
+	// the purse, and pack room before moving anything — a rejected buy costs
+	// nothing and leaves the pack untouched.
+	_handleStoreBuy(client, payload) {
+		const profile = this.econ.get(client.sessionId);
+		if (!profile) return;
+		if (!this._actionOk(client.sessionId, 'storeBuy')) return;
+		const item = typeof payload?.item === 'string' ? payload.item.slice(0, 32) : '';
+		const entry = buyEntry(item);
+		if (!entry) {
+			client.send('notice', { kind: 'store', text: 'That item isn’t for sale.' });
+			return;
+		}
+		if (profile.gold < entry.price) {
+			client.send('notice', { kind: 'store', text: `Not enough cash — ${entry.price} needed.` });
+			return;
+		}
+		if (!hasRoomFor(profile, entry.item)) {
+			client.send('notice', { kind: 'full', text: 'Your inventory is full.' });
+			return;
+		}
+		const leftover = addItem(profile, entry.item, entry.qty);
+		const bought = entry.qty - leftover;
+		if (bought <= 0) {
+			client.send('notice', { kind: 'full', text: 'Your inventory is full.' });
+			return;
+		}
+		profile.gold -= entry.price;
+		this._sendInv(client, profile);
+		client.send('notice', { kind: 'store', text: `Bought ${bought > 1 ? bought + ' ' : ''}${itemLabel(entry.item)} for ${entry.price} cash.` });
+		this._persistEcon(client.sessionId);
+	}
+
+	// Sell a stack from a referenced pack slot for cash. `qty` sells up to that
+	// many (defaults to the whole stack); the price always comes from
+	// SELL_PRICES server-side, never a client-supplied amount.
+	_handleStoreSell(client, payload) {
+		const profile = this.econ.get(client.sessionId);
+		if (!profile) return;
+		if (!this._actionOk(client.sessionId, 'storeSell')) return;
+		const slot = resolveSlot(profile, payload?.slot);
+		if (!slot || !slot.item) {
+			client.send('notice', { kind: 'store', text: 'Nothing there to sell.' });
+			return;
+		}
+		if (!isSellable(slot.item)) {
+			client.send('notice', { kind: 'store', text: `The store won’t buy ${itemLabel(slot.item).toLowerCase()}.` });
+			return;
+		}
+		const want = Number.isFinite(payload?.qty) && payload.qty > 0 ? Math.min(payload.qty | 0, slot.qty) : slot.qty;
+		const item = slot.item;
+		const removed = removeItem(profile, item, want);
+		if (removed <= 0) return;
+		const total = sellPrice(item) * removed;
+		profile.gold += total;
+		this._sendInv(client, profile);
+		client.send('notice', { kind: 'store', text: `Sold ${removed} ${itemLabel(item).toLowerCase()} for ${total} cash.` });
+		this._persistEcon(client.sessionId);
+	}
+
+	// Move cash between the carried purse and the protected bank (the ATM).
+	// Positive amounts deposit, negative withdraw; bankTransfer clamps to
+	// what's actually available so it can never mint or strand cash. Banked
+	// cash is untouched by a death drop (economy.js dropCarried) — the whole
+	// risk/reward point of using the bank.
+	_handleBank(client, payload) {
+		const profile = this.econ.get(client.sessionId);
+		if (!profile) return;
+		if (!this._actionOk(client.sessionId, 'bank')) return;
+		const amount = Number.isFinite(payload?.amount) ? payload.amount | 0 : 0;
+		if (!amount) return;
+		const moved = bankTransfer(profile, amount);
+		if (moved === 0) {
+			client.send('notice', { kind: 'bank', text: amount > 0 ? 'No cash on hand to deposit.' : 'Nothing banked to withdraw.' });
+			return;
+		}
+		this._sendProfile(client);
+		client.send('notice', {
+			kind: 'bank',
+			text: moved > 0 ? `Deposited ${moved} cash — protected from drops.` : `Withdrew ${-moved} cash.`,
+		});
+		this._persistEcon(client.sessionId);
+	}
+
+	// --- $THREE boutique (W04) -------------------------------------------------
+	//
+	// Premium in-game cosmetics (multiplayer/src/cosmetics-catalog.js), priced
+	// and unlocked entirely separately from the R21–25 avatar-shop/x402 rail
+	// (which sells a different catalog, settled in USDC, for the standalone
+	// character creator). This is the purpose-built W04 rail: the buyer's own
+	// Solana wallet sends ONE real $THREE transaction (game-token.js), split
+	// between the holder-rewards pool and the treasury, and the server re-reads
+	// that transaction from RPC before granting anything — never trusting a
+	// client "it worked" claim.
+
+	// The boutique catalog (priced in $THREE) + this account's owned ids.
+	_sendBoutique(client) {
+		const profile = this.econ.get(client.sessionId);
+		client.send('boutique', {
+			listings: boutiqueListings(),
+			owned: [...(profile?.cosmetics?.owned || [])],
+			configured: tokenConfigured(),
+		});
+	}
+
+	// Price + build the unsigned $THREE purchase transaction for one boutique
+	// item. `wallet` is whichever Solana wallet the player has connected in the
+	// browser — it pays; the unlock always lands on THIS session's profile
+	// regardless of who fronts the tokens (the same "anyone can settle a quote"
+	// model buildSpinPayment already uses). The price is read from the server
+	// catalog only — a client can never move it.
+	async _handleBoutiqueQuote(client, payload) {
+		const profile = this.econ.get(client.sessionId);
+		if (!profile) return;
+		if (!this._actionOk(client.sessionId, 'boutiqueQuote')) return;
+		const id = typeof payload?.id === 'string' ? payload.id.slice(0, 64) : '';
+		const price = boutiquePrice(id);
+		if (!price) {
+			client.send('notice', { kind: 'boutique', text: 'That item isn’t in the boutique.' });
+			return;
+		}
+		if (ownedCosmeticSet(profile).has(id)) {
+			client.send('notice', { kind: 'boutique', text: 'You already own that.' });
+			return;
+		}
+		const wallet = typeof payload?.wallet === 'string' ? payload.wallet.trim() : '';
+		if (!isWalletAddress(wallet)) {
+			client.send('notice', { kind: 'boutique', text: 'Connect a Solana wallet to buy with $THREE.' });
+			return;
+		}
+		if (!tokenConfigured()) {
+			client.send('notice', { kind: 'boutique', text: 'The $THREE boutique is offline right now.' });
+			return;
+		}
+		let built;
+		try {
+			const amountRaw = BigInt(Math.round(price * 10 ** TOKEN_DECIMALS));
+			built = await buildTokenPurchase({
+				buyerWallet: wallet,
+				amountRaw,
+				purpose: 'boutique',
+				extra: { cosmeticId: id },
+			});
+		} catch (err) {
+			console.warn('[walk_world] boutique quote failed:', err?.message);
+		}
+		if (!built) {
+			client.send('notice', { kind: 'boutique', text: 'Could not price that purchase — try again in a moment.' });
+			return;
+		}
+		client.send('boutiqueQuote', { id, price, quoteToken: built.quoteToken, txBase64: built.txBase64 });
+	}
+
+	// Settle a signed $THREE purchase: re-verify the on-chain transaction against
+	// the sealed quote against live RPC (never the client's "it worked"), then
+	// grant the cosmetic exactly once per settled nonce.
+	async _handleBoutiqueSettle(client, payload) {
+		const profile = this.econ.get(client.sessionId);
+		if (!profile) return;
+		if (!this._actionOk(client.sessionId, 'boutiqueSettle')) return;
+		const quoteToken = typeof payload?.quoteToken === 'string' ? payload.quoteToken : '';
+		const txSig = typeof payload?.txSig === 'string' ? payload.txSig : '';
+		if (!quoteToken || !txSig) return;
+
+		let result;
+		try {
+			result = await verifyTokenPurchase({ quoteToken, txSig, purpose: 'boutique' });
+		} catch (err) {
+			console.warn('[walk_world] boutique settle failed:', err?.message);
+			client.send('notice', { kind: 'boutique', text: 'Could not verify that payment — try again.' });
+			return;
+		}
+		if (!result?.ok) {
+			client.send('notice', { kind: 'boutique', text: `Payment didn’t verify (${result?.reason || 'unknown'}).` });
+			return;
+		}
+		this._pruneBoutiqueNonces();
+		if (this._boutiqueNonces.has(result.nonce)) {
+			client.send('notice', { kind: 'boutique', text: 'That purchase already settled.' });
+			return;
+		}
+		this._boutiqueNonces.set(result.nonce, Date.now());
+		const cosmeticId = result.quote?.cosmeticId;
+		if (ownedCosmeticSet(profile).has(cosmeticId)) {
+			client.send('notice', { kind: 'boutique', text: 'Payment verified — you already owned this.' });
+			return;
+		}
+		const granted = cosmeticId ? grantCosmetic(profile, cosmeticId) : false;
+		if (!granted) {
+			client.send('notice', { kind: 'boutique', text: 'Payment verified, but that item couldn’t be unlocked. Contact support.' });
+			return;
+		}
+		this._sendProfile(client);
+		client.send('notice', { kind: 'boutique', text: `Unlocked ${getCosmetic(cosmeticId)?.name || 'the item'} — check your wardrobe.` });
+		this._persistEcon(client.sessionId);
+	}
+
+	// Replay-guard nonces only need to outlive the quote's own TTL (~90s); prune
+	// with a generous margin so memory never grows unbounded across a long-lived
+	// room while staying well clear of any in-flight settle.
+	_pruneBoutiqueNonces() {
+		const cutoff = Date.now() - 5 * 60_000;
+		for (const [nonce, ts] of this._boutiqueNonces) if (ts < cutoff) this._boutiqueNonces.delete(nonce);
 	}
 
 	// Write this session's economy profile through to the account-keyed store,
