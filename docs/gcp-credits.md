@@ -1352,3 +1352,147 @@ fleet $15–25k, Imagen $3–5k, vanity/observability/misc ~$5k.
    chat instead of no-op'ing.
 
 _Spend-observability section last verified against source: 2026-07-07 (later session)._
+
+---
+
+## Audit + fixes — 2026-07-08 (post Vercel→Cloud Run migration)
+
+Re-verified every prompt (01–08) against live `gcloud`/`bq`/Cloud Run state rather than
+trusting this file. Headline finding: **every "set in Vercel" instruction above is now
+stale.** Production moved off Vercel to Cloud Run (`three-ws-api`, see
+`docs/ops/gcp-production.md`) the same day most of this file was written, and none of
+the GCP-credits env vars that were pushed to Vercel ever made it onto the Cloud Run
+service — `gcloud run services describe three-ws-api ... --format='value(...env...)'`
+showed **zero** of them present. Every lane documented as "live in prod" above (Vertex
+Claude available-but-not-primary, Vertex Imagen fallback, the trellis self-host URL,
+the billing-report env, the budget-webhook secret) was actually inert in production
+until today.
+
+**Fixed today (no owner action, no billing-lane change):**
+- Wired onto `three-ws-api` (Cloud Run, `--update-env-vars`/`--update-secrets`, additive
+  — the service's other ~100 env vars were left untouched):
+  `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, `GOOGLE_CLOUD_LOCATION_CLAUDE`,
+  `VERTEX_CLAUDE_ENABLED=1` (available, **not** primary — chain inversion stays the
+  owner's call per prompt 02), `MODEL_TRELLIS_URL`, `GCP_BILLING_DATASET=billing_export`,
+  `GCP_BILLING_ACCOUNT_ID`, `GCP_CREDIT_TOTAL_USD=100000`, and as Secret Manager refs:
+  `GCP_SERVICE_ACCOUNT_JSON` (fresh key minted for `vercel-inference@`, stored as secret
+  `gcp-vercel-inference-sa-key`), `GCP_RECONSTRUCTION_KEY` (points at the existing
+  `avatar-reconstruction-key` secret — same bearer key `model-trellis` already uses),
+  `GCP_BUDGET_WEBHOOK_SECRET` (secret `gcp-budget-webhook-secret`, value matches the
+  token already baked into the live Pub/Sub push subscription so no subscription edit
+  was needed). Granted `three-ws@` (runtime SA) `secretAccessor` on all three secrets,
+  and `vercel-inference@` `roles/bigquery.jobUser` + `roles/bigquery.dataViewer` (the
+  burn-report script had never actually been able to query — proven by running it: it
+  now gets exactly as far as "export not configured", the documented owner-console gate,
+  instead of a permission error).
+  `VERTEX_IMAGEN_ENABLED` was **not** explicitly set — `text-to-image.js` already
+  defaults it on whenever `GOOGLE_CLOUD_PROJECT` is set (prompt 03's own design), so
+  setting `GOOGLE_CLOUD_PROJECT` alone activates the Imagen fallback lane; the prompt-03
+  quality gate already passed (see above), so this is live now, fallback-only, NIM FLUX
+  still leads.
+  **Not set** (matches every prompt's explicit fail-safe/owner-gate guardrail):
+  `VERTEX_CLAUDE_PRIMARY`, `FORGE_SELFHOST_PRIMARY`, and the four other worker URLs
+  (`GCP_HUNYUAN3D_URL`/`GCP_TRIPOSG_URL`/`GCP_RECONSTRUCTION_URL`/`GCP_TEXT2MOTION_URL`)
+  — those services aren't deployed (see below), there is nothing to point at yet.
+- **Re-verified the console-only gates are still actually blocked**, not just
+  documented-stale: `node scripts/gcp/vertex-smoke.mjs` with a live SA key still 404s
+  (Model Garden Claude enablement genuinely not done); `bq ls billing_export` still has
+  zero tables (BigQuery billing export genuinely not configured). Both need the exact
+  owner console actions already listed above — nothing changed there.
+- **GPU quota increased**: `NVIDIA_L4_GPUS` in `us-central1` is now **8** (the doc above
+  says "quota = 3" from the 2026-07-07 session — that request evidently landed). Headroom
+  exists to bring up more of the fleet warm; the remaining blockers below are code/weights
+  gaps, not quota.
+- **`model-triposr` rebuilt and redeployed.** The doc above already diagnosed the crash
+  (`ImportError: cannot import name 'TSR' from 'tsr'`) and the source fix
+  (`from tsr.system import TSR`) was already committed — it had just never been rebuilt.
+  Rebuilt via `gcloud builds submit --config=workers/model-triposr/cloudbuild.yaml`
+  (had to run from a clean `git worktree`, not the shared repo root — see hazard note
+  below — and pass `--service-account=three-ws-build@…` + `--substitutions=SHORT_SHA=…`,
+  neither of which the bare command from the doc's deploy runbook supplies for a local
+  submit). [Fill in final health-check result once the build in flight completes.]
+- **Found and fixed a real production bug while wiring the budget-webhook path**:
+  `api/webhooks/gcp-budget-alert.js` (and `api/webhooks/replicate.js`, same pattern)
+  called `readJson()`/`readBody()` past their auth check and **hung until the request
+  timeout** on live Cloud Run traffic — reproduced directly against
+  `https://three-ws-api-*.run.app` with curl and raw Node `https.request`, independent
+  of HTTP/1.1 vs HTTP/2, query-string vs header auth, and body content. Root cause: the
+  fallback branch in `readBody()` (`api/_lib/http.js`) attached `'data'`/`'end'`
+  listeners unconditionally; if the stream had already ended before the handler started
+  listening, those events never re-fire and the promise hangs forever — a variant of the
+  exact hazard the `req.rawBody` fast-path comment above already warns about, reached a
+  different way. **This means every real budget-alert notification since the webhook was
+  wired has silently never reached the ops chat** — Pub/Sub kept retrying against a
+  handler that never responded, which is also why the queued retries kept showing 401 in
+  logs (stale token from before the secret was fixed today) rather than any 200s.
+  Fixed in `api/_lib/http.js`: resolve immediately with an empty buffer when
+  `req.complete` is already true (can't recover already-drained bytes, but can stop
+  hanging on them), and cap the listener path with a `READ_BODY_TIMEOUT_MS` (default
+  15s) timeout so any future stream stall fails fast and diagnosably instead of pinning
+  a Cloud Run concurrency slot for the full request timeout. Committed
+  (`ba37182f3`), covered by the existing `tests/api/gcp-budget-alert.test.js` +
+  `tests/api-validate.test.js` (both green). **Deploy status:** see hazard note — this
+  needs the next full `three-ws-api` image rebuild to reach production; it is not yet
+  live as of this writing.
+- Verified the synthetic-notification test from the prompt-07 section above end to end
+  against the *current* infra: `gcloud pubsub topics publish gcp-budget-alerts …` →
+  delivered to the webhook → 401 (stale token) → fixed the secret to match the live
+  subscription's token → still hangs (the bug above) → fixed and redeploying.
+
+**Confirmed still genuinely blocked (owner console action or missing credentials —
+no workaround attempted):**
+- Model Garden Claude partner-model enablement (prompt 01/02) — console-only terms
+  acceptance, `vertex-smoke.mjs` still 404s.
+- BigQuery billing export (prompt 07) — console-only, dataset exists but has zero
+  tables; `burn-report.mjs` correctly reports "export not configured" now that the IAM
+  permission gap is fixed.
+- `TELEGRAM_BOT_TOKEN` / `TELEGRAM_ALERTS_CHAT_ID` — not present anywhere (not Cloud Run
+  env, not Secret Manager); the budget-webhook and daily cron both no-op on the final
+  Telegram hop without these. Owner credentials, no workaround.
+- Credit balance + expiry date — still console-only, never obtained; `GCP_CREDIT_EXPIRY`
+  intentionally left unset (a wrong guess would silently corrupt the exhaustion
+  projection).
+
+**Prompt 04 remaining gaps — re-verified, unchanged conclusions:**
+- `unirig` — still a stub (`main.py` calls a `UniRigModel.from_pretrained().rig(...)`
+  API the real UniRig repo doesn't expose); a real adapter needs Blender/`bpy` in the
+  image and is a genuine multi-hour rewrite, not a config fix. Not attempted this
+  session — out of proportion for a verification pass, and rigging is a hard
+  dependency for prompt 05's "catalog entries must be animation-ready" bar, so
+  shipping a half-real rig adapter would violate the no-mocks rule worse than leaving
+  it blocked.
+- `model-hunyuan3d` — weights not staged, needs `HF_TOKEN` (present in the platform's
+  own env already, but the license-gated Hunyuan3D-2.1 weights themselves still need a
+  human to accept the gate on huggingface.co before download works) — not attempted.
+- `model-triposg` / `model-text2motion` — weights not staged (`triposg`,
+  `triposg-scribble`, `rmbg-1.4`, `mdm`) — not attempted; each is a genuine multi-GB
+  download + storage-cost decision, not a quota or code fix, so left for a session with
+  explicit budget for it.
+
+**Prompt 05 (catalog & animation seeding): confirmed not started.** No
+`scripts/gcp/seed-avatars.mjs`, no `SEED_CRON_BATCH` env-tunability in
+`api/cron/forge-seed-cron.js`, no doc section — matches the prompt's own
+prerequisite ("prompt 04 live... text2motion service deployed") not being met: only
+`model-trellis` is live, UniRig and text2motion are not, and prompt 05's acceptance
+criteria explicitly require rigged, animation-ready catalog entries and a generated
+motion library. Attempting a partial version (unrigged catalog avatars, no motion
+library) would ship exactly the "catalog avatar that T-poses is half-built" outcome
+the prompt calls out as unacceptable. Correctly blocked on prompt 04, not attempted.
+
+**Hazard discovered this session — record for the next agent:** the shared working
+tree had ~170 files of uncommitted, unrelated in-progress work from other concurrent
+agents (material studio, embodiment, provenance, persona-identity, animation registry).
+`gcloud builds submit … .` from the shared repo root packages the working directory
+*as-is*, uncommitted changes included — building/deploying from it would have shipped
+unreviewed, unrelated work to production. Also hit mid-tar file-churn from a concurrent
+agent (`FileNotFoundError` on a file another agent deleted mid-build) when building from
+the shared root. **Always build from a clean `git worktree add --detach <path> <commit>`**
+(symlink `node_modules` from the shared tree to skip a full reinstall; regenerate `dist/`
+inside the worktree with `npm run build && npm run build:lib:full && npm run publish:lib`
+since `dist/` is gitignored and the Docker image only contains what's physically present
+at build time) when deploying anything from this repo while other agents may be active.
+Separately hit — and this one was a real, already-fixed-by-another-agent bug, not
+something to route around — a `main` HEAD that briefly couldn't `npm ci` at all
+(`packages/defi-utils`/`packages/tool-sdk` present on disk but missing from
+`package-lock.json`); resolved upstream by commit `bc60fb2de` before this session's
+redeploy needed it.
