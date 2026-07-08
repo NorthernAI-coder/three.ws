@@ -56,7 +56,25 @@ Note: 02–05 all append to `api/v1/_providers.js`. They're order-independent, b
 **sequentially, not simultaneously** — concurrent edits to one file in a shared worktree will
 collide.
 
-## ⚠️ De-confliction with `prompts/x402-overhaul/`
+## ⚠️ De-confliction with `prompts/x402-overhaul/` — RESOLVED 2026-07-08, overhaul won
+
+**Update 2026-07-08: this race already happened.** `x402-overhaul` fired first and shipped
+all 22 of its work orders to production (`api/crypto/*`, `api/3d/*`, unified
+`api/_lib/service-catalog/`). This campaign's competing aggregator architecture
+(`/api/v1/x/*` via `api/_lib/aggregator.js` + `api/v1/_providers.js`) was never built out for
+the overlapping areas below. **Do not fire this campaign's 01–07, 09, 10 — they would build a
+second, duplicate free-crypto-API surface at a different URL, the exact fragmentation this
+README already warned about.** The only work orders from this campaign still worth
+considering are ones overhaul does NOT cover: 08 (sentiment/narrative — check overhaul's
+scope first), 11/12/14/15/16/17 (speech/image/pipeline packages, dev toolkit — verify not
+already covered by overhaul's `api/3d/*`/`api/_lib/service-catalog/` before building), 19
+(vanity instant inventory — shipped separately under a GCP-credits work order, check first),
+20/21 (fact-check v2, token-security — 21 overlaps `api/crypto/security.js` from overhaul,
+likely also superseded). Treat every remaining prompt in this directory as "verify not already
+shipped elsewhere before building" rather than a ready queue.
+
+Original de-confliction table (kept for history — table's "fire this campaign" column for the
+free-crypto-API and 3D-index rows is now WRONG per the update above; overhaul shipped those):
 
 A parallel campaign (`prompts/x402-overhaul/`, authored concurrently) covers overlapping
 ground with a DIFFERENT architecture: it builds brand-new standalone `/api/crypto/*` and
