@@ -2355,6 +2355,49 @@ rates, DeFi), 120 s (exchanges), 60 s (derivatives). No API key required.
 
 ---
 
+### DeFi yield pools
+
+```
+GET /api/intel/yields?chain=<name>&project=<slug>&stablecoin=<true|false>&limit=<1..100>
+```
+
+Real-time yield pools from DeFiLlama's `yields.llama.fi/pools`, filtered
+server-side and sorted by TVL descending. Powers the trading copilot's
+yield-discovery lane. All query params are optional; `limit` defaults to 25.
+
+**Response**
+
+```json
+{
+	"pools": [
+		{
+			"pool": "3637ce7b-529b-49c1-964c-710a50b2939c",
+			"project": "sky-lending",
+			"chain": "Arbitrum",
+			"symbol": "SUSDS",
+			"tvlUsd": 360345703,
+			"apy": 3.6,
+			"apyBase": 3.6,
+			"apyReward": 0,
+			"stablecoin": true
+		}
+	]
+}
+```
+
+GET-only, CORS-open, rate-limited per IP, `502 upstream_error` if DeFiLlama is
+briefly unavailable. Cached 15 min server-side + `s-maxage=60,
+stale-while-revalidate=300` at the CDN. No API key required.
+
+The underlying library (`api/_lib/market-data.js`) also exposes
+`getProtocols()`, `getProtocol(slug)`, `getChainTvls()`, and `getDexVolumes()`
+against DeFiLlama's `/protocols`, `/protocol/:slug`, `/v2/chains`, and
+`/overview/dexs` — not yet wired to a public endpoint; they back future
+protocol/chain/DEX-volume surfaces. (three.ws's Fear & Greed index is served by
+`GET /api/coin/fear-greed` above, not by this module.)
+
+---
+
 ### Related news
 
 ```
