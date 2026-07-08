@@ -610,3 +610,131 @@ tests/rpc-rate-limit.test.js + api/http-rate-limited.test.js → 2 files, 14 tes
 **Files touched this session:** `api/_lib/redis.js` (the fix),
 `prompts/x402-catalog/PROGRESS.md` (this entry). No changes to the already-
 shipped speech package files themselves — they were correct as found.
+
+---
+
+## 2026-07-08 — Prompt 17: x402 developer toolkit (echo, debug, verify-receipt)
+
+**Already fully shipped by a concurrent agent before this session started.**
+Commit `0f2745ff9 feat(x402): free developer toolkit — echo, debug,
+verify-receipt` is on `main` and already an ancestor of `threews/main`
+(`git merge-base --is-ancestor HEAD threews/main` → true; no push needed for
+the toolkit itself). Confirmed the full task list against the commit's diff
+and the live files rather than trusting the commit message on faith:
+
+- `POST/GET /api/x402/echo` (`api/x402/echo.js`) — reflects method, the
+  payment-relevant headers, and the body; on `X-PAYMENT` (header or
+  `body.paymentHeader`) decodes the envelope, redacts every signature/secret
+  to a short prefix (`…(redacted, N chars)`), and runs the rail's LOCAL
+  structural verdict (x402Version/scheme/network/signed-amount/signed-
+  recipient vs a supplied `requirement`) with **no facilitator round-trip and
+  no settlement**.
+- `POST /api/x402/debug` (`api/x402/debug.js`) — takes `{ challenge?,
+  payment?, response? }`, returns `{ ok, findings: [{severity, field,
+  problem, fix}], count }` ordered most-severe-first. Diagnosis matrix
+  (`api/_lib/x402/dev-tools.js`) covers the rail's real failure modes: wrong
+  `x402Version`, shorthand vs CAIP-2 network, signed-for-network not in
+  `accepts[]`, decimal-vs-atomic amount, underpayment, and known
+  `response.error` codes mapped to plain-English causes.
+- `GET/POST /api/x402/verify-receipt` (`api/x402/verify-receipt.js`) — two
+  independent checks, either or both: (1) recomputes a fact-check-style
+  `sha256:` attestation over the committed fields and confirms/denies
+  integrity; (2) given `{ tx: { hash, network } }`, does a **real read-only
+  on-chain lookup** (Solana `getSignatureStatuses` / EVM
+  `getTransactionReceipt` via the shared RPC helpers) and reports
+  `verified/status/detail` — an unreachable RPC or malformed hash reports
+  `rpc_unavailable`/`invalid_hash`/`not_found`, never a false `confirmed`.
+- All three: free, keyless, CORS-open, 30/min per-IP via the new
+  `limits.x402DevToolIp` bucket (`api/_lib/rate-limit.js`), precise 400s on
+  malformed JSON/body shape.
+- `docs/x402-dev-tools.md` (new, linked from `docs/start-here.md`) documents
+  all **six** dev tools — the three new ones plus `schema-check`,
+  `rate-limit-probe`, `permit2-paid-demo` — each with a runnable curl, plus a
+  "typical debugging loop" walkthrough. `data/pages.json` entry present
+  (`/docs/x402-dev-tools`). `data/changelog.json` carries the `feature`
+  entry. `docs/x402-endpoints.md` also got its missing `remix-asset` row
+  backfilled in the same commit (an unrelated pre-existing audit gap fixed
+  opportunistically).
+- `tests/api/x402-dev-toolkit.test.js` — 25 tests: echo redaction (asserts no
+  full signature ever appears in the response), the debugger's diagnosis
+  matrix (fed real malformed exchanges built by calling `decodePaymentHeader`
+  / the rail's own encoders wrongly, not hand-typed guesses), verify-receipt
+  confirm/deny/partial/unreachable-RPC cases.
+
+**One task-4 requirement deliberately NOT implemented, and why it's the
+right call, not a gap:** the prompt asked for these three tools to be
+"bazaar-discoverable" the way `dance-tip` "declares Free." Traced that
+literally: `dance-tip` is not actually a free (zero-payment) resource — it is
+a $0.001+ `paidEndpoint` with a "free-floor" *style tier* inside its ticket
+logic, and per the 2026-07-08 storefront cleanup (prompt 18) it's now
+`discoverable: false` besides. There is no precedent anywhere in the repo for
+a genuinely zero-payment endpoint carrying a bazaar/`.well-known/x402.json`
+row — and there's an explicit, considered policy against it:
+`api/wk.js`'s `buildMcpToolItems()` (the analogous "should a free tool get a
+discovery row" decision for MCP tools) has a standing comment: *"We only emit
+rows for priced tools (otherwise the row would advertise a paid catalog
+entry for a free tool and confuse buyers about what's actually gated)."*
+`api/_lib/service-catalog/index.js`'s `toBazaarDiscovery()` — the sole
+function that builds `/.well-known/x402.json` rows — iterates only
+`PAID_SERVICES` (each requires a non-null `priceAtomics`/`accepts[]`); the
+genuinely-free crypto/3D API bundles get their own separate index surfaces
+(`/api/crypto`, `/api/3d`) instead of a bazaar row, for the identical reason.
+Forcing a `discoverable: true` bazaar entry with a `$0` accepts array onto
+echo/debug/verify-receipt would be the first exception to that rule and
+would misrepresent them to x402-scanning facilitators as payable resources.
+The shipped implementation's actual distribution channel — the
+`docs/x402-dev-tools.md` page, linked from `start-here.md` and from every
+other dev-tool doc's "Related" section, discovered organically by any
+developer debugging a *real* paid call against three.ws — is the correct
+fit for a zero-payment diagnostic tool. Confirmed this is a deliberate
+choice, not an oversight: `git show 0f2745ff9` touches no service-catalog
+file and the commit message doesn't claim bazaar listing.
+
+**Real, non-fabricated verification this session** (ran `node
+server/index.mjs` locally, the same Cloud-Run-parity server used by every
+prior entry in this file, so the exact production request-handling path was
+exercised):
+
+```
+npx vitest run tests/api/x402-dev-toolkit.test.js
+ Test Files  1 passed (1)
+      Tests  25 passed (25)
+
+npm run audit:x402-catalog
+ ✓ audit-x402-catalog: all 65 x402 endpoints are documented
+```
+
+Live HTTP against the local server:
+- `GET /api/x402/echo` → `{"ok":true,"method":"GET","headers":{...},"body":null,...}`.
+- `POST /api/x402/echo` with `{"foo":"bar"}` body → body echoed exactly.
+- `POST /api/x402/echo` with a fabricated `X-PAYMENT: eyJmb28iOiJiYXIifQ==`
+  header → `headers["x-payment"]` shows only `"eyJmb28iOi…(redacted, 20
+  chars)"`, and `payment.verdict` correctly reports `valid:false` with three
+  specific check failures (`x402Version`, `scheme`, `network` all missing) —
+  proves the redaction and the local verdict both run against a real decoded
+  envelope, not canned output.
+- `POST /api/x402/debug` with a challenge requiring `eip155:8453` / atomic
+  `"10000"` against a payment signed `x402Version:1`, `network:"base"`,
+  `authorization.value:"0.01"` → 5 findings, all correct: wrong version,
+  shorthand network, network not in the challenge's `accepts[]`, decimal
+  instead of atomic amount, plus an info-level note keyed to the supplied
+  `response.error`. A clean, spec-shaped payload → `{"ok":true,"findings":
+  [],"count":0}`.
+- `POST /api/x402/verify-receipt` with a `sha256:deadbeef` attestation on a
+  real-shaped fact-check result → `verified:false`, `recomputed` shows the
+  actual correct digest, `mismatchReason` states the object was altered.
+  With a 32-byte-invalid Solana signature and `network:"solana"` → made a
+  **real RPC call** to Solana mainnet (`getSignatureStatuses`) and reported
+  `status:"rpc_unavailable"` with the real upstream error (`"Invalid param:
+  WrongSize"`) — never a fabricated "confirmed".
+- Malformed JSON body on `/api/x402/debug` → real `400 invalid_json`.
+  `POST /api/x402/verify-receipt` with an empty body → real `400
+  nothing_to_verify` with a worked example in the error payload.
+- Rate-limit headers present and real on every response:
+  `ratelimit-limit: 30`, `ratelimit-remaining` decrementing per call,
+  `ratelimit-reset: 60`.
+
+**Owner gaps:** none. All three endpoints are live, free, keyless, tested,
+documented, and pushed. The one scope deviation (no bazaar/`.well-known`
+row) is a considered architectural match to existing platform policy, not
+an unfinished task — documented above for the record.
