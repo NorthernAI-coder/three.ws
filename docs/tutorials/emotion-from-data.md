@@ -1,46 +1,44 @@
-# Emotion from data: wire your agent's face to real APIs and AI
+# Animations from data: wire your agent's gestures to real APIs and AI
 
-An agent whose face never changes is a puppet. An agent whose expression tracks something real — how a crowd is reacting, how a support queue is trending, how a trade is going — reads as alive. three.ws avatars already carry a full facial-emotion engine under the hood (the same "Empathy Layer" that drives the [AGI](/agi) page's body from its live trading state). This tutorial shows you how to point that engine at data you actually have: a REST API, a live feed, or a real AI model scoring arbitrary text.
+An agent that just idles is furniture. An agent that visibly *reacts* — dances when something spikes, flinches when something drops, celebrates a milestone — reads as alive. three.ws ships a full animation library (idle, wave, dance, celebrate, jump, dozens more — browse them at [/animations](/animations)) and a public JS API to trigger any of it on command. This tutorial shows you how to point that at data you actually have: a live feed, a webhook, or a real AI model classifying arbitrary text.
 
-You'll build two working pipelines — one with zero AI (a lexicon sentiment score, free, no key), one with a real model in the loop (IBM Granite scoring arbitrary documents into structured emotion) — and the production pattern for running either continuously without jank.
+You'll build two working pipelines — one with zero AI (a lexicon sentiment score, free, no key, triggering a real body animation), one with a real model in the loop (IBM Granite classifying arbitrary documents, feeding a wider set of gestures) — plus the cooldown pattern that keeps an automated agent from spamming animations every tick.
 
 **What you'll build:**
-- An agent whose face tracks live sentiment from a real data feed, using only `<agent-3d>`'s public JS API
-- A second pipeline where an actual AI model (not a keyword list) reads arbitrary text — reviews, tickets, chat logs, anything — and returns a structured emotion score you feed straight into the avatar
-- A continuous polling loop that updates mood over time without snapping or jittering, respecting `prefers-reduced-motion`
-- An understanding of the two emotion layers every avatar exposes: transient spikes vs. sustained resting mood
+- An agent that plays a real body animation (celebrate, dance, flinch) driven by a live sentiment feed, using only `<agent-3d>`'s public JS API
+- A second pipeline where an actual AI model reads arbitrary text — reviews, tickets, chat logs, anything — and picks the matching gesture from a wider library, not just a three-way keyword split
+- A cooldown/dedupe pattern so a fast-moving data source doesn't retrigger the same animation every poll
+- The two real, documented entry points for animation: `agent.play(clipName)` (exact clip) and `agent.playEmote(name)` (semantic, with a fallback chain)
 
-**Prerequisites:** You've completed [first agent](/tutorials/first-agent) or have an `<agent-3d>` element on a page. For the AI lane, a small amount of USDC and familiarity with the [x402 payment flow](/tutorials/pay-for-x402-service) — the call costs $0.04.
-
----
-
-## Step 1 — The two emotion layers
-
-Every `<agent-3d>` element exposes two methods for driving facial expression, and they answer different questions.
-
-**`expressEmotion(trigger, weight)`** — "something just happened." A transient spike that decays back to neutral on its own. Use it for events: a purchase completed, an error occurred, a message arrived.
-
-```js
-agent.expressEmotion('celebration', 0.8); // decays over ~6s
-```
-
-Valid triggers: `celebration`, `concern`, `curiosity`, `empathy`, `patience`. `weight` is 0–1 and defaults to 0.7.
-
-**`setMood(valence, arousal, opts)`** — "this is how it's feeling right now, as a baseline." A sustained resting state the avatar drifts toward continuously — a gentle smile and open posture when positive, a worried brow when negative — composited underneath any transient `expressEmotion` spikes rather than fighting them.
-
-```js
-agent.setMood(0.4, 0.5); // valence -1..1 (despair→elation), arousal 0..1 (calm→activated)
-```
-
-`opts.reducedMotion` (boolean) tells the empathy layer to skip the drift animation and snap directly, for visitors with `prefers-reduced-motion: reduce` set.
-
-The pattern for "emotion from data" is: **your data source feeds `setMood()` continuously** for the resting state, and you fire `expressEmotion()` on top for discrete moments worth calling out. Everything below builds on top of just these two calls — no other API surface is needed.
+**Prerequisites:** You've completed [first agent](/tutorials/first-agent) or have an `<agent-3d>` element on a page, and ideally [the JS API tutorial](/tutorials/js-api-events) (Step 5 covers the animation basics this one builds on). For the AI lane, a small amount of USDC and familiarity with the [x402 payment flow](/tutorials/pay-for-x402-service) — the call costs $0.04.
 
 ---
 
-## Step 2 — The free lane: sentiment → mood, no AI required
+## Step 1 — The two animation entry points
 
-The platform already runs a public, unauthenticated sentiment scorer over live pump.fun token chat: [`POST /api/social/sentiment-pulse`](../../api/social/sentiment-pulse.js). It pulls recent comments for a token and scores them with an in-repo lexicon (no LLM call, no key, no rate-limit surprises) — good enough to prove the wiring before you reach for a model.
+Every `<agent-3d>` element exposes two public methods for triggering body animation, and — per the [JS API tutorial](/tutorials/js-api-events#step-5--animations-exact-name-vs-hint) — they answer different questions.
+
+**`agent.play(clipName)`** — plays the clip with that *exact* name from the loaded library or GLB. Case-sensitive; if the name isn't found, nothing plays. Use this once you know what's actually in the rig — e.g. `agent.play('rumba')`, `agent.play('thriller')`, `agent.play('celebrate')`. The full catalog (idle, locomotion, dance, gesture, action, sport, reaction, fitness — every clip a real, retargetable library entry, never hardcoded per-rig) is browsable at [/animations](/animations).
+
+**`agent.playEmote(name)`** — a higher-level wrapper for the small set of product-moment reactions with a built-in fallback chain, so it's guaranteed to do *something* regardless of which clips the loaded rig actually has:
+
+```js
+agent.playEmote('celebrate'); // celebrate → wave
+agent.playEmote('cheer');     // cheer → celebrate → wave
+agent.playEmote('flinch');    // flinch → defeated → concern → shake
+```
+
+If none of a chain's names exist on the rig, `playEmote` falls back to a small head-bob rather than doing nothing — so it's the safe default for "react to this event" code, and `play()` is for "I know exactly which clip I want."
+
+Convenience shortcut: `agent.wave()`.
+
+The pattern for "animation from data" is: **your data source picks a discrete outcome** (celebrate / flinch / a specific dance), and you call `playEmote()` or `play()` with that name. Unlike the sustained facial-mood layer (`setMood()` — covered separately, see the note at the end), these are one-shot performances that play out and settle back to idle on their own.
+
+---
+
+## Step 2 — The free lane: sentiment → animation, no AI required
+
+The platform runs a public, unauthenticated sentiment scorer over live pump.fun token chat: [`POST /api/social/sentiment-pulse`](../../api/social/sentiment-pulse.js). It pulls recent comments for a token and scores them with an in-repo lexicon (no LLM call, no key) — good enough to prove the wiring before you reach for a model.
 
 ```html
 <!DOCTYPE html>
@@ -56,6 +54,8 @@ The platform already runs a public, unauthenticated sentiment scorer over live p
   <script type="module">
     const agent = document.getElementById('agent');
     const TOKEN = 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump'; // $THREE, or any mint
+    let lastFired = 0;
+    const COOLDOWN_MS = 20_000; // never retrigger faster than this
 
     async function pulse() {
       const res = await fetch('https://three.ws/api/social/sentiment-pulse', {
@@ -67,27 +67,27 @@ The platform already runs a public, unauthenticated sentiment scorer over live p
       return res.json();
     }
 
-    function applyMood(overall) {
-      // scoreSentiment() already returns score in [-1, 1] — that's valence
-      // directly. Arousal comes from how much chatter there is and how
-      // one-sided it is (a wall of comments that agree reads as "activated").
-      const valence = Math.max(-1, Math.min(1, overall.score));
-      const lopsidedness = Math.abs(overall.posPct - overall.negPct) / 100;
-      const volume = Math.min(1, overall.count / 60);
-      const arousal = Math.max(0.15, lopsidedness * 0.6 + volume * 0.4);
-      agent.setMood(valence, arousal, {
-        reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
-      });
+    function reactTo(overall) {
+      // scoreSentiment() returns score in [-1, 1] and posPct/negPct/count.
+      // Require both a strong score AND enough chatter to trust it — a
+      // single glowing comment shouldn't trigger a full celebration.
+      const confident = overall.count >= 5;
+      const now = performance.now();
+      if (now - lastFired < COOLDOWN_MS) return; // still cooling down
 
-      // Fire a one-off spike on strong, fresh sentiment so it reads as a reaction,
-      // not just a slow drift.
-      if (overall.score > 0.5) agent.expressEmotion('celebration', Math.min(1, overall.score));
-      else if (overall.score < -0.5) agent.expressEmotion('concern', Math.min(1, Math.abs(overall.score)));
+      if (confident && overall.score > 0.45) {
+        agent.playEmote('celebrate');
+        lastFired = now;
+      } else if (confident && overall.score < -0.45) {
+        agent.playEmote('flinch');
+        lastFired = now;
+      }
+      // Middling/uncertain sentiment: leave whatever's currently playing alone.
     }
 
     async function tick() {
       const data = await pulse();
-      if (data?.ok) applyMood(data.overall);
+      if (data?.ok) reactTo(data.overall);
     }
 
     agent.addEventListener('agent:ready', () => {
@@ -99,30 +99,36 @@ The platform already runs a public, unauthenticated sentiment scorer over live p
 </html>
 ```
 
-Save that as `index.html` and open it — no build step, no server, no wallet. Swap `TOKEN` for any Solana mint and the face tracks that token's live chat mood.
+Save that as `index.html` and open it — no build step, no server, no wallet. Swap `TOKEN` for any Solana mint and the agent physically celebrates or flinches as that token's live chat swings.
 
 ---
 
-## Step 3 — The AI lane: real emotion inference over arbitrary data
+## Step 3 — The AI lane: real classification over arbitrary data, richer gestures
 
-A lexicon scorer only works on short, informal text and only tells you positive/negative. For real documents — support tickets, product reviews, meeting transcripts, incident reports — you want a model that returns *structured* emotion: a sentiment score plus a breakdown across joy, anger, fear, sadness, surprise, and disgust. `ibm_granite_analyze` (part of the [IBM Granite x402 MCP suite](../ibm-x402-mcp.md)) does exactly this for $0.04/call, no IBM account needed — you pay in USDC, it pays IBM.
+A lexicon scorer only works on short, informal text and only gives you positive/negative. For real documents — support tickets, product reviews, meeting transcripts, incident reports — you want a model that returns *structured* emotion: a sentiment score plus a breakdown across joy, anger, fear, sadness, surprise, and disgust, so you can pick a more specific reaction than a binary celebrate/flinch. `ibm_granite_analyze` (part of the [IBM Granite x402 MCP suite](../ibm-x402-mcp.md)) does exactly this for $0.04/call, no IBM account needed — you pay in USDC, it pays IBM.
 
-This is a server-side call (it needs a wallet to sign the payment), so it lives behind a small endpoint you host yourself and the browser polls. The `@three-ws/x402-fetch` package does the 402 → sign → retry dance for you, the same way `window.X402.pay` does in the browser — see [pay-for-x402-service](/tutorials/pay-for-x402-service) for the full protocol if you want the mechanics.
+This is a server-side call (it needs a wallet to sign the payment), so it lives behind a small endpoint you host yourself and the browser polls. The `@three-ws/x402-fetch` package does the 402 → sign → retry dance for you — see [pay-for-x402-service](/tutorials/pay-for-x402-service) for the full protocol if you want the mechanics.
 
 ```js
-// mood-from-ai.js — run with `node mood-from-ai.js`, or drop the body of
-// scoreEmotion() into any serverless handler (Vercel/Cloud Run/etc).
+// gesture-from-ai.js — run with `node gesture-from-ai.js`, or drop the body of
+// gestureFor() into any serverless handler (Vercel/Cloud Run/etc).
 import { withX402, privateKeyToWallet } from '@three-ws/x402-fetch';
 
 const wallet = privateKeyToWallet(process.env.SOLANA_PRIVATE_KEY); // funds the $0.04 calls
 const fetchWithPay = withX402(fetch, wallet);
 
-// High-arousal emotions push the needle further from calm than low-arousal ones.
-const AROUSAL_WEIGHT = { anger: 0.9, fear: 0.85, surprise: 0.8, joy: 0.55, sadness: 0.3, disgust: 0.45 };
-// Which discrete trigger best represents the dominant emotion, for expressEmotion().
-const DOMINANT_TRIGGER = { joy: 'celebration', anger: 'concern', fear: 'concern', sadness: 'empathy', surprise: 'curiosity', disgust: 'concern' };
+// Dominant emotion → the richest matching clip. exact-name clips (agent.play)
+// give a bigger, more specific performance than the 3-way emote chain.
+const GESTURE_FOR = {
+  joy: 'celebrate',
+  surprise: 'silly',
+  anger: 'shake',
+  fear: 'defeated',
+  sadness: 'defeated',
+  disgust: 'angry',
+};
 
-async function scoreEmotion(document) {
+async function gestureFor(document) {
   const res = await fetchWithPay('https://three.ws/api/ibm-mcp', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -139,77 +145,77 @@ async function scoreEmotion(document) {
   const { result } = await res.json();
   const analysis = JSON.parse(result.content[0].text);
 
-  const valence = Math.max(-1, Math.min(1, analysis.sentiment.score));
   const breakdown = analysis.emotion_breakdown || {};
-  const dominant = Object.entries(breakdown).sort((a, b) => b[1] - a[1])[0]?.[0] || 'joy';
-  const arousal = Math.max(
-    0.15,
-    Object.entries(breakdown).reduce((sum, [k, v]) => sum + v * (AROUSAL_WEIGHT[k] || 0.5), 0),
-  );
+  const [dominant, strength] = Object.entries(breakdown).sort((a, b) => b[1] - a[1])[0] || ['joy', 0];
 
-  return { valence, arousal, trigger: DOMINANT_TRIGGER[dominant], summary: analysis.summary };
+  // Below this, the signal is too weak to justify interrupting idle.
+  if (strength < 0.3) return null;
+
+  return { clip: GESTURE_FOR[dominant] || null, strength, summary: analysis.summary };
 }
 ```
 
-Wire that into a one-route endpoint (`GET /mood?text=...` returning the JSON above), and the browser side is the same shape as Step 2 — swap the `fetch` call and keep `applyMood()`:
+Wire that into a one-route endpoint (`GET /gesture?text=...` returning the JSON above), and the browser side reuses the same cooldown-gated `reactTo()` shape from Step 2 — swap the fetch call and the trigger:
 
 ```js
 async function tick() {
-  const res = await fetch(`/mood?text=${encodeURIComponent(latestDocument)}`);
-  const { valence, arousal, trigger } = await res.json();
-  agent.setMood(valence, arousal, { reducedMotion: prefersReduced });
-  if (trigger) agent.expressEmotion(trigger, Math.min(1, Math.abs(valence)) || 0.5);
-}
-```
-
-Now anything you can turn into a string — a webhook payload, a scraped page, a batch of reviews — can drive the avatar's face through a real model instead of a keyword list.
-
----
-
-## Step 4 — Running it continuously without jank
-
-Three rules the platform's own production instance of this pattern (see Step 5) follows, worth copying:
-
-1. **Don't poll faster than your data actually changes.** `setMood()` already lerps toward the target over ~1s so a mood *change* reads as a drift, not a cut — but polling every 2s when your source updates every 30s just spends API budget for no visual gain.
-2. **Fail to neutral, not to silence.** If the fetch throws or the model call fails, don't skip the tick — call `agent.setMood(0.12, 0.32)` (the avatar's own default resting state) so a broken data source reads as "calm," not as a frozen or crashed face.
-3. **Always pass `reducedMotion` from `matchMedia('(prefers-reduced-motion: reduce)')`.** The empathy layer respects it by snapping instead of drifting — free accessibility, one line.
-
-```js
-async function tick() {
-  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  try {
-    const { valence, arousal, trigger } = await fetchMood();
-    agent.setMood(valence, arousal, { reducedMotion });
-    if (trigger) agent.expressEmotion(trigger, 0.7);
-  } catch {
-    agent.setMood(0.12, 0.32, { reducedMotion }); // neutral, not broken
+  const res = await fetch(`/gesture?text=${encodeURIComponent(latestDocument)}`);
+  const { clip } = await res.json();
+  const now = performance.now();
+  if (clip && now - lastFired > COOLDOWN_MS) {
+    agent.play(clip); // exact library name, e.g. 'shake', 'silly', 'celebrate'
+    lastFired = now;
   }
 }
 ```
 
+Now anything you can turn into a string — a webhook payload, a scraped page, a batch of reviews — can drive a specific, visible body performance instead of a static idle loop.
+
 ---
 
-## Step 5 — See it live
+## Step 4 — Don't let fast data spam the animation queue
 
-The platform runs exactly this pattern in production on [/agi](/agi): [`api/agi/state.js`](../../api/agi/state.js) computes a real cognition vector server-side — valence from live unrealized P&L and on-chain reputation, arousal from how recently the agent last acted — from a real autonomous trading agent's actual track record (never sampled or faked). [`src/agi.js`](../../src/agi.js) polls it every 20s and applies it with the exact `setMood` / `expressEmotion` calls shown above (`applyMood()`, around line 90). Open `/agi` and watch the aura and the avatar's resting expression shift as the underlying trader's P&L moves — that's this tutorial's Step 3/4 pattern, shipped.
+Two rules worth copying from the platform's own production reaction engine ([`src/widgets/pumpfun-reactions.js`](../../src/widgets/pumpfun-reactions.js) — the pump.fun live-trade avatar reactor, 23 distinct clips across dozens of event shapes):
+
+1. **Cooldown, not "react to every event."** A fast feed (trades, comments, ticks) will fire far more often than a physical performance can play out. Gate triggers behind a minimum interval (`COOLDOWN_MS` above) — the production reactor goes further and queues lower-priority events behind an in-flight gesture instead of dropping or interrupting it.
+2. **Require confidence before you interrupt idle.** A single data point (one comment, one weak signal) shouldn't yank the avatar out of idle. Both examples above gate on a minimum sample size / signal strength (`overall.count >= 5`, `strength >= 0.3`) — tune the threshold to your own data's noise floor.
+
+```js
+let lastFired = 0;
+const COOLDOWN_MS = 20_000;
+
+function reactIfConfident(clipOrEmoteName, { confident, useExactClip = false } = {}) {
+  const now = performance.now();
+  if (!confident || now - lastFired < COOLDOWN_MS) return false;
+  useExactClip ? agent.play(clipOrEmoteName) : agent.playEmote(clipOrEmoteName);
+  lastFired = now;
+  return true;
+}
+```
+
+---
+
+## A note on the facial layer
+
+`agent.play()` / `agent.playEmote()` drive the *body* — the skeleton, via the shared animation-clip library. There's a separate, independent layer for the *face*: `agent.setMood(valence, arousal)` / `agent.expressEmotion(trigger, weight)` drive ARKit-52 blendshapes (smile, brow, gaze) on avatars that carry them, without touching the skeleton at all. The two compose — a `celebrate` clip moves the arms while the face layer, if you're also driving it, can separately smile — but they're distinct systems with distinct APIs. This tutorial covers the body; if you want the face to track data too, the same fetch/cooldown pattern above applies, just swapping in `setMood()`/`expressEmotion()`.
 
 ---
 
 ## Troubleshooting
 
-- **Face never moves.** Confirm `agent:ready` fired before your first `setMood()` call — calling it before boot is silently no-op'd. Wrap your first tick in the `agent:ready` listener as shown in Step 2.
-- **Mood snaps instead of drifting.** You're calling `setMood()` far more often than your data changes, so each call interrupts the lerp from the previous one. Widen your poll interval.
-- **`expressEmotion` throws no error but nothing happens.** The trigger name is misspelled — it must be exactly one of `celebration`, `concern`, `curiosity`, `empathy`, `patience` (case-sensitive).
-- **AI lane 402 loop / never resolves.** Your `SOLANA_PRIVATE_KEY` wallet has no USDC. Fund it with a few cents — see [fund](/tutorials) or the [x402 payment flow](/tutorials/pay-for-x402-service).
+- **Nothing plays.** Confirm `agent:ready` fired before your first `play()`/`playEmote()` call — calling either before boot is silently a no-op. Wrap your first tick in the `agent:ready` listener as shown in Step 2.
+- **`agent.play('someClip')` does nothing.** The name is case-sensitive and must match a clip actually present on the rig — check the exact name at [/animations](/animations) or fall back to `playEmote()`, which degrades gracefully instead of silently failing.
+- **The agent keeps re-celebrating every poll.** You skipped the cooldown gate in Step 4, or your confidence threshold is too low for a noisy feed. Widen `COOLDOWN_MS` or raise the sample-size/strength floor.
+- **AI lane 402 loop / never resolves.** Your `SOLANA_PRIVATE_KEY` wallet has no USDC. Fund it with a few cents — see the [x402 payment flow](/tutorials/pay-for-x402-service).
 - **`analysis.emotion_breakdown` is undefined.** You passed `analysis_type` other than `sentiment` — only that type returns the per-emotion breakdown; the other five types return type-specific fields instead (see [ibm-x402-mcp](../ibm-x402-mcp.md)).
 
 ---
 
 ## Recap
 
-- `expressEmotion(trigger, weight)` for transient reactions, `setMood(valence, arousal, opts)` for sustained resting state — both are public methods on every `<agent-3d>` element, no library beyond the CDN script.
+- `agent.play(clipName)` for an exact clip, `agent.playEmote(name)` for a safer semantic trigger with a fallback chain — both are public methods on every `<agent-3d>` element, no library beyond the CDN script.
 - The free lane (`/api/social/sentiment-pulse`) proves the wiring with zero AI and zero cost.
-- The AI lane (`ibm_granite_analyze` over x402) turns arbitrary documents — not just short informal text — into structured, multi-dimensional emotion for $0.04/call.
-- `/agi` is the live, real-money production example of this exact pattern — read its source when you want to see the pattern under real load.
+- The AI lane (`ibm_granite_analyze` over x402) turns arbitrary documents into a richer emotion breakdown, unlocking more of the animation library than a simple positive/negative split.
+- Gate every automated trigger behind a cooldown and a confidence floor — [`pumpfun-reactions.js`](../../src/widgets/pumpfun-reactions.js) is the production-grade version of this exact pattern, queueing and prioritizing real trade-feed events across 23 distinct clips.
 
-**Related tutorials:** [Trigger the agent from page events](/tutorials/trigger-from-page-events) · [Connect Anthropic or OpenAI as the brain](/tutorials/connect-ai-brain) · [Discover and pay for an x402 service](/tutorials/pay-for-x402-service) · [MCP server for your agent](/tutorials/mcp-server-for-your-agent)
+**Related tutorials:** [The JS API — animations, exact name vs. hint](/tutorials/js-api-events) · [Trigger the agent from page events](/tutorials/trigger-from-page-events) · [Animate your avatar](/tutorials/animate-your-avatar) · [Discover and pay for an x402 service](/tutorials/pay-for-x402-service)
