@@ -59,7 +59,7 @@ function cache() {
 		'stage', 'canvas-wrap', 'presets', 'variants', 'variant-strip', 'history',
 		'metalness', 'roughness', 'emissive', 'basecolor', 'emissivecolor',
 		'seed', 'variant-count', 'gen-variants', 'reset', 'export', 'export-note',
-		'file', 'url-input', 'load-url', 'status', 'empty', 'error', 'error-msg', 'retry',
+		'file', 'url-input', 'load-url', 'status', 'error', 'error-msg', 'retry',
 	]) {
 		el[id] = document.getElementById(id);
 	}
@@ -383,7 +383,6 @@ function pushHistory(label) {
 
 function showState(kind) {
 	el.status.hidden = kind !== 'loading';
-	el.empty.hidden = true;
 	el.error.hidden = kind !== 'error';
 	el['canvas-wrap'].classList.toggle('is-hidden', kind === 'error');
 }

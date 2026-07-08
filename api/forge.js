@@ -105,6 +105,7 @@ import {
 } from './_lib/forge-cache.js';
 import { shouldRetryForQuality } from './_lib/glb-quality.js';
 import { directPrompt, originFromReq } from './_mcp-studio/forge-client.js';
+import { MESH_DIRECTOR } from './_lib/forge-director-prompts.js';
 
 // Circuit-breaker key + window for the free NVIDIA NIM TRELLIS text→3D lane. The
 // hosted NVCF gateway can degrade so a submit neither completes nor hands back a
@@ -1115,9 +1116,10 @@ async function startJob(req, res) {
 					sourceUrl: sketchUrl,
 					params: {
 						prompt,
-						target_polycount: tier.polycount,
+						target_polycount: opts.targetPolycount ?? tier.polycount,
 						tier: tier.id,
 						path,
+						seed: opts.seed ?? undefined,
 					},
 				});
 			} catch (err) {
@@ -1166,6 +1168,7 @@ async function startJob(req, res) {
 				tier: tier.id,
 				path,
 			});
+			await bindJobToOptions(token, opts);
 
 			const sketchCold = await coldStartFor(backendId);
 			return json(res, 200, {
@@ -1182,6 +1185,7 @@ async function startJob(req, res) {
 				cold_start: sketchCold,
 				eta_seconds: estimateEtaSeconds({ backendId, tier, cold: sketchCold }),
 				estimated_credits: estimateCredits({ backendId, path, tier }),
+				options: opts.hasOptions ? summarizeForgeOptions(opts) : undefined,
 			});
 		}
 
@@ -1254,6 +1258,8 @@ async function startJob(req, res) {
 					replicateJobId: syntheticJob,
 					clientKey,
 					glbUrl: submitted.resultGlbUrl,
+					quality: true,
+					compress: opts.compression !== 'none' ? opts.compression : null,
 				});
 				return json(res, 200, {
 					job_id: null,
@@ -1261,6 +1267,9 @@ async function startJob(req, res) {
 					status: 'done',
 					glb_url: durable?.glbUrl ?? submitted.resultGlbUrl,
 					durable: Boolean(durable),
+					quality: durable?.quality || null,
+					compression: durable?.compression || null,
+					options: opts.hasOptions ? summarizeForgeOptions(opts) : undefined,
 					mode: isImageMode ? 'image_to_3d' : 'text_to_3d',
 					path,
 					tier: tier.id,
@@ -1278,6 +1287,7 @@ async function startJob(req, res) {
 				kind: submitted.kind,
 				taskId: submitted.taskId,
 			});
+			await bindJobToOptions(token, opts);
 
 			// Store the upstream task id as the job handle so findByJob/materialize
 			// resolve it on poll, exactly like the Replicate path.
@@ -1457,7 +1467,22 @@ async function startJob(req, res) {
 			referenceImageUrl = imageUrls[0];
 			textToImageModel = null;
 		} else {
-			const synthesized = await textToImage(prompt, { aspectRatio: aspect, skipNim: nimGatewayDegraded });
+			// Optional Granite art-director pass (off by default): rewrites the raw
+			// prompt into a richer, single-subject spec (form, per-part materials,
+			// one held style, composition constraints) before it drives the FLUX
+			// reference image — the same director the free MCP tools use. Fail-soft:
+			// any failure (chat lane down, timeout) silently keeps the raw prompt, so
+			// opting in can only ever help, never break, a generation.
+			let directedPrompt = prompt;
+			if (body?.director === true) {
+				const directed = await directPrompt(originFromReq(req), MESH_DIRECTOR, prompt).catch(() => null);
+				if (directed) directedPrompt = directed;
+			}
+			const synthesized = await textToImage(directedPrompt, {
+				aspectRatio: aspect,
+				skipNim: nimGatewayDegraded,
+				seed: opts.seed ?? undefined,
+			});
 			referenceImageUrl = synthesized.imageUrl;
 			textToImageModel = synthesized.model;
 			views = [referenceImageUrl];
@@ -1497,7 +1522,7 @@ async function startJob(req, res) {
 				job = await gcp.submit({
 					mode: 'trellis',
 					sourceUrl: referenceImageUrl,
-					params: { images: views },
+					params: { images: views, seed: opts.seed ?? undefined },
 				});
 			} catch (err) {
 				if (err?.code === 'mode_unconfigured') {
@@ -1543,6 +1568,8 @@ async function startJob(req, res) {
 					tier: tier.id,
 					path,
 				});
+				if (cacheKey) await bindJobToCacheKey(token, cacheKey);
+				await bindJobToOptions(token, opts);
 
 				const cold = await coldStartFor(backendId);
 				return json(res, 200, {
@@ -1558,6 +1585,7 @@ async function startJob(req, res) {
 					reference_image_urls: isImageMode ? [imageUrls[0]] : [referenceImageUrl],
 					text_to_image_model: isImageMode ? null : textToImageModel,
 					cold_start: cold,
+					options: opts.hasOptions ? summarizeForgeOptions(opts) : undefined,
 					eta_seconds: estimateEtaSeconds({ backendId, tier, cold }),
 					estimated_credits: estimateCredits({ backendId, path, tier }),
 				});
@@ -1642,12 +1670,17 @@ async function startJob(req, res) {
 
 		// Only poly-aware backends (Hunyuan3D self-host) accept a target budget;
 		// TRELLIS validates its input schema and would 422 on an unknown field, so
-		// the tier rides along as the recorded provenance only.
+		// the tier rides along as the recorded provenance only. `seed` is a
+		// recognized generation param across the TRELLIS family and Hunyuan3D
+		// alike (survives stripInternal() and overrides the provider's own
+		// default), so it's forwarded unconditionally, not gated on polyControl.
 		const reconstructParams = { images: views, prompt: prompt || undefined };
+		if (opts.seed !== null) reconstructParams.seed = opts.seed;
 		if (BACKENDS[backendId].polyControl) {
-			reconstructParams.target_polycount = tier.polycount;
+			reconstructParams.target_polycount = opts.targetPolycount ?? tier.polycount;
 			reconstructParams.tier = tier.id;
 			reconstructParams.path = path;
+			if (opts.textureSize) reconstructParams.texture_size = opts.textureSize;
 		}
 
 		let job;
@@ -1716,9 +1749,10 @@ async function startJob(req, res) {
 				backendId = 'hunyuan3d';
 				provider = createGcpProvider({ reconstructUrl: hunyuanUrl });
 				// Hunyuan3D is poly-aware — supply the tier budget the TRELLIS params omit.
-				reconstructParams.target_polycount = tier.polycount;
+				reconstructParams.target_polycount = opts.targetPolycount ?? tier.polycount;
 				reconstructParams.tier = tier.id;
 				reconstructParams.path = path;
+				if (opts.textureSize) reconstructParams.texture_size = opts.textureSize;
 				job = await provider.submit({
 					mode: 'reconstruct',
 					sourceUrl: referenceImageUrl,
@@ -1799,6 +1833,11 @@ async function startJob(req, res) {
 		// requests in the next few minutes coalesce onto it instead of re-running the
 		// GPU pipeline. First writer wins; best-effort (no-op without Redis).
 		await registerInFlight(requestHash, jobHandle);
+		// Cache-eligibility was fixed before any lane failover reassigned backendId;
+		// a BYOK pick already disqualified it above, so it's always safe to bind
+		// here for whichever platform lane actually ran.
+		if (cacheKey) await bindJobToCacheKey(jobHandle, cacheKey);
+		await bindJobToOptions(jobHandle, opts);
 
 		// Honest cold-start: only a self-host worker reached cold widens the ETA
 		// (a paid/external lane returns false). Covers the Hunyuan3D self-host
@@ -1820,6 +1859,7 @@ async function startJob(req, res) {
 			multiview,
 			text_to_image_model: textToImageModel,
 			cold_start: cold,
+			options: opts.hasOptions ? summarizeForgeOptions(opts) : undefined,
 			eta_seconds: estimateEtaSeconds({ backendId, tier, cold }),
 			estimated_credits: estimateCredits({ backendId, path, tier }),
 		});

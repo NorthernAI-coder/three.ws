@@ -351,6 +351,14 @@
 					"added": "2026-06-04"
 				},
 				{
+					"path": "/restyle",
+					"title": "Restyle Studio — material presets & variants",
+					"description": "Re-skin any 3D model in the browser: apply PBR material presets (chrome, gold, glass, wood…), generate seeded colorway variants, fine-tune metalness and roughness, and export a validated GLB — non-destructively.",
+					"priority": 0.8,
+					"changefreq": "monthly",
+					"added": "2026-07-08"
+				},
+				{
 					"path": "/avatar-engines",
 					"title": "Avatar Engines Atlas",
 					"description": "A curated, factual atlas of the open-source and commercial engines that build high-quality and photoreal 3D human avatars — Gaussian-splat heads, single-photo humans, text→avatar generators, and the rigs three.ws already animates. Technique, license, compute, and integration status for each.",

@@ -25,7 +25,9 @@ const CATALOGS = [
 //   delete_avatar — permanently removes a user's avatar
 //   forget        — deletes a stored agent memory
 //   pay_and_call  — spends the user's USDC (irreversible transfer)
-const DESTRUCTIVE_TOOLS = new Set(['delete_avatar', 'forget', 'pay_and_call']);
+//   persona_tip   — spends a persona's own USDC (irreversible transfer)
+//   persona_send  — spends a persona's own USDC (irreversible transfer)
+const DESTRUCTIVE_TOOLS = new Set(['delete_avatar', 'forget', 'pay_and_call', 'persona_tip', 'persona_send']);
 
 // Internal/spec-only fields that must never leak into the tools/list wire
 // payload.

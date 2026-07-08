@@ -41,6 +41,19 @@ const CSS = `
 @keyframes emb-pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.45);opacity:.55}}
 .emb__note{position:absolute;left:14px;bottom:12px;font-size:11px;color:#8b8b98;background:rgba(14,14,20,.6);
 	padding:4px 9px;border-radius:8px;border:1px solid rgba(255,255,255,.08);max-width:calc(100% - 28px)}
+.emb__identity{position:absolute;right:14px;top:12px;display:flex;align-items:center;gap:6px;
+	padding:6px 10px;border-radius:999px;background:rgba(14,14,20,.72);
+	border:1px solid rgba(255,255,255,.1);backdrop-filter:blur(10px);box-shadow:0 6px 22px rgba(0,0,0,.38);
+	max-width:calc(100% - 28px);transition:opacity .25s}
+.emb__identity[hidden]{display:none!important}
+.emb__id-aura{width:8px;height:8px;border-radius:50%;flex:none;background:var(--emb-aura,#5b6472);
+	box-shadow:0 0 8px var(--emb-aura,#5b6472)}
+.emb__id-badge{font-size:11px;font-weight:700;color:var(--emb-cosmetic,#c2793b)}
+.emb__id-name{font-size:11px;font-weight:600;color:#5eead4;border-left:1px solid rgba(255,255,255,.14);padding-left:6px;
+	display:flex;align-items:center;gap:3px}
+.emb__id-name::before{content:'✓';font-size:10px}
+.emb__identity--muted{opacity:.55}
+.emb__id-muted-note{font-size:10px;color:#8b8b98;font-style:italic}
 .emb__skeleton{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
 	background:radial-gradient(120% 120% at 50% 0%,#1a1a24 0%,#0c0c12 70%)}
 .emb__skel-body{width:90px;height:200px;border-radius:40px 40px 18px 18px;
@@ -96,6 +109,12 @@ export function mountOverlay(container, opts = {}) {
 			<span class="emb__emotion" data-emotion hidden></span>
 		</div>
 		<div class="emb__note" data-note hidden></div>
+		<div class="emb__identity" data-identity hidden>
+			<span class="emb__id-aura" data-id-aura title="Reputation"></span>
+			<span class="emb__id-badge" data-id-badge></span>
+			<span class="emb__id-name" data-id-name hidden></span>
+			<span class="emb__id-muted-note" data-id-muted hidden>low balance</span>
+		</div>
 		<div class="emb__error" data-error hidden>
 			<h3>This avatar didn't load</h3>
 			<p data-error-msg>The 3D model couldn't be reached. Check the link and try again.</p>
@@ -108,6 +127,8 @@ export function mountOverlay(container, opts = {}) {
 		skel: $('[data-skel]'), plate: $('[data-plate]'), dot: $('[data-dot]'),
 		name: $('[data-name]'), state: $('[data-state]'), emotion: $('[data-emotion]'),
 		note: $('[data-note]'), error: $('[data-error]'), errorMsg: $('[data-error-msg]'), retry: $('[data-retry]'),
+		identity: $('[data-identity]'), idAura: $('[data-id-aura]'), idBadge: $('[data-id-badge]'),
+		idName: $('[data-id-name]'), idMuted: $('[data-id-muted]'),
 	};
 	els.retry.addEventListener('click', () => opts.onRetry?.());
 

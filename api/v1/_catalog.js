@@ -177,4 +177,18 @@ export const CATALOG = [
 			chain: 'string — "ethereum" | "solana", optional hint validated against address (auto-detected from format when omitted)',
 		},
 	},
+	{
+		id: 'v1.pump.search',
+		method: 'GET',
+		path: '/api/v1/pump/search',
+		auth: 'public',
+		summary:
+			'Free text search over Solana pump.fun / meme tokens by name, symbol, or mint (Birdeye-first, ' +
+			'pump.fun-fallback). The one pump.fun read with no /api/crypto/* equivalent — trending, ' +
+			'bonding-curve progress, launches, and whale activity already ship there. No key; 60/min per IP.',
+		params: {
+			q: 'string — token name, symbol, or mint to search for (required)',
+			limit: 'number 1–20 (default 8)',
+		},
+	},
 ];

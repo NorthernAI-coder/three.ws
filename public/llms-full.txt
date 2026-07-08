@@ -262,6 +262,12 @@ URL: https://three.ws/forge
 
 Type a prompt — or drop in photos or a sketch — and get a downloadable textured 3D model (GLB). Pick from multiple generation engines with live health status.
 
+### Restyle Studio — material presets & variants
+
+URL: https://three.ws/restyle
+
+Re-skin any 3D model in the browser: apply PBR material presets (chrome, gold, glass, wood…), generate seeded colorway variants, fine-tune metalness and roughness, and export a validated GLB — non-destructively.
+
 ### Avatar Engines Atlas
 
 URL: https://three.ws/avatar-engines

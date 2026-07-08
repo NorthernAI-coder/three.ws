@@ -344,6 +344,34 @@
   "loop": false
  },
  {
+  "name": "nod",
+  "source": "mx-nodding-head-yes-c9c91f89b96c.fbx",
+  "label": "Nod",
+  "icon": "🙂",
+  "loop": false
+ },
+ {
+  "name": "shrug",
+  "source": "mx-shoulder-shrug-c9c69537b96c.fbx",
+  "label": "Shrug",
+  "icon": "🤷",
+  "loop": false
+ },
+ {
+  "name": "point",
+  "source": "mx-pointing-with-arm-bent-c9c6947cb96c.fbx",
+  "label": "Point",
+  "icon": "👉",
+  "loop": false
+ },
+ {
+  "name": "think",
+  "source": "mx-thoughtfully-nodding-head-yes-c9c91939b96c.fbx",
+  "label": "Think",
+  "icon": "🤔",
+  "loop": false
+ },
+ {
   "name": "rumba",
   "source": "Rumba Dancing.fbx",
   "label": "Rumba",
@@ -370,6 +398,13 @@
   "label": "Sit Laugh",
   "icon": "😂",
   "loop": false
+ },
+ {
+  "name": "sitloop",
+  "source": "mx-sitting-with-breathing-idle-c9ccab1bb96c.fbx",
+  "label": "Sitting Idle",
+  "icon": "🪑",
+  "loop": true
  },
  {
   "name": "taunt",
@@ -404,6 +439,20 @@
   "source": "Walking.fbx",
   "label": "Walk",
   "icon": "🚶",
+  "loop": true
+ },
+ {
+  "name": "turn",
+  "source": "mx-standing-180-left-turn-c9c96eaeb96c.fbx",
+  "label": "Turn",
+  "icon": "🔄",
+  "loop": false
+ },
+ {
+  "name": "jog",
+  "source": "mx-jog-forward-c9d59296b96c-31.fbx",
+  "label": "Jog",
+  "icon": "🏃",
   "loop": true
  },
  {
