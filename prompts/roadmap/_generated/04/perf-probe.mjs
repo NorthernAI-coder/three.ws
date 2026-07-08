@@ -6,8 +6,8 @@ import { chromium } from '@playwright/test';
 import { writeFileSync } from 'node:fs';
 
 const OUT = '/workspaces/three.ws/prompts/roadmap/_generated/04';
-const MODEL = 'http://localhost:3061/club/venue/tour.glb';
-const URL = `http://localhost:3061/app.html#model=${encodeURIComponent(MODEL)}&kiosk=false`;
+const MODEL = 'http://localhost:8092/club/venue/tour.glb';
+const URL = `http://localhost:8092/app.html#model=${encodeURIComponent(MODEL)}&kiosk=false`;
 
 const browser = await chromium.launch();
 const results = [];

@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-07-08",
+			"title": "3D viewer accessibility: keyboard orbit, focus rings, and a low-power mode for the main site viewer",
+			"summary": "The core 3D viewer that powers /app, Forge, avatar pages, and every embed now matches the accessibility bar the lightweight SDK viewer already had: the canvas is keyboard-reachable (tab to focus, arrow keys orbit, +/- zoom), gets a proper accessible name, and shows a visible focus ring. Entry-level phones and tablets (detected by touch input plus low core count or memory — desktop is never affected) now get a lighter render automatically: capped resolution and no antialiasing, for a steadier frame rate instead of a choppy one. Also fixed: Scene Studio's Import from Forge / Export / Share action bar was overlapping the editor's own File/Edit/Add menu bar at every screen size — it now sits cleanly below it.",
+			"tags": [
+				"improvement",
+				"fix"
+			],
+			"link": "/scene"
+		},
+		{
+			"date": "2026-07-08",
 			"title": "The Tour Builder gains templates — starting with a ready-made 3D guided tour of Sperax, our first DeFi partner deployment",
 			"summary": "The Tour Builder now ships Templates: ready-made tours you load into the editor as a starting point instead of hand-picking every stop. The first one is an 8-stop guided walk of Sperax's USDs auto-yield stablecoin — what USDs is, how the auto-yield actually works, minting and redeeming, where the yield comes from, staking SPA for veSPA, farms, and getting started — with real selectors verified against Sperax's live site and narration checked against its published protocol docs. Loading a template swaps the editor's stops, avatar, and chapters in one click; editing, previewing, and exporting work exactly like a hand-built tour, and a banner explains that a partner template's true preview is the exported snippet on the partner's own site. @three-ws/tour's selector-fallback behavior (primary → secondary → page heading/CTA → narrate with no spotlight, never a hard failure) now has dedicated test coverage.",
 			"tags": [

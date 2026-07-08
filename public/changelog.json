@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-08T06:52:39.666Z",
+	"generated_at": "2026-07-08T07:01:22.087Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -196,6 +196,17 @@
 			"tags": [
 				"feature",
 				"sdk"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
+			"title": "3D viewer accessibility: keyboard orbit, focus rings, and a low-power mode for the main site viewer",
+			"summary": "The core 3D viewer that powers /app, Forge, avatar pages, and every embed now matches the accessibility bar the lightweight SDK viewer already had: the canvas is keyboard-reachable (tab to focus, arrow keys orbit, +/- zoom), gets a proper accessible name, and shows a visible focus ring. Entry-level phones and tablets (detected by touch input plus low core count or memory — desktop is never affected) now get a lighter render automatically: capped resolution and no antialiasing, for a steadier frame rate instead of a choppy one. Also fixed: Scene Studio's Import from Forge / Export / Share action bar was overlapping the editor's own File/Edit/Add menu bar at every screen size — it now sits cleanly below it.",
+			"link": "/scene",
+			"tags": [
+				"improvement",
+				"fix"
 			]
 		},
 		{

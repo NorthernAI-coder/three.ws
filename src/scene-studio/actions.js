@@ -201,7 +201,11 @@ export function mountStudioActions(editor, container) {
 
 const CSS = `
 .tws-sa-bar {
-	position: absolute; top: 12px; right: 12px; z-index: 10;
+	/* Clears the vendored #menubar row (fixed 36px tall — see
+	   src/scene-studio/vendor/css/main.css, also the reference #player/#viewport
+	   use for their own top offset) at every breakpoint we support (320/768/1440),
+	   so this bar never sits on top of File/Edit/Add/View/Render/Help. */
+	position: absolute; top: 44px; right: 12px; z-index: 10;
 	display: flex; gap: 6px;
 	font: 600 12px/1 system-ui, -apple-system, sans-serif;
 }
