@@ -243,11 +243,31 @@ Trigger the tour from a store event — e.g. start it the first time a new visit
 The tour is the guided pitch. For a docked assistant that reads any page aloud — product descriptions, policies, headings — add [`@three-ws/page-agent`](https://www.npmjs.com/package/@three-ws/page-agent) alongside it:
 
 ```html
-<script src="https://unpkg.com/@three-ws/page-agent@0.1.1/dist/page-agent.global.js"
+<script src="https://unpkg.com/@three-ws/page-agent@0.2.0/dist/page-agent.global.js"
         data-page-agent data-avatar="sol" defer></script>
 ```
 
 It auto-discovers your `h1`/`h2`/`h3` headings and the copy beneath them, scrolls to each, and reads it with the browser's built-in speech — no backend. Control exactly what's read with `data-narrate="Say this instead"` and `data-narrate-order="1"` on your elements. The two coexist: the tour stands the narrator down while it runs.
+
+Give the narrator a storefront persona with `preset="shop-assistant"` — it
+resolves a shopping-focused greeting plus four tappable suggested-prompt
+chips ("What am I looking at?", "Does this ship to me?", "What's the return
+policy?", "Is this the right fit for me?") docked right under the avatar, no
+extra config:
+
+```html
+<script src="https://unpkg.com/@three-ws/page-agent@0.2.0/dist/page-agent.global.js"
+        data-page-agent data-avatar="nova" data-preset="shop-assistant" defer></script>
+```
+
+Or as the `<page-agent>` element:
+
+```html
+<page-agent avatar="nova" preset="shop-assistant"></page-agent>
+```
+
+See [`page-agent-sdk`'s Persona presets](../../page-agent-sdk/README.md#persona-presets)
+for the other four personas and the full `preset`/`context` reference.
 
 ---
 

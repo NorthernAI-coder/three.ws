@@ -42,6 +42,12 @@
 			<button id="stop">⏹ Stop</button>
 		</div>
 
+		<h2 data-narrate="Presets turn the agent into a persona with one attribute: a greeting, a role, suggested-prompt chips, and a tool allowlist for a paired chat backend.">Persona presets</h2>
+		<p>Pick a preset below to reload the agent as that persona — greeting,
+		suggested-prompt chips, and <code>systemPrompt</code>/<code>tools</code>
+		(logged to the console) all switch with it.</p>
+		<div class="row" id="presets"></div>
+
 		<h2 data-narrate="Every avatar in the catalog is skeleton-rigged. That's a hard rule — unrigged meshes are excluded, because the runtime drives skeletal idle motion and viseme lipsync.">Only rigged agents</h2>
 		<p>Each agent ships a verified skinned mesh and armature. The runtime picks a
 		viseme, jaw, or full-body lipsync driver based on what the rig exposes.</p>
@@ -66,15 +72,30 @@
 	}
 	</script>
 	<script type="module">
-		import { PageAgent } from '../src/index.js';
+		import { PageAgent, PRESETS, PRESET_IDS } from '../src/index.js';
 
-		const guide = new PageAgent({
-			agent: 'sol',
-			position: 'bottom-right',
-			// Local assets so the demo works offline against this repo's public/ dir.
-			assetBase: 'https://three.ws/avatars/',
-		});
-		window.guide = guide;
+		let guide = mountGuide();
+
+		function mountGuide(preset) {
+			const g = new PageAgent({
+				agent: 'sol',
+				position: 'bottom-right',
+				// Local assets so the demo works offline against this repo's public/ dir.
+				assetBase: 'https://three.ws/avatars/',
+				preset,
+				// Sample host-page context — see how it's folded into `guide.systemPrompt`.
+				context: { page: 'page-agent-demo', tier: 'visitor' },
+			});
+			window.guide = g;
+			g.on('agentchange', (a) => console.log('now guided by', a.name));
+			g.on('error', (e) => console.warn('page-agent error', e));
+			g.on('ready', () => {
+				console.log('preset:', g.currentPreset?.name ?? '(none — default behavior)');
+				console.log('tools allowlist:', g.tools);
+				console.log('systemPrompt:\n' + g.systemPrompt);
+			});
+			return g;
+		}
 
 		document.getElementById('tour').onclick = () => guide.narratePage({ greet: true });
 		document.getElementById('say').onclick = () =>
@@ -82,8 +103,25 @@
 		document.getElementById('pick').onclick = () => guide.openPicker();
 		document.getElementById('stop').onclick = () => guide.stop();
 
-		guide.on('agentchange', (a) => console.log('now guided by', a.name));
-		guide.on('error', (e) => console.warn('page-agent error', e));
+		// ── Persona preset switcher ──────────────────────────────────────────────
+		const presetsRow = document.getElementById('presets');
+		const defaultBtn = document.createElement('button');
+		defaultBtn.textContent = '— default (no preset) —';
+		defaultBtn.onclick = () => switchPreset(undefined);
+		presetsRow.appendChild(defaultBtn);
+
+		for (const id of PRESET_IDS) {
+			const btn = document.createElement('button');
+			btn.textContent = PRESETS[id].name;
+			btn.title = PRESETS[id].description;
+			btn.onclick = () => switchPreset(id);
+			presetsRow.appendChild(btn);
+		}
+
+		function switchPreset(id) {
+			guide.dispose();
+			guide = mountGuide(id);
+		}
 	</script>
 </body>
 </html>

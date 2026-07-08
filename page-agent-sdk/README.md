@@ -13,7 +13,7 @@ want — from a diverse roster of rigged agents.
 ![license](https://img.shields.io/npm/l/@three-ws/page-agent?color=3b82f6)
 ![node](https://img.shields.io/node/v/@three-ws/page-agent?color=339933&logo=node.js)
 
-[Quick start](#quick-start) · [Docs](#documentation) · [The catalog](#the-rigged-catalog) · [API](#api) · [How it works](#how-it-works) · [FAQ](#faq)
+[Quick start](#quick-start) · [Docs](#documentation) · [The catalog](#the-rigged-catalog) · [Persona presets](#persona-presets) · [API](#api) · [How it works](#how-it-works) · [FAQ](#faq)
 
 </div>
 
@@ -114,6 +114,118 @@ filterAgents({ lipsync: 'viseme' });     // best-in-class mouth sync
 
 Self-host the GLBs by pointing `assetBase` (or any agent's `url`) at your own CDN.
 
+## Persona presets
+
+One attribute turns the embed from "configure five props" into "pick a use
+case": `preset="shop-assistant"` resolves a full persona — a spoken greeting,
+a role brief, four tappable suggested-prompt chips, and a tool allowlist —
+in one line. Explicit attributes (`greeting`, `suggested-prompts`, `tools`)
+always override the preset's defaults.
+
+| preset              | for                                                        |
+|---------------------|-------------------------------------------------------------|
+| `guide`              | Narrates the host page end to end — today's default, made explicit |
+| `shop-assistant`     | Product questions and purchase guidance (pairs with the tour/Shopify story) |
+| `defi-advisor`       | Explains yield, holdings, and risk on DeFi pages (the Sperax deployment) |
+| `onboarding-coach`   | Walks new users through signup and first steps |
+| `support`            | FAQ-style help with escalation phrasing |
+
+```html
+<script type="module">import '@three-ws/page-agent';</script>
+<page-agent avatar="vera" preset="defi-advisor"></page-agent>
+```
+
+```js
+import { PageAgent } from '@three-ws/page-agent';
+
+const guide = new PageAgent({ agent: 'vera', preset: 'defi-advisor' });
+```
+
+Both mount Vera with the DeFi Advisor's greeting spoken on load and four
+suggested-prompt chips ("What does this protocol do?", "How is yield
+generated here?", …) docked under the stage. Tapping a chip speaks that
+persona's authored answer; the first chip of `guide`/`onboarding-coach` is
+wired to a real action (`narratePage()`) instead of a canned line.
+
+### What a preset carries
+
+```ts
+interface PagePersonaPreset {
+  id: string; name: string; description: string;
+  greeting: string;                                   // spoken on load
+  systemRole: string;                                  // persona brief for a paired LLM
+  suggestedPrompts: { prompt: string; response: string; action?: 'narrate'|'tour' }[];
+  tools: string[];                                     // capability allowlist (see note below)
+}
+```
+
+`PRESETS` and `PRESET_IDS` are exported for docs/tooling — build your own
+preset picker with `import { PRESETS, PRESET_IDS } from '@three-ws/page-agent'`.
+
+> **`page-agent` has no chat backend of its own.** It's a client-side TTS
+> narrator (Web Speech API) — there's no `fetch()` anywhere in this package.
+> `greeting` and `suggestedPrompts` are fully real: what you hear is
+> owner-authored copy the widget actually speaks, calibrated to never claim
+> live knowledge of the host page it can't have. `tools` is a documented
+> capability allowlist for a **paired** LLM chat backend (e.g. three.ws's
+> `<agent-3d chat>` component on the same page) — it's metadata today, not
+> enforced by this package, because there's no live request path here to
+> enforce it against. Read it off `guide.tools` / `guide.currentPreset.tools`
+> if you wire up a real chat backend alongside the narrator.
+
+### Host-page context
+
+Fold live host state into the persona's brief with the `context` attribute —
+a flat JSON object of strings, sanitized (non-string values dropped, ~1KB
+cap, backticks/newlines stripped so a value can't break out of the fenced
+block or inject fake instructions):
+
+```html
+<page-agent preset="defi-advisor" context='{"page":"vault-detail","chain":"arbitrum"}'></page-agent>
+```
+
+```js
+const guide = new PageAgent({
+  preset: 'defi-advisor',
+  context: { page: 'vault-detail', chain: 'arbitrum' },
+});
+
+guide.systemPrompt;
+// → "You are a DeFi advisor embedded on a protocol or dashboard page. …
+//
+//    ```
+//    [Host page context]
+//    - page: vault-detail
+//    - chain: arbitrum
+//    ```"
+
+guide.setContext({ walletConnected: 'true' }); // update after load, e.g. once a wallet connects
+```
+
+`page-agent` never sends `systemPrompt` anywhere — it's exposed for a host
+page (or a paired chat component) to hand to a real LLM.
+
+### Full example per preset
+
+```html
+<script type="module">import '@three-ws/page-agent';</script>
+
+<!-- Guide — the default experience, explicit -->
+<page-agent avatar="sol" preset="guide"></page-agent>
+
+<!-- Shop Assistant — product/storefront pages -->
+<page-agent avatar="nova" preset="shop-assistant"></page-agent>
+
+<!-- DeFi Advisor — protocol/dashboard pages -->
+<page-agent avatar="vera" preset="defi-advisor" context='{"protocol":"vault"}'></page-agent>
+
+<!-- Onboarding Coach — signup/setup flows -->
+<page-agent avatar="echo" preset="onboarding-coach"></page-agent>
+
+<!-- Support — FAQ/help pages -->
+<page-agent avatar="atlas" preset="support"></page-agent>
+```
+
 ## API
 
 ### `new PageAgent(config)`
@@ -125,12 +237,26 @@ Self-host the GLBs by pointing `assetBase` (or any agent's `url`) at your own CD
 | `position`     | `bottom-right \| bottom-left \| top-right \| top-left` | `bottom-right` | dock corner |
 | `assetBase`    | `string`                               | three.ws CDN   | GLB host |
 | `autoNarrate`  | `boolean \| string`                    | `false`        | `true` tours the page; a string is a CSS selector of segments |
-| `greeting`     | `string`                               | —              | spoken on load (ignored if `autoNarrate`) |
+| `greeting`     | `string`                               | —              | spoken on load (ignored if `autoNarrate`); overrides the preset's greeting |
 | `muted`        | `boolean`                              | `false`        | start muted (visual lipsync only) |
 | `collapsed`    | `boolean`                              | `false`        | start as the launcher pill |
 | `picker`       | `boolean`                              | `true`         | show the "change agent" affordance |
 | `controls`     | `boolean`                              | `true`         | show the control bar |
 | `persistAgent` | `boolean`                              | `true`         | remember the visitor's choice |
+| `preset`       | `string`                               | —              | persona id — see [Persona presets](#persona-presets) |
+| `context`      | `Record<string, unknown>`              | —              | host state, sanitized and folded into `systemPrompt` |
+| `suggestedPrompts` | `(string \| {prompt, response?, action?})[]` | preset's | overrides the preset's chip row |
+| `tools`        | `string[]`                             | preset's       | overrides the preset's tool allowlist (metadata) |
+
+### Properties
+
+```ts
+guide.currentPreset     // resolved PagePersonaPreset | undefined
+guide.systemPrompt      // preset.systemRole + sanitized context, composed
+guide.context           // sanitized context (read-only copy)
+guide.tools             // resolved tool allowlist
+guide.suggestedPrompts  // resolved, normalized chip list
+```
 
 ### Methods
 
@@ -141,6 +267,7 @@ guide.stop()                          // cancel narration
 guide.setAgent('vera')                // swap rigged avatar live → Promise
 guide.mute(true) / guide.collapse(true)
 guide.openPicker() / guide.closePicker()
+guide.setContext({ walletConnected: 'true' }) // re-sanitize + fold into systemPrompt
 guide.on(event, cb) / guide.off(event, cb)
 guide.dispose()
 ```
