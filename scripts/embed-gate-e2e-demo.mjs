@@ -15,12 +15,47 @@
 //
 // Usage: node scripts/embed-gate-e2e-demo.mjs
 
-import { ed25519 } from '@noble/curves/ed25519.js';
-import bs58 from 'bs58';
-import { sql } from '../api/_lib/db.js';
-import { createEmbedGate, readEmbedGateByAsset, DEFAULT_GATE_MINT } from '../api/_lib/embed-gate.js';
-import gateVerifyHandler from '../api/embed/gate-verify.js';
-import resolveHandler from '../api/embed/resolve.js';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+
+// Load .env.local (same pattern as scripts/apply-migrations.mjs) so this
+// standalone script sees DATABASE_URL/JWT_SECRET/etc. without depending on the
+// dev server process.
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+for (const envFile of ['.env.local', '.env']) {
+	try {
+		const raw = readFileSync(path.resolve(REPO_ROOT, envFile), 'utf8');
+		for (const line of raw.split('\n')) {
+			const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
+			if (!m || process.env[m[1]]) continue;
+			let val = m[2].trim();
+			if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+				val = val.slice(1, -1);
+			}
+			process.env[m[1]] = val;
+		}
+	} catch {
+		/* file absent — fine, real env may already be set */
+	}
+}
+
+if (!process.env.JWT_SECRET) {
+	// Only affects this process — used solely to sign the demo access token in
+	// step 7b below, never a persisted or real credential.
+	console.log('[env] JWT_SECRET not set locally — using a demo-only value for this run.\n');
+	process.env.JWT_SECRET = 'embed-gate-demo-only-secret-not-used-anywhere-real';
+}
+
+const { ed25519 } = await import('@noble/curves/ed25519.js');
+const { default: bs58 } = await import('bs58');
+const { sql } = await import('../api/_lib/db.js');
+const { createEmbedGate, readEmbedGateByAsset, checkAssetOwnership, DEFAULT_GATE_MINT } = await import(
+	'../api/_lib/embed-gate.js'
+);
+const { signEmbedGateToken } = await import('../api/_lib/embed-gate-token.js');
+const { default: gateVerifyHandler } = await import('../api/embed/gate-verify.js');
+const { default: resolveHandler } = await import('../api/embed/resolve.js');
 
 function fakeReqRes(method, url, body) {
 	const chunks = body ? [Buffer.from(JSON.stringify(body))] : [];
@@ -55,15 +90,35 @@ function fakeReqRes(method, url, body) {
 async function main() {
 	console.log('=== Token-gated 3D embeds — live e2e evidence ===\n');
 
-	// A disposable, clearly-synthetic asset id — this script never touches a
-	// real avatar/agent row, so we bypass gate-create.js's ownership check and
-	// call createEmbedGate() directly (the same function gate-create.js and the
-	// create_gated_embed MCP tool both call after ownership passes).
-	const assetId = `avatar:demo-${Date.now().toString(36)}-0000-4000-8000-000000000000`;
+	// Disposable, obviously-synthetic rows in the real dev DB (deleted at the
+	// end): a user, an owned public avatar, and an unrelated second user — so
+	// checkAssetOwnership() and resolve.js's locked-payload shape are both
+	// exercised against a REAL resolvable asset, not a placeholder id.
+	const stamp = Date.now().toString(36);
+	console.log('[0] Creating disposable owner + avatar + a second (non-owner) user …');
+	const [owner] = await sql`
+		insert into users (email, display_name) values (${`gate-demo-owner-${stamp}@example.invalid`}, 'Gate Demo Owner')
+		returning id
+	`;
+	const [stranger] = await sql`
+		insert into users (email, display_name) values (${`gate-demo-stranger-${stamp}@example.invalid`}, 'Gate Demo Stranger')
+		returning id
+	`;
+	const [avatar] = await sql`
+		insert into avatars (owner_id, slug, name, storage_key, size_bytes, visibility)
+		values (${owner.id}, ${`gate-demo-${stamp}`}, 'Gate Demo Avatar', ${`demo/gate-demo-${stamp}.glb`}, 1024, 'public')
+		returning id
+	`;
+	const assetId = `avatar:${avatar.id}`;
 	const minAmount = 1; // hold >= 1 $THREE to unlock
+	console.log('    owner user:', owner.id, ' stranger user:', stranger.id, ' asset:', assetId, '\n');
+
+	console.log('[0b] checkAssetOwnership() — the real owner passes, an unrelated user is refused …');
+	console.log('    owner  →', await checkAssetOwnership(assetId, owner.id));
+	console.log('    stranger →', await checkAssetOwnership(assetId, stranger.id), '\n');
 
 	console.log('[1] Creating a real gate row (embed_gates) via createEmbedGate() …');
-	const gate = await createEmbedGate({ assetId, ownerUserId: null, mint: DEFAULT_GATE_MINT, minAmount, chain: 'solana' });
+	const gate = await createEmbedGate({ assetId, ownerUserId: owner.id, mint: DEFAULT_GATE_MINT, minAmount, chain: 'solana' });
 	console.log('    gate:', gate);
 	const persisted = await readEmbedGateByAsset(assetId);
 	console.log('    readEmbedGateByAsset() confirms it persisted:', !!persisted, '\n');
@@ -103,9 +158,33 @@ async function main() {
 	await resolveHandler(r2.req, r2.res);
 	console.log('    status:', r2.status, 'body:', r2.json, '\n');
 
-	console.log('[8] Cleaning up the demo gate row …');
+	console.log('[7b] Simulating what phase 2 would return if this wallet DID clear the bar —');
+	console.log('     minting a real access token via signEmbedGateToken() (the exact function gate-verify.js');
+	console.log('     calls on a passing balance) and feeding it into the REAL resolve.js handler …');
+	const unlockToken = await signEmbedGateToken({
+		gateId: gate.gateId,
+		assetId,
+		wallet,
+		mint: gate.mint,
+		minAmount: gate.minAmount,
+		amount: 5, // pretend this wallet holds 5 $THREE — clears the 1 minAmount bar
+	});
+	const r3 = fakeReqRes('GET', `/api/embed/resolve?id=${encodeURIComponent(assetId)}&gate_token=${encodeURIComponent(unlockToken)}`);
+	await resolveHandler(r3.req, r3.res);
+	console.log('    status:', r3.status, 'body:', r3.json);
+	console.log('    → a valid access token unlocks resolve.js for real (glbUrl present, unlocked:true).\n');
+
+	console.log('[7c] A corrupted (tampered payload) token must NOT unlock — HMAC signature check rejects it …');
+	const tampered = unlockToken.replace(/^eg1\./, 'eg1.tampered');
+	const r4 = fakeReqRes('GET', `/api/embed/resolve?id=${encodeURIComponent(assetId)}&gate_token=${encodeURIComponent(tampered)}`);
+	await resolveHandler(r4.req, r4.res);
+	console.log('    tampered token → status:', r4.status, 'locked:', r4.json?.locked === true, '\n');
+
+	console.log('[8] Cleaning up every disposable row this script created …');
 	await sql`delete from embed_gates where id = ${gate.gateId}`;
-	console.log('    deleted gate', gate.gateId, '\n');
+	await sql`delete from avatars where id = ${avatar.id}`;
+	await sql`delete from users where id in (${owner.id}, ${stranger.id})`;
+	console.log('    deleted gate, avatar, and both demo users\n');
 
 	console.log('=== Done. Every network/DB call above was real — no mocks. ===');
 	process.exit(0);
