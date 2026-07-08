@@ -143,7 +143,17 @@ async function handleCreate(req, res) {
 	// Fire-and-forget — 201 returns regardless.
 	if (!body.parent_avatar_id) {
 		queueMicrotask(() =>
-			provisionAvatarAgent({ userId: auth.userId, avatarId: avatar.id, avatarName: avatar.name }),
+			provisionAvatarAgent({
+				userId: auth.userId,
+				avatarId: avatar.id,
+				avatarName: avatar.name,
+				provenance: {
+					prompt: body.source_meta?.source_prompt || body.source_meta?.prompt || null,
+					generationModel: body.source_meta?.generator || body.source_meta?.model || null,
+					generationProvider: body.source_meta?.provider || null,
+					parentAvatarId: null,
+				},
+			}),
 		);
 
 		// Auto-rig any static upload/import so the agent's avatar can animate, the

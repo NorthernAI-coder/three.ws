@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-08T01:47:02.462Z",
+	"generated_at": "2026-07-08T01:51:28.549Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -261,6 +261,17 @@
 			"tags": [
 				"feature",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
+			"title": "Fact Check's accuracy benchmark has a real published score, and the search+AI chain got more reliable",
+			"summary": "The 40-claim fact-check accuracy benchmark has now actually been run against the real search-and-LLM chain, and /fact-check shows the genuine result instead of the \"not yet run\" placeholder. Running it for real surfaced and fixed two chain bugs along the way: a request-formatting bug was silently rejecting every fact-check call on the Groq lane, and the search step had no fallback beyond a narrow instant-answer API, so most claims returned zero sources. Both are fixed — search now also checks Wikipedia's full-text index, a free source that needs no API key — and the published score will keep improving as the platform's search coverage does. The benchmark, its scoring code, and every claim in the suite stay public for anyone to check.",
+			"link": "/fact-check",
+			"tags": [
+				"improvement",
+				"fix"
 			]
 		},
 		{
@@ -538,6 +549,17 @@
 			"summary": "GET /api/x402/vanity and the pump-launch vanity upsell now check pre-ground inventory before grinding a fresh address — a match is served immediately at the same price, no match still grinds fresh as before.",
 			"link": "/vanity",
 			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
+			"title": "Vanity addresses now go up to 5 characters, and the shelf restocks itself",
+			"summary": "GET /api/x402/vanity now offers 4- and 5-character Solana vanity prefixes/suffixes ($2.50 and $10) on top of the existing 1-3 char live-grind tiers — those longer patterns are served only when a matching pre-ground address is actually in stock, so you never pay for one that isn't there (a 404 tells you honestly when it's out of stock). Behind the scenes, an hourly job now watches the pre-ground warehouse and automatically kicks off a fresh grinding batch on spot compute whenever stock runs low, so instant delivery keeps working without anyone manually restocking it.",
+			"link": "/vanity",
+			"tags": [
+				"feature",
 				"improvement"
 			]
 		},

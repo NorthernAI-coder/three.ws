@@ -60,7 +60,7 @@ or `imageUrl`.
 | `description` | — | Coin description. Used only on the `imageUrl` (we-pin) path. |
 | `twitter` / `telegram` / `website` | — | Socials embedded in the pinned metadata (`imageUrl` path). |
 | `creator` | — | Solana pubkey (base58) to receive pump.fun creator rewards. Defaults to the launcher. |
-| `vanityPrefix` / `vanitySuffix` | — | Base58 affix (≤5 chars each) to brand the mint address. Longer = exponentially slower grind. |
+| `vanityPrefix` / `vanitySuffix` | — | Base58 affix (≤5 chars each) to brand the mint address. When a matching address is already sitting in the [pre-ground inventory](vanity.md#tier-3--premium-inventory), it's claimed and used instantly instead of grinding — same $5 flat price either way. Longer patterns with no inventory match grind live and get exponentially slower. |
 | `vanityIgnoreCase` | — | Match the vanity affixes case-insensitively (faster). Default `false`. |
 
 ### Example request
@@ -105,9 +105,15 @@ code (the `curl` above shows the shape, not the payment headers).
   "vanity_prefix": "HEL",
   "vanity_suffix": null,
   "vanity_iterations": 4821,
-  "vanity_duration_ms": 190
+  "vanity_duration_ms": 190,
+  "vanity_source": "ground"
 }
 ```
+
+`vanity_source` is `"inventory"` when the mint was served instantly from the
+pre-ground warehouse (no grind wait, `vanity_iterations`/`vanity_duration_ms`
+both `0`), `"ground"` when mined fresh for this launch, or `null` when no
+`vanityPrefix`/`vanitySuffix` was requested.
 
 `mint`, `signature`, `metadataUri`, and `pumpfun_url` are guaranteed on success.
 

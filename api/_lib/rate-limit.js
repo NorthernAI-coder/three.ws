@@ -567,6 +567,28 @@ export const limits = {
 	// carpeting the gallery; non-critical so an infra hiccup never blocks a save.
 	dioramaSaveIp: (ip) =>
 		getLimiter('diorama:save:ip', { limit: 30, window: '10 m' }).limit(ip),
+	// Diorama scene export (api/diorama action:export) — merges already-forged
+	// object GLBs + a procedural ground/lights into one GLB via @gltf-transform
+	// and uploads it to object storage. No LLM/GPU spend, but it does real
+	// network egress (re-fetching every object GLB) and a storage write, so it
+	// gets its own moderate per-IP cap; non-critical since a Redis blip should
+	// degrade, not block, a local export.
+	dioramaExportIp: (ip) =>
+		getLimiter('diorama:export:ip', { limit: 20, window: '10 m' }).limit(ip),
+	// Diorama one-shot build (api/diorama action:build) — the full server-side
+	// compose → forge every object → export pipeline in a single call, for
+	// agents/MCP clients with no browser to drive the progressive client flow.
+	// It runs the same paid LLM completion as compose PLUS N free-lane forges,
+	// so it shares compose's critical/fail-closed posture and gets a tighter
+	// per-IP ceiling than compose alone.
+	dioramaBuildIp: (ip) =>
+		getLimiter('diorama:build:ip', { limit: 6, window: '10 m', critical: true }).limit(ip),
+	dioramaBuildGlobal: () =>
+		getLimiter('diorama:build:global', {
+			limit: Math.max(40, Number(process.env.DIORAMA_BUILD_GLOBAL_HOURLY) || 200),
+			window: '1 h',
+			critical: true,
+		}).limit('global'),
 	// x402 Bazaar MCP. Discovery calls fan out to external facilitators, so cap
 	// per principal to keep that egress bounded without throttling normal use.
 	mcpBazaar: (key) =>

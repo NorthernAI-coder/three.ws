@@ -42,7 +42,15 @@ public/chat/index.html.gz
 
 # Generated news permalink pages (rebuilt from data/rss/items.json by scripts/build-news.mjs)
 public/news/
-data/_generated/
+# A bare "data/_generated/" directory pattern would block re-including any file
+# inside it below (git cannot un-ignore a file whose parent directory is itself
+# excluded) — glob the contents instead so the exception under it works.
+data/_generated/*
+# Exception: the fact-check accuracy benchmark is a manually-run, checked-in
+# report (real chain + real cost/time per run), not a deterministic prebuild
+# artifact like its _generated/ siblings — commit it so /fact-check always has
+# real, versioned numbers instead of needing a live re-run on every deploy.
+!data/_generated/fact-check-benchmark.json
 
 # Animation build cache
 public/animations/clips/.input-hashes.json

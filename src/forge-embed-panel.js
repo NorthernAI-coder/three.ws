@@ -21,6 +21,7 @@ import {
 	embedPreviewUrl,
 	buildIframeSnippet,
 	buildWebComponentSnippet,
+	buildAgentThreeDSnippet,
 } from './forge-embed-snippets.js';
 
 const STYLE_ID = 'tws-forge-embed-styles';
@@ -53,8 +54,14 @@ function webComponentSnippet() {
 	return buildWebComponentSnippet(state.glbUrl, state.title, state.sizeId);
 }
 
+function agentThreeDSnippet() {
+	return buildAgentThreeDSnippet(state.glbUrl, state.title, state.sizeId);
+}
+
 function currentSnippet() {
-	return state.tab === 'iframe' ? iframeSnippet() : webComponentSnippet();
+	if (state.tab === 'iframe') return iframeSnippet();
+	if (state.tab === 'agent3d') return agentThreeDSnippet();
+	return webComponentSnippet();
 }
 
 function ensureStyles() {
@@ -83,6 +90,7 @@ function bodyHtml() {
 				<div class="tws-emb-seg" role="group" aria-label="Embed type">
 					${tabBtn('iframe', 'iframe')}
 					${tabBtn('component', 'Web component')}
+					${tabBtn('agent3d', esc('<agent-3d>'))}
 				</div>
 				<div class="tws-emb-seg" role="group" aria-label="Size">
 					${SIZES.map(sizeBtn).join('')}

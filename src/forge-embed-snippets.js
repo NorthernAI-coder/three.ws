@@ -1,19 +1,28 @@
 // Forge embed snippets — the single source of truth for the "embed this model"
 // code the platform hands out. Pure, framework-free builders shared by the full
-// Forge embed modal (src/forge-embed-panel.js) and the homepage mini Forge embed
-// sheet (src/home-forge.js), so the two surfaces never drift on snippet shape,
+// Forge embed modal (src/forge-embed-panel.js), the homepage mini Forge embed
+// sheet (src/home-forge.js), and Scene Studio's Share action
+// (src/scene-studio/actions.js), so no surface ever drifts on snippet shape,
 // size presets, or the /forge/embed URLs.
 //
-// Two flavours, both real:
+// Three flavours, all real:
 //   • iframe        — points at /forge/embed?src=<glb>, the zero-dependency
 //                     three.ws viewer page (orbit + AR + branding). Drops onto
 //                     any site with no scripts on the host page.
 //   • web component — a <model-viewer> snippet for builders who want the model
 //                     inline in their own DOM with their own controls.
+//   • agent-3d       — the platform's own <agent-3d viewer> web component
+//                     (@three-ws/avatar), pinned to the current major CDN
+//                     channel per specs/EMBED_SPEC.md. `viewer` is a pure-3D
+//                     mode: no chat chrome, just the framed, orbitable model.
 
 const ORIGIN = 'https://three.ws';
 const MODEL_VIEWER_CDN =
 	'https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js';
+// Major-version CDN channel (specs/EMBED_SPEC.md): follows minor/patch
+// releases automatically without pinning exact bytes like a demo snippet
+// would ("latest" is explicitly demo-only per that spec).
+const AGENT_3D_CDN = `${ORIGIN}/agent-3d/0/agent-3d.js`;
 
 export const EMBED_SIZES = [
 	{ id: 'wide', label: '16 : 9', w: 640, h: 360, ratio: '16 / 9' },
@@ -91,5 +100,26 @@ export function buildWebComponentSnippet(glbUrl, title, sizeId) {
 		`  shadow-intensity="1"\n` +
 		`  style="width:${s.w}px;height:${s.h}px;max-width:100%;background:#0b0b0b;border-radius:14px">` +
 		`\n</model-viewer>`
+	);
+}
+
+// <agent-3d viewer> — the platform's own component instead of a third-party
+// one. `viewer` drops the chat chrome for a pure, orbitable 3D embed; `ar`
+// (added by prompt 04) opts into the "View in AR" affordance once the
+// consumer's page loads @three-ws/avatar's viewer runtime — the full
+// <agent-3d> monolith already supports AR via WebXR/Quick Look natively.
+export function buildAgentThreeDSnippet(glbUrl, title, sizeId) {
+	const s = embedSize(sizeId);
+	const alt = escEmbed(title || '3D model forged on three.ws');
+	return (
+		`<!-- once per page -->\n` +
+		`<script type="module" src="${AGENT_3D_CDN}"></scr` +
+		`ipt>\n\n` +
+		`<agent-3d\n` +
+		`  src="${escEmbed(glbUrl)}"\n` +
+		`  aria-label="${alt}"\n` +
+		`  viewer\n` +
+		`  style="display:block;width:${s.w}px;height:${s.h}px;max-width:100%;border-radius:14px;overflow:hidden">` +
+		`\n</agent-3d>`
 	);
 }

@@ -1,4 +1,5 @@
 import { mintTokenized3dAsset, readTokenized3dAsset, TOKENIZE_3D_ROYALTY_CAP_BPS } from '../../_lib/tokenize-3d.js';
+import { priceFor } from '../../_lib/pump-pricing.js';
 
 // A handled boundary error carries a status + code; surface it as a clean MCP
 // tool error (isError) rather than letting an unexpected 500 bubble.
@@ -29,12 +30,16 @@ export const toolDefs = [
 			'Mint a generated or owned GLB as a Metaplex Core NFT on Solana whose media is a ' +
 			'LIVE, interactive 3D viewer (the rigged glTF model under animation_url — not a static ' +
 			'image). Bakes provenance (creator, prompt, generation model, parent lineage, timestamp) ' +
-			'into the metadata and enforces capped creator royalties on secondary sales. Supply an ' +
-			'owned avatar_id or a glb_url, and a recipient (owner_wallet, or your OAuth-linked Solana ' +
-			'wallet). Devnet by default; pass network="mainnet" for a real mainnet mint. Idempotent — ' +
-			`a repeat call for the same asset returns the same mint. Royalty is capped at ` +
-			`${TOKENIZE_3D_ROYALTY_CAP_BPS / 100}%. Returns the mint address, explorer + viewer links, ` +
-			'and royalty terms. Priced per call via x402 (USDC); an OAuth bearer token bypasses payment.',
+			'into the metadata AND appends a signed, independently-verifiable record to the ' +
+			'agent_actions provenance ledger; enforces capped creator royalties on secondary sales. ' +
+			'Supply an owned avatar_id or a glb_url, and a recipient (owner_wallet, or your OAuth-linked ' +
+			'Solana wallet). Devnet by default; pass network="mainnet" for a real mainnet mint. Idempotent ' +
+			'— a repeat call for the same asset returns the same mint. Royalty is capped at ' +
+			`${TOKENIZE_3D_ROYALTY_CAP_BPS / 100}%. Naming parent_mint (a remix/derivative on mainnet) ` +
+			"routes the parent creator's royalty slice out of THIS mint's fee as a real on-chain USDC " +
+			'transfer. Returns the mint address, explorer + viewer links, royalty terms, the provenance ' +
+			'ledger reference, and (for a remix) the royalty settlement. Priced per call via x402 (USDC); ' +
+			'an OAuth bearer token bypasses payment.',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -88,6 +93,14 @@ export const toolDefs = [
 		},
 		async handler(args, auth) {
 			try {
+				// The remix-royalty split (task 4) must only ever split a fee that was
+				// ACTUALLY collected for this exact call — a genuine per-call x402
+				// settlement (auth.x402Paid), never a subscription window or an OAuth
+				// bypass (both real access, but no fresh fee here to split).
+				const mintFeeAtomicsCollected =
+					auth?.source === 'x402' && auth?.x402Paid
+						? BigInt(Math.round((priceFor('mint_3d_asset')?.amount_usdc || 0) * 1_000_000))
+						: 0n;
 				const result = await mintTokenized3dAsset({
 					avatarId: args.avatar_id,
 					glbUrl: args.glb_url,
@@ -103,6 +116,7 @@ export const toolDefs = [
 					generationModel: args.generation_model,
 					generationProvider: args.generation_provider,
 					idempotencyKey: args.idempotency_key,
+					mintFeeAtomicsCollected,
 				});
 				const text =
 					result.status === 'minted'
@@ -112,7 +126,15 @@ export const toolDefs = [
 							(result.explorer_tx_url ? `Tx: ${result.explorer_tx_url}\n` : '') +
 							`Viewer: ${result.viewer_url}\n` +
 							`Royalty: ${result.royalty.percent}% (cap ${result.royalty.cap_basis_points / 100}%)` +
-							(result.royalty.capped ? ` — requested ${result.royalty.requested_basis_points / 100}%, clamped` : '')
+							(result.royalty.capped ? ` — requested ${result.royalty.requested_basis_points / 100}%, clamped` : '') +
+							(result.provenance_ledger
+								? `\nProvenance: ledger action #${result.provenance_ledger.action_id} (${result.provenance_ledger.signed ? 'signed' : 'unsigned'})`
+								: '') +
+							(result.remix_royalty
+								? result.remix_royalty.paid
+									? `\nRemix royalty: ${result.remix_royalty.creator_usd} USDC paid to the source creator (${result.remix_royalty.creator_tx})`
+									: `\nRemix royalty: not paid (${result.remix_royalty.reason})`
+								: '')
 						: `Mint in progress for this asset — read it back with get_3d_asset_onchain once it confirms.`;
 				return { content: [{ type: 'text', text }], structuredContent: result };
 			} catch (err) {

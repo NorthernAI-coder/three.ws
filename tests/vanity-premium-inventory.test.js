@@ -318,3 +318,67 @@ describe.skipIf(!HAS_DB)('instant inventory: live-grind + pump-launch upsell (ne
 		await retry.reveal();
 	});
 });
+
+// ── Premium 4–5 char band: priced above the grind cap, inventory-only ───────
+// GET /api/x402/vanity now OFFERS 4–5 char patterns, but — unlike the ≤3 char
+// tiers — they are NEVER ground live (58^4-58^5 attempts is minutes-to-hours,
+// far past the 45s budget). These cover the pricing curve and the read-only
+// stock gate (hasAvailableMatch) the endpoint consults BEFORE quoting a 402,
+// so a buyer is never asked to pay for a pattern that isn't in stock.
+describe('vanity.js: premium 4–5 char tiers (inventory-only, priced above the grind cap)', () => {
+	it('priceAtomicsFor: 4 and 5 char keypair patterns price at the premium tiers, well above the 3-char cap', () => {
+		const p3 = priceAtomicsFor('keypair', 3);
+		const p4 = priceAtomicsFor('keypair', 4);
+		const p5 = priceAtomicsFor('keypair', 5);
+		expect(p3).toBe(250_000); // $0.25 — unchanged grind-cap tier
+		expect(p4).toBe(2_500_000); // $2.50 default
+		expect(p5).toBe(10_000_000); // $10 default
+		expect(p4).toBeGreaterThan(p3);
+		expect(p5).toBeGreaterThan(p4);
+	});
+
+	it('priceAtomicsFor: mnemonic format is not extended into the premium band (stays capped at 2 chars)', () => {
+		// Mnemonic has no inventory backing (the batch grinder only stocks raw
+		// keypairs), so length 4 falls back to the format's own max-length price,
+		// not a premium tier.
+		expect(priceAtomicsFor('mnemonic', 4)).toBe(priceAtomicsFor('mnemonic', 2));
+	});
+
+	it('priceAtomicsFor: X402_PRICE_VANITY_4 / X402_PRICE_VANITY_5 env overrides are honored', () => {
+		process.env.X402_PRICE_VANITY_4 = '3000000';
+		process.env.X402_PRICE_VANITY_5 = '15000000';
+		try {
+			expect(priceAtomicsFor('keypair', 4)).toBe(3_000_000);
+			expect(priceAtomicsFor('keypair', 5)).toBe(15_000_000);
+		} finally {
+			delete process.env.X402_PRICE_VANITY_4;
+			delete process.env.X402_PRICE_VANITY_5;
+		}
+	});
+
+	const HAS_DB2 = Boolean(process.env.DATABASE_URL);
+	describe.skipIf(!HAS_DB2)('hasAvailableMatch: the pre-402 stock gate (needs DATABASE_URL)', () => {
+		it('returns false for a 4-char pattern with no inventory match — the "not in stock" case', async () => {
+			const store = await import('../api/_lib/vanity-inventory-store.js');
+			const prefix = randPrefix(4);
+			const inStock = await store.hasAvailableMatch({ prefix, ignoreCase: true, format: 'keypair' });
+			expect(inStock).toBe(false);
+		});
+
+		it('returns true once a matching item is seeded, and never reserves it (read-only)', async () => {
+			const store = await import('../api/_lib/vanity-inventory-store.js');
+			const prefix = randPrefix(2); // 2 chars is fast to seed; the check itself is length-agnostic
+			const address = await seedInventoryItem(store, { prefix, priceUsd: 2.5 });
+
+			const inStock = await store.hasAvailableMatch({ prefix, ignoreCase: true, format: 'keypair' });
+			expect(inStock).toBe(true);
+
+			// Read-only: the item must still be claimable afterward (not reserved
+			// by the stock check itself).
+			const claim = await store.claimMatchingPattern({ prefix, ignoreCase: true, format: 'keypair', paymentId: 'stockcheck-' + prefix });
+			expect(claim.ok).toBe(true);
+			expect(claim.item.address).toBe(address);
+			await store.reserveAndReveal(address, { paymentId: 'stockcheck-' + prefix });
+		});
+	});
+});
