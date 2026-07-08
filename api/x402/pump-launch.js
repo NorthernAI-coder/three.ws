@@ -32,6 +32,7 @@ import { priceFor } from '../_lib/x402-prices.js';
 import { readJson } from '../_lib/http.js';
 import { sql } from '../_lib/db.js';
 import { loadLauncherKeypair, uploadPumpMetadata, launchPumpToken } from '../_lib/pump-launch.js';
+import pumpLaunchListing from '../_lib/service-catalog/services/pump-launch.js';
 import { z } from 'zod';
 
 const ROUTE = '/api/x402/pump-launch';
@@ -42,22 +43,12 @@ const REQUIRED_SCOPE = 'x402:bypass';
 // economics with X402_PRICE_PUMP_LAUNCH=<atomics>.
 export const PRICE_ATOMICS = priceFor('pump-launch', '5000000');
 
-export const DESCRIPTION =
-	'three.ws Pump Launcher — launch a pump.fun token autonomously in ONE paid call: ' +
-	'no SOL, no wallet, no account. You pay USDC; the server fronts the ~0.022 SOL ' +
-	'deploy cost, optionally grinds a vanity mint, and signs the bonding-curve ' +
-	'create tx for you. ' +
-	'INPUTS: name + symbol (required); metadata as EITHER a pre-pinned "metadataUri" ' +
-	'OR an "imageUrl" we pin to pump.fun IPFS (with optional description / twitter / ' +
-	'telegram / website); "creator" = any Solana pubkey to receive pump.fun creator ' +
-	'rewards (defaults to the launcher); optional "vanityPrefix" / "vanitySuffix" ' +
-	'(≤5 base58 chars each) to brand the mint address. ' +
-	'OUTPUT: mint address, tx signature, metadataUri, solscan explorer link, and the ' +
-	'pump.fun coin URL. ' +
-	'FUNNEL: check your ticker is free first with the FREE GET /api/crypto/symbol, ' +
-	'then confirm the deploy landed on the FREE GET /api/crypto/launches feed. ' +
-	'Idempotent per payment (a retried payment replays the same mint). ' +
-	'Pay in USDC on Base or Solana mainnet; the token deploys on Solana mainnet.';
+// Single source of truth: api/_lib/service-catalog/services/pump-launch.js is
+// the storefront listing copy (rendered by /.well-known/x402.json and the OKX
+// projection); importing it here means the live 402 challenge can never drift
+// from what the storefront advertises — the same pattern forge.js uses via
+// forge-listing.js.
+export const DESCRIPTION = pumpLaunchListing.description;
 
 const INPUT_EXAMPLE = {
 	name: 'Helios',
@@ -230,8 +221,8 @@ export default paidEndpoint({
 	description: DESCRIPTION,
 	bazaar: BAZAAR,
 	service: withService({
-		serviceName: 'three.ws Pump Launcher',
-		tags: ['pump.fun', 'launch', 'deploy', 'token', 'solana', 'mint'],
+		serviceName: pumpLaunchListing.serviceName,
+		tags: [...pumpLaunchListing.tags],
 	}),
 	requiredScope: REQUIRED_SCOPE,
 	accessControl: installAccessControl({ requiredScope: REQUIRED_SCOPE }),
