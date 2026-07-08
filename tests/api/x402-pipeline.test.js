@@ -136,6 +136,12 @@ function makeReq({ method = 'POST', url = '/api/x402/pipeline', headers = {}, bo
 }
 
 const PAID = { 'x-payment': 'stub-payment-proof' };
+// A distinct proof for any second paid POST in this file: the real anti-replay
+// guard (api/_lib/x402/payment-identifier-server.js#checkCache) keys on a hash
+// of the raw X-PAYMENT header, so two different request bodies reusing the same
+// literal header collide as a payment-proof conflict (409) — correct behavior
+// for a real proof, but a test needs a unique header per distinct paid request.
+const PAID_2 = { 'x-payment': 'stub-payment-proof-2' };
 
 beforeEach(() => {
 	gcpControl.next = () => ({ status: 'running' });
@@ -267,7 +273,7 @@ describe('POST /api/x402/pipeline — paid job + per-stage progress, end to end'
 describe('POST /api/x402/pipeline — partial-failure semantics', () => {
 	it('marks the job failed at the failing stage but keeps completed outputs', async () => {
 		const res = makeRes();
-		await handler(makeReq({ body: { stages: ['generate', 'rig'], prompt: 'a brass owl' }, headers: PAID }), res);
+		await handler(makeReq({ body: { stages: ['generate', 'rig'], prompt: 'a brass owl' }, headers: PAID_2 }), res);
 		const submit = JSON.parse(res.body);
 		const { job_id: jobId, job_token: token } = submit;
 

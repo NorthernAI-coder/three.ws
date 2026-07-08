@@ -29,17 +29,16 @@ import { installAccessControl } from '../_lib/x402/access-control.js';
 import { withService } from '../_lib/x402/bazaar-helpers.js';
 import { priceFor } from '../_lib/x402-prices.js';
 import { verifyClaim } from '../_lib/x402/identity-claim-verify.js';
+import onchainIdentityVerifyListing from '../_lib/service-catalog/services/onchain-identity-verify.js';
 
 const ROUTE = '/api/x402/onchain-identity-verify';
 
-const DESCRIPTION =
-	'Cross-platform On-Chain Identity Verifier — prove any claim that an identity ' +
-	'controls an address. `identity` can be an ENS name, an SNS (.sol) name, an EVM ' +
-	'or Solana wallet, an ERC-8004 agent id, or a three.ws agent_id; `address` is ' +
-	'the contract/mint/wallet it claims. Returns on-chain evidence (deploy tx + ' +
-	'deployer, mint/update authority, ENS/SNS resolution, ERC-8004 registration, ' +
-	'three.ws deploy record) with verified true/false/unverifiable. Use it as a ' +
-	'trust primitive before paying, trading, or delegating to a counterparty agent.';
+// Single source of truth:
+// api/_lib/service-catalog/services/onchain-identity-verify.js is the
+// storefront listing copy — importing it here keeps the live 402 challenge
+// from drifting from what /.well-known/x402.json and the OKX projection
+// advertise (same pattern as forge.js → forge-listing.js).
+const DESCRIPTION = onchainIdentityVerifyListing.description;
 
 export const INPUT_EXAMPLE = {
 	identity: 'vitalik.eth',

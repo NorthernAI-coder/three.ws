@@ -591,45 +591,6 @@ export default wrap(async (req, res) => {
 						},
 					},
 				},
-				'/api/insights/revenue-vision': {
-					get: {
-						operationId: 'insights_revenue_vision',
-						summary: 'Paid: Claude-powered next-best-move for a mission brief',
-						description:
-							'Pay $0.001 USDC to receive a single prioritized next-best move, a data-grounded insight, and an honestly-calibrated confidence rating for the supplied mission brief.',
-						parameters: [
-							{
-								name: 'agent_codename',
-								in: 'query',
-								required: true,
-								schema: { type: 'string' },
-							},
-							{
-								name: 'power_request',
-								in: 'query',
-								required: true,
-								description:
-									'Analysis mode. Currently only "revenue-vision" is available; the parameter is required so additional modes can be added without a breaking change.',
-								schema: { type: 'string', enum: ['revenue-vision'] },
-							},
-							{
-								name: 'mission_brief',
-								in: 'query',
-								required: true,
-								schema: { type: 'string', minLength: 4, maxLength: 4000 },
-							},
-						],
-						responses: {
-							200: { description: 'Next-best-move JSON' },
-							400: { description: 'Missing or invalid parameters' },
-							402: { description: 'Payment Required (x402)' },
-						},
-						'x-payment-info': {
-							price: { mode: 'fixed', currency: 'USD', amount: '0.001' },
-							protocols: X402_PROTOCOLS,
-						},
-					},
-				},
 				'/api/x402/permit2-paid-demo': {
 					get: {
 						operationId: 'x402_permit2_paid_demo',

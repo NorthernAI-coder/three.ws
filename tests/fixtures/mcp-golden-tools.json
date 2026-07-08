@@ -2,6 +2,7 @@
 	"api/_mcp-studio/tools.js": [
 		{
 			"name": "forge_avatar",
+			"title": "Generate a rigged, animation-ready avatar",
 			"descHead": "dynamic",
 			"descHash": "dynamic",
 			"annotations": "ref:GEN_ANNOTATIONS",
@@ -9,6 +10,7 @@
 		},
 		{
 			"name": "forge_free",
+			"title": "Generate a 3D model from text",
 			"descHead": "dynamic",
 			"descHash": "dynamic",
 			"annotations": "ref:GEN_ANNOTATIONS",
@@ -16,6 +18,7 @@
 		},
 		{
 			"name": "mesh_forge",
+			"title": "Generate a 3D mesh (art-directed)",
 			"descHead": "dynamic",
 			"descHash": "dynamic",
 			"annotations": "ref:GEN_ANNOTATIONS",
@@ -23,6 +26,7 @@
 		},
 		{
 			"name": "refine_model",
+			"title": "Refine a 3D model by describing a change",
 			"descHead": "dynamic",
 			"descHash": "dynamic",
 			"annotations": "ref:GEN_ANNOTATIONS",
@@ -30,6 +34,7 @@
 		},
 		{
 			"name": "rig_mesh",
+			"title": "Rig a 3D model for animation",
 			"descHead": "dynamic",
 			"descHash": "dynamic",
 			"annotations": "ref:GEN_ANNOTATIONS",
@@ -37,6 +42,7 @@
 		},
 		{
 			"name": "text_to_avatar",
+			"title": "Generate a 3D avatar",
 			"descHead": "dynamic",
 			"descHash": "dynamic",
 			"annotations": "ref:GEN_ANNOTATIONS",
@@ -46,6 +52,7 @@
 	"api/_mcp/tools/agents.js": [
 		{
 			"name": "call_agent",
+			"title": "Call agent",
 			"descHead": "Send a message to another three.ws agent and get its response. Use this ",
 			"descHash": "3d9116ed9950",
 			"annotations": {
@@ -58,6 +65,7 @@
 		},
 		{
 			"name": "identity_check",
+			"title": "Screen an agent identity for impersonation",
 			"descHead": "dynamic",
 			"descHash": "dynamic",
 			"annotations": {
@@ -70,6 +78,7 @@
 		},
 		{
 			"name": "register_agent",
+			"title": "Register an agent on-chain",
 			"descHead": "dynamic",
 			"descHash": "dynamic",
 			"annotations": {
@@ -84,6 +93,7 @@
 	"api/_mcp/tools/animations.js": [
 		{
 			"name": "apply_animation",
+			"title": "Apply an animation preset to a rigged model",
 			"descHead": "Retarget a curated animation preset onto a caller-supplied rigged humano",
 			"descHash": "e42328286a5c",
 			"annotations": {
@@ -96,6 +106,7 @@
 		},
 		{
 			"name": "list_animations",
+			"title": "List animation presets",
 			"descHead": "List the curated, retargetable animation presets in the three.ws library",
 			"descHash": "97f136897e7b",
 			"annotations": {
@@ -108,6 +119,7 @@
 		},
 		{
 			"name": "text_to_animation",
+			"title": "Generate an animation from a text prompt and retarget it onto a model",
 			"descHead": "Generate a brand-new motion from a natural-language prompt (e.g. \"waving",
 			"descHash": "e69992039d1a",
 			"annotations": {
@@ -122,6 +134,7 @@
 	"api/_mcp/tools/avatars.js": [
 		{
 			"name": "delete_avatar",
+			"title": "Delete avatar",
 			"descHead": "Soft-delete an avatar you own. Requires avatars:delete scope.",
 			"descHash": "7e867ad19f8c",
 			"annotations": {
@@ -134,6 +147,7 @@
 		},
 		{
 			"name": "get_avatar",
+			"title": "Get avatar",
 			"descHead": "Fetch a single avatar by id or by owner+slug. Returns metadata and a mod",
 			"descHash": "7d13b04e4e9a",
 			"annotations": "ref:READ_ANNOTATIONS",
@@ -141,6 +155,7 @@
 		},
 		{
 			"name": "list_my_avatars",
+			"title": "List my avatars",
 			"descHead": "List the authenticated user's avatars. Returns id, name, slug, size, vis",
 			"descHash": "63b8ad84489b",
 			"annotations": "ref:READ_ANNOTATIONS",
@@ -148,6 +163,7 @@
 		},
 		{
 			"name": "render_avatar",
+			"title": "Render avatar",
 			"descHead": "dynamic",
 			"descHash": "dynamic",
 			"annotations": "ref:READ_ANNOTATIONS",
@@ -155,6 +171,7 @@
 		},
 		{
 			"name": "render_avatar_image",
+			"title": "Render an avatar to an image",
 			"descHead": "dynamic",
 			"descHash": "dynamic",
 			"annotations": {
@@ -167,6 +184,7 @@
 		},
 		{
 			"name": "search_public_avatars",
+			"title": "Search public avatars",
 			"descHead": "Search the public avatar gallery. Useful for finding characters to rende",
 			"descHash": "50269f56daf0",
 			"annotations": "ref:READ_ANNOTATIONS",
@@ -176,6 +194,7 @@
 	"api/_mcp/tools/embed.js": [
 		{
 			"name": "get_embed_code",
+			"title": "Get embed code",
 			"descHead": "Return a ready-to-paste <iframe> embed snippet (plus shareable URL, oEmb",
 			"descHash": "757acd12b3f0",
 			"annotations": {
@@ -190,6 +209,7 @@
 	"api/_mcp/tools/memory.js": [
 		{
 			"name": "forget",
+			"title": "Forget",
 			"descHead": "Delete a memory you own by its id.",
 			"descHash": "c7a3d36e6024",
 			"annotations": {
@@ -202,6 +222,7 @@
 		},
 		{
 			"name": "recall",
+			"title": "Recall",
 			"descHead": "Retrieve the most relevant memories for a query from one of your agents.",
 			"descHash": "2f63c3847d9b",
 			"annotations": {
@@ -214,6 +235,7 @@
 		},
 		{
 			"name": "remember",
+			"title": "Remember",
 			"descHead": "Store a long-term memory for one of your agents. Use for durable facts: ",
 			"descHash": "ae6892ef85bb",
 			"annotations": {
@@ -228,6 +250,7 @@
 	"api/_mcp/tools/models.js": [
 		{
 			"name": "inspect_model",
+			"title": "Inspect glTF/GLB model",
 			"descHead": "Parse a remote GLB or glTF and return structural stats: scene/node/mesh ",
 			"descHash": "b8209ee26651",
 			"annotations": "ref:INSPECTION_ANNOTATIONS",
@@ -235,6 +258,7 @@
 		},
 		{
 			"name": "optimize_model",
+			"title": "Suggest optimizations for a glTF/GLB model",
 			"descHead": "Inspect the model and return actionable suggestions for reducing size an",
 			"descHash": "6aae82cc8273",
 			"annotations": "ref:INSPECTION_ANNOTATIONS",
@@ -242,6 +266,7 @@
 		},
 		{
 			"name": "validate_model",
+			"title": "Validate glTF/GLB model",
 			"descHead": "Run the Khronos glTF-Validator against a remote GLB or glTF URL. Returns",
 			"descHash": "1ad7ca463dbe",
 			"annotations": "ref:INSPECTION_ANNOTATIONS",
@@ -251,6 +276,7 @@
 	"api/_mcp/tools/oracle.js": [
 		{
 			"name": "oracle_arm_watch",
+			"title": "Arm agent Oracle watch",
 			"descHead": "Arm your agent to automatically act on Oracle conviction signals. Once a",
 			"descHash": "d659c5146b5d",
 			"annotations": {
@@ -263,6 +289,7 @@
 		},
 		{
 			"name": "oracle_coin",
+			"title": "Oracle verdict for one coin",
 			"descHead": "Get Oracle's full conviction verdict for a specific pump.fun coin by min",
 			"descHash": "b2e49ba1236a",
 			"annotations": "ref:LIVE_ANNOTATIONS",
@@ -270,6 +297,7 @@
 		},
 		{
 			"name": "oracle_top_plays",
+			"title": "Oracle top conviction plays",
 			"descHead": "Get the current top pump.fun launches ranked by Oracle conviction score.",
 			"descHash": "61cecaf86ed6",
 			"annotations": "ref:LIVE_ANNOTATIONS",
@@ -277,6 +305,7 @@
 		},
 		{
 			"name": "oracle_watch_status",
+			"title": "Oracle watch status + track record",
 			"descHead": "Check your agent's current Oracle watch configuration and its realized t",
 			"descHash": "9edf65c96476",
 			"annotations": {
@@ -291,6 +320,7 @@
 	"api/_mcp/tools/pumpfun.js": [
 		{
 			"name": "pumpfun_creator_intel",
+			"title": "Pump.fun creator intel",
 			"descHead": "Reputation profile for a pump.fun creator wallet: prior launches, gradua",
 			"descHash": "11009779c558",
 			"annotations": "ref:LIVE_FEED_ANNOTATIONS",
@@ -298,6 +328,7 @@
 		},
 		{
 			"name": "pumpfun_recent_claims",
+			"title": "Recent pump.fun claims",
 			"descHead": "Fetch the most recent pump.fun GitHub social-fee claim events with full ",
 			"descHash": "cb6200c9fb5a",
 			"annotations": "ref:LIVE_FEED_ANNOTATIONS",
@@ -305,6 +336,7 @@
 		},
 		{
 			"name": "pumpfun_recent_graduations",
+			"title": "Recent pump.fun graduations",
 			"descHead": "Tokens that recently graduated from the bonding curve to PumpAMM, with c",
 			"descHash": "caf218a6cdd6",
 			"annotations": "ref:LIVE_FEED_ANNOTATIONS",
@@ -312,6 +344,7 @@
 		},
 		{
 			"name": "pumpfun_token_intel",
+			"title": "Pump.fun token intel",
 			"descHead": "Full intel on a pump.fun token: graduation status, bonding-curve progres",
 			"descHash": "d1119e50045e",
 			"annotations": "ref:LIVE_FEED_ANNOTATIONS",
@@ -321,6 +354,7 @@
 	"api/_mcp/tools/solana.js": [
 		{
 			"name": "solana_agent_attestations",
+			"title": "List Solana agent attestations",
 			"descHead": "List recent on-chain attestations about a Solana-registered agent (feedb",
 			"descHash": "2c83176df84d",
 			"annotations": "ref:ATTESTATION_READ_ANNOTATIONS",
@@ -328,6 +362,7 @@
 		},
 		{
 			"name": "solana_agent_passport",
+			"title": "Get Solana agent passport",
 			"descHead": "Full discovery card for a Solana agent: identity (Metaplex Core asset), ",
 			"descHash": "6320bafe75df",
 			"annotations": "ref:ATTESTATION_READ_ANNOTATIONS",
@@ -335,6 +370,7 @@
 		},
 		{
 			"name": "solana_agent_reputation",
+			"title": "Get Solana agent reputation",
 			"descHead": "Computed reputation summary for a Solana-registered three.ws agent. Retu",
 			"descHash": "5c3aa420b75e",
 			"annotations": "ref:ATTESTATION_READ_ANNOTATIONS",
@@ -344,6 +380,7 @@
 	"api/_mcp/tools/tokenize.js": [
 		{
 			"name": "get_3d_asset_onchain",
+			"title": "Resolve a 3D NFT to its live asset + provenance",
 			"descHead": "dynamic",
 			"descHash": "dynamic",
 			"annotations": {
@@ -356,6 +393,7 @@
 		},
 		{
 			"name": "mint_3d_asset",
+			"title": "Mint a 3D asset as a Solana NFT",
 			"descHead": "dynamic",
 			"descHash": "dynamic",
 			"annotations": {
@@ -370,6 +408,7 @@
 	"api/_mcp/tools/trader.js": [
 		{
 			"name": "copy_status",
+			"title": "My copy subscriptions",
 			"descHead": "List all your active copy-trading subscriptions, with sizing config, exe",
 			"descHash": "d18378cae20d",
 			"annotations": {
@@ -382,6 +421,7 @@
 		},
 		{
 			"name": "copy_subscribe",
+			"title": "Subscribe to copy a trader",
 			"descHead": "Set up non-custodial copy-trading: mirror a leader agent's future pump.f",
 			"descHash": "d4c0a89a60dd",
 			"annotations": "ref:WRITE",
@@ -389,6 +429,7 @@
 		},
 		{
 			"name": "trader_leaderboard",
+			"title": "Top pump.fun traders",
 			"descHead": "Get the top pump.fun traders on three.ws ranked by composite TraderScore",
 			"descHash": "51e91774fd99",
 			"annotations": "ref:LIVE",
@@ -396,6 +437,7 @@
 		},
 		{
 			"name": "trader_profile",
+			"title": "Full track record for one agent",
 			"descHead": "Get the full, verifiable track record for a specific pump.fun agent trad",
 			"descHash": "aaff472b3eae",
 			"annotations": "ref:LIVE",
@@ -405,6 +447,7 @@
 	"api/_mcp3d/tools/studio.js": [
 		{
 			"name": "auto_rig_model",
+			"title": "Auto-rig a static 3D model (skeleton + skin weights)",
 			"descHead": "Turn a static GLB mesh into an animation-ready character: adds a humanoi",
 			"descHash": "832b32ab5642",
 			"annotations": "ref:GENERATIVE_ANNOTATIONS",
@@ -412,6 +455,7 @@
 		},
 		{
 			"name": "capture_scene",
+			"title": "Reconstruct a 3D scene from a video",
 			"descHead": "dynamic",
 			"descHash": "dynamic",
 			"annotations": "ref:GENERATIVE_ANNOTATIONS",
@@ -419,6 +463,7 @@
 		},
 		{
 			"name": "create_agent_persona",
+			"title": "Mint a persistent, living agent persona from a rigged GLB",
 			"descHead": "Turn a generated GLB into a NAMED, persistent agent body — a \"persona\" t",
 			"descHash": "716809d092b0",
 			"annotations": "ref:PERSONA_CREATE_ANNOTATIONS",
@@ -426,6 +471,7 @@
 		},
 		{
 			"name": "direct_prompt",
+			"title": "Optimize a rough idea into a 3D-generation prompt (IBM Granite)",
 			"descHead": "Rewrite a rough idea into an optimized text_to_3d prompt using IBM Grani",
 			"descHash": "1e1c7ac5025f",
 			"annotations": "ref:GENERATIVE_ANNOTATIONS",
@@ -433,6 +479,7 @@
 		},
 		{
 			"name": "generate_material",
+			"title": "Generate a glTF PBR material from a description (IBM Granite)",
 			"descHead": "Generate a physically-based (PBR) glTF 2.0 material from a text descript",
 			"descHash": "50c812e688fc",
 			"annotations": "ref:GENERATIVE_ANNOTATIONS",
@@ -440,6 +487,7 @@
 		},
 		{
 			"name": "generation_status",
+			"title": "Check a 3D generation job",
 			"descHead": "Poll a text_to_3d or image_to_3d job by its job_id. While running it rep",
 			"descHash": "2fdc15375822",
 			"annotations": {
@@ -452,6 +500,7 @@
 		},
 		{
 			"name": "get_agent_persona",
+			"title": "Reload a persisted persona by id (continuity across sessions)",
 			"descHead": "Bring back a previously minted persona by its persona_id — the SAME body",
 			"descHash": "04388b6c47b0",
 			"annotations": "ref:PERSONA_READ_ANNOTATIONS",
@@ -459,6 +508,7 @@
 		},
 		{
 			"name": "image_to_3d",
+			"title": "Reconstruct a 3D model from one or more images",
 			"descHead": "Reconstruct a textured 3D model (GLB) from a reference image using the t",
 			"descHash": "cf4145f4d88b",
 			"annotations": "ref:GENERATIVE_ANNOTATIONS",
@@ -466,6 +516,7 @@
 		},
 		{
 			"name": "persona_say",
+			"title": "Speak a reply through a persona — lip-sync + emotion + gesture",
 			"descHead": "Make a persona PERFORM a reply: the body lip-syncs the text and shows th",
 			"descHash": "7ce7c147f8f6",
 			"annotations": "ref:PERSONA_SAY_ANNOTATIONS",
@@ -473,6 +524,7 @@
 		},
 		{
 			"name": "pose_model",
+			"title": "Resolve a text prompt to a pose-studio seed + joint rotations",
 			"descHead": "Map a natural-language pose description to a deterministic pose-studio s",
 			"descHash": "f90f437e72b1",
 			"annotations": {
@@ -485,6 +537,7 @@
 		},
 		{
 			"name": "preview_3d",
+			"title": "Preview any GLB as an interactive 3D artifact",
 			"descHead": "Render any public GLB URL as an inline <model-viewer> HTML artifact — or",
 			"descHash": "ed4b123a6d3e",
 			"annotations": {
@@ -497,6 +550,7 @@
 		},
 		{
 			"name": "remesh_model",
+			"title": "Remesh, simplify, repair, or convert a 3D model",
 			"descHead": "Process an existing GLB/OBJ/STL/PLY mesh: fix holes and degenerate geome",
 			"descHash": "47b083320257",
 			"annotations": "ref:GENERATIVE_ANNOTATIONS",
@@ -504,6 +558,7 @@
 		},
 		{
 			"name": "remove_background",
+			"title": "Remove the background from an image",
 			"descHead": "Strip the background from a photo or illustration with the three.ws back",
 			"descHash": "3334882948e5",
 			"annotations": "ref:GENERATIVE_ANNOTATIONS",
@@ -511,6 +566,7 @@
 		},
 		{
 			"name": "retexture_model",
+			"title": "Paint a new texture onto a 3D model from a text prompt",
 			"descHead": "Generate a fresh texture for an untextured or poorly-textured GLB with t",
 			"descHash": "6cc85e4e6fb7",
 			"annotations": "ref:GENERATIVE_ANNOTATIONS",
@@ -518,6 +574,7 @@
 		},
 		{
 			"name": "retexture_region",
+			"title": "Repaint one masked region of a model's texture (magic brush)",
 			"descHead": "dynamic",
 			"descHash": "dynamic",
 			"annotations": "ref:GENERATIVE_ANNOTATIONS",
@@ -525,6 +582,7 @@
 		},
 		{
 			"name": "save_avatar",
+			"title": "Save a generated GLB as a durable, named avatar",
 			"descHead": "Persist a generated GLB (e.g. the glb_url returned by generation_status)",
 			"descHash": "de0ef1a0a729",
 			"annotations": "ref:GENERATIVE_ANNOTATIONS",
@@ -532,6 +590,7 @@
 		},
 		{
 			"name": "segment_model",
+			"title": "Split a 3D model into named, separable parts",
 			"descHead": "Segment a GLB/OBJ/STL/PLY mesh into meaningful parts with clean boundari",
 			"descHash": "be034074eec2",
 			"annotations": "ref:GENERATIVE_ANNOTATIONS",
@@ -539,6 +598,7 @@
 		},
 		{
 			"name": "stylize_model",
+			"title": "Apply a one-click geometric stylization filter to a 3D model",
 			"descHead": "dynamic",
 			"descHash": "dynamic",
 			"annotations": "ref:GENERATIVE_ANNOTATIONS",
@@ -546,6 +606,7 @@
 		},
 		{
 			"name": "text_to_3d",
+			"title": "Generate a 3D model from a text prompt",
 			"descHead": "Turn a text description into a textured 3D model (GLB). Runs a fast text",
 			"descHash": "8d96a3f07c0f",
 			"annotations": "ref:GENERATIVE_ANNOTATIONS",
@@ -555,6 +616,7 @@
 	"api/_mcpagent/tools.js": [
 		{
 			"name": "find_services",
+			"title": "Find paid services the agent can call",
 			"descHead": "Search the live x402 facilitator network for paid services (HTTP APIs an",
 			"descHash": "10b9605cf0c4",
 			"annotations": {
@@ -567,6 +629,7 @@
 		},
 		{
 			"name": "monetize_endpoint",
+			"title": "Publish a paid endpoint to earn USDC",
 			"descHead": "Put a price on an upstream API your agent already serves and publish it ",
 			"descHash": "43e54e8d4142",
 			"annotations": {
@@ -579,6 +642,7 @@
 		},
 		{
 			"name": "pay_and_call",
+			"title": "Pay an x402 service and return its result",
 			"descHead": "Call a paid x402 endpoint and settle the USDC payment automatically from",
 			"descHash": "590dd66c69e6",
 			"annotations": {
@@ -591,6 +655,7 @@
 		},
 		{
 			"name": "provision_wallet",
+			"title": "Create the agent's wallet",
 			"descHead": "Create (or return) the custodial Solana wallet for one of your agents so",
 			"descHash": "aea787e2cec2",
 			"annotations": {
@@ -603,6 +668,7 @@
 		},
 		{
 			"name": "wallet_status",
+			"title": "Check the agent's wallet",
 			"descHead": "Show the signed-in user's three.ws agent wallet: address, SOL and USDC b",
 			"descHash": "e8cef61875a7",
 			"annotations": {
@@ -617,6 +683,7 @@
 	"api/_mcpbazaar/tools.js": [
 		{
 			"name": "bazaar_service_details",
+			"title": "Live price details for one x402 service",
 			"descHead": "Resolve the current live price of a single x402 service by its resource ",
 			"descHash": "32ef6c0a06fd",
 			"annotations": "ref:DISCOVERY_ANNOTATIONS",
@@ -624,6 +691,7 @@
 		},
 		{
 			"name": "browse_services",
+			"title": "Browse the x402 bazaar",
 			"descHead": "List paid agent services from the live x402 facilitator network without ",
 			"descHash": "5f4946b4f7d3",
 			"annotations": "ref:DISCOVERY_ANNOTATIONS",
@@ -631,6 +699,7 @@
 		},
 		{
 			"name": "get_service",
+			"title": "Get full details for one x402 service",
 			"descHead": "Resolve a single x402 service by its resource URL (and tool_name for MCP",
 			"descHash": "b38eb5052ab1",
 			"annotations": "ref:DISCOVERY_ANNOTATIONS",
@@ -638,6 +707,7 @@
 		},
 		{
 			"name": "search_services",
+			"title": "Search the x402 bazaar",
 			"descHead": "Ranked search across the live x402 facilitator network for paid agent se",
 			"descHash": "7e71185f12b2",
 			"annotations": "ref:DISCOVERY_ANNOTATIONS",
@@ -647,6 +717,7 @@
 	"api/_mcpibm/tools.js": [
 		{
 			"name": "ibm_granite_analyze",
+			"title": "IBM Granite Analyze ($0.04)",
 			"descHead": "dynamic",
 			"descHash": "dynamic",
 			"annotations": "ref:generativeAnnotations",
@@ -654,6 +725,7 @@
 		},
 		{
 			"name": "ibm_granite_chat",
+			"title": "IBM Granite Chat ($0.02)",
 			"descHead": "dynamic",
 			"descHash": "dynamic",
 			"annotations": "ref:generativeAnnotations",
@@ -661,6 +733,7 @@
 		},
 		{
 			"name": "ibm_granite_code",
+			"title": "IBM Granite Code ($0.025)",
 			"descHead": "dynamic",
 			"descHash": "dynamic",
 			"annotations": "ref:generativeAnnotations",
@@ -668,6 +741,7 @@
 		},
 		{
 			"name": "ibm_granite_embed",
+			"title": "IBM Granite Embed ($0.005)",
 			"descHead": "dynamic",
 			"descHash": "dynamic",
 			"annotations": "ref:deterministicAnnotations",
@@ -675,6 +749,7 @@
 		},
 		{
 			"name": "ibm_granite_forecast",
+			"title": "IBM Granite Forecast ($0.05)",
 			"descHead": "dynamic",
 			"descHash": "dynamic",
 			"annotations": "ref:generativeAnnotations",
@@ -682,10 +757,2096 @@
 		},
 		{
 			"name": "ibm_granite_getting_started",
+			"title": "Getting Started (free)",
 			"descHead": "dynamic",
 			"descHash": "dynamic",
 			"annotations": "dynamic",
 			"schemaHash": "77bf1a795265"
+		}
+	],
+	"packages/activity-mcp/src/tools/get-feed-events.js": [
+		{
+			"name": "get_feed_events",
+			"title": "Site-wide activity feed",
+			"descHead": "The site-wide activity ticker — recent things that just happened across ",
+			"descHash": "2bdbb0bc0a3a",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "7ad8667a612c"
+		}
+	],
+	"packages/activity-mcp/src/tools/get-holder-leaderboard.js": [
+		{
+			"name": "get_holder_leaderboard",
+			"title": "$THREE holder leaderboard",
+			"descHead": "The public $THREE holder leaderboard, ranked by on-chain balance. $THREE",
+			"descHash": "4754b044edb1",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "2efa60eac686"
+		}
+	],
+	"packages/activity-mcp/src/tools/get-tier-info.js": [
+		{
+			"name": "get_tier_info",
+			"title": "$THREE holder tier ladder",
+			"descHead": "The $THREE holder tier ladder — the membership bands a wallet earns pure",
+			"descHash": "81281cff2892",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "44136fa355b3"
+		}
+	],
+	"packages/activity-mcp/src/tools/get-trending-agents.js": [
+		{
+			"name": "get_trending_agents",
+			"title": "Trending agents by activity",
+			"descHead": "The agents that are hot on three.ws right now, ranked by REAL chat activ",
+			"descHash": "739733564f70",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "22afc47bf6d6"
+		}
+	],
+	"packages/activity-mcp/src/tools/get-trending-coins.js": [
+		{
+			"name": "get_trending_coins",
+			"title": "Trending coins by Oracle conviction",
+			"descHead": "The coins three.ws's Oracle has the highest conviction in right now, ran",
+			"descHash": "21babb465831",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "4358d4eb8d60"
+		}
+	],
+	"packages/agenc-mcp/src/tools/get-agent.js": [
+		{
+			"name": "get_agent",
+			"title": "Get AgenC agent registry entry",
+			"descHead": "Resolve an agent's on-chain identity in the AgenC registry (ERC-8004-sty",
+			"descHash": "64c82fb36d18",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "2a4e4667d9f1"
+		}
+	],
+	"packages/agenc-mcp/src/tools/get-task.js": [
+		{
+			"name": "get_task",
+			"title": "Get AgenC task detail + lifecycle",
+			"descHead": "Fetch one AgenC task by its PDA, or by (creator + taskId). Returns the t",
+			"descHash": "4319c9a90e90",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "de55358b7a95"
+		}
+	],
+	"packages/agenc-mcp/src/tools/link-agent.js": [
+		{
+			"name": "link_agent",
+			"title": "Link a three.ws identity to its AgenC agent id",
+			"descHead": "Resolve a three.ws identity to its canonical AgenC agent id and check wh",
+			"descHash": "7b9bfd0060eb",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "1af9f71c90be"
+		}
+	],
+	"packages/agenc-mcp/src/tools/list-tasks.js": [
+		{
+			"name": "list_tasks",
+			"title": "List AgenC tasks by creator",
+			"descHead": "List every AgenC task created by a given Solana wallet. AgenC (agenc.tec",
+			"descHash": "1cb240d0a32c",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "9409c73d56e5"
+		}
+	],
+	"packages/agenc-mcp/src/tools/query-x402-services.js": [
+		{
+			"name": "query_x402_services",
+			"title": "Query x402 services as AgenC tasks",
+			"descHead": "Browse the x402 service directory (the bazaar of paid HTTP endpoints and",
+			"descHash": "7e00badfc0a3",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "d0493ec770a9"
+		}
+	],
+	"packages/agentcore-payments-mcp/src/tools/cancel-session.js": [
+		{
+			"name": "cancel_payment_session",
+			"title": "Cancel a payment session and refund unused budget",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": true,
+				"openWorldHint": false
+			},
+			"schemaHash": "307b43a5a317"
+		}
+	],
+	"packages/agentcore-payments-mcp/src/tools/check-session.js": [
+		{
+			"name": "check_payment_session",
+			"title": "Check a payment session's budget and status",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": true,
+				"openWorldHint": false
+			},
+			"schemaHash": "227cd6bd14df"
+		}
+	],
+	"packages/agentcore-payments-mcp/src/tools/create-session.js": [
+		{
+			"name": "create_payment_session",
+			"title": "Create a funded agent payment session",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": false
+			},
+			"schemaHash": "bb222f0e8d40"
+		}
+	],
+	"packages/agentcore-payments-mcp/src/tools/list-sessions.js": [
+		{
+			"name": "list_payment_sessions",
+			"title": "List payment sessions and spending stats",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": false
+			},
+			"schemaHash": "6c9b2b8ad2a9"
+		}
+	],
+	"packages/agentcore-payments-mcp/src/tools/pay-with-session.js": [
+		{
+			"name": "pay_with_session",
+			"title": "Pay an x402 endpoint via a payment session",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "c4ae91289bf9"
+		}
+	],
+	"packages/agora-mcp/src/tools/board.js": [
+		{
+			"name": "agora_board",
+			"title": "Browse the Agora job board",
+			"descHead": "Browse the live Agora job board — the work an agent can claim and earn $",
+			"descHash": "5dbb1bdad754",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "e829b250d792"
+		}
+	],
+	"packages/agora-mcp/src/tools/citizens.js": [
+		{
+			"name": "agora_citizens",
+			"title": "List Agora citizens",
+			"descHead": "List the citizens of Agora — the population of the agent + human economy",
+			"descHash": "9c8f5bf601b4",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "32b58df88bce"
+		}
+	],
+	"packages/agora-mcp/src/tools/claim-task.js": [
+		{
+			"name": "agora_claim_task",
+			"title": "Claim an open Agora task (on-chain)",
+			"descHead": "CLAIM an open job from the Agora board — a REAL on-chain AgenC claim sig",
+			"descHash": "0bb79da5c125",
+			"annotations": {
+				"readOnlyHint": false,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "c4bee0c62ee8"
+		}
+	],
+	"packages/agora-mcp/src/tools/complete-task.js": [
+		{
+			"name": "agora_complete_task",
+			"title": "Complete an Agora task with a proof (on-chain)",
+			"descHead": "COMPLETE a task you claimed and GET PAID — a REAL on-chain AgenC complet",
+			"descHash": "35535d8835f8",
+			"annotations": {
+				"readOnlyHint": false,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "45b0af8af946"
+		}
+	],
+	"packages/agora-mcp/src/tools/passport.js": [
+		{
+			"name": "agora_passport",
+			"title": "Get one Agora citizen passport",
+			"descHead": "Fetch one citizen's living passport — the full record of a participant i",
+			"descHash": "5427f717ba36",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "c38b759f216f"
+		}
+	],
+	"packages/agora-mcp/src/tools/post-task.js": [
+		{
+			"name": "agora_post_task",
+			"title": "Post a bounty to the Agora board (on-chain escrow)",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": false,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "3c49ac6bbe6f"
+		}
+	],
+	"packages/agora-mcp/src/tools/professions.js": [
+		{
+			"name": "agora_professions",
+			"title": "List Agora professions (the capability bit map)",
+			"descHead": "List Agora's professions — the labor market's type system over AgenC's u",
+			"descHash": "65a97e8f01a0",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "44136fa355b3"
+		}
+	],
+	"packages/agora-mcp/src/tools/pulse.js": [
+		{
+			"name": "agora_pulse",
+			"title": "Read the Agora economy pulse",
+			"descHead": "Read the Agora economy ticker — a live snapshot of the agent + human eco",
+			"descHash": "7b1f7e64a4a2",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "44136fa355b3"
+		}
+	],
+	"packages/agora-mcp/src/tools/register.js": [
+		{
+			"name": "agora_register",
+			"title": "Register as an Agora citizen (on-chain)",
+			"descHead": "JOIN AGORA as a citizen — a REAL on-chain AgenC registration signed by Y",
+			"descHash": "97f5aaecd553",
+			"annotations": {
+				"readOnlyHint": false,
+				"idempotentHint": true,
+				"openWorldHint": true
+			},
+			"schemaHash": "9cf922945aed"
+		}
+	],
+	"packages/alerts-mcp/src/tools/create-alert-rule.js": [
+		{
+			"name": "create_alert_rule",
+			"title": "Create a pump.fun alert rule",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": false,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "ea83fa92b037"
+		}
+	],
+	"packages/alerts-mcp/src/tools/delete-alert-rule.js": [
+		{
+			"name": "delete_alert_rule",
+			"title": "Delete a pump.fun alert rule",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": false,
+				"idempotentHint": false,
+				"destructiveHint": true,
+				"openWorldHint": true
+			},
+			"schemaHash": "674ac40b43bc"
+		}
+	],
+	"packages/alerts-mcp/src/tools/get-alert-history.js": [
+		{
+			"name": "get_alert_history",
+			"title": "Read fired pump.fun alert history",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "57448d8a874a"
+		}
+	],
+	"packages/alerts-mcp/src/tools/list-alert-rules.js": [
+		{
+			"name": "list_alert_rules",
+			"title": "List my pump.fun alert rules",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "44136fa355b3"
+		}
+	],
+	"packages/alerts-mcp/src/tools/update-alert-rule.js": [
+		{
+			"name": "update_alert_rule",
+			"title": "Update a pump.fun alert rule",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": false,
+				"idempotentHint": true,
+				"openWorldHint": true
+			},
+			"schemaHash": "28c55131a59d"
+		}
+	],
+	"packages/audio-mcp/src/tools/audio-to-face.js": [
+		{
+			"name": "audio_to_face",
+			"title": "Audio to face (lipsync)",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "aa8913cf4163"
+		}
+	],
+	"packages/audio-mcp/src/tools/motion-capture-clip.js": [
+		{
+			"name": "motion_capture_clip",
+			"title": "Get a motion-capture clip",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "7f05b7596c05"
+		}
+	],
+	"packages/audio-mcp/src/tools/motion-capture-clips.js": [
+		{
+			"name": "motion_capture_clips",
+			"title": "List motion-capture clips",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "a43e9f15e147"
+		}
+	],
+	"packages/audio-mcp/src/tools/speech-to-text.js": [
+		{
+			"name": "speech_to_text",
+			"title": "Speech to text",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "3fb8d1bd797a"
+		}
+	],
+	"packages/audio-mcp/src/tools/text-to-speech.js": [
+		{
+			"name": "text_to_speech",
+			"title": "Text to speech",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "1ac3d0fcf564"
+		}
+	],
+	"packages/autopilot-mcp/src/tools/adjust-proposal.js": [
+		{
+			"name": "adjust_proposal",
+			"title": "Adjust a pending autopilot proposal",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": true,
+				"openWorldHint": true
+			},
+			"schemaHash": "e63500caff2c"
+		}
+	],
+	"packages/autopilot-mcp/src/tools/compute-trust.js": [
+		{
+			"name": "compute_trust",
+			"title": "Compute autopilot trust level",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "5469b97c4de9"
+		}
+	],
+	"packages/autopilot-mcp/src/tools/dismiss-proposal.js": [
+		{
+			"name": "dismiss_proposal",
+			"title": "Dismiss a pending autopilot proposal",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "5dee3b70d29f"
+		}
+	],
+	"packages/autopilot-mcp/src/tools/dryrun-proposal.js": [
+		{
+			"name": "dryrun_proposal",
+			"title": "Dry-run an autopilot proposal",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "83d541cf5b8e"
+		}
+	],
+	"packages/autopilot-mcp/src/tools/execute-proposal.js": [
+		{
+			"name": "execute_proposal",
+			"title": "Execute an autopilot proposal (moves real value)",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "6d98ad17b42c"
+		}
+	],
+	"packages/autopilot-mcp/src/tools/generate-proposals.js": [
+		{
+			"name": "generate_proposals",
+			"title": "Generate autopilot proposals",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": false,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "13c638018a64"
+		}
+	],
+	"packages/autopilot-mcp/src/tools/get-config.js": [
+		{
+			"name": "get_autopilot_config",
+			"title": "Get autopilot config",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "9299711b3c60"
+		}
+	],
+	"packages/autopilot-mcp/src/tools/list-activity.js": [
+		{
+			"name": "list_autopilot_activity",
+			"title": "List autopilot activity (signed receipts)",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "602b3afad0c4"
+		}
+	],
+	"packages/autopilot-mcp/src/tools/list-proposals.js": [
+		{
+			"name": "list_proposals",
+			"title": "List autopilot proposals",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "abf1a7eb99d1"
+		}
+	],
+	"packages/autopilot-mcp/src/tools/set-config.js": [
+		{
+			"name": "set_autopilot_config",
+			"title": "Set autopilot config",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": false,
+				"idempotentHint": true,
+				"openWorldHint": true
+			},
+			"schemaHash": "98ab349ef632"
+		}
+	],
+	"packages/autopilot-mcp/src/tools/undo-action.js": [
+		{
+			"name": "undo_action",
+			"title": "Undo a reversible autopilot action",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "b08ae838dfc8"
+		}
+	],
+	"packages/avatar-agent-mcp/src/tools/dress-avatar.js": [
+		{
+			"name": "dress_avatar",
+			"title": "Apply accessories + pose to a spawned avatar",
+			"descHead": "Apply (or replace) accessories on a spawned avatar session and optionall",
+			"descHash": "4f872f43c5de",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "28f7cec654be"
+		}
+	],
+	"packages/avatar-agent-mcp/src/tools/ens-sns-resolve.js": [
+		{
+			"name": "ens_sns_resolve",
+			"title": "Resolve ENS + SNS names to addresses",
+			"descHead": "Resolve a human-readable name to addresses across ENS (Ethereum) and SNS",
+			"descHash": "d21fbb09d443",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "186d1864be92"
+		}
+	],
+	"packages/avatar-agent-mcp/src/tools/generate-avatar.js": [
+		{
+			"name": "generate_avatar",
+			"title": "Generate a 3D avatar (Replicate text-to-3D)",
+			"descHead": "Generate a textured GLB from a text prompt or reference image URLs via R",
+			"descHash": "45560bafc5c4",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "168929e4a4ae"
+		}
+	],
+	"packages/avatar-agent-mcp/src/tools/inspect-glb.js": [
+		{
+			"name": "inspect_glb",
+			"title": "Inspect a GLB / glTF 3D model",
+			"descHead": "Fetch any GLB URL (or data: URL) and return a full structural breakdown:",
+			"descHash": "94974ec659b1",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": true,
+				"openWorldHint": true
+			},
+			"schemaHash": "b85aabec39f9"
+		}
+	],
+	"packages/avatar-agent-mcp/src/tools/list-animations.js": [
+		{
+			"name": "list_animations",
+			"title": "List three.ws pose presets + animation slots",
+			"descHead": "Return the three.ws pose preset catalog (T-pose, A-pose, wave, thinker, ",
+			"descHash": "3913dc7c8b98",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "44136fa355b3"
+		}
+	],
+	"packages/avatar-agent-mcp/src/tools/list-avatars.js": [
+		{
+			"name": "list_avatars",
+			"title": "List three.ws default avatars + accessories",
+			"descHead": "Return the catalog of default 3D avatars (default, cz) and accessories (",
+			"descHash": "4a0549f53d96",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": true,
+				"openWorldHint": true
+			},
+			"schemaHash": "44136fa355b3"
+		}
+	],
+	"packages/avatar-agent-mcp/src/tools/optimize-glb.js": [
+		{
+			"name": "optimize_glb",
+			"title": "Optimize a GLB (dedup, prune, weld, Draco)",
+			"descHead": "Run a @gltf-transform/functions optimization pipeline on a GLB URL: dedu",
+			"descHash": "03c3982dd91d",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": true,
+				"openWorldHint": true
+			},
+			"schemaHash": "c63918aa820c"
+		}
+	],
+	"packages/avatar-agent-mcp/src/tools/pump-buy.js": [
+		{
+			"name": "pump_buy",
+			"title": "Buy a Solana token via Jupiter (direct or Jito-bundled)",
+			"descHead": "Swap SOL → target mint via Jupiter aggregator. Direct mode = one tx sign",
+			"descHash": "2a5ec65bb978",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "3c5c2209541c"
+		}
+	],
+	"packages/avatar-agent-mcp/src/tools/pump-collect.js": [
+		{
+			"name": "pump_collect_fees",
+			"title": "Atomic pump.fun creator-fee collection (Jito bundle)",
+			"descHead": "Collect a pump.fun coin's creator-fee vault and route the SOL to a safe ",
+			"descHash": "1a5094103629",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "fa11cc2059d5"
+		}
+	],
+	"packages/avatar-agent-mcp/src/tools/pump-launch.js": [
+		{
+			"name": "pump_launch",
+			"title": "Atomic pump.fun launch (Jito bundle, separate funder/creator)",
+			"descHead": "Launch a pump.fun token atomically via a Jito bundle. Funder pays its ow",
+			"descHash": "02787a83c6d1",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "7ccd18ae503c"
+		}
+	],
+	"packages/avatar-agent-mcp/src/tools/pump-snapshot.js": [
+		{
+			"name": "pump_snapshot",
+			"title": "Live pump.fun / Solana token snapshot",
+			"descHead": "Live snapshot for a Solana token (SPL or pump.fun): USD price (Jupiter),",
+			"descHash": "c4bea0baa681",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "f95ff96b154a"
+		}
+	],
+	"packages/avatar-agent-mcp/src/tools/render-avatar.js": [
+		{
+			"name": "render_avatar",
+			"title": "Render a posed avatar (pose + camera + expression)",
+			"descHead": "Render an avatar GLB with a three.ws pose preset, camera orbit, and opti",
+			"descHash": "7c1ec5431ed9",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": true,
+				"openWorldHint": true
+			},
+			"schemaHash": "f0764b076264"
+		}
+	],
+	"packages/avatar-agent-mcp/src/tools/spawn-avatar.js": [
+		{
+			"name": "spawn_avatar",
+			"title": "Spawn a 3D avatar session",
+			"descHead": "Spawn a 3D avatar from a curated default (preset=\"default\" or \"cz\") or f",
+			"descHash": "c3384eaadd16",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "21935bd3d67c"
+		}
+	],
+	"packages/avatar-agent-mcp/src/tools/speak.js": [
+		{
+			"name": "speak",
+			"title": "Avatar speaks (TTS)",
+			"descHead": "Synthesize speech for an avatar session and return a base64 audio data U",
+			"descHash": "ac95949fb9db",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "a799d54594a0"
+		}
+	],
+	"packages/avatar-agent-mcp/src/tools/thumbnail-glb.js": [
+		{
+			"name": "thumbnail_glb",
+			"title": "Render a GLB to a PNG thumbnail",
+			"descHead": "Render any public GLB URL to a PNG via three.ws's hosted three-light rig",
+			"descHash": "9f954ad41b72",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": true,
+				"openWorldHint": true
+			},
+			"schemaHash": "fb813c0a2ea5"
+		}
+	],
+	"packages/avatar-agent-mcp/src/tools/validate-glb.js": [
+		{
+			"name": "validate_glb",
+			"title": "Validate a GLB / glTF against the Khronos spec",
+			"descHead": "Run the official Khronos gltf-validator against a GLB URL. Returns error",
+			"descHash": "d50330608926",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": true,
+				"openWorldHint": true
+			},
+			"schemaHash": "90ba7dda1baa"
+		}
+	],
+	"packages/avatar-agent-mcp/src/tools/viewer-url.js": [
+		{
+			"name": "viewer_url",
+			"title": "Build a three.ws viewer URL + embed snippet",
+			"descHead": "Build a shareable https://three.ws/viewer?... URL that opens any GLB in ",
+			"descHash": "92579a5c4dfe",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": true,
+				"openWorldHint": true
+			},
+			"schemaHash": "64d3340259e8"
+		}
+	],
+	"packages/avatar-agent-mcp/src/tools/wallet-balance.js": [
+		{
+			"name": "wallet_balance",
+			"title": "Read Solana wallet balances (SOL + SPL tokens)",
+			"descHead": "Return SOL balance and all SPL token balances (including Token-2022) for",
+			"descHash": "dfb87c21b60a",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "6c06de5e1f9f"
+		}
+	],
+	"packages/avatar-agent-mcp/src/tools/wallet-create.js": [
+		{
+			"name": "wallet_create",
+			"title": "Create a Solana wallet (optionally vanity-grinded)",
+			"descHead": "Generate a Solana keypair locally. Optionally grind for a base58 prefix/",
+			"descHash": "a83887009551",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": false
+			},
+			"schemaHash": "1f05b8548040"
+		}
+	],
+	"packages/avatar-agent-mcp/src/tools/wallet-send.js": [
+		{
+			"name": "wallet_send",
+			"title": "Send SOL on Solana mainnet",
+			"descHead": "Send SOL from the configured signer to a destination pubkey. The signer ",
+			"descHash": "7b8d0d5b7d25",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "355a8db8b5cd"
+		}
+	],
+	"packages/billing-mcp/src/tools/billing-summary.js": [
+		{
+			"name": "get_billing_summary",
+			"title": "My plan, quotas, and current usage",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "44136fa355b3"
+		}
+	],
+	"packages/billing-mcp/src/tools/export-billing-history.js": [
+		{
+			"name": "export_billing_history",
+			"title": "Export my billing history as CSV",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "e2150edbc97f"
+		}
+	],
+	"packages/billing-mcp/src/tools/fee-info.js": [
+		{
+			"name": "get_fee_info",
+			"title": "Current platform fee rate",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "44136fa355b3"
+		}
+	],
+	"packages/billing-mcp/src/tools/get-receipt.js": [
+		{
+			"name": "get_receipt",
+			"title": "Get one receipt (per-charge or per-purchase)",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "6d5d0d20e194"
+		}
+	],
+	"packages/billing-mcp/src/tools/get-revenue.js": [
+		{
+			"name": "get_revenue",
+			"title": "My agents’ earnings (revenue + subscriptions)",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "3f1680deb206"
+		}
+	],
+	"packages/billing-mcp/src/tools/query-usage.js": [
+		{
+			"name": "query_usage",
+			"title": "My metered usage / invoice statement for a period",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "2a36fb1e6577"
+		}
+	],
+	"packages/brain-mcp/src/tools/chat.js": [
+		{
+			"name": "chat",
+			"title": "Run a chat completion",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "6abff79eeaf6"
+		}
+	],
+	"packages/brain-mcp/src/tools/list-providers.js": [
+		{
+			"name": "list_providers",
+			"title": "List LLM providers and models",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "44136fa355b3"
+		}
+	],
+	"packages/clash-mcp/src/tools/enlist-faction.js": [
+		{
+			"name": "enlist_faction",
+			"title": "Enlist in a Coin Clash faction",
+			"descHead": "Enlist the signer's wallet as a soldier in a Coin Clash faction and retu",
+			"descHash": "3ed7170eeeac",
+			"annotations": {
+				"readOnlyHint": false,
+				"idempotentHint": true,
+				"openWorldHint": true
+			},
+			"schemaHash": "4bb7fdcc18d0"
+		}
+	],
+	"packages/clash-mcp/src/tools/get-clash-leaderboard.js": [
+		{
+			"name": "get_clash_leaderboard",
+			"title": "Coin Clash leaderboard",
+			"descHead": "Rank Coin Clash factions by their all-time war record. Returns `board`: ",
+			"descHash": "23cbf9d5938f",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "34a52e4809b2"
+		}
+	],
+	"packages/clash-mcp/src/tools/get-clash-state.js": [
+		{
+			"name": "get_clash_state",
+			"title": "Coin Clash battle board",
+			"descHead": "Read the live Coin Clash board for the current round. Coin Clash is thre",
+			"descHash": "1d0ba279475f",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "44136fa355b3"
+		}
+	],
+	"packages/clash-mcp/src/tools/rally-faction.js": [
+		{
+			"name": "rally_faction",
+			"title": "Rally power for a Coin Clash faction",
+			"descHead": "Rally for a Coin Clash faction by spending taps as battle power for the ",
+			"descHash": "de08c50debca",
+			"annotations": {
+				"readOnlyHint": false,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "646bbfff3c48"
+		}
+	],
+	"packages/copy-mcp/src/tools/cancel-subscription.js": [
+		{
+			"name": "cancel_subscription",
+			"title": "Stop a copy-trade subscription",
+			"descHead": "Stop following a leader: transitions the subscription to \"stopped\" so no",
+			"descHash": "3c97e4e427be",
+			"annotations": {
+				"readOnlyHint": false,
+				"idempotentHint": true,
+				"destructiveHint": true,
+				"openWorldHint": true
+			},
+			"schemaHash": "cd7952340b7e"
+		}
+	],
+	"packages/copy-mcp/src/tools/create-subscription.js": [
+		{
+			"name": "create_subscription",
+			"title": "Follow a leader (create / update subscription)",
+			"descHead": "Follow a copy-trade leader from the authenticated account, defining how ",
+			"descHash": "e4803ddf0e6c",
+			"annotations": {
+				"readOnlyHint": false,
+				"idempotentHint": true,
+				"openWorldHint": true
+			},
+			"schemaHash": "3f1bbe7a599a"
+		}
+	],
+	"packages/copy-mcp/src/tools/get-earnings.js": [
+		{
+			"name": "get_earnings",
+			"title": "Copy-trade earnings & fees owed",
+			"descHead": "Read copy-trade performance-fee accounting. Without agent_id: the authen",
+			"descHash": "e002ec5962a0",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "e2205e0864b3"
+		}
+	],
+	"packages/copy-mcp/src/tools/get-executions.js": [
+		{
+			"name": "get_executions",
+			"title": "List copy executions (intent inbox)",
+			"descHead": "List the authenticated account's copy executions — the sized, guard-chec",
+			"descHash": "cbe66041c82b",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "0a263e086d8d"
+		}
+	],
+	"packages/copy-mcp/src/tools/list-subscriptions.js": [
+		{
+			"name": "list_subscriptions",
+			"title": "List my copy-trade subscriptions",
+			"descHead": "List the copy-trade subscriptions belonging to the authenticated account",
+			"descHash": "70f853e46f6f",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "44136fa355b3"
+		}
+	],
+	"packages/copy-mcp/src/tools/record-execution.js": [
+		{
+			"name": "record_execution",
+			"title": "Record acting on a copy intent",
+			"descHead": "Resolve a PENDING copy intent (from get_executions) by recording how you",
+			"descHash": "853880d7f5bf",
+			"annotations": {
+				"readOnlyHint": false,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "6f078813dd93"
+		}
+	],
+	"packages/copy-mcp/src/tools/update-subscription.js": [
+		{
+			"name": "update_subscription",
+			"title": "Update a copy-trade subscription",
+			"descHead": "Re-tune an existing copy-trade subscription by id. Pause it (stop new co",
+			"descHash": "1c612826a084",
+			"annotations": {
+				"readOnlyHint": false,
+				"idempotentHint": true,
+				"openWorldHint": true
+			},
+			"schemaHash": "e1050aace9f4"
+		}
+	],
+	"packages/intel-mcp/src/tools/copy-smart-wallets.js": [
+		{
+			"name": "copy_smart_wallets",
+			"title": "Copy-trade smart wallet directory",
+			"descHead": "Browse the curated Smart Money directory for copy-trading: deduplicated ",
+			"descHash": "aadbfee4fb5b",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "89a6557b76a5"
+		}
+	],
+	"packages/intel-mcp/src/tools/kol-leaderboard.js": [
+		{
+			"name": "kol_leaderboard",
+			"title": "KOL trader leaderboard",
+			"descHead": "Rank the tracked key-opinion-leader (KOL) traders by realized performanc",
+			"descHash": "4eda74884ae4",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "52600bee9606"
+		}
+	],
+	"packages/intel-mcp/src/tools/kol-trades.js": [
+		{
+			"name": "kol_trades",
+			"title": "Recent KOL trades on a mint",
+			"descHead": "See which tracked KOL wallets have recently traded a specific mint. Retu",
+			"descHash": "5aaecc107a31",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "bab7d662b54d"
+		}
+	],
+	"packages/intel-mcp/src/tools/signal-feed.js": [
+		{
+			"name": "signal_feed",
+			"title": "Signal feed track record + recent signals",
+			"descHead": "Read one signal feed's public detail: the publisher's verified track rec",
+			"descHash": "e28d08215cd4",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "20529353514e"
+		}
+	],
+	"packages/intel-mcp/src/tools/smart-money-coin.js": [
+		{
+			"name": "smart_money_coin",
+			"title": "Smart-money score for a coin",
+			"descHead": "Assess a coin by WHO is net-buying it right now. Returns a 0–100 smart_m",
+			"descHash": "e779edb0c8bf",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "a7357494eb41"
+		}
+	],
+	"packages/intel-mcp/src/tools/wallet-intel.js": [
+		{
+			"name": "wallet_intel",
+			"title": "Wallet reputation + smart-money card",
+			"descHead": "Pull one wallet's realized reputation, computed from its observed buys j",
+			"descHash": "8eb086935104",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "e8343ba727ea"
+		}
+	],
+	"packages/kol-mcp/src/tools/get-wallet-portfolio.js": [
+		{
+			"name": "get_wallet_portfolio",
+			"title": "KOL wallet portfolio + P&L",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "c9f7c9236088"
+		}
+	],
+	"packages/kol-mcp/src/tools/get-wallet-trades.js": [
+		{
+			"name": "get_wallet_trades",
+			"title": "A KOL wallet's trades on a mint",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "efe641475e48"
+		}
+	],
+	"packages/loom-mcp/src/tools/get-creation.js": [
+		{
+			"name": "get_creation",
+			"title": "Fetch one Loom creation by id",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "61edbfb1da90"
+		}
+	],
+	"packages/loom-mcp/src/tools/get-loom-feed.js": [
+		{
+			"name": "get_loom_feed",
+			"title": "Browse the Loom 3D-creation gallery",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "dfbe9768f356"
+		}
+	],
+	"packages/loom-mcp/src/tools/submit-creation.js": [
+		{
+			"name": "submit_creation",
+			"title": "Submit a creation to the Loom gallery",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "e39df391c034"
+		}
+	],
+	"packages/marketplace-mcp/src/tools/agent-categories.js": [
+		{
+			"name": "agent_categories",
+			"title": "List agent marketplace categories",
+			"descHead": "List the agent marketplace categories with the count of published agents",
+			"descHash": "a80a3c66efee",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "44136fa355b3"
+		}
+	],
+	"packages/marketplace-mcp/src/tools/agent-detail.js": [
+		{
+			"name": "agent_detail",
+			"title": "Fetch a marketplace agent by id",
+			"descHead": "Fetch one published marketplace agent by its id, including its full deta",
+			"descHash": "d60282de0b42",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "307c3857ed90"
+		}
+	],
+	"packages/marketplace-mcp/src/tools/browse-agents.js": [
+		{
+			"name": "browse_agents",
+			"title": "Browse the agent marketplace",
+			"descHead": "Search and page the public three.ws agent marketplace. Filter by categor",
+			"descHash": "5b0feeada74f",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "38c217c26128"
+		}
+	],
+	"packages/marketplace-mcp/src/tools/browse-skills.js": [
+		{
+			"name": "browse_skills",
+			"title": "Browse the skills catalog",
+			"descHead": "Search and page the public three.ws skills catalog — reusable tools and ",
+			"descHash": "cc6bca95f4db",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "b99134895842"
+		}
+	],
+	"packages/marketplace-mcp/src/tools/skill-categories.js": [
+		{
+			"name": "skill_categories",
+			"title": "List skills catalog categories",
+			"descHead": "List the skills catalog categories that have at least one public skill, ",
+			"descHash": "bc2eb1e5c29b",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "44136fa355b3"
+		}
+	],
+	"packages/naming-mcp/src/tools/sns-resolve.js": [
+		{
+			"name": "sns_resolve",
+			"title": "Resolve a .sol name to its owner wallet",
+			"descHead": "Resolve a Solana Name Service (.sol) name to the base58 wallet address t",
+			"descHash": "143cbd9389dd",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "665d28ca0f6a"
+		}
+	],
+	"packages/naming-mcp/src/tools/sns-reverse.js": [
+		{
+			"name": "sns_reverse",
+			"title": "Reverse-lookup a wallet to its primary .sol name",
+			"descHead": "Reverse-lookup a Solana wallet to the primary .sol name it has set as it",
+			"descHash": "49cbdc5064c0",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "c3e3a17c0d1a"
+		}
+	],
+	"packages/naming-mcp/src/tools/threews-availability.js": [
+		{
+			"name": "threews_availability",
+			"title": "Check if a *.threews.sol agent identity is available",
+			"descHead": "Check whether \"<label>.threews.sol\" is available to claim as a three.ws ",
+			"descHash": "98daa55f6136",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "e3adec102cf2"
+		}
+	],
+	"packages/notifications-mcp/src/tools/delete-notification.js": [
+		{
+			"name": "delete_notification",
+			"title": "Delete notification",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "8b648ee02b76"
+		}
+	],
+	"packages/notifications-mcp/src/tools/get-preferences.js": [
+		{
+			"name": "get_preferences",
+			"title": "Get notification preferences",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "44136fa355b3"
+		}
+	],
+	"packages/notifications-mcp/src/tools/list-notifications.js": [
+		{
+			"name": "list_notifications",
+			"title": "List notifications",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "0b3481f0dd21"
+		}
+	],
+	"packages/notifications-mcp/src/tools/mark-read.js": [
+		{
+			"name": "mark_read",
+			"title": "Mark notifications read",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": false,
+				"idempotentHint": true,
+				"openWorldHint": true
+			},
+			"schemaHash": "92824b30cd7d"
+		}
+	],
+	"packages/notifications-mcp/src/tools/register-push-device.js": [
+		{
+			"name": "register_push_device",
+			"title": "Register push device",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": false,
+				"idempotentHint": true,
+				"openWorldHint": true
+			},
+			"schemaHash": "bf52da591d2e"
+		}
+	],
+	"packages/notifications-mcp/src/tools/set-preferences.js": [
+		{
+			"name": "set_preferences",
+			"title": "Set notification preferences",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": false,
+				"idempotentHint": true,
+				"openWorldHint": true
+			},
+			"schemaHash": "270e00b4f5aa"
+		}
+	],
+	"packages/notifications-mcp/src/tools/unregister-push-device.js": [
+		{
+			"name": "unregister_push_device",
+			"title": "Unregister push device",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": true,
+				"openWorldHint": true
+			},
+			"schemaHash": "dd1452495140"
+		}
+	],
+	"packages/portfolio-mcp/src/tools/portfolio-asset.js": [
+		{
+			"name": "get_portfolio_asset",
+			"title": "My position in one token (holdings + market + chart)",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "b8b2b70c9e52"
+		}
+	],
+	"packages/portfolio-mcp/src/tools/portfolio-history.js": [
+		{
+			"name": "get_portfolio_history",
+			"title": "My portfolio value over time",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "2447c0835603"
+		}
+	],
+	"packages/portfolio-mcp/src/tools/portfolio-summary.js": [
+		{
+			"name": "get_portfolio_summary",
+			"title": "My agents’ live portfolio (holdings + USD value)",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "2774dafb1fcf"
+		}
+	],
+	"packages/portfolio-mcp/src/tools/send-transfer.js": [
+		{
+			"name": "send_transfer",
+			"title": "Send SOL or an SPL token on Solana mainnet",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "6beb337c65ee"
+		}
+	],
+	"packages/portfolio-mcp/src/tools/trades-feed.js": [
+		{
+			"name": "get_trades_feed",
+			"title": "Public closed-trade PnL feed",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "75391158a407"
+		}
+	],
+	"packages/portfolio-mcp/src/tools/wallet-balances.js": [
+		{
+			"name": "get_wallet_balances",
+			"title": "Live on-chain balances for a Solana wallet",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "4a8838fb67ab"
+		}
+	],
+	"packages/provenance-mcp/src/tools/append-agent-action.js": [
+		{
+			"name": "append_agent_action",
+			"title": "Append a signed action to the provenance ledger",
+			"descHead": "Record an action in an agent's append-only provenance ledger — the perma",
+			"descHash": "094f7fe192ca",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "fef696e12ba3"
+		}
+	],
+	"packages/provenance-mcp/src/tools/list-agent-actions.js": [
+		{
+			"name": "list_agent_actions",
+			"title": "List an agent's action-provenance trail",
+			"descHead": "Read an agent's append-only action log, newest-first, cursor-paginated. ",
+			"descHash": "6590535dc231",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "d01cadbc72e4"
+		}
+	],
+	"packages/provenance-mcp/src/tools/query-action.js": [
+		{
+			"name": "query_action",
+			"title": "Fetch + verify one provenance action",
+			"descHead": "Fetch a single action from an agent's append-only log by its id, then ve",
+			"descHash": "626838234347",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "4324bb5ace2b"
+		}
+	],
+	"packages/scene-mcp/src/tools/compose-scene.js": [
+		{
+			"name": "compose_scene",
+			"title": "Compose a 3D diorama plan from one sentence",
+			"descHead": "Compose a tiny 3D diorama from one short sentence. Returns a PLAN: an ev",
+			"descHash": "d42bccef405d",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "cc6d79ff4756"
+		}
+	],
+	"packages/scene-mcp/src/tools/get-scene.js": [
+		{
+			"name": "get_scene",
+			"title": "Fetch a saved diorama by id",
+			"descHead": "Fetch one saved diorama (a fully-forged 3D world) by its id, including i",
+			"descHash": "37f599d1d667",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "adacb80a1ba6"
+		}
+	],
+	"packages/scene-mcp/src/tools/list-scenes.js": [
+		{
+			"name": "list_scenes",
+			"title": "List recent or featured dioramas",
+			"descHead": "Browse the public diorama gallery — the most recent saved worlds, or the",
+			"descHash": "79e7f4cc0eb6",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "2b69c8fade89"
+		}
+	],
+	"packages/signals-mcp/src/tools/get-mirror-leaderboard.js": [
+		{
+			"name": "get_mirror_leaderboard",
+			"title": "Rank signal publishers by realized performance",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "fb9a88267798"
+		}
+	],
+	"packages/signals-mcp/src/tools/get-subscriptions.js": [
+		{
+			"name": "get_subscriptions",
+			"title": "List your signal subscriptions + delivery history",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "44136fa355b3"
+		}
+	],
+	"packages/signals-mcp/src/tools/list-signal-feeds.js": [
+		{
+			"name": "list_signal_feeds",
+			"title": "Browse the signal-feed marketplace",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "9f9cd383a244"
+		}
+	],
+	"packages/signals-mcp/src/tools/set-subscription-status.js": [
+		{
+			"name": "set_subscription_status",
+			"title": "Resume, pause, stop, or kill a subscription",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": false,
+				"idempotentHint": true,
+				"openWorldHint": true
+			},
+			"schemaHash": "863e00e632ae"
+		}
+	],
+	"packages/signals-mcp/src/tools/subscribe-signal.js": [
+		{
+			"name": "subscribe_signal",
+			"title": "Subscribe an agent to a signal feed",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": false,
+				"idempotentHint": true,
+				"openWorldHint": true
+			},
+			"schemaHash": "b73a7b0f84ee"
+		}
+	],
+	"packages/three-token-mcp/src/tools/three-balance.js": [
+		{
+			"name": "three_balance",
+			"title": "Read a wallet's $THREE + SOL balance",
+			"descHead": "Return the $THREE and SOL balance for a Solana pubkey. If no pubkey is g",
+			"descHash": "f79639fcd1d7",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "fa8695604366"
+		}
+	],
+	"packages/three-token-mcp/src/tools/three-burn.js": [
+		{
+			"name": "three_burn",
+			"title": "Burn $THREE on-chain (incinerator + treasury split)",
+			"descHead": "Burn a USD-denominated amount of the $THREE your wallet holds. Quotes US",
+			"descHash": "31d52b60bec9",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "a36f57cc4d97"
+		}
+	],
+	"packages/three-token-mcp/src/tools/three-price.js": [
+		{
+			"name": "three_price",
+			"title": "Live $THREE price (Jupiter) + USD→$THREE quote",
+			"descHead": "Return the live USD price of $THREE (Jupiter primary, Birdeye fallback).",
+			"descHash": "b589970ff915",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "73d2da698b68"
+		}
+	],
+	"packages/tutor-mcp/src/tools/close-session.js": [
+		{
+			"name": "close_session",
+			"title": "Close a tutoring session (finalize invoice)",
+			"descHead": "Finalize a Pay-As-You-Learn tutoring session and return its itemized, at",
+			"descHash": "be4bf66b6acf",
+			"annotations": {
+				"readOnlyHint": false,
+				"idempotentHint": true,
+				"destructiveHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "c9c2f3cee9ad"
+		}
+	],
+	"packages/tutor-mcp/src/tools/load-session.js": [
+		{
+			"name": "load_session",
+			"title": "Load a tutoring session ledger",
+			"descHead": "Read the running tab for a Pay-As-You-Learn tutoring session by its sess",
+			"descHash": "cc76a60f47f7",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "88ac16a4a3f5"
+		}
+	],
+	"packages/vanity-mcp/src/tools/vanity-appraise.js": [
+		{
+			"name": "vanity_appraise",
+			"title": "Appraise the rarity of a Solana address",
+			"descHead": "Appraise how rare a Solana address is: its detected vanity pattern, rari",
+			"descHash": "662f9cf8747a",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": true,
+				"openWorldHint": true
+			},
+			"schemaHash": "166e5158df47"
+		}
+	],
+	"packages/vanity-mcp/src/tools/vanity-board.js": [
+		{
+			"name": "vanity_board",
+			"title": "Browse the vanity grind-bounty board",
+			"descHead": "Browse the public grind-bounty board: vanity-address bounties requesters",
+			"descHash": "478e019e2380",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "ddddfbefbd74"
+		}
+	],
+	"packages/vanity-mcp/src/tools/vanity-config.js": [
+		{
+			"name": "vanity_config",
+			"title": "Bounty market config: payout + asset metadata",
+			"descHead": "Read the grind-bounty market configuration: whether on-chain payouts are",
+			"descHash": "f42dd6079380",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "44136fa355b3"
+		}
+	],
+	"packages/vanity-mcp/src/tools/vanity-gallery.js": [
+		{
+			"name": "vanity_gallery",
+			"title": "Browse the proof-of-grind rarity gallery",
+			"descHead": "Browse the public proof-of-grind gallery: rare Solana addresses people h",
+			"descHash": "947482b1ea36",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "055ce9dfa9d4"
+		}
+	],
+	"packages/vanity-mcp/src/tools/vanity-leaderboard.js": [
+		{
+			"name": "vanity_leaderboard",
+			"title": "Top grinders by USDC earned",
+			"descHead": "Rank the worker fleet: the top grinders by total USDC earned from winnin",
+			"descHash": "5e03ddeb0723",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "89093629b6cc"
+		}
+	],
+	"packages/vanity-mcp/src/tools/vanity-open.js": [
+		{
+			"name": "vanity_open",
+			"title": "List claimable open bounties for workers",
+			"descHead": "List the open, unexpired bounties a grinding worker can race to claim — ",
+			"descHash": "45f3acbc46ae",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "829a38859aa9"
+		}
+	],
+	"packages/vanity-mcp/src/tools/vanity-quote.js": [
+		{
+			"name": "vanity_quote",
+			"title": "Quote the bounty price for a vanity pattern",
+			"descHead": "Quote how hard a Solana vanity address is and what to escrow for it. Giv",
+			"descHash": "a075580b128b",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": true,
+				"openWorldHint": true
+			},
+			"schemaHash": "f0ea1a5d1d60"
+		}
+	],
+	"packages/vanity-mcp/src/tools/vanity-stats.js": [
+		{
+			"name": "vanity_stats",
+			"title": "Live grind-bounty market totals",
+			"descHead": "Get live totals for the grind-bounty market: how many bounties are open,",
+			"descHash": "ff50c0c21880",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "44136fa355b3"
+		}
+	],
+	"packages/vision-mcp/src/tools/analyze-image.js": [
+		{
+			"name": "analyze_image",
+			"title": "Analyze an image against a prompt",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "6aab71ea600e"
+		}
+	],
+	"packages/vision-mcp/src/tools/describe-image.js": [
+		{
+			"name": "describe_image",
+			"title": "Describe an image in natural language",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "41557805ea34"
+		}
+	],
+	"packages/vision-mcp/src/tools/vision-status.js": [
+		{
+			"name": "get_vision_status",
+			"title": "Vision availability + accepted formats",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "44136fa355b3"
+		}
+	],
+	"packages/x402-mcp/src/tools/find-services.js": [
+		{
+			"name": "find_services",
+			"title": "Find paid x402 services the agent can call",
+			"descHead": "Search the live x402 facilitator network (PayAI + Coinbase CDP bazaar) f",
+			"descHash": "244a81abb0d0",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "0ae1eb189146"
+		}
+	],
+	"packages/x402-mcp/src/tools/inspect-endpoint.js": [
+		{
+			"name": "inspect_endpoint",
+			"title": "Inspect an x402 endpoint (price + requirements, no payment)",
+			"descHead": "Fetch an x402 endpoint and return its 402 payment requirements — every a",
+			"descHash": "278c58d6e1c4",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "771176719c9d"
+		}
+	],
+	"packages/x402-mcp/src/tools/pay-and-call.js": [
+		{
+			"name": "pay_and_call",
+			"title": "Pay an x402 endpoint in USDC or $THREE and return its result",
+			"descHead": "Call a paid x402 endpoint and settle the payment automatically, then ret",
+			"descHash": "bcbac82f6706",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "11dd41d810ab"
+		}
+	],
+	"packages/x402-mcp/src/tools/x402-wallet.js": [
+		{
+			"name": "x402_wallet",
+			"title": "The agent's x402 spending wallet (address + balance)",
+			"descHead": "Show a Solana wallet's address and live SOL + USDC balance. With no `add",
+			"descHash": "a9ff0cfff056",
+			"annotations": {
+				"readOnlyHint": true,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "1cec1d1a0dae"
 		}
 	]
 }

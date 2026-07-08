@@ -56,6 +56,9 @@
 		"{api/3d/generate,api/3d/studio}.js": {
 			"maxDuration": 120
 		},
+		"api/x402/embody.js": {
+			"maxDuration": 300
+		},
 		"api/widgets/[id]/knowledge-process.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 300
@@ -931,6 +934,38 @@
 			"dest": "/compare.html"
 		},
 		{
+			"src": "/screener/?",
+			"dest": "/screener.html"
+		},
+		{
+			"src": "/categories/?",
+			"dest": "/categories.html"
+		},
+		{
+			"src": "/exchanges/?",
+			"dest": "/exchanges.html"
+		},
+		{
+			"src": "/derivatives/?",
+			"dest": "/derivatives.html"
+		},
+		{
+			"src": "/converter/?",
+			"dest": "/converter.html"
+		},
+		{
+			"src": "/defi/?",
+			"dest": "/defi.html"
+		},
+		{
+			"src": "/chains/?",
+			"dest": "/chains.html"
+		},
+		{
+			"src": "/stablecoins/?",
+			"dest": "/stablecoins.html"
+		},
+		{
 			"src": "/coin/([a-zA-Z0-9][a-zA-Z0-9_-]{0,99})/?",
 			"dest": "/coin.html"
 		},
@@ -1176,6 +1211,10 @@
 		{
 			"src": "/pose/?",
 			"dest": "/pose.html"
+		},
+		{
+			"src": "/viewer/?",
+			"dest": "/viewer.html"
 		},
 		{
 			"src": "/pose-mini/?",

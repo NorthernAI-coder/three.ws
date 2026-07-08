@@ -24,15 +24,15 @@ import { priceFor } from '../_lib/x402-prices.js';
 import { sql } from '../_lib/db.js';
 import { error } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
+import skillCallListing from '../_lib/service-catalog/services/skill-call.js';
 
 const ROUTE = '/api/x402/skill-call';
 
-const DESCRIPTION =
-	'three.ws Skill Call — pay the per-call price of a marketplace skill in USDC ' +
-	'(Base or Solana) and receive its executable payload: the tool schema and ' +
-	'content the calling agent runs. Payment settles straight to the skill ' +
-	"author's wallet, so authors earn on every call. Per-call pricing — every " +
-	'invocation is a fresh payment (no free re-access).';
+// Single source of truth: api/_lib/service-catalog/services/skill-call.js is
+// the storefront listing copy — importing it here keeps the live 402 challenge
+// from drifting from what /.well-known/x402.json and the OKX projection
+// advertise (same pattern as forge.js → forge-listing.js).
+const DESCRIPTION = skillCallListing.description;
 
 const INPUT_EXAMPLE = { skill: 'wallet-balance' };
 

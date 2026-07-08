@@ -500,6 +500,12 @@ URL: https://three.ws/avatar-artifact
 
 Standalone Three.js viewer for avatar artifacts — embeddable and shareable without any wrapper page.
 
+### glTF / GLB Viewer
+
+URL: https://three.ws/viewer
+
+Paste any public glTF/GLB URL and preview it inline — the lightweight, unauthenticated model viewer every 3D Studio tool's shared asset link opens.
+
 ### Playground
 
 URL: https://three.ws/playground
@@ -866,6 +872,54 @@ Live Ethereum gas fees straight from the chain — slow, standard, and fast tier
 URL: https://three.ws/compare
 
 Compare cryptocurrencies head to head — overlay normalized price performance and line up market cap, volume, FDV, supply, and all-time-high stats for up to four coins at once. The selection is saved to the URL so any matchup is shareable.
+
+### Crypto Token Screener
+
+URL: https://three.ws/screener
+
+Screen the top 250 cryptocurrencies with live filters — search by name or symbol, isolate gainers or losers, and set minimum market cap and 24h volume thresholds. Every column sorts and every row links to a full coin detail page.
+
+### Crypto Categories by Market Cap
+
+URL: https://three.ws/categories
+
+Every crypto sector ranked by market cap — smart contract platforms, AI agents, memecoins, DeFi, gaming, and more — with 24h change, volume, and the top coins in each. See which narratives are leading the market right now.
+
+### Top Crypto Exchanges
+
+URL: https://three.ws/exchanges
+
+The leading cryptocurrency exchanges ranked by trust score and 24-hour trading volume, with country, launch year, and a direct link to each. Real CoinGecko data, sortable by any column.
+
+### Crypto Derivatives & Perpetual Futures
+
+URL: https://three.ws/derivatives
+
+Live perpetual-futures markets across exchanges — price, 24h change, funding rate, open interest, and volume for every major contract. Filter by underlying index (BTC, ETH, SOL) and sort by any column.
+
+### Crypto Currency Converter
+
+URL: https://three.ws/converter
+
+Convert between any cryptocurrency and major world fiat currencies at live market rates — crypto to crypto, crypto to fiat, and back. Type an amount, pick both sides, and share the result via URL.
+
+### DeFi TVL & Top Protocols
+
+URL: https://three.ws/defi
+
+Total value locked across decentralized finance, with the top protocols ranked by TVL, their category, chains, and 1-day and 7-day change. Live from DeFiLlama, sortable and filterable by category.
+
+### Blockchain TVL by Chain
+
+URL: https://three.ws/chains
+
+A leaderboard of every blockchain by total value locked, with each chain's dominance share of on-chain DeFi. Live from DeFiLlama — see where liquidity actually sits across L1s and L2s.
+
+### Stablecoins Market Cap & Peg Health
+
+URL: https://three.ws/stablecoins
+
+Every major stablecoin ranked by circulating market cap, with live peg health, backing mechanism (fiat-backed, crypto-backed, algorithmic), and the chains it lives on. Live from DeFiLlama.
 
 ### watsonx Constellation
 

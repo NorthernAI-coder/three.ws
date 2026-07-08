@@ -94,6 +94,17 @@ import {
 } from './_lib/credits.js';
 import { markProviderCooldown, providersInCooldown } from './_lib/provider-health.js';
 import { sanitizeJobError } from './_lib/provider-job-error.js';
+import { normalizeForgeOptions, providerReconstructParams, summarizeForgeOptions } from './_lib/forge-options.js';
+import { bindJobToOptions, optionsForJob } from './_lib/forge-job-options.js';
+import {
+	forgeResultCacheKey,
+	getCachedForgeResult,
+	putCachedForgeResult,
+	bindJobToCacheKey,
+	cacheKeyForJob,
+} from './_lib/forge-cache.js';
+import { shouldRetryForQuality } from './_lib/glb-quality.js';
+import { directPrompt, originFromReq } from './_mcp-studio/forge-client.js';
 
 // Circuit-breaker key + window for the free NVIDIA NIM TRELLIS text→3D lane. The
 // hosted NVCF gateway can degrade so a submit neither completes nor hands back a
@@ -529,6 +540,20 @@ async function startJob(req, res) {
 	const isImageMode = imageUrls.length > 0;
 	const prompt = typeof body?.prompt === 'string' ? body.prompt.trim() : '';
 
+	// Optional, additive output controls (seed, output_format/compression,
+	// texture_size, target_polycount) — see _lib/forge-options.js. Every field is
+	// off by default, so a request that never sends them behaves exactly as
+	// before. An explicitly-present but invalid value is a 400 with an actionable
+	// message; an absent field is never an error.
+	const opts = normalizeForgeOptions(body);
+	if (opts.errors.length) {
+		return json(res, 400, {
+			error: 'invalid_options',
+			errors: opts.errors,
+			message: opts.errors.map((e) => e.message).join(' '),
+		});
+	}
+
 	// Resolve the generation path + tier + backend BEFORE the rate check so the
 	// limiter can be lane-aware. The free NVIDIA NIM lane (draft, no vendor spend)
 	// gets a generous fail-open bucket; the paid Replicate/BYOK lanes keep the
@@ -621,6 +646,43 @@ async function startJob(req, res) {
 			return false;
 		}
 	};
+
+	// Content-addressed result cache (see _lib/forge-cache.js): a text→3D request
+	// on a platform-keyed lane (never BYOK — that spends the caller's own account,
+	// so it must never be replayed to a stranger) can be served instantly from a
+	// prior identical generation instead of re-running the GPU pipeline. Captured
+	// once, before any lane-failover churn reassigns `backendId` below, so the
+	// same cache key is used to both look up and (on completion) store this
+	// request's result — a failover to a different lane just means a miss, never
+	// a wrong hit. `force_regenerate: true` skips the read (a fresh run is still
+	// written back, keeping the cache warm). High tier is paid/gated per caller
+	// and is never cached, matching the module's own privacy boundary.
+	const cacheEligible = !isImageMode && tier.id !== 'high' && BACKENDS[backendId]?.byok === false;
+	const forceRegenerate = body?.force_regenerate === true;
+	const cacheKey = cacheEligible
+		? forgeResultCacheKey({ path, tier, backend: backendId, prompt, options: opts })
+		: null;
+	if (cacheKey && !forceRegenerate) {
+		const cached = await getCachedForgeResult(cacheKey);
+		if (cached) {
+			return json(res, 200, {
+				job_id: null,
+				creation_id: null,
+				status: 'done',
+				glb_url: cached.glb_url,
+				durable: true,
+				cached: true,
+				cached_at: cached.cached_at,
+				mode: 'text_to_3d',
+				path: cached.path || path,
+				tier: cached.tier || tier.id,
+				backend: cached.backend || backendId,
+				prompt: prompt || null,
+				quality: cached.quality || null,
+				options: opts.hasOptions ? summarizeForgeOptions(opts) : undefined,
+			});
+		}
+	}
 
 	// $THREE hold-to-access gate (Token Utility v1) — the High tier (200k poly +
 	// PBR, textured) is the platform's premium quality tier. It now runs on a

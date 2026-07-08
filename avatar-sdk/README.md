@@ -54,6 +54,15 @@ Importing the package registers the `<agent-3d>` custom element as a side effect
 
 <!-- …or point at a GLB directly -->
 <agent-3d src="https://example.com/my-avatar.glb"></agent-3d>
+
+<!-- Add brain="free" and the avatar holds a real conversation — no API key,
+     no backend, no per-token cost. Routed through three.ws's host-paid free
+     tier (OpenRouter/Groq/NVIDIA, whichever is healthy). -->
+<agent-3d
+  src="https://example.com/my-avatar.glb"
+  brain="free"
+  instructions="You are Maya, a friendly guide to this site."
+></agent-3d>
 ```
 
 Need only a 3D preview — no chat, no voice, no 3 MB runtime? Use the light viewer:
@@ -100,9 +109,23 @@ It dispatches a `load` event (`detail: { url }`) on success and an `error` event
 ### `<agent-3d>`
 
 The full runtime element. Set `avatarid` to resolve a server-hosted avatar, or
-`src` for a direct GLB. Other attributes: `ios-src` (USDZ for iOS AR Quick Look)
+`src`/`body` for a direct GLB. Other attributes: `ios-src` (USDZ for iOS AR Quick Look)
 and `kiosk` (hide the debug GUI). Instance methods include `playGesture(name, opts?)`
 and `setMorph(name, weight)`.
+
+**Conversation (`brain`)** — with no `brain` attribute the avatar is a silent 3D
+decoration. Set one to give it a voice:
+
+| `brain` value | Behavior |
+|---|---|
+| *(unset)* | Silent — no chat, no LLM calls. |
+| `free` | Zero-config free chat. Routed through three.ws's host-paid `/api/llm/anthropic` proxy, which resolves to whichever free tier is healthy (OpenRouter, Groq, or NVIDIA NIM). No API key, no backend code, no per-token cost to you. |
+| any other model id (e.g. `claude-sonnet-4-6`) | Passed through as a literal model id on the same proxy — use your own Anthropic key via the three.ws dashboard for a paid Claude model. |
+
+Pair `brain` with `instructions` (a system prompt string) and `memory` (`local`
+by default) to give the agent a persona and durable facts — see the
+[Personal AI site tutorial](../docs/tutorials/personal-ai-site.md) for a full
+worked example.
 
 ## Open the avatar creator
 

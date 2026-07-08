@@ -26,18 +26,18 @@ import {
 	persistStageOutput,
 	stageObjectKey,
 } from '../_lib/pipeline-stage.js';
+import pipelineRigListing from '../_lib/service-catalog/services/pipeline-rig.js';
 
 const ROUTE = '/api/x402/pipeline-rig';
 const SLUG = 'pipeline-rig';
 
 const VALID_RIG_TYPES = new Set(['biped', 'quadruped']);
 
-const DESCRIPTION =
-	'3D Asset Pipeline — Rig: pay $0.05 USDC to make a static GLB animation-ready. ' +
-	'A humanoid skeleton is inferred and bound to the mesh with skin weights so the ' +
-	'model can walk, wave, and emote. POST a public glb_url; get back a durable ' +
-	'first-party rigged GLB URL. No other x402 resource rigs a mesh. Pay ' +
-	'autonomously in USDC on Solana mainnet — no API key, no account.';
+// Single source of truth: api/_lib/service-catalog/services/pipeline-rig.js is
+// the storefront listing copy — importing it here keeps the live 402 challenge
+// from drifting from what /.well-known/x402.json and the OKX projection
+// advertise (same pattern as forge.js → forge-listing.js).
+const DESCRIPTION = pipelineRigListing.description;
 
 export const INPUT_SCHEMA = {
 	$schema: 'https://json-schema.org/draft/2020-12/schema',

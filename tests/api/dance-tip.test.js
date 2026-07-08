@@ -295,8 +295,8 @@ describe('twerk — pole style', () => {
 });
 
 describe('Bazaar discovery schema', () => {
-	it('marks the endpoint discoverable', () => {
-		expect(BAZAAR_SCHEMA.discoverable).toBe(true);
+	it('marks the endpoint as delisted (internal-use, not agent-discoverable)', () => {
+		expect(BAZAAR_SCHEMA.discoverable).toBe(false);
 	});
 
 	it("advertises every STYLES key in the input `dance` enum", () => {

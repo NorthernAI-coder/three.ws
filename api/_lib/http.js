@@ -327,6 +327,40 @@ export async function readForm(req, limit = 1_000_000) {
 }
 
 export function readBody(req, limit) {
+	// The Cloud Run server (server/index.mjs) pre-parses JSON / urlencoded / text /
+	// octet-stream bodies through Express body-parser middleware ahead of every
+	// handler, fully draining the raw request stream in the process, and stores the
+	// result on req.body. If we then attach 'data'/'end' listeners to that same
+	// (already-ended) stream below, they never fire — the promise hangs forever.
+	// This was a live production incident: every JSON POST handler using readJson
+	// (MCP tools/call, /api/forge, etc.) deadlocked with zero response. When
+	// req.body is already populated, reconstruct the equivalent raw bytes from it
+	// instead of touching the stream. Vercel serverless, local dev, and mcp-server
+	// never set req.body ahead of time, so the raw-stream path below is unchanged
+	// there — this only short-circuits when a prior middleware already consumed
+	// the stream for us.
+	if (Buffer.isBuffer(req.rawBody)) {
+		// express.json()/urlencoded()'s `verify` hook (server/index.mjs) captured the
+		// exact bytes pre-parse — prefer this over req.body so anything depending on
+		// byte-for-byte fidelity (HMAC signature checks) still works.
+		if (req.rawBody.length > limit) {
+			return Promise.reject(Object.assign(new Error('payload too large'), { status: 413 }));
+		}
+		return Promise.resolve(req.rawBody);
+	}
+	if (req.body !== undefined) {
+		const ct = req.headers['content-type'] || '';
+		let buf;
+		if (Buffer.isBuffer(req.body)) buf = req.body;
+		else if (typeof req.body === 'string') buf = Buffer.from(req.body, 'utf8');
+		else if (ct.includes('application/x-www-form-urlencoded')) {
+			buf = Buffer.from(new URLSearchParams(req.body).toString(), 'utf8');
+		} else buf = Buffer.from(JSON.stringify(req.body ?? {}), 'utf8');
+		if (buf.length > limit) {
+			return Promise.reject(Object.assign(new Error('payload too large'), { status: 413 }));
+		}
+		return Promise.resolve(buf);
+	}
 	return new Promise((resolve, reject) => {
 		const chunks = [];
 		let total = 0;

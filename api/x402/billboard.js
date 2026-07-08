@@ -17,16 +17,16 @@ import { installAccessControl } from '../_lib/x402/access-control.js';
 import { withService } from '../_lib/x402/bazaar-helpers.js';
 import { priceFor } from '../_lib/x402-prices.js';
 import { setPlacement, sanitizeImageUrl, sanitizeCaption, isValidCoin, SLOT_HOURS } from '../_lib/billboard-store.js';
+import billboardListing from '../_lib/service-catalog/services/billboard.js';
 
 const ROUTE = '/api/x402/billboard';
 
-const DESCRIPTION =
-	'three.ws coin worlds — feature your content on a 3D world’s billboard. ' +
-	`Pay once to hold the framed panel behind spawn for ${SLOT_HOURS} hours: ` +
-	'pass the coin-world mint plus an image URL and/or a short caption. The ' +
-	'/temporary coin world renders your placement in place of its default ' +
-	'content for everyone who walks in until the slot expires. It is a paid ' +
-	'content canvas, not an ad unit — nothing is targeted or tracked.';
+// Single source of truth: api/_lib/service-catalog/services/billboard.js is
+// the storefront listing copy — importing it here keeps the live 402 challenge
+// from drifting from what /.well-known/x402.json and the OKX projection
+// advertise (same pattern as forge.js → forge-listing.js). SLOT_HOURS is still
+// imported above for the actual placement TTL the handler writes.
+const DESCRIPTION = billboardListing.description;
 
 const INPUT_EXAMPLE = {
 	coin: 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump',

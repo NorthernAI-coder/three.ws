@@ -14,8 +14,9 @@ export default defineEndpoint({
 	auth: 'optional',
 	scope: 'agents:read',
 	handler: async ({ query }) => {
-		if (!aixbtEnabled())
-			fail(503, 'not_configured', 'market intelligence is not enabled on this deployment');
+		// See api/v1/market/intel.js — thrown as the canonical missing-env error
+		// so wrap() names it to the client instead of sanitizing the message away.
+		if (!aixbtEnabled()) throw new Error('Missing required env var: AIXBT_API_KEY');
 
 		const g = await limits.aixbtGlobal();
 		if (!g.success) fail(429, 'rate_limited', 'market intelligence is busy — retry shortly');

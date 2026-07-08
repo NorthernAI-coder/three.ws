@@ -25,6 +25,7 @@ import {
 	directPrompt,
 } from './forge-client.js';
 import { COMPONENT_URI } from './component.js';
+import { buildSpatialArtifact } from '../_lib/spatial-mcp.js';
 // Pure, dependency-free lineage core — the SAME module the paid stdio server's
 // runRefineModel uses (mcp-server/src/tools/_lineage.js), so conversational
 // iteration behaves identically on both tracks and never drifts. It carries
@@ -45,13 +46,24 @@ const VALID_TIER = new Set(['draft', 'standard', 'high']);
 // Minimal, identifier-free success envelope. structuredContent is the contract
 // the widget + model read; content is the human/agent-readable narration.
 function ok({ glbUrl, base, kind, prompt, rigged }) {
+	const vUrl = viewerUrl(base, glbUrl);
 	const structured = {
 		kind,
 		glbUrl,
-		viewerUrl: viewerUrl(base, glbUrl),
+		viewerUrl: vUrl,
 		format: 'glb',
 		...(prompt ? { prompt } : {}),
 		...(rigged ? { rigged: true } : {}),
+		// Spatial MCP artifact — the open, coin-clean shape for a 3D-native tool
+		// result (specs/SPATIAL_MCP.md). Additive to the fields the widget already
+		// reads, so any Spatial-MCP renderer can display this model, not just ours.
+		spatial: buildSpatialArtifact({
+			glbUrl,
+			kind: rigged ? 'rigged-model' : kind === 'avatar' ? 'avatar' : kind === 'mesh' ? 'mesh' : 'model',
+			viewerUrl: vUrl,
+			prompt: prompt || undefined,
+			rigged: Boolean(rigged),
+		}),
 	};
 	const label = rigged ? 'rigged 3D model' : '3D model';
 	return {
@@ -79,15 +91,18 @@ function toolError(message) {
 // the next refinement (parent_lineage) so branch/revert work without any
 // server-side session — a pointer move over an immutable array, never a mutation.
 function refineOk({ glbUrl, base, prompt, instruction, lineage, activeIndex }) {
+	const vUrl = viewerUrl(base, glbUrl);
 	const structured = {
 		kind: 'refined model',
 		glbUrl,
-		viewerUrl: viewerUrl(base, glbUrl),
+		viewerUrl: vUrl,
 		format: 'glb',
 		...(prompt ? { prompt } : {}),
 		...(instruction ? { instruction } : {}),
 		lineage: summarizeLineage(lineage, activeIndex),
 		activeIndex,
+		// Conformant Spatial MCP artifact (specs/SPATIAL_MCP.md) for the refined model.
+		spatial: buildSpatialArtifact({ glbUrl, kind: 'model', viewerUrl: vUrl, prompt: prompt || undefined, title: instruction || undefined }),
 	};
 	const versionNo = activeIndex; // 0 = original, 1 = first refinement, …
 	return {
@@ -188,10 +203,18 @@ async function handleTextToAvatar(args, _auth, req) {
 }
 
 const MESH_DIRECTOR =
-	"You are a 3D asset art director. Rewrite the user's idea into ONE concise prompt for a text-to-3D " +
-	'generator. Describe a SINGLE isolated subject on a plain background, naming form, materials, color, and ' +
-	'surface detail. No scenes, no multiple objects, no text or logos, no background. Output ONLY the rewritten ' +
-	'prompt as a single line.';
+	"You are a 3D asset art director briefing a text-to-3D reconstruction model. Rewrite the user's idea into " +
+	'ONE concise, information-dense prompt that maximizes mesh and texture quality. Cover, in order: (1) the ' +
+	'SINGLE subject and its overall silhouette/proportions, (2) construction — distinct parts, how they join, ' +
+	'any symmetry, (3) materials per part with explicit PBR cues (e.g. brushed steel, matte ceramic, worn ' +
+	'leather, glossy lacquer, rough stone) so surfaces reconstruct with the right roughness/metalness, (4) a ' +
+	'coherent, consistent art style held across the whole subject (pick one: photoreal, stylized, low-poly, ' +
+	'hand-painted — never mix styles), (5) fine surface detail (seams, panel lines, weathering, grain) that ' +
+	'gives the reconstructor texture to latch onto. Always end with these composition constraints so the ' +
+	'reference image reconstructs cleanly: full subject in frame, centered, isolated on a plain neutral ' +
+	'background, one camera angle, even studio lighting, no cropping, no motion blur, no text or watermark, no ' +
+	'collage or multi-view grid, no second subject. Output ONLY the rewritten prompt as a single line — no ' +
+	'preamble, no quotes.';
 
 async function handleMeshForge(args, _auth, req) {
 	const base = originFromReq(req);
@@ -247,11 +270,19 @@ async function handleRigMesh(args, _auth, req) {
 }
 
 const AVATAR_DIRECTOR =
-	"You are a 3D character art director. Rewrite the user's idea into ONE concise prompt for a text-to-3D " +
-	'generator that will be auto-rigged. Describe a SINGLE full-body humanoid character standing in a neutral ' +
-	'pose with arms slightly away from the body, on a plain background. Name body type, outfit, materials, ' +
-	'colors, and key features. No scene, no props across the body, no multiple characters, no text. Output ONLY ' +
-	'the rewritten prompt as a single line.';
+	"You are a 3D character art director briefing a text-to-3D reconstruction model whose output will be " +
+	"auto-rigged for animation. Rewrite the user's idea into ONE concise, information-dense prompt. Cover, in " +
+	'order: (1) a SINGLE full-body humanoid, standing in a neutral A/T-adjacent pose, arms slightly away from ' +
+	'the body and legs slightly apart so limbs are readable and separable for rigging, (2) body type and ' +
+	'proportions, (3) outfit and gear per body region (head, torso, arms, legs, feet) with explicit PBR ' +
+	'material cues (e.g. brushed metal armor, worn leather straps, matte cloth, glossy visor) so surfaces ' +
+	'reconstruct with correct roughness/metalness, (4) one coherent, consistent art style held across the ' +
+	'whole character (pick one: photoreal, stylized, low-poly, hand-painted — never mix styles), (5) key ' +
+	'identifying features (hair, face, color scheme, accessories). Always end with these composition ' +
+	'constraints: full body in frame head-to-toe, centered, isolated on a plain neutral background, no props ' +
+	'gripped or crossing the silhouette, one camera angle facing the character, even studio lighting, no ' +
+	'cropping, no motion blur, no text or watermark, no collage or multi-view grid, no second character. ' +
+	'Output ONLY the rewritten prompt as a single line — no preamble, no quotes.';
 
 async function handleForgeAvatar(args, _auth, req) {
 	const base = originFromReq(req);

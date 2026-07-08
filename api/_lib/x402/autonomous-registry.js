@@ -917,15 +917,19 @@ const SELF_ENDPOINTS = [
 	// Pays $0.005 USDC every 30 min to POST /api/x402/symbol-availability with
 	// the 5 highest-demand meme token symbols: MOON, ROCKET, FROG, CAT, DOG.
 	// The batch endpoint checks each against pump_agent_mints for exact collisions
-	// and returns { available_count, taken_count, available_list, signal, headline }.
-	// As an `oracle` entry the signal (bullish/neutral/bearish) + headline dedup
-	// into oracle_intel_signals (topic 'symbol_availability') — actionable for the
-	// sniper gate: many available high-demand names = underexploited launch window;
-	// all taken = market saturated, raise launch-entry threshold. Cooldown 1800s
-	// (30 min) — symbol availability changes slowly as new mints land; 48
-	// calls/day × $0.005 = $0.24/day, well under the loop's $5/day cap.
-	// Downstream: oracle_intel_signals WHERE topic = 'symbol_availability' + the
-	// full batch breakdown in x402_autonomous_log.signal_data.
+	// and returns { available_count, taken_count, available_list, headline } — the
+	// 2026-07-08 storefront cleanup (prompt 18) removed the bullish/bearish/neutral
+	// `signal` field from the wire response (it's a collision checker, not a market
+	// oracle), so this consumer now derives its own coarse bucket locally from the
+	// available/scanned ratio, same thresholds the endpoint used to apply. As an
+	// `oracle` entry the bucket + headline dedup into oracle_intel_signals (topic
+	// 'symbol_availability') — actionable for the sniper gate: many available
+	// high-demand names = underexploited launch window; all taken = market
+	// saturated, raise launch-entry threshold. Cooldown 1800s (30 min) — symbol
+	// availability changes slowly as new mints land; 48 calls/day × $0.005 =
+	// $0.24/day, well under the loop's $5/day cap. Downstream: oracle_intel_signals
+	// WHERE topic = 'symbol_availability' + the full batch breakdown in
+	// x402_autonomous_log.signal_data.
 	{
 		id: 'symbol-scan-common',
 		name: 'Symbol Availability: Common Meme Scan',
@@ -936,17 +940,23 @@ const SELF_ENDPOINTS = [
 		priority: 86,
 		pipeline: 'oracle',
 		enabled: true,
-		extractSignal: (r) => ({
-			topic: 'symbol_availability',
-			signal: r?.signal ?? null,
-			headline: r?.headline ?? null,
-			confidence: r?.signal === 'bullish' ? 0.85 : r?.signal === 'neutral' ? 0.65 : 0.80,
-			available_count: r?.available_count ?? null,
-			taken_count: r?.taken_count ?? null,
-			scanned_count: r?.scanned_count ?? null,
-			available_list: Array.isArray(r?.available_list) ? r.available_list : [],
-			taken_list: Array.isArray(r?.taken_list) ? r.taken_list : [],
-		}),
+		extractSignal: (r) => {
+			const available = r?.available_count ?? 0;
+			const scanned = r?.scanned_count ?? 0;
+			const ratio = scanned > 0 ? available / scanned : 0;
+			const signal = ratio >= 0.6 ? 'bullish' : ratio >= 0.3 ? 'neutral' : 'bearish';
+			return {
+				topic: 'symbol_availability',
+				signal,
+				headline: r?.headline ?? null,
+				confidence: signal === 'bullish' ? 0.85 : signal === 'neutral' ? 0.65 : 0.80,
+				available_count: r?.available_count ?? null,
+				taken_count: r?.taken_count ?? null,
+				scanned_count: r?.scanned_count ?? null,
+				available_list: Array.isArray(r?.available_list) ? r.available_list : [],
+				taken_list: Array.isArray(r?.taken_list) ? r.taken_list : [],
+			};
+		},
 	},
 
 	// ── Bazaar New-Listing Feed (USE-059) ──────────────────────────────────────

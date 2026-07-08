@@ -26,6 +26,7 @@ import {
 	persistStageOutput,
 	stageObjectKey,
 } from '../_lib/pipeline-stage.js';
+import pipelineGameReadyListing from '../_lib/service-catalog/services/pipeline-gameready.js';
 
 const ROUTE = '/api/x402/pipeline-gameready';
 const SLUG = 'pipeline-gameready';
@@ -39,13 +40,12 @@ const TOPOLOGY_TO_MODE = { quad: 'quad', tri: 'lowpoly' };
 const POLY_MIN = 1_000;
 const POLY_MAX = 500_000;
 
-const DESCRIPTION =
-	'3D Asset Pipeline — Game-Ready: pay $0.03 USDC to make a GLB engine-ready. ' +
-	'The mesh is retopologized to a fixed polygon budget (quad QuadriFlow or ' +
-	'silhouette-preserving low-poly) with PBR re-baked onto the new topology, so it ' +
-	'drops into a real-time engine within budget. POST a public glb_url + ' +
-	'poly_budget; get back a durable first-party GLB URL. Pay autonomously in USDC ' +
-	'on Solana mainnet.';
+// Single source of truth:
+// api/_lib/service-catalog/services/pipeline-gameready.js is the storefront
+// listing copy — importing it here keeps the live 402 challenge from drifting
+// from what /.well-known/x402.json and the OKX projection advertise (same
+// pattern as forge.js → forge-listing.js).
+const DESCRIPTION = pipelineGameReadyListing.description;
 
 export const INPUT_SCHEMA = {
 	$schema: 'https://json-schema.org/draft/2020-12/schema',

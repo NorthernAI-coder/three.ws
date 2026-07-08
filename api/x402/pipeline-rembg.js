@@ -25,18 +25,18 @@ import {
 	persistStageOutput,
 	stageObjectKey,
 } from '../_lib/pipeline-stage.js';
+import pipelineRembgListing from '../_lib/service-catalog/services/pipeline-rembg.js';
 
 const ROUTE = '/api/x402/pipeline-rembg';
 const SLUG = 'pipeline-rembg';
 
 const VALID_MODELS = new Set(['rmbg2', 'u2net', 'isnet', 'u2net_human_seg', 'silueta']);
 
-const DESCRIPTION =
-	'3D Asset Pipeline — Background Removal: pay $0.01 USDC to strip the background ' +
-	'from an image, returning a transparent PNG. This is the clean reference view ' +
-	'image→3D reconstruction needs so it never bakes a room into the mesh. POST a ' +
-	'public image_url; get back a durable first-party PNG URL. Pay autonomously in ' +
-	'USDC on Solana mainnet.';
+// Single source of truth: api/_lib/service-catalog/services/pipeline-rembg.js is
+// the storefront listing copy — importing it here keeps the live 402 challenge
+// from drifting from what /.well-known/x402.json and the OKX projection
+// advertise (same pattern as forge.js → forge-listing.js).
+const DESCRIPTION = pipelineRembgListing.description;
 
 export const INPUT_SCHEMA = {
 	$schema: 'https://json-schema.org/draft/2020-12/schema',

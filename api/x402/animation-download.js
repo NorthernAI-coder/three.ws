@@ -18,18 +18,18 @@ import { sql } from '../_lib/db.js';
 import { presignGet } from '../_lib/r2.js';
 import { error, json } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
+import animationDownloadListing from '../_lib/service-catalog/services/animation-download.js';
 
 const ROUTE = '/api/x402/animation-download';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PRESIGN_TTL_SECONDS = 60;
 
-const DESCRIPTION =
-	'three.ws Animation Bazaar — pay once in USDC to unlock a creator-authored ' +
-	'avatar animation as a self-contained animated GLB hosted on R2. Wallets ' +
-	'that have already paid can re-download for free by signing in with SIWX ' +
-	'(CAIP-122). Each clip carries its own price and creator payout address; the ' +
-	'response returns a short-lived presigned URL the client uses to fetch the ' +
-	'GLB directly from R2.';
+// Single source of truth:
+// api/_lib/service-catalog/services/animation-download.js is the storefront
+// listing copy — importing it here keeps the live 402 challenge from drifting
+// from what /.well-known/x402.json and the OKX projection advertise (same
+// pattern as forge.js → forge-listing.js).
+const DESCRIPTION = animationDownloadListing.description;
 
 const INPUT_EXAMPLE = { id: '00000000-0000-0000-0000-000000000000' };
 

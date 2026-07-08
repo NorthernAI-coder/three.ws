@@ -72,6 +72,9 @@ const OUTPUT_SCHEMA = {
 };
 
 const BAZAAR = {
+	// De-listed per the 2026-07-08 storefront cleanup (prompt 18) — stays live
+	// for the /agent-exchange demo; not agent-discoverable via the bazaar.
+	discoverable: false,
 	description: DESCRIPTION,
 	useCases: ['market signal', 'agent-to-agent payment demo', 'crypto intel'],
 	input: {

@@ -26,15 +26,16 @@ import { env } from '../_lib/env.js';
 import { getCosmetic, priceUsdcAtomicsOf } from '../_lib/cosmetics.js';
 import { grantCosmeticOwnership, normalizeAccountId } from '../_lib/cosmetics-ownership.js';
 import { recordSaleAndSplit, isMint } from '../_lib/cosmetics-economy.js';
+import cosmeticPurchaseListing from '../_lib/service-catalog/services/cosmetic-purchase.js';
 
 const ROUTE = '/api/x402/cosmetic-purchase';
 
-const DESCRIPTION =
-	'three.ws Avatar Shop — pay once in USDC to unlock a premium avatar cosmetic ' +
-	'(skin or emote) for an account. Pay on Base or Solana; the cosmetic is ' +
-	'recorded to the buyer-specified account and is wearable across /play and ' +
-	'/walk. Wallets that already purchased an item re-confirm for free by signing ' +
-	'in with SIWX. Price varies by rarity.';
+// Single source of truth:
+// api/_lib/service-catalog/services/cosmetic-purchase.js is the storefront
+// listing copy — importing it here keeps the live 402 challenge from drifting
+// from what /.well-known/x402.json and the OKX projection advertise (same
+// pattern as forge.js → forge-listing.js).
+const DESCRIPTION = cosmeticPurchaseListing.description;
 
 const INPUT_EXAMPLE = { id: 'skin-midnight', account: 'g_5f3c9a21b8' };
 

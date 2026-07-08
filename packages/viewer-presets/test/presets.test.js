@@ -7,7 +7,49 @@ import {
 	buildLightRig,
 	floorReflectionConfig,
 	bloomConfig,
+	MATERIAL_PRESETS,
+	MATERIAL_PRESET_NAMES,
+	materialPreset,
+	applyMaterialPreset,
+	materialVariants,
 } from '../src/index.js';
+
+// ── minimal THREE.Color / material / object shims (no WebGL) ──────────────────
+class FakeColor {
+	constructor(hex = 0) {
+		this._hex = typeof hex === 'string' ? parseInt(hex.replace('#', ''), 16) : hex >>> 0;
+	}
+	set(hex) {
+		this._hex = typeof hex === 'string' ? parseInt(hex.replace('#', ''), 16) : hex >>> 0;
+		return this;
+	}
+	setHex(h) {
+		this._hex = h >>> 0;
+		return this;
+	}
+	getHex() {
+		return this._hex;
+	}
+}
+const FakeTHREE = { Color: FakeColor };
+function fakeStandardMaterial() {
+	return {
+		color: new FakeColor(0x808080),
+		emissive: new FakeColor(0x000000),
+		metalness: 0.3,
+		roughness: 0.6,
+		emissiveIntensity: 0,
+		envMapIntensity: 1,
+		transparent: false,
+		opacity: 1,
+		needsUpdate: false,
+	};
+}
+// A root with .traverse yielding meshes carrying materials.
+function fakeRoot(materials) {
+	const nodes = materials.map((m) => ({ material: m }));
+	return { traverse: (fn) => nodes.forEach(fn) };
+}
 
 test('LIGHT_CONFIG preserves visage angles', () => {
 	assert.equal(LIGHT_CONFIG.fillLightAngle, Math.PI / 3);
@@ -137,4 +179,84 @@ test('buildLightRig accepts overrides without losing defaults', () => {
 	const { group } = buildLightRig(THREE, { fillLightColor: '#ff00ff' });
 	const fill = group.children.find((c) => c.isSpotLight && c.color === '#ff00ff');
 	assert.ok(fill, 'override color should be applied to fill light');
+});
+
+// ── material presets ─────────────────────────────────────────────────────────
+
+test('MATERIAL_PRESETS are frozen and expose core PBR looks', () => {
+	for (const name of ['chrome', 'gold', 'glass', 'wood', 'neon']) {
+		assert.ok(MATERIAL_PRESETS[name], `missing preset ${name}`);
+	}
+	assert.equal(MATERIAL_PRESETS.chrome.metalness, 1);
+	assert.equal(MATERIAL_PRESETS.matte.metalness, 0);
+	assert.equal(MATERIAL_PRESETS.glass.transparent, true);
+	assert.throws(() => {
+		MATERIAL_PRESETS.chrome.metalness = 0;
+	});
+	assert.ok(MATERIAL_PRESET_NAMES.includes('chrome'));
+	assert.equal(MATERIAL_PRESET_NAMES.length, Object.keys(MATERIAL_PRESETS).length);
+});
+
+test('materialPreset resolves ids, merges overrides, rejects unknowns', () => {
+	const gold = materialPreset('gold', { roughness: 0.5 });
+	assert.equal(gold.metalness, 1);
+	assert.equal(gold.roughness, 0.5); // override wins
+	assert.throws(() => materialPreset('unobtanium'), /unknown material preset/);
+	assert.throws(() => materialPreset(42), /preset id or a config/);
+});
+
+test('applyMaterialPreset mutates standard materials and restore() reverts exactly', () => {
+	const mat = fakeStandardMaterial();
+	const before = { color: mat.color.getHex(), metalness: mat.metalness, roughness: mat.roughness };
+	const handle = applyMaterialPreset(FakeTHREE, fakeRoot([mat]), 'chrome');
+	assert.equal(handle.count, 1);
+	assert.equal(mat.metalness, 1);
+	assert.equal(mat.roughness, MATERIAL_PRESETS.chrome.roughness);
+	assert.equal(mat.needsUpdate, true);
+	handle.restore();
+	assert.equal(mat.color.getHex(), before.color);
+	assert.equal(mat.metalness, before.metalness);
+	assert.equal(mat.roughness, before.roughness);
+});
+
+test('applyMaterialPreset skips non-standard materials untouched', () => {
+	const basic = { color: new FakeColor(0x123456), needsUpdate: false }; // no metalness/roughness
+	const handle = applyMaterialPreset(FakeTHREE, fakeRoot([basic]), 'gold');
+	assert.equal(handle.count, 0);
+	assert.equal(basic.color.getHex(), 0x123456);
+	assert.equal(basic.needsUpdate, false);
+});
+
+test('applyMaterialPreset glass sets transparency; switching to opaque clears it', () => {
+	const mat = fakeStandardMaterial();
+	applyMaterialPreset(FakeTHREE, fakeRoot([mat]), 'glass');
+	assert.equal(mat.transparent, true);
+	assert.ok(mat.opacity < 1);
+	applyMaterialPreset(FakeTHREE, fakeRoot([mat]), 'chrome');
+	assert.equal(mat.transparent, false);
+	assert.equal(mat.opacity, 1);
+});
+
+test('applyMaterialPreset validates its args', () => {
+	assert.throws(() => applyMaterialPreset({}, fakeRoot([]), 'gold'), /three\.js module/);
+	assert.throws(() => applyMaterialPreset(FakeTHREE, {}, 'gold'), /Object3D with \.traverse/);
+});
+
+test('materialVariants is deterministic per seed and honors count', () => {
+	const a = materialVariants('gold', { seed: 7, count: 5 });
+	const b = materialVariants('gold', { seed: 7, count: 5 });
+	const c = materialVariants('gold', { seed: 8, count: 5 });
+	assert.equal(a.length, 5);
+	assert.deepEqual(a, b, 'same seed → identical variants');
+	assert.notDeepEqual(a[0].config.color, c[0].config.color, 'different seed → different colorway');
+	for (const v of a) {
+		assert.match(v.config.color, /^#[0-9a-f]{6}$/);
+		assert.ok(v.config.roughness >= 0 && v.config.roughness <= 1);
+		assert.ok(v.config.metalness >= 0 && v.config.metalness <= 1);
+	}
+});
+
+test('materialVariants clamps count into [1,64]', () => {
+	assert.equal(materialVariants('wood', { count: 0 }).length, 1);
+	assert.equal(materialVariants('wood', { count: 999 }).length, 64);
 });

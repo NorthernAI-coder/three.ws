@@ -175,7 +175,11 @@ const OUTPUT_SCHEMA = {
 };
 
 const BAZAAR = {
-	discoverable: true,
+	// De-listed per the 2026-07-08 storefront cleanup (prompt 18) — the paid
+	// "oracle" framing over-claims what a payments-history audit actually is; a
+	// free whale surface (/api/crypto/whales) replaces it as the agent product.
+	// Route stays live for the /play town NPC.
+	discoverable: false,
 	info: {
 		input: {
 			type: 'http',
@@ -618,7 +622,10 @@ const WHALE_OUTPUT_SCHEMA = {
 };
 
 const WHALE_BAZAAR = {
-	discoverable: true,
+	// De-listed per the 2026-07-08 storefront cleanup (prompt 18) — see BAZAAR
+	// above; the free /api/crypto/whales surface replaces this as the agent
+	// product, this route stays live for its in-product consumer only.
+	discoverable: false,
 	info: {
 		input: {
 			type: 'http',

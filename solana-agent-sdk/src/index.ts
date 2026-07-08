@@ -48,6 +48,10 @@ export type { BuildAndSendOptions } from "./tx/build.js";
 // Memo
 export { memoInstruction, MEMO_PROGRAM_ID } from "./utils/memo.js";
 
+// Token-2022 detection — resolve whether a mint is classic SPL Token or Token-2022
+// so consumers building their own instructions target the correct program.
+export { resolveTokenProgramId } from "./utils/token-program.js";
+
 // Format utilities
 export { toUiAmount } from "./utils/format.js";
 

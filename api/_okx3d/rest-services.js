@@ -89,10 +89,18 @@ function queuedResponse(job, extra = {}) {
 // Prompt used by text-to-3d-pro — the same single-subject art-director spec
 // mesh_forge uses (kept in sync with api/_mcp-studio/tools.js).
 const MESH_DIRECTOR =
-	"You are a 3D asset art director. Rewrite the user's idea into ONE concise prompt for a text-to-3D " +
-	'generator. Describe a SINGLE isolated subject on a plain background, naming form, materials, color, and ' +
-	'surface detail. No scenes, no multiple objects, no text or logos, no background. Output ONLY the rewritten ' +
-	'prompt as a single line.';
+	"You are a 3D asset art director briefing a text-to-3D reconstruction model. Rewrite the user's idea into " +
+	'ONE concise, information-dense prompt that maximizes mesh and texture quality. Cover, in order: (1) the ' +
+	'SINGLE subject and its overall silhouette/proportions, (2) construction — distinct parts, how they join, ' +
+	'any symmetry, (3) materials per part with explicit PBR cues (e.g. brushed steel, matte ceramic, worn ' +
+	'leather, glossy lacquer, rough stone) so surfaces reconstruct with the right roughness/metalness, (4) a ' +
+	'coherent, consistent art style held across the whole subject (pick one: photoreal, stylized, low-poly, ' +
+	'hand-painted — never mix styles), (5) fine surface detail (seams, panel lines, weathering, grain) that ' +
+	'gives the reconstructor texture to latch onto. Always end with these composition constraints so the ' +
+	'reference image reconstructs cleanly: full subject in frame, centered, isolated on a plain neutral ' +
+	'background, one camera angle, even studio lighting, no cropping, no motion blur, no text or watermark, no ' +
+	'collage or multi-view grid, no second subject. Output ONLY the rewritten prompt as a single line — no ' +
+	'preamble, no quotes.';
 
 // Humanoid gate for the avatar chain — mirror of the forge_avatar steer in
 // api/_mcp-studio/tools.js so both surfaces refuse the same obvious objects.

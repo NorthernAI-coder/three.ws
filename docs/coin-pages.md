@@ -56,8 +56,7 @@ one cross-links back into the markets table and the coin detail pages.
 
 Every top coin as a tile in a squarified treemap, **sized by market cap** and
 **colored by its price move** (green up, red down, brightness scaling with the
-move). Toggle the color between 24h and 7d, and the set between top 50 and top
-100. Hover any tile for a price · 24h · 7d · market-cap tooltip; click it to open
+move). Toggle the color between 24h and 7d, and the set between top 50 and top 100. Hover any tile for a price · 24h · 7d · market-cap tooltip; click it to open
 the coin's detail page. The layout is computed client-side from the existing
 `/api/coin/markets` feed — no extra endpoint.
 
@@ -88,19 +87,51 @@ highlighted. Add coins with the search type-ahead; the selection is mirrored to
 `?ids=…` so any matchup is a shareable link. Reuses `/api/coin/markets` (search),
 `/api/coin/detail`, and `/api/coin/ohlc` — no new endpoint.
 
+## More market tools
+
+Eight further tools round out the suite, same design system, same "real key-free
+data" rule:
+
+- **`/screener`** — filter the top 250 coins by search, gainers/losers, minimum
+  market cap, and minimum 24h volume; every column sorts. Reuses
+  `/api/coin/markets` (no new endpoint).
+- **`/categories`** — every crypto sector ranked by market cap with 24h change,
+  volume, and the top coins in each. New `/api/coin/categories` (CoinGecko
+  `/coins/categories`).
+- **`/exchanges`** — top exchanges by trust score and 24h volume (USD, derived
+  from the live BTC price). New `/api/coin/exchanges`.
+- **`/derivatives`** — perpetual-futures markets: price, funding rate, open
+  interest, volume, filterable by index. New `/api/coin/derivatives`.
+- **`/converter`** — convert any crypto ⇄ any major fiat at live rates
+  (USD-anchored math covers all four directions). New `/api/coin/rates`
+  (CoinGecko `/exchange_rates`) + `/api/coin/markets`/`detail`.
+- **`/defi`** — total DeFi TVL and the top protocols by TVL (CEX reserves
+  excluded), category-filterable. New `/api/defi/protocols` (DeFiLlama).
+- **`/chains`** — every chain ranked by TVL with a dominance share bar. New
+  `/api/defi/chains` (DeFiLlama).
+- **`/stablecoins`** — stablecoins by circulating market cap with live peg
+  health and backing mechanism. New `/api/defi/stablecoins` (DeFiLlama).
+
 ## Where the data comes from
 
 All data is real and fetched at runtime — nothing is hardcoded or sampled:
 
-| Endpoint | Upstream | Cache |
-|---|---|---|
-| `/api/coin/detail` | CoinGecko `/coins/{id}` or `/coins/solana/contract/{mint}` | 60 s |
-| `/api/coin/ohlc` | CoinGecko `/coins/{id}/market_chart` | 120 s |
-| `/api/coin/markets` | CoinGecko `/coins/markets`, `/search` | 60 s / 300 s |
-| `/api/coin/global` | CoinGecko `/global` + alternative.me Fear & Greed | 120 s |
-| `/api/coin/fear-greed` | alternative.me `/fng` (current + history) | 300 s |
-| `/api/coin/gas` | public Ethereum RPC `eth_feeHistory` + CoinGecko ETH price | 15 s |
-| `/api/coin/news` | cryptocurrency.cv aggregator → first-party RSS fallback | 300 s |
+| Endpoint                | Upstream                                                   | Cache        |
+| ----------------------- | ---------------------------------------------------------- | ------------ |
+| `/api/coin/detail`      | CoinGecko `/coins/{id}` or `/coins/solana/contract/{mint}` | 60 s         |
+| `/api/coin/ohlc`        | CoinGecko `/coins/{id}/market_chart`                       | 120 s        |
+| `/api/coin/markets`     | CoinGecko `/coins/markets`, `/search`                      | 60 s / 300 s |
+| `/api/coin/categories`  | CoinGecko `/coins/categories`                              | 300 s        |
+| `/api/coin/exchanges`   | CoinGecko `/exchanges` + `/simple/price` (BTC)             | 300 s        |
+| `/api/coin/derivatives` | CoinGecko `/derivatives`                                   | 60 s         |
+| `/api/coin/rates`       | CoinGecko `/exchange_rates`                                | 300 s        |
+| `/api/defi/protocols`   | DeFiLlama `/protocols` (CEX excluded)                      | 300 s        |
+| `/api/defi/chains`      | DeFiLlama `/v2/chains`                                     | 300 s        |
+| `/api/defi/stablecoins` | DeFiLlama `stablecoins.llama.fi/stablecoins`               | 300 s        |
+| `/api/coin/global`      | CoinGecko `/global` + alternative.me Fear & Greed          | 120 s        |
+| `/api/coin/fear-greed`  | alternative.me `/fng` (current + history)                  | 300 s        |
+| `/api/coin/gas`         | public Ethereum RPC `eth_feeHistory` + CoinGecko ETH price | 15 s         |
+| `/api/coin/news`        | cryptocurrency.cv aggregator → first-party RSS fallback    | 300 s        |
 
 Full request/response shapes: [api-reference.md → Coin Market Data API](api-reference.md#coin-market-data-api).
 
@@ -113,17 +144,21 @@ text before they reach the client.
 
 ## Code map
 
-| Piece | Location |
-|---|---|
-| Markets page | [`pages/coins.html`](../pages/coins.html) + [`src/coins-index.js`](../src/coins-index.js) |
-| Detail page | [`pages/coin.html`](../pages/coin.html) + [`src/coin-page.js`](../src/coin-page.js) |
-| Heatmap | [`pages/heatmap.html`](../pages/heatmap.html) + [`src/heatmap.js`](../src/heatmap.js) |
-| Fear & Greed | [`pages/fear-greed.html`](../pages/fear-greed.html) + [`src/fear-greed.js`](../src/fear-greed.js) |
-| Gas tracker | [`pages/gas.html`](../pages/gas.html) + [`src/gas.js`](../src/gas.js) |
-| Compare | [`pages/compare.html`](../pages/compare.html) + [`src/compare.js`](../src/compare.js) |
-| Shared design system | [`src/coin-pages.css`](../src/coin-pages.css) (Source Serif 4 self-hosted in `public/fonts/`) |
-| Shared formatters | [`src/shared/coin-format.js`](../src/shared/coin-format.js) — unit-tested in [`tests/coin-format.test.js`](../tests/coin-format.test.js) |
-| API proxies | [`api/coin/`](../api/coin) — `detail.js`, `ohlc.js`, `markets.js`, `global.js`, `fear-greed.js`, `gas.js`, `news.js` |
+| Piece                       | Location                                                                                                                                 |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Markets page                | [`pages/coins.html`](../pages/coins.html) + [`src/coins-index.js`](../src/coins-index.js)                                                |
+| Detail page                 | [`pages/coin.html`](../pages/coin.html) + [`src/coin-page.js`](../src/coin-page.js)                                                      |
+| Heatmap                     | [`pages/heatmap.html`](../pages/heatmap.html) + [`src/heatmap.js`](../src/heatmap.js)                                                    |
+| Fear & Greed                | [`pages/fear-greed.html`](../pages/fear-greed.html) + [`src/fear-greed.js`](../src/fear-greed.js)                                        |
+| Gas tracker                 | [`pages/gas.html`](../pages/gas.html) + [`src/gas.js`](../src/gas.js)                                                                    |
+| Compare                     | [`pages/compare.html`](../pages/compare.html) + [`src/compare.js`](../src/compare.js)                                                    |
+| Screener / Categories       | `pages/screener.html`, `pages/categories.html` (+ `src/*.js`, `src/*.css`)                                                               |
+| Exchanges / Derivatives     | `pages/exchanges.html`, `pages/derivatives.html` (+ `src/*.js`, `src/*.css`)                                                             |
+| Converter                   | `pages/converter.html` + `src/converter.js` + `src/converter.css`                                                                        |
+| DeFi / Chains / Stablecoins | `pages/{defi,chains,stablecoins}.html` (+ `src/*.js`, `src/*.css`), APIs in [`api/defi/`](../api/defi)                                   |
+| Shared design system        | [`src/coin-pages.css`](../src/coin-pages.css) (Source Serif 4 self-hosted in `public/fonts/`)                                            |
+| Shared formatters           | [`src/shared/coin-format.js`](../src/shared/coin-format.js) — unit-tested in [`tests/coin-format.test.js`](../tests/coin-format.test.js) |
+| API proxies                 | [`api/coin/`](../api/coin) — `detail.js`, `ohlc.js`, `markets.js`, `global.js`, `fear-greed.js`, `gas.js`, `news.js`                     |
 
 Routing: `vercel.json` rewrites `/coins`, `/coin/<id>`, `/heatmap`,
 `/fear-greed`, `/gas`, and `/compare` to their pages in production; the Vite dev

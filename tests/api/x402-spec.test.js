@@ -628,7 +628,7 @@ describe('solanaSettleable', () => {
 
 describe('buildExactRequirements', () => {
 	// Shared accept builder for the hand-rolled endpoints (model-check, mint-to-mesh,
-	// vanity, vanity-verifiable, revenue-vision). Solana always leads; Base only rides
+	// vanity, vanity-verifiable, mint-to-mesh-batch). Solana always leads; Base only rides
 	// along when settleable, so a dead Base facilitator is never advertised.
 	const SOLANA = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
 	const BASE = 'eip155:8453';

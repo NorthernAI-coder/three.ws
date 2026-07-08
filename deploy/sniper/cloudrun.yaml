@@ -76,7 +76,7 @@ spec:
             # breaker, daily budget, kill switches). Set back to "simulate" to halt
             # all spend without touching open positions.
             - name: SNIPER_MODE
-              value: live
+              value: simulate
             - name: SNIPER_NETWORK
               value: mainnet
             # Emergency stop: set to "1" and redeploy to halt all new buys while
@@ -130,17 +130,22 @@ spec:
                   name: sniper-solana-rpc-url
                   key: latest
             # Ops alerting (optional) — reuses the platform's shared ops channel.
-            # Absent → sendOpsAlert is a no-op, the worker still runs.
-            - name: TELEGRAM_BOT_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: telegram-bot-token
-                  key: latest
-            - name: TELEGRAM_ALERTS_CHAT_ID
-              valueFrom:
-                secretKeyRef:
-                  name: telegram-alerts-chat-id
-                  key: latest
+            # Absent → sendOpsAlert is a no-op, the worker still runs. Cloud Run's
+            # `services replace` hard-fails if a secretKeyRef target doesn't exist
+            # (no such thing as an optional mount), so these stay commented out
+            # until the telegram-bot-token / telegram-alerts-chat-id secrets are
+            # actually created in Secret Manager. Uncomment + redeploy once they
+            # exist — no code change needed, sendOpsAlert already reads them.
+            # - name: TELEGRAM_BOT_TOKEN
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: telegram-bot-token
+            #       key: latest
+            # - name: TELEGRAM_ALERTS_CHAT_ID
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: telegram-alerts-chat-id
+            #       key: latest
           resources:
             limits:
               cpu: "1"

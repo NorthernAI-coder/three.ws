@@ -1,0 +1,50 @@
+/*
+ * /chains — cross-chain TVL leaderboard. Layered after coin-pages.css: reuses
+ * the cv-* token system, cards, and table; this file only adds the stat grid
+ * and the inline dominance bar. Both themes inherit from the shared data-theme
+ * tokens.
+ */
+
+.chains-stat-grid {
+	display: grid;
+	gap: 1rem;
+	grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+/* Rows are informational, not navigable — reset the shared table's pointer
+   cursor so nothing signals a click target that doesn't exist. */
+#chains-table .cv-table tbody tr {
+	cursor: default;
+}
+
+/* Inline dominance bar. Fixed-width track so bars read as a shared scale down
+   the column; the fill is scaled to the leading chain in chains.js. */
+.chains-bar-cell {
+	min-width: 160px;
+}
+.chains-bar {
+	display: block;
+	width: 100%;
+	max-width: 220px;
+	height: 8px;
+	border-radius: 999px;
+	background: var(--cv-surface-3);
+	overflow: hidden;
+}
+.chains-bar-fill {
+	display: block;
+	height: 100%;
+	border-radius: 999px;
+	background: linear-gradient(
+		90deg,
+		var(--cv-accent),
+		color-mix(in srgb, var(--cv-accent) 55%, transparent)
+	);
+	transition: width 0.4s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.chains-bar-fill {
+		transition: none;
+	}
+}
