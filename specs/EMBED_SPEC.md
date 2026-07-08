@@ -475,7 +475,9 @@ Every on-chain agent has a canonical URL triad, plus companion endpoints for pre
 | `/a/:chainId/:agentId`              | Canonical page — Open Graph + Twitter Player Card + Farcaster Frame + oEmbed discovery. Redirects real browsers into the SPA viewer. | `api/a-page.js`       |
 | `/a/:chainId/:agentId/embed`        | Chromeless iframe viewer (kiosk mode) — meant to be embedded in iframes, web-component previews, and Twitter Player Card.            | `a-embed.html`        |
 | `/api/a-og?chain=<id>&id=<agentId>` | 1200×630 OG image. Redirects to the manifest image if present; otherwise renders an SVG card with chain badge + owner.               | `api/a-og.js`         |
-| `/api/oembed?url=...`               | oEmbed v1.0 JSON/XML. Recognizes `/a/:chain/:id` URLs; returns `type: rich` with an iframe html payload.                             | `api/agent-oembed.js` |
+| `/api/oembed?url=...`               | oEmbed v1.0 JSON/XML. Recognizes `/a/:chain/:id`, `/agent/:id`, and `/forge/share/:id` URLs; returns `type: rich` with an iframe html payload. | `api/agent-oembed.js` |
+
+`/api/oembed` is the ONE oEmbed provider for every embeddable three.ws target — regular agents (`agentEmbedTarget`), on-chain agents (`onchainEmbedTarget`), and Forge 3D creations (`forgeEmbedTarget`) — sharing one builder module ([`api/_lib/embed.js`](../api/_lib/embed.js)) so the iframe markup and canonical URL shapes never drift between the oEmbed surface and the `get_embed_code` MCP tool ([`api/_mcp/tools/embed.js`](../api/_mcp/tools/embed.js), `docs/mcp.md`). A Forge creation's share page ([`api/forge-share.js`](../api/forge-share.js) → `/forge/share/:id`) carries an oEmbed discovery `<link>` pointing back at `/api/oembed`, same as `/agent/:id`'s share page ([`api/agent-share.js`](../api/agent-share.js)) — paste either URL into Notion/Discord/Slack and it unfurls into a live 3D viewer, no manual embed code needed.
 
 ### Surface matrix
 
@@ -490,6 +492,7 @@ Pick the right embed for each surface:
 | Slack / Discord / iMessage          | Paste `/a/:chain/:id`                                           | OG tags + oEmbed give a rich preview.                                          |
 | Farcaster cast                      | Paste `/a/:chain/:id`                                           | Frame meta tags render an interactive card with "View 3D" + "Explore" buttons. |
 | Claude.ai artifact / LobeHub plugin | `<iframe src="/a/:chain/:id/embed">` (band 5)                   | Sandboxed embed — works inside AI artifact runtimes.                           |
+| A Forge 3D creation (any surface)   | Paste `/forge/share/:id`, or copy a flavour from the Forge "Embed this model" panel — iframe, `<model-viewer>`, `<agent-3d>`, a `@three-ws/page-agent` guide, or a `@three-ws/walk` companion ([`src/forge-embed-snippets.js`](../src/forge-embed-snippets.js)) | oEmbed + OG unfurl the share URL anywhere; the panel's five tabs cover every distribution channel from a static viewer to a talking, walking body. |
 
 ### Embed policy
 

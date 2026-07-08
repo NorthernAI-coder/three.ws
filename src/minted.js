@@ -251,7 +251,7 @@ function setFeedLive(stateName) {
 	if (!head.previousElementSibling?.classList?.contains('juice-live')) {
 		head.insertAdjacentHTML('beforebegin', liveDot(stateName));
 	} else {
-		setLiveDot(head.previousElementSibling, stateName);
+		setLiveDot(head.previousElementSibling, stateName, stateName);
 	}
 }
 

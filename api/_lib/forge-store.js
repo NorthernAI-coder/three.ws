@@ -684,33 +684,72 @@ export async function setRemixable({ creationId, clientKey, remixable, royaltyBp
 	}
 }
 
-// Newest remixable creations across all creators — powers the remix feed. Only
-// done rows with a stored GLB and remixable = true are surfaced. Cursor by
-// created_at (pass `before` = the last item's created_at ISO string).
-export async function listRemixable({ limit = 24, before } = {}) {
+// Newest remixable creations across all creators — powers the remix feed /
+// creator marketplace gallery (prompt 09). Only done rows with a stored GLB
+// and remixable = true are surfaced.
+//
+// Three sort modes, matched to what can be paginated safely:
+//   - 'recent' (default): cursor by created_at (`before` = last item's ISO
+//     timestamp) — true infinite scroll, monotonic key.
+//   - 'royalty': highest creator royalty rate first. Non-monotonic across
+//     pages, so `before` is ignored — this returns a fixed top-N list (a
+//     leaderboard slice, same pattern trending/leaderboard surfaces use
+//     everywhere on the platform — they don't infinite-scroll either).
+//   - 'remixed': most-derived-from first (a live count of child creations),
+//     same fixed top-N behavior as 'royalty'.
+// `q` does a case-insensitive substring match on the prompt; `category` filters
+// to one of MODEL_CATEGORIES. Both are additive, backward-compatible with the
+// original (limit, before)-only call shape.
+export async function listRemixable({ limit = 24, before, category, q, sort } = {}) {
 	if (!forgeStoreEnabled()) return [];
 	const capped = Math.min(Math.max(Number(limit) || 24, 1), 48);
+	const sortMode = sort === 'royalty' || sort === 'remixed' ? sort : 'recent';
+	const cat = validModelCategory(category);
+	const search = typeof q === 'string' && q.trim() ? q.trim().slice(0, 120) : null;
+
+	const params = [];
+	const conds = [`p.remixable = true`, `p.status = 'done'`, `p.glb_url is not null`];
+	if (cat) {
+		params.push(cat);
+		conds.push(`p.model_category = $${params.length}`);
+	}
+	if (search) {
+		params.push(`%${search}%`);
+		conds.push(`p.prompt ilike $${params.length}`);
+	}
+	// The cursor only makes sense for the monotonic 'recent' sort.
+	if (sortMode === 'recent' && before) {
+		params.push(before);
+		conds.push(`p.created_at < $${params.length}`);
+	}
+	params.push(capped);
+	const limitParam = `$${params.length}`;
+
+	const orderBy =
+		sortMode === 'royalty'
+			? `p.remix_royalty_bps desc, p.created_at desc`
+			: sortMode === 'remixed'
+				? `remix_count desc, p.created_at desc`
+				: `p.created_at desc`;
+
 	try {
-		const rows = before
-			? await sql`
-				select id, prompt, glb_url, preview_image_url, remix_royalty_bps,
-					creator_wallet_solana, parent_creation_id, lineage_index,
-					backend, model_category, created_at
+		const rows = await sql(
+			`select p.id, p.prompt, p.glb_url, p.preview_image_url, p.remix_royalty_bps,
+				p.creator_wallet_solana, p.parent_creation_id, p.lineage_index,
+				p.backend, p.model_category, p.created_at,
+				coalesce(rc.remix_count, 0) as remix_count
+			 from forge_creations p
+			 left join (
+				select parent_creation_id, count(*) as remix_count
 				from forge_creations
-				where remixable = true and status = 'done' and glb_url is not null
-					and created_at < ${before}
-				order by created_at desc
-				limit ${capped}
-			`
-			: await sql`
-				select id, prompt, glb_url, preview_image_url, remix_royalty_bps,
-					creator_wallet_solana, parent_creation_id, lineage_index,
-					backend, model_category, created_at
-				from forge_creations
-				where remixable = true and status = 'done' and glb_url is not null
-				order by created_at desc
-				limit ${capped}
-			`;
+				where parent_creation_id is not null and status = 'done'
+				group by parent_creation_id
+			 ) rc on rc.parent_creation_id = p.id
+			 where ${conds.join(' and ')}
+			 order by ${orderBy}
+			 limit ${limitParam}`,
+			params,
+		);
 		return rows.map((r) => ({
 			id: r.id,
 			prompt: r.prompt,
@@ -722,6 +761,7 @@ export async function listRemixable({ limit = 24, before } = {}) {
 			royaltyPayable: Boolean(r.creator_wallet_solana),
 			isDerived: Boolean(r.parent_creation_id),
 			lineageIndex: r.lineage_index ?? 0,
+			remixCount: Number(r.remix_count) || 0,
 			backend: r.backend ?? null,
 			model_category: r.model_category ?? 'other',
 			created_at: r.created_at,
@@ -729,6 +769,51 @@ export async function listRemixable({ limit = 24, before } = {}) {
 	} catch (err) {
 		if (isDbUnavailableError(err)) console.warn('[forge-store] listRemixable skipped (db unavailable):', err?.message);
 		else console.error('[forge-store] listRemixable failed:', err?.message);
+		return [];
+	}
+}
+
+// The most-remixed published assets, platform-wide — the "trending" half of
+// the creator marketplace leaderboard (prompt 09). Counts REAL child rows
+// (finished derivatives whose parent_creation_id points at this asset), not a
+// synthetic popularity score. A source that is no longer published as
+// remixable can still appear (its remix history is a fact even if it was later
+// unpublished) — the caller renders that as "no longer remixable".
+export async function listMostRemixed({ limit = 10 } = {}) {
+	if (!forgeStoreEnabled()) return [];
+	const capped = Math.min(Math.max(Number(limit) || 10, 1), 24);
+	try {
+		const rows = await sql`
+			with remix_counts as (
+				select parent_creation_id, count(*) as remix_count
+				from forge_creations
+				where parent_creation_id is not null and status = 'done'
+				group by parent_creation_id
+			)
+			select p.id, p.prompt, p.glb_url, p.preview_image_url, p.remix_royalty_bps,
+				p.creator_wallet_solana, p.remixable, p.model_category, p.created_at,
+				rc.remix_count
+			from remix_counts rc
+			join forge_creations p on p.id = rc.parent_creation_id
+			where p.status = 'done' and p.glb_url is not null
+			order by rc.remix_count desc, p.created_at desc
+			limit ${capped}
+		`;
+		return rows.map((r) => ({
+			id: r.id,
+			prompt: r.prompt,
+			glb_url: r.glb_url,
+			preview_image_url: r.preview_image_url,
+			royaltyBps: r.remix_royalty_bps ?? 0,
+			royaltyPayable: Boolean(r.creator_wallet_solana),
+			remixable: Boolean(r.remixable),
+			remixCount: Number(r.remix_count) || 0,
+			model_category: r.model_category ?? 'other',
+			created_at: r.created_at,
+		}));
+	} catch (err) {
+		if (isDbUnavailableError(err)) console.warn('[forge-store] listMostRemixed skipped (db unavailable):', err?.message);
+		else console.error('[forge-store] listMostRemixed failed:', err?.message);
 		return [];
 	}
 }

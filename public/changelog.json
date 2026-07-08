@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-08T08:10:30.106Z",
+	"generated_at": "2026-07-08T08:32:23.152Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -32,6 +32,16 @@
 			"title": "BNB Chain Live Block Race — 0.45s vs Base, Ethereum, Solana",
 			"summary": "A live, honest race: BNB Chain, Base, Ethereum, and Solana block times measured fresh off real public RPCs every few seconds, with a rolling sparkline per lane. No wallet, no payment, no hardcoded numbers — a lane that goes quiet shows 'reconnecting' while the others keep racing.",
 			"link": "/bnb-latency",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "launch",
+			"title": "Creator Gallery",
+			"summary": "Search, filter, and live-preview the remix bazaar — remix any published 3D creation for a real on-chain USDC royalty, view parent → child lineage, and see the trending assets and top-creator leaderboard.",
+			"link": "/creations",
 			"tags": [
 				"launch"
 			]
@@ -190,6 +200,16 @@
 		{
 			"date": "2026-07-08",
 			"type": "update",
+			"title": "/play now has a real economy: a general store, a bank, and a $THREE boutique",
+			"summary": "The open world at /play has a working cash economy. Walk up to a General Store clerk to buy tools and consumables or sell what you've gathered, and visit the Bank Teller to deposit cash into a protected account (banked cash survives a death drop, carried cash doesn't). Premium wardrobe items are now purchasable for real: the wardrobe's locked cosmetics show their $THREE price and unlock with one real on-chain payment from your connected Solana wallet, split between the holder-rewards pool and the treasury — the server only grants the item after re-verifying the confirmed transaction on-chain.",
+			"link": "/play",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
 			"title": "<agent-3d> talks out of the box with brain=\"free\"",
 			"summary": "Any embedded avatar can now hold a real conversation with zero setup: add brain=\"free\" to an <agent-3d> tag and it routes through three.ws's host-paid free-tier proxy (OpenRouter, Groq, or NVIDIA NIM, whichever is healthy) — no API key, no backend code, no per-token cost to the embedder. Previously the brain attribute required an exact model id and defaulted to a silent avatar; brain=\"free\" is now a supported alias, and it's honored on both the src= (bare GLB) and body= (ad-hoc agent) embed paths, which is where this fell through before.",
 			"link": "/docs/embedding",
@@ -207,6 +227,16 @@
 			"tags": [
 				"improvement",
 				"fix"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
+			"title": "A boutique you can walk into: two tailors now live in /play",
+			"summary": "The wardrobe and cosmetics shop in /play now have a physical home in the world. Walk up to Roux the Tailor to browse and buy fits, hats, and paint jobs, or visit Nell's Fitting Room to equip anything you already own — the same real, server-verified shop and wardrobe the HUD buttons already opened, now with a place to stand. Character creation itself — design an avatar from scratch, scan yourself into 3D with the selfie creator, upload your own .glb, or sculpt in the full Avatar Studio — has no sign-in required and drops you straight into the world.",
+			"link": "/play",
+			"tags": [
+				"feature"
 			]
 		},
 		{

@@ -123,3 +123,60 @@ export function buildAgentThreeDSnippet(glbUrl, title, sizeId) {
 		`\n</agent-3d>`
 	);
 }
+
+// "Add to your agent/site" — the other two real distribution channels for a
+// rigged creation, beyond the pure orbit-viewer embeds above. Both packages
+// are published, documented npm modules (@three-ws/page-agent,
+// @three-ws/walk) with their OWN real "bring your own GLB" contracts — these
+// snippets use those contracts exactly (AvatarStage + SpeechNarrator "Option
+// B" for page-agent per page-agent-sdk/docs/guide-custom-avatars.md;
+// createWalkCompanion({ avatars }) with an absolute-URL roster entry for
+// walk, per walk-sdk/src/roster.js's resolveAvatarUrl — "Absolute URLs pass
+// through untouched"). Neither package needs the GLB to already be a
+// platform `avatars` row: any public https URL (a fresh Forge creation's
+// download link included) works as-is.
+
+// @three-ws/page-agent — a rigged, lipsync-capable guide docked on the page.
+// Requires a *rigged* GLB (skeleton + idle/talk clips or ARKit visemes) —
+// the same requirement forge_avatar/rig_mesh already satisfy.
+export function buildPageAgentSnippet(glbUrl, title) {
+	const alt = escEmbed(title || 'Your agent');
+	const url = escEmbed(glbUrl);
+	return (
+		`<!-- npm i @three-ws/page-agent three -->\n` +
+		`<div id="guide" style="width:320px;height:420px"></div>\n` +
+		`<script type="module">\n` +
+		`  import { AvatarStage, SpeechNarrator } from '@three-ws/page-agent';\n\n` +
+		`  const stage = new AvatarStage(document.getElementById('guide'), { background: 'transparent' });\n` +
+		`  await stage.load('${url}', { framing: 'upper' });\n\n` +
+		`  const narrator = new SpeechNarrator(stage);\n` +
+		`  narrator.setAgent({ voice: { lang: 'en-US', rate: 1.0, pitch: 1.0 } });\n` +
+		`  await narrator.speak('Hi — I\\'m ${alt}, forged on three.ws.');\n` +
+		`</script>`
+	);
+}
+
+// @three-ws/walk — an idling corner companion the visitor can detach into a
+// full-page playground. `avatars` overrides the built-in roster with one
+// custom entry (rig:'shared' retargets idle/walk/wave from the platform's
+// shared clip library, matching forge_avatar/rig_mesh output).
+export function buildWalkCompanionSnippet(glbUrl, title) {
+	const alt = escEmbed(title || 'Your avatar');
+	const url = escEmbed(glbUrl);
+	return (
+		`<!-- npm i @three-ws/walk three -->\n` +
+		`<script type="module">\n` +
+		`  import { createWalkCompanion } from '@three-ws/walk';\n\n` +
+		`  const walk = createWalkCompanion({\n` +
+		`    defaultAvatarId: 'mine',\n` +
+		`    avatars: [{\n` +
+		`      id: 'mine', name: '${alt}', emoji: '✨', category: 'Yours',\n` +
+		`      asset: '${url}', source: 'static', rig: 'shared',\n` +
+		`      clips: { idle: 'idle', walk: 'av-walk-feminine', run: 'av-walk-feminine', wave: 'wave', jump: 'jump' },\n` +
+		`      tags: ['custom'],\n` +
+		`    }],\n` +
+		`  });\n` +
+		`  walk.bootstrap();\n` +
+		`</script>`
+	);
+}

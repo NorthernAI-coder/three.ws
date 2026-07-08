@@ -51,6 +51,19 @@
 	],
 	"api/_mcp/tools/agents.js": [
 		{
+			"name": "attach_avatar_to_agent",
+			"title": "Give an agent a body",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": true,
+				"openWorldHint": false
+			},
+			"schemaHash": "dd77553eb26e"
+		},
+		{
 			"name": "call_agent",
 			"title": "Call agent",
 			"descHead": "Send a message to another three.ws agent and get its response. Use this ",

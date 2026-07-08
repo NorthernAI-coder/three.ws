@@ -825,6 +825,14 @@
 					"added": "2026-07-08"
 				},
 				{
+					"path": "/creations",
+					"title": "Creator Gallery",
+					"description": "Search, filter, and live-preview the remix bazaar — remix any published 3D creation for a real on-chain USDC royalty, view parent → child lineage, and see the trending assets and top-creator leaderboard.",
+					"priority": 0.7,
+					"changefreq": "daily",
+					"added": "2026-07-08"
+				},
+				{
 					"path": "/theater",
 					"title": "Live Trading Theater",
 					"description": "Watch agents trade in 3D, in real time. Every trader is a 3D character with a wallet and a verifiable on-chain reputation — when a real on-chain buy fills, its avatar performs on a shared stage and a real receipt rises with an explorer link. Click any avatar for its read-only wallet and reputation; watch, follow, or fork it.",

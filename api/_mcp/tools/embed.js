@@ -104,7 +104,7 @@ async function resolveTarget({ kind, args, auth, origin }) {
 	// visibility), so the only gate is that the mesh actually finished rendering.
 	if (!isUuid(args.creation_id)) throw rpcError(-32602, 'creation_id must be a uuid');
 	const [creation] = await sql`
-		SELECT id, status, glb_url FROM forge_creations
+		SELECT id, status, glb_url, prompt FROM forge_creations
 		WHERE id = ${args.creation_id} LIMIT 1
 	`;
 	if (!creation) throw new Error('forge creation not found');
@@ -117,9 +117,11 @@ async function resolveTarget({ kind, args, auth, origin }) {
 			),
 		};
 	}
-	// Forge has no oEmbed provider wired (the share page handles unfurling), so
-	// oembed_url is null rather than a link that wouldn't resolve.
-	return { target: forgeEmbedTarget(origin, creation.id), title: 'three.ws Forge creation', oembed: null };
+	const title = creation.prompt ? String(creation.prompt).slice(0, 80) : 'three.ws Forge creation';
+	const target = forgeEmbedTarget(origin, creation.id, creation.glb_url, title);
+	// /api/oembed resolves /forge/share/:id (extractForgeId in api/agent-oembed.js),
+	// so Forge creations get a real oEmbed URL like every other embeddable target.
+	return { target, title, oembed: oembedUrl(origin, target.shareUrl) };
 }
 
 export const toolDefs = [

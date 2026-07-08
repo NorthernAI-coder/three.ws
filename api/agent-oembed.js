@@ -1,22 +1,25 @@
 /**
- * oEmbed endpoint for agent URLs
- * ------------------------------
- * GET /api/oembed?url=<agent-url>[&format=json|xml]
+ * oEmbed endpoint for agent + Forge creation URLs
+ * ------------------------------------------------
+ * GET /api/oembed?url=<agent-or-forge-share-url>[&format=json|xml]
  *
  * Implements https://oembed.com with type=rich. The html payload is a
- * sandboxed iframe pointing at /agent/:id/embed so consumers (Notion,
- * Discord, etc.) can render the agent inline.
+ * sandboxed iframe — /agent/:id/embed for agents, /forge/embed?src=<glb> for
+ * Forge creations — so consumers (Notion, Discord, etc.) can render the model
+ * inline just by pasting the shareUrl.
  */
 
 import { sql } from './_lib/db.js';
 import { env } from './_lib/env.js';
 import { cors, wrap, error } from './_lib/http.js';
 import { resolveOnChainAgent, SERVER_CHAIN_META } from './_lib/onchain.js';
+import { isUuid } from './_lib/validate.js';
 import {
 	buildEmbedIframe,
 	clampEmbedDim,
 	agentEmbedTarget,
 	onchainEmbedTarget,
+	forgeEmbedTarget,
 	EMBED_THUMB,
 } from './_lib/embed.js';
 
@@ -37,6 +40,9 @@ export default wrap(async (req, res) => {
 
 	const onchain = extractOnChain(target);
 	if (onchain) return sendOnChain(res, format, { ...onchain, width, height });
+
+	const forgeId = extractForgeId(target);
+	if (forgeId) return sendForge(res, format, { id: forgeId, width, height });
 
 	const agentId = extractAgentId(target);
 	if (!agentId) return error(res, 404, 'not_found', 'url is not a recognised agent url');
@@ -98,6 +104,68 @@ function extractAgentId(target) {
 
 	const match = parsed.pathname.match(/^\/agent\/([A-Za-z0-9_-]+)\/?$/);
 	return match ? match[1] : null;
+}
+
+function extractForgeId(target) {
+	let parsed;
+	try {
+		parsed = new URL(target);
+	} catch {
+		return null;
+	}
+
+	const originStr = `${parsed.protocol}//${parsed.host}`;
+	const okOrigin =
+		originStr === env.APP_ORIGIN || /^https?:\/\/localhost(:\d+)?$/.test(originStr);
+	if (!okOrigin) return null;
+
+	const match = parsed.pathname.match(/^\/forge\/share\/([A-Za-z0-9-]+)\/?$/);
+	const id = match ? match[1] : null;
+	return id && isUuid(id) ? id : null;
+}
+
+async function sendForge(res, format, { id, width, height }) {
+	const [creation] = await sql`
+		SELECT id, prompt, status, glb_url
+		FROM forge_creations
+		WHERE id = ${id}
+		LIMIT 1
+	`;
+	if (!creation || creation.status !== 'done' || !creation.glb_url) {
+		return error(res, 404, 'not_found', 'forge creation not found or not ready');
+	}
+
+	const origin = env.APP_ORIGIN;
+	const title = creation.prompt ? String(creation.prompt).slice(0, 80) : 'Forged creation';
+	const { embedUrl, shareUrl, thumbnailUrl } = forgeEmbedTarget(origin, creation.id, creation.glb_url, title);
+
+	const payload = {
+		type: 'rich',
+		version: '1.0',
+		provider_name: 'three.ws',
+		provider_url: origin,
+		title,
+		author_name: 'three.ws Forge',
+		author_url: `${origin}/forge`,
+		html: buildEmbedIframe({ src: embedUrl, width, height, title }),
+		width,
+		height,
+		thumbnail_url: thumbnailUrl,
+		thumbnail_width: EMBED_THUMB.width,
+		thumbnail_height: EMBED_THUMB.height,
+	};
+
+	res.setHeader('cache-control', 'public, max-age=900');
+
+	if (format === 'xml') {
+		res.statusCode = 200;
+		res.setHeader('content-type', 'text/xml; charset=utf-8');
+		res.end(toXml(payload));
+		return;
+	}
+	res.statusCode = 200;
+	res.setHeader('content-type', 'application/json+oembed; charset=utf-8');
+	res.end(JSON.stringify(payload));
 }
 
 function extractOnChain(target) {

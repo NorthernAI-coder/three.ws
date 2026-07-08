@@ -69,6 +69,12 @@ vi.mock('../../api/_lib/identity-integrity.js', () => ({
 	checkIdentityIntegrity: vi.fn(async () => identityState.result),
 }));
 
+// ── Audit log (attach_avatar_to_agent) ────────────────────────────────────────
+const auditLog = vi.fn();
+vi.mock('../../api/_lib/audit.js', () => ({
+	logAudit: (...args) => auditLog(...args),
+}));
+
 // ── Import AFTER mocks ────────────────────────────────────────────────────────
 const { toolDefs } = await import('../../api/_mcp/tools/agents.js');
 const onchain = await import('../../api/_lib/onchain-deploy.js');
@@ -297,5 +303,93 @@ describe('identity_check', () => {
 		const res = await TOOLS.identity_check.handler({}, ownerAuth());
 		expect(res.isError).toBe(true);
 		expect(out(res).status).toBe('validation_error');
+	});
+});
+
+// ── attach_avatar_to_agent ──────────────────────────────────────────────────────
+describe('attach_avatar_to_agent', () => {
+	const AVATAR_ID = '33333333-3333-4333-8333-333333333333';
+
+	beforeEach(() => {
+		auditLog.mockClear();
+	});
+
+	it('exposes attach_avatar_to_agent (agents:write)', () => {
+		expect(TOOLS.attach_avatar_to_agent).toBeDefined();
+		expect(TOOLS.attach_avatar_to_agent.scope).toBe('agents:write');
+	});
+
+	it('rejects an x402/null-user caller with a designed sign-in state', async () => {
+		const res = await TOOLS.attach_avatar_to_agent.handler(
+			{ agent_id: AGENT_ID, avatar_id: AVATAR_ID },
+			{ userId: null, rateKey: 'x402:wallet', scope: '', source: 'x402' },
+		);
+		expect(res.isError).toBe(true);
+		expect(out(res).status).toBe('sign_in_required');
+		expect(sqlState.calls.length).toBe(0);
+	});
+
+	it('rejects a non-uuid agent_id / avatar_id with a validation error', async () => {
+		const res1 = await TOOLS.attach_avatar_to_agent.handler({ agent_id: 'nope', avatar_id: AVATAR_ID }, ownerAuth());
+		expect(res1.isError).toBe(true);
+		expect(out(res1).status).toBe('validation_error');
+
+		const res2 = await TOOLS.attach_avatar_to_agent.handler({ agent_id: AGENT_ID, avatar_id: 'nope' }, ownerAuth());
+		expect(res2.isError).toBe(true);
+		expect(out(res2).status).toBe('validation_error');
+	});
+
+	it('rejects attaching to another account’s agent (ownership check)', async () => {
+		sqlState.queue.push([{ id: AGENT_ID, user_id: 'someone-else', name: 'X', avatar_id: null }]);
+		const res = await TOOLS.attach_avatar_to_agent.handler({ agent_id: AGENT_ID, avatar_id: AVATAR_ID }, ownerAuth());
+		expect(res.isError).toBe(true);
+		expect(out(res).status).toBe('forbidden');
+	});
+
+	it('rejects an avatar not owned by the caller (or missing)', async () => {
+		sqlState.queue.push([{ id: AGENT_ID, user_id: UID, name: 'Mine', avatar_id: null }]); // agent lookup
+		sqlState.queue.push([]); // avatar lookup — none owned
+		const res = await TOOLS.attach_avatar_to_agent.handler({ agent_id: AGENT_ID, avatar_id: AVATAR_ID }, ownerAuth());
+		expect(res.isError).toBe(true);
+		expect(out(res).status).toBe('not_found');
+	});
+
+	it('attaches an owned avatar to an owned agent and logs the audit entry', async () => {
+		sqlState.queue.push([{ id: AGENT_ID, user_id: UID, name: 'Mine', avatar_id: null }]); // agent lookup
+		sqlState.queue.push([{ id: AVATAR_ID, name: 'Robo', storage_key: 'k', visibility: 'private' }]); // avatar lookup
+		sqlState.queue.push([{ id: AGENT_ID, name: 'Mine', avatar_id: AVATAR_ID, wallet_address: 'W1', meta: {} }]); // UPDATE ... RETURNING
+
+		const res = await TOOLS.attach_avatar_to_agent.handler({ agent_id: AGENT_ID, avatar_id: AVATAR_ID }, ownerAuth());
+		const o = out(res);
+		expect(res.isError).toBeUndefined();
+		expect(o.status).toBe('attached');
+		expect(o.agent_id).toBe(AGENT_ID);
+		expect(o.avatar_id).toBe(AVATAR_ID);
+		expect(o.avatar_name).toBe('Robo');
+		expect(o.already_onchain).toBe(false);
+		expect(o.next_steps.some((s) => s.includes('register_agent'))).toBe(true);
+		expect(o.next_steps.some((s) => s.includes('anchor_provenance'))).toBe(true);
+		expect(auditLog).toHaveBeenCalledOnce();
+		expect(auditLog.mock.calls[0][0]).toMatchObject({ userId: UID, action: 'attach_avatar_to_agent', resourceId: AGENT_ID });
+	});
+
+	it('reports already_onchain and skips register_agent in next_steps when the agent is already registered', async () => {
+		sqlState.queue.push([{ id: AGENT_ID, user_id: UID, name: 'Mine', avatar_id: null }]);
+		sqlState.queue.push([{ id: AVATAR_ID, name: 'Robo', storage_key: 'k', visibility: 'private' }]);
+		sqlState.queue.push([
+			{
+				id: AGENT_ID,
+				name: 'Mine',
+				avatar_id: AVATAR_ID,
+				wallet_address: 'W1',
+				meta: { agent_registry: { identity_pda: 'PDA1' } },
+			},
+		]);
+
+		const res = await TOOLS.attach_avatar_to_agent.handler({ agent_id: AGENT_ID, avatar_id: AVATAR_ID }, ownerAuth());
+		const o = out(res);
+		expect(o.already_onchain).toBe(true);
+		expect(o.next_steps.some((s) => s.includes('register_agent'))).toBe(false);
+		expect(o.next_steps.some((s) => s.includes('anchor_provenance'))).toBe(true);
 	});
 });

@@ -826,6 +826,10 @@
 			"dest": "/minted.html"
 		},
 		{
+			"src": "/creations/?",
+			"dest": "/creations.html"
+		},
+		{
 			"src": "/pulse/?",
 			"dest": "/pulse.html"
 		},

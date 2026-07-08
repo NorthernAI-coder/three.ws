@@ -16,10 +16,11 @@ import { NavGraph } from './nav-graph.js';
 import { AmbientLife } from './ambient-life.js';
 import { Npc } from './npc.js';
 import { npcCatalogFor } from './npc-catalog.js';
+import { economyNpcsFor } from './economy-npcs.js';
 import { MobSystem } from './mobs.js';
 import { log } from '../../shared/log.js';
 
-const ROLE_RING = { vendor: 0x46d49a, quest: 0xffce6e, flavor: 0xffffff };
+const ROLE_RING = { vendor: 0x46d49a, quest: 0xffce6e, bank: 0xe6b422, flavor: 0xffffff };
 
 export class WorldLife {
 	// world: { mint, name, symbol, seed, biome } — biome is the resolved env
@@ -41,8 +42,11 @@ export class WorldLife {
 		this.ambient = new AmbientLife({ scene, nav: this.nav, biome: world?.biome });
 		this.mobs = new MobSystem({ scene, nav: this.nav });
 
-		// Interactive NPCs from the data-driven catalog.
-		this.npcs = npcCatalogFor().map((def) => {
+		// Interactive NPCs from the data-driven catalog: the Agent Exchange roster
+		// (real x402 micro-services) plus the general-store clerks + bank teller
+		// (W04's off-schema cash economy, fronted by the room's own message
+		// channel — no on-chain settlement for cash, only the boutique).
+		this.npcs = [...npcCatalogFor(), ...economyNpcsFor()].map((def) => {
 			const npc = new Npc(scene, def);
 			npc.marker = this._npcMarker(def);
 			return npc;

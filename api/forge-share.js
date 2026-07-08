@@ -47,11 +47,15 @@ export default wrap(async (req, res) => {
 	const pageUrl = `${origin}/forge/share/${id}`;
 	const forgeUrl = `${origin}/forge?share=${id}`;
 	const ogImage = row.preview_image_url || `${origin}/api/forge-og?id=${id}`;
+	// oEmbed discovery — /api/oembed resolves this exact shareUrl (extractForgeId
+	// in api/agent-oembed.js) so Notion/Webflow/Discord auto-embed a live 3D
+	// viewer when this URL is pasted, no manual snippet needed.
+	const oembedJsonUrl = `${origin}/api/oembed?url=${encodeURIComponent(pageUrl)}&format=json`;
 
 	res.statusCode = 200;
 	res.setHeader('content-type', 'text/html; charset=utf-8');
 	res.setHeader('cache-control', 'public, max-age=60, s-maxage=600, stale-while-revalidate=3600');
-	res.end(renderHtml({ id, title, desc, pageUrl, forgeUrl, ogImage, origin }));
+	res.end(renderHtml({ id, title, desc, pageUrl, forgeUrl, ogImage, origin, oembedJsonUrl }));
 });
 
 function redirect(res, to) {
@@ -61,7 +65,7 @@ function redirect(res, to) {
 	res.end();
 }
 
-function renderHtml({ id, title, desc, pageUrl, forgeUrl, ogImage, origin }) {
+function renderHtml({ id, title, desc, pageUrl, forgeUrl, ogImage, origin, oembedJsonUrl }) {
 	const t = esc(title);
 	const d = esc(desc);
 	return `<!doctype html>
@@ -98,6 +102,7 @@ function renderHtml({ id, title, desc, pageUrl, forgeUrl, ogImage, origin }) {
 	<meta property="fc:frame:button:1:target" content="${esc(forgeUrl)}">
 
 	<link rel="canonical" href="${esc(pageUrl)}">
+	<link rel="alternate" type="application/json+oembed" href="${esc(oembedJsonUrl)}" title="${t} oEmbed">
 	<link rel="shortcut icon" href="/favicon.ico">
 
 	<style>

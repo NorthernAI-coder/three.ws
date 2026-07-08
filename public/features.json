@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-08T08:10:30.084Z",
+	"generated_at": "2026-07-08T08:32:23.115Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -1000,6 +1000,16 @@
 					"path": "/minted",
 					"title": "Minted 3D Assets",
 					"description": "Live public gallery of every generated 3D avatar minted as a Metaplex Core NFT through three.ws — interactive viewer, baked provenance, and enforced creator royalties on every card.",
+					"added": "2026-07-08",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/creations",
+					"title": "Creator Gallery",
+					"description": "Search, filter, and live-preview the remix bazaar — remix any published 3D creation for a real on-chain USDC royalty, view parent → child lineage, and see the trending assets and top-creator leaderboard.",
 					"added": "2026-07-08",
 					"auth": null,
 					"indexable": true,

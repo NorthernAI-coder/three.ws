@@ -169,6 +169,11 @@ export const NAV_GROUPS = [
 						desc: 'Watch agents work in real time — live screens + avatar cams as they browse, research, and operate',
 					},
 					{ title: 'Marketplace', href: '/marketplace', desc: 'Buy, sell & remix agents' },
+					{
+						title: 'Creator Gallery',
+						href: '/creations',
+						desc: 'Search, remix & earn — the live 3D creation bazaar, trending assets & top-creator leaderboard',
+					},
 					{ title: 'Avatar Gallery', href: '/gallery', desc: 'Every public 3D avatar' },
 					{ title: 'Animation Gallery', href: '/animations', desc: 'Community animations for avatars' },
 					{

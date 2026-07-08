@@ -3,6 +3,24 @@
 	"entries": [
 		{
 			"date": "2026-07-08",
+			"title": "A boutique you can walk into: two tailors now live in /play",
+			"summary": "The wardrobe and cosmetics shop in /play now have a physical home in the world. Walk up to Roux the Tailor to browse and buy fits, hats, and paint jobs, or visit Nell's Fitting Room to equip anything you already own — the same real, server-verified shop and wardrobe the HUD buttons already opened, now with a place to stand. Character creation itself — design an avatar from scratch, scan yourself into 3D with the selfie creator, upload your own .glb, or sculpt in the full Avatar Studio — has no sign-in required and drops you straight into the world.",
+			"tags": [
+				"feature"
+			],
+			"link": "/play"
+		},
+		{
+			"date": "2026-07-08",
+			"title": "/play now has a real economy: a general store, a bank, and a $THREE boutique",
+			"summary": "The open world at /play has a working cash economy. Walk up to a General Store clerk to buy tools and consumables or sell what you've gathered, and visit the Bank Teller to deposit cash into a protected account (banked cash survives a death drop, carried cash doesn't). Premium wardrobe items are now purchasable for real: the wardrobe's locked cosmetics show their $THREE price and unlock with one real on-chain payment from your connected Solana wallet, split between the holder-rewards pool and the treasury — the server only grants the item after re-verifying the confirmed transaction on-chain.",
+			"tags": [
+				"feature"
+			],
+			"link": "/play"
+		},
+		{
+			"date": "2026-07-08",
 			"title": "BNB vault unlock API: pay, get gated, decrypt — built, blocked on funding",
 			"summary": "The BNB Greenfield 3D vault now has its buyer-facing API: browse what's listed, check whether a purchase and its cross-chain storage-permission grant have settled, and — once both are confirmed on-chain — unlock a one-time-use, per-buyer encryption key for the model. A buyer proves control of their wallet with a signed message, which doubles as the key the vault re-wraps the content key to, so a captured response is useless to anyone but that buyer. Proven end-to-end against a real locally-deployed copy of the vault contract (real transactions, real event logs, real pending-then-granted state transitions) — full public rollout is pending the same funded BSC testnet deployer key blocking the rest of this track.",
 			"tags": [

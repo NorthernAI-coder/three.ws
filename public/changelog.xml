@@ -31,6 +31,14 @@
 			<description>A live, honest race: BNB Chain, Base, Ethereum, and Solana block times measured fresh off real public RPCs every few seconds, with a rolling sparkline per lane. No wallet, no payment, no hardcoded numbers — a lane that goes quiet shows 'reconnecting' while the others keep racing.</description>
 		</item>
 		<item>
+			<title>Creator Gallery</title>
+			<link>https://three.ws/creations</link>
+			<guid isPermaLink="false">2026-07-08:Creator Gallery</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Search, filter, and live-preview the remix bazaar — remix any published 3D creation for a real on-chain USDC royalty, view parent → child lineage, and see the trending assets and top-creator leaderboard.</description>
+		</item>
+		<item>
 			<title>Crypto API</title>
 			<link>https://three.ws/crypto-api</link>
 			<guid isPermaLink="false">2026-07-08:Crypto API</guid>
@@ -151,6 +159,14 @@
 			<description>The coin-community world stops being a flat clamped plaza: a real Rapier character controller now drives your avatar (collision, ground contact, and jumps against actual geometry), and Downtown is ringed by a full deterministic street grid — asphalt avenues, sidewalks, lit buildings, and streetlights — that every client in a world renders identically and can now walk or drive across instead of hitting an invisible wall at the plaza's edge. A wall-clock-driven day/night cycle sweeps the sun, sky, fog, and the district's window and streetlamp glow in sync for everyone, with zero network chatter. The camera also grew up: press C to cycle Follow, Cinematic, First Person, and Top Down, the same four modes /walk uses, now shared from one module.</description>
 		</item>
 		<item>
+			<title>/play now has a real economy: a general store, a bank, and a $THREE boutique</title>
+			<link>https://three.ws/play</link>
+			<guid isPermaLink="false">2026-07-08:/play now has a real economy: a general store, a bank, and a $THREE boutique</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The open world at /play has a working cash economy. Walk up to a General Store clerk to buy tools and consumables or sell what you've gathered, and visit the Bank Teller to deposit cash into a protected account (banked cash survives a death drop, carried cash doesn't). Premium wardrobe items are now purchasable for real: the wardrobe's locked cosmetics show their $THREE price and unlock with one real on-chain payment from your connected Solana wallet, split between the holder-rewards pool and the treasury — the server only grants the item after re-verifying the confirmed transaction on-chain.</description>
+		</item>
+		<item>
 			<title>&lt;agent-3d&gt; talks out of the box with brain=&quot;free&quot;</title>
 			<link>https://three.ws/docs/embedding</link>
 			<guid isPermaLink="false">2026-07-08:&lt;agent-3d&gt; talks out of the box with brain=&quot;free&quot;</guid>
@@ -165,6 +181,14 @@
 			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>The core 3D viewer that powers /app, Forge, avatar pages, and every embed now matches the accessibility bar the lightweight SDK viewer already had: the canvas is keyboard-reachable (tab to focus, arrow keys orbit, +/- zoom), gets a proper accessible name, and shows a visible focus ring. Entry-level phones and tablets (detected by touch input plus low core count or memory — desktop is never affected) now get a lighter render automatically: capped resolution and no antialiasing, for a steadier frame rate instead of a choppy one. Also fixed: Scene Studio's Import from Forge / Export / Share action bar was overlapping the editor's own File/Edit/Add menu bar at every screen size — it now sits cleanly below it.</description>
+		</item>
+		<item>
+			<title>A boutique you can walk into: two tailors now live in /play</title>
+			<link>https://three.ws/play</link>
+			<guid isPermaLink="false">2026-07-08:A boutique you can walk into: two tailors now live in /play</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The wardrobe and cosmetics shop in /play now have a physical home in the world. Walk up to Roux the Tailor to browse and buy fits, hats, and paint jobs, or visit Nell's Fitting Room to equip anything you already own — the same real, server-verified shop and wardrobe the HUD buttons already opened, now with a place to stand. Character creation itself — design an avatar from scratch, scan yourself into 3D with the selfie creator, upload your own .glb, or sculpt in the full Avatar Studio — has no sign-in required and drops you straight into the world.</description>
 		</item>
 		<item>
 			<title>A live public gallery for every minted 3D asset — and a fix that had been silently 500ing the launch directory</title>

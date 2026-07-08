@@ -15,6 +15,7 @@ import {
 import { buildRegistrationJSON } from '../../../src/erc8004/registration-json.js';
 import { REGISTRY_DEPLOYMENTS } from '../../../src/erc8004/abi.js';
 import { isUuid } from '../../_lib/validate.js';
+import { logAudit } from '../../_lib/audit.js';
 
 // Base mainnet — the EVM chain we expose for ERC-8004 self-registration.
 const BASE_CHAIN_ID = 8453;
@@ -319,6 +320,123 @@ export const toolDefs = [
 
 			const network = resolveSolanaNetwork(agent.meta, args.network);
 			return registerOnSolana({ agent, network, force: !!args.force });
+		},
+	},
+	{
+		name: 'attach_avatar_to_agent',
+		title: 'Give an agent a body',
+		// Sets one column on an owned row; re-running with the same avatar_id is a
+		// no-op (idempotent), but it IS a write.
+		annotations: {
+			readOnlyHint: false,
+			destructiveHint: false,
+			idempotentHint: true,
+			openWorldHint: false,
+		},
+		description:
+			'Attach a generated/rigged avatar (from forge_avatar, mesh_forge + rig_mesh, or any avatar you own) to ' +
+			"one of your registered agent identities — giving the agent a persistent visual body tied to its " +
+			'account identity. This is the bridge between generation and identity: generate a rigged GLB, save it ' +
+			'as an avatar (list_my_avatars / the Forge \'Save\' action), then call this tool to make it the agent\'s ' +
+			'body. The same agent_id always shows the same body afterwards (get_avatar / render_avatar / ' +
+			'get_embed_code all resolve it). Chain register_agent next to mint the on-chain identity (ERC-8004 on ' +
+			'Base, or a Metaplex Agent Registry PDA on Solana) and anchor_provenance to credential the GLB itself — ' +
+			'together the agent has a body, an on-chain identity, and a verifiable authenticity record. Requires a ' +
+			'signed-in three.ws account; both the agent and the avatar must belong to the caller.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				agent_id: { type: 'string', format: 'uuid', description: 'Your agent identity id (uuid).' },
+				avatar_id: {
+					type: 'string',
+					format: 'uuid',
+					description: 'The avatar to attach (uuid) — one of your own avatars (see list_my_avatars).',
+				},
+			},
+			required: ['agent_id', 'avatar_id'],
+			additionalProperties: false,
+		},
+		scope: 'agents:write',
+		async handler(args, auth) {
+			if (!auth.userId) {
+				return designedError(
+					'sign_in_required',
+					'attach_avatar_to_agent writes to your three.ws account and requires a signed-in user. ' +
+						'Pay-per-call (x402) callers cannot attach avatars — authenticate with your three.ws ' +
+						'account (OAuth) and retry.',
+					{},
+				);
+			}
+			if (!isUuid(args.agent_id || '')) {
+				return designedError('validation_error', 'agent_id must be a valid uuid.', {});
+			}
+			if (!isUuid(args.avatar_id || '')) {
+				return designedError('validation_error', 'avatar_id must be a valid uuid.', {});
+			}
+
+			const [agent] = await sql`
+				SELECT id, user_id, name, avatar_id
+				FROM agent_identities
+				WHERE id = ${args.agent_id} AND deleted_at IS NULL
+				LIMIT 1
+			`;
+			if (!agent) {
+				return designedError('not_found', 'No agent with that id.', { agent_id: args.agent_id });
+			}
+			if (agent.user_id !== auth.userId) {
+				return designedError(
+					'forbidden',
+					'That agent belongs to another account — you can only give a body to your own agents.',
+					{ agent_id: args.agent_id },
+				);
+			}
+
+			const [avatar] = await sql`
+				SELECT id, name, storage_key, visibility
+				FROM avatars
+				WHERE id = ${args.avatar_id} AND owner_id = ${auth.userId} AND deleted_at IS NULL
+				LIMIT 1
+			`;
+			if (!avatar) {
+				return designedError(
+					'not_found',
+					'No avatar with that id in your account. Generate one (forge_avatar / mesh_forge + rig_mesh) ' +
+						'and save it first, or pick one from list_my_avatars.',
+					{ avatar_id: args.avatar_id },
+				);
+			}
+
+			const [updated] = await sql`
+				UPDATE agent_identities
+				SET avatar_id = ${avatar.id}, updated_at = now()
+				WHERE id = ${agent.id}
+				RETURNING id, name, avatar_id, wallet_address, meta
+			`;
+
+			logAudit({
+				userId: auth.userId,
+				action: 'attach_avatar_to_agent',
+				resourceId: agent.id,
+				meta: { via: 'mcp', avatar_id: avatar.id, previous_avatar_id: agent.avatar_id || null },
+			});
+
+			const onchain = Boolean(updated.meta?.agent_registry || updated.meta?.devnet?.agent_registry);
+			return toolResult({
+				status: 'attached',
+				agent_id: updated.id,
+				agent_name: updated.name,
+				avatar_id: updated.avatar_id,
+				avatar_name: avatar.name,
+				replaced_avatar_id: agent.avatar_id !== avatar.id ? agent.avatar_id || null : null,
+				profile_url: agentHomeUrl(updated.id),
+				already_onchain: onchain,
+				next_steps: onchain
+					? ['anchor_provenance(glb_url) to credential this body\'s authenticity']
+					: [
+							'register_agent(agent_id) to mint the on-chain identity',
+							'anchor_provenance(glb_url) to credential this body\'s authenticity',
+						],
+			});
 		},
 	},
 	{

@@ -217,6 +217,68 @@ three.ws supports two avatar creation paths. They're complementary, not competin
 
 ---
 
+## Character customization in `/play` (World Online)
+
+`/play` — the GTA-style multiplayer world (`src/game/coincommunities.js`) — has its own
+end-to-end character customization flow, built entirely on the systems documented above plus
+a server-authoritative cosmetics economy. This section is the map for that flow.
+
+### Creating your avatar before you drop in
+
+The lobby's **Create your avatar** modal (`src/game/coincommunities-ui.js`, `_openCreate()`)
+offers three real paths, each ending in a GLB the world adopts immediately:
+
+1. **Design your avatar** — opens `AvatarCreator` (`src/avatar-creator.js`) in its default
+   editor mode, which loads the Avaturn selfie→3D SDK (`@avaturn/sdk`). No sign-in required;
+   the exported GLB is staged locally and used as your avatar instantly, then uploaded in the
+   background so peers can load it too (`play-handoff.js`).
+2. **Upload a .glb** — bring a model from Blender, Mixamo, VRoid, or any tool. Validated
+   client-side (`avatar-upload.js` `validateGlb`) before it becomes your avatar.
+3. **Advanced studio** — opens the full Avatar Studio (above) at `/create/studio` in a new
+   tab for deep body/face/hair/clothing sculpting, then saves to your account.
+
+### The in-game wardrobe economy
+
+Once in a world, two systems manage cosmetics, both server-authoritative — no client-trusted
+purchase or equip:
+
+- **Shop** (`src/game/cosmetics-shop.js`) — browse the real catalog
+  (`/api/cosmetics/catalog`), preview any item live on your avatar, and buy premium pieces
+  with real USDC via x402 (`cosmetics-purchase.js` → `/api/x402/cosmetic-purchase`). Ownership
+  is recorded server-side (`api/_lib/cosmetics-ownership.js`) and validated by
+  `multiplayer/src/economy.js`. Premium cosmetics are intentionally billed in USDC/`$THREE`,
+  kept separate from the in-world cash economy (`multiplayer/src/shop.js`) — cash buys tools
+  and consumables, cosmetics are a wallet-native collectible layer.
+- **Wardrobe / "My Fits"** (`src/game/cosmetics-wardrobe.js`) — every cosmetic you own (free
+  tier + unlocked premium), grouped by slot. Equipping sends `equip-cosmetic` to the
+  `WalkRoom`, which validates ownership and persists the loadout to your account; the server
+  echoes the authoritative profile back so the wardrobe, your local avatar, and every peer who
+  can see you all agree on your look — durable across logout and world switches.
+
+Both panels are also reachable from the HUD (Shop / **My Fits** buttons,
+`coincommunities-ui.js`), and now from two physical storefronts in the world itself:
+
+### The boutique — walking storefronts, not just a menu
+
+`src/game/world-zones.js` reserves two `boutique` stall coordinates on the Downtown ring,
+mirrored onto the plaza's diagonal opposite the general-store "vendor" stalls so nothing stands
+on top of anything else (`boutique-se` at `(44, 44)`, `boutique-nw` at `(-44, -44)`).
+`src/game/npc/npc-catalog.js` seats two townspeople on them, using the same data-driven
+interactive-NPC engine (`npc.js` / `world-life.js`) every other vendor in the plaza already
+uses:
+
+| NPC | Stall | Press E → |
+|---|---|---|
+| Roux · Tailor | `boutique-se` | Opens the real Shop panel (`world.openShop()`) |
+| Nell · Fitting Room | `boutique-nw` | Opens the real Wardrobe panel (`world.openWardrobe()`) |
+
+Walk up, get the proximity prompt, press E (or tap on touch), and the exact same
+server-validated panels above open — cosmetics customization now has a physical place to
+stand in the world, the way GTA Online's clothing stores do, instead of living only behind a
+HUD button.
+
+---
+
 ## Limitations
 
 - **Humanoid avatars only.** Avatar Studio is designed for bipedal human characters. It does not support animals, robots, or abstract shapes.

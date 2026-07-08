@@ -152,6 +152,116 @@ with collision, a second browser sees the car move smoothly, and exit returns to
 
 ---
 
+## W04 — Economy & money — SHIPPED 2026-07-08
+
+Maps to [W04-economy-and-money.md](W04-economy-and-money.md) (brief written alongside this
+change — the file didn't exist yet when this work started). Independent of Phases 1–2 above
+(no vehicle/physics dependency) — cash, a bank/ATM, general-store vendors, and the `$THREE`
+boutique bridge.
+
+- [x] **General store.** `WalkRoom` now handles `storeReq`/`storeBuy`/`storeSell` against the
+  already-built price tables in `multiplayer/src/shop.js` (found labeled "(W04)" but never
+  wired). A "General Store" NPC sits at each `vendor` spawn point `world-zones.js` had reserved;
+  walk up, press E, buy tools/consumables with cash or sell gathered goods — every trade priced
+  and validated server-side, never a client-supplied number.
+- [x] **Bank/ATM.** `WalkRoom` now handles `bank` (deposit/withdraw), calling `economy.js`'s
+  already-built `bankTransfer()` (found with a `// W04 extends` comment, never called from
+  anywhere). A "Bank Teller" NPC sits at a new `atm` spawn point on the Downtown plaza. Banked
+  cash survives a death drop — the risk/reward point of using it.
+- [x] **`$THREE` bridge (the boutique).** Premium in-game cosmetics
+  (`multiplayer/src/cosmetics-catalog.js`) unlock via a real on-chain `$THREE` payment: the
+  player's connected Solana wallet signs one transaction
+  (`multiplayer/src/game-token.js#buildTokenPurchase`, found in a section literally headed
+  "generic fixed-amount purchases (W04 $THREE boutique)" and never called), split between the
+  holder-rewards pool and the treasury; the server re-reads the **confirmed** transaction from
+  RPC (`verifyTokenPurchase`) before granting anything. Wired into the wardrobe panel's
+  previously-inert "Locked" cards (`play-systems.js`) rather than a new NPC — a shop for what
+  you're already wearing.
+- [x] **Evaluated and deliberately not reused:** the separate R21–25 avatar-shop/x402 rail
+  (`api/_lib/cosmetics.js` / `cosmetics-economy.js` / `api/x402/cosmetic-purchase.js`) sells a
+  different catalog in USDC for a standalone character-creator surface — see the brief's "Ground
+  truth" section for why building a second on-chain path on top of it would have been the
+  parallel payment stack the program overview warns against.
+
+**Done when:** a player walks to the general store, buys and sells for real cash (server-echoed
+purse), walks to the ATM, deposits/withdraws (server-echoed bank balance), and can spend a real,
+on-chain `$THREE` payment on a premium cosmetic that appears equipped moments later. Verified
+end to end — real Rapier-driven walk-up, a real freshly-started `WalkRoom`, real server-side
+cash mutations, and a real devnet Solana settlement (mint, airdrop, sign, broadcast, RPC
+re-verify) for the on-chain leg; see the brief for the exact verification runs.
+
+---
+
+## W03 — Character & avatar customization — SHIPPED 2026-07-08
+
+Maps to **W03** (avatar creator + selfie→3D + wardrobe). No dependency on W01/W02. Unlike
+W01/W02, no `Wxx` brief file existed yet when this pass started — the program README/W00
+referenced `W03-character-avatar-customization.md` but it was never written. Filed as
+[W03-character-avatar-customization.md](W03-character-avatar-customization.md) as part of this
+pass, documenting the (extensive) reused infra below plus what was actually added.
+
+**Ground truth found (most of this brief already existed and was already wired into `/play`):**
+the lobby's full **Create your avatar** flow (design-from-scratch/selfie via `AvatarCreator` +
+the real Avaturn selfie→3D SDK, `.glb` upload, or the full Avatar Studio sculptor — see
+`src/game/coincommunities-ui.js` `_openCreate()`), a real x402-settled **cosmetics shop**
+(`cosmetics-shop.js` → `/api/cosmetics/catalog` → `/api/x402/cosmetic-purchase`), and a real
+server-authoritative **wardrobe/equip** system (`cosmetics-wardrobe.js` →
+`WalkRoom` `equip-cosmetic` → persisted profile) were all already shipped, all real (no
+mocks), and already reachable from the HUD.
+
+**Real gap found and closed:** cosmetics customization existed only behind a HUD menu button —
+no physical presence in the world, unlike every other economy interaction in `/play` (which is
+NPC-fronted).
+
+- [x] **Boutique NPCs.** `src/game/npc/npc-catalog.js` now seats **Roux · Tailor**
+  (`boutique-se`, opens the Shop) and **Nell · Fitting Room** (`boutique-nw`, opens the
+  Wardrobe) via `spawnsOfType('boutique')` — no hardcoded duplicate coordinates. `world-zones.js`
+  had already reserved the original `vendor-ne`/`vendor-sw` stalls for this kind of thing
+  ("consumed by economy/shop briefs"), but the concurrent W04 pass claimed those two for its
+  general-store clerks — resolved by giving the boutique its own `type: 'boutique'` pair,
+  mirrored onto the plaza's other diagonal (`(44,44)`/`(-44,-44)`) so nothing stands on top of
+  anything else. Both NPCs use the same data-driven `Npc`/`WorldLife` engine every other
+  townsperson uses (proximity prompt, press E, `onInteract`) — zero new wiring beyond the
+  catalog entries.
+- [x] **`world.openShop`/`world.openWardrobe` callbacks.** `coincommunities.js` passes these
+  into the `WorldLife` `world` config (bound to the existing `_toggleShop()`/`_toggleWardrobe()`
+  methods the HUD buttons already call), so the boutique NPCs and the HUD open the identical
+  real panels — one system, two entry points.
+- [x] **Docs.** [docs/character-studio.md](../../../docs/character-studio.md) gained a
+  "Character customization in `/play` (World Online)" section mapping the full flow (lobby
+  creation → shop → wardrobe → boutique NPCs) for a reader with zero prior context — this area
+  had no `/play`-specific documentation before.
+
+**Gaps identified but intentionally NOT closed this pass (documented, not silently dropped):**
+- Premium cosmetics remain USDC-only on this rail, deliberately separate from the in-world cash
+  economy and from W04's own on-chain `$THREE` boutique bridge (see the W04 entry above) — three
+  distinct currencies already exist by design; unifying them is a product decision above this
+  brief's scope, not an oversight.
+- Deep body/face/hair sliders (Avatar Studio) are reachable only via "Advanced studio" in a new
+  tab, not embedded in the `/play` canvas — a deliberate choice (a heavy sculpting iframe
+  competing with the game's WebGL canvas for GPU/CPU is a worse experience than a tab hop), not
+  an oversight. Revisit only if there's a concrete UX complaint.
+- The lobby's selfie flow (Avaturn SDK, fast/stylized/game-ready) is intentionally lighter than
+  the standalone `/create/selfie` pipeline (photorealistic, 3-shot guided capture) — different
+  products for different needs (fast in-game vs. photorealistic showcase), not a regression.
+
+**W03 done when:** a new player can design or scan an avatar into `/play` with zero sign-in
+friction, and once in the world can walk up to a physical storefront (not just a menu) to
+browse and equip real, server-persisted cosmetics. **Verified for real** against a local Vite
+dev server + a freshly-started Colyseus `WalkRoom` (no mocked physics, no mocked catalog, no
+mocked SDK) with Playwright:
+[scripts/tmp-verify-w03-boutique.mjs](../../../scripts/tmp-verify-w03-boutique.mjs) — the lobby's
+"Design your avatar" card opens `AvatarCreator`, which fires a real network request to
+`avaturn.*` (the SDK is genuinely wired, not a stub); the player joins the `$THREE` world over a
+real Colyseus session; both boutique NPCs are present in `worldLife.npcs`; real on-foot
+Rapier-driven movement (camera-relative WASD, ~62 m) reaches Roux · Tailor, the "E · Browse the
+wardrobe" prompt appears, pressing E opens the real `CosmeticsShop` panel rendering real catalog
+cards fetched from `/api/cosmetics/catalog`; the Fitting Room leg confirms Nell opens the real
+`CosmeticsWardrobe` panel via the identical `onInteract` → `world.openWardrobe()` path — zero
+unexpected console errors/warnings.
+
+---
+
 ## Phase 3 — Persistent, buildable world (the Hyperfy parity items)
 
 Maps to **W01 persistence + Hyperfy's build/upload/persistence model**. These are the things

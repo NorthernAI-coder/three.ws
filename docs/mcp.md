@@ -333,6 +333,28 @@ Soft-delete an avatar you own. Irreversible from the API (contact support to rec
 
 ---
 
+### `attach_avatar_to_agent`
+
+Give an agent a persistent visual body: attach a generated/rigged avatar you own (from `forge_avatar`, `mesh_forge` + `rig_mesh`, or any avatar in `list_my_avatars`) to one of your registered agent identities. The same `agent_id` shows the same body afterwards — `get_avatar`, `render_avatar`, and `get_embed_code` all resolve it. This is the bridge from generation to identity: generate a rigged GLB, save it as an avatar, then call this tool to make it the agent's body. Chain `register_agent` next to mint the on-chain identity (ERC-8004 on Base, or a Metaplex Agent Registry PDA on Solana) and `anchor_provenance` to credential the GLB itself — together the agent has a body, an on-chain identity, and a verifiable authenticity record.
+
+**Scope required:** `agents:write`. Both the agent and the avatar must belong to the caller — requires a signed-in three.ws account (OAuth); x402 pay-per-call principals cannot call this.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "agent_id":  { "type": "string", "format": "uuid", "description": "Your agent identity id." },
+    "avatar_id": { "type": "string", "format": "uuid", "description": "The avatar to attach — one of your own (see list_my_avatars)." }
+  },
+  "required": ["agent_id", "avatar_id"],
+  "additionalProperties": false
+}
+```
+
+Returns `status: "attached"`, the agent/avatar ids and names, `replaced_avatar_id` (the previous body, if any), `profile_url`, and a `next_steps` hint pointing at `register_agent` / `anchor_provenance` when they haven't run yet.
+
+---
+
 ### `validate_model`
 
 Run the [Khronos glTF-Validator](https://github.com/KhronosGroup/glTF-Validator) against any public HTTPS GLB or glTF URL. Returns error, warning, info, and hint counts with detailed per-issue messages. SSRF-hardened: only public `https://` URLs are fetched.
