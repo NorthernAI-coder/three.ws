@@ -5,6 +5,15 @@
 // merges the result into the shared MapSchema. Colyseus's binary delta
 // protocol broadcasts only fields that actually changed to every other
 // client in the same room, at the configured patch rate.
+//
+// Generic world objects (R01) — balls, placed props, pickups — ride the same
+// pattern on their own `objects` map (see schemas.js WorldObject). The full
+// obj:spawn / obj:update / obj:remove wire contract (payload shape, who's
+// authorized, rate limits and caps) is documented at the
+// "── Generic world objects (R01 protocol) ──" comment block below, right
+// above _handleObjSpawn — read that before adding a new object-driven
+// feature (R02 client manager, R05 ball physics, R17 persistence and later
+// briefs all build on that single channel).
 
 import { Room } from '@colyseus/core';
 
