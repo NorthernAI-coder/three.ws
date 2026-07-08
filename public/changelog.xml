@@ -87,6 +87,14 @@
 			<description>Re-skin any 3D model in the browser: apply PBR material presets (chrome, gold, glass, wood…), generate seeded colorway variants, fine-tune metalness and roughness, and export a validated GLB — non-destructively.</description>
 		</item>
 		<item>
+			<title>Spatial MCP — reference renderer</title>
+			<link>https://three.ws/spatial-mcp</link>
+			<guid isPermaLink="false">2026-07-08:Spatial MCP — reference renderer</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>The open standard for returning a live, interactive 3D scene as a first-class MCP tool result, with a framework-free reference renderer that displays any conformant artifact — including ones transformed from other tools.</description>
+		</item>
+		<item>
 			<title>Stablecoins Market Cap &amp; Peg Health</title>
 			<link>https://three.ws/stablecoins</link>
 			<guid isPermaLink="false">2026-07-08:Stablecoins Market Cap &amp; Peg Health</guid>
@@ -133,6 +141,14 @@
 			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>An agent's sustained mood — set via setMood(), tracked as valence and arousal — used to only drive the face (a smile, a worried brow) and posture. Now a resting up-and-energetic mood also nudges the agent toward a livelier gesture between events, and a down-and-subdued mood toward a stiller, more concerned one, so an agent's whole body reads as consistent with how it feels, not just its expression. A real triggered gesture (a wave, a reaction to an error) still always takes priority over this ambient bias.</description>
+		</item>
+		<item>
+			<title>Bigger motion library, and two dead animation gestures fixed</title>
+			<link>https://three.ws/animations</link>
+			<guid isPermaLink="false">2026-07-08:Bigger motion library, and two dead animation gestures fixed</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Added 7 new baked clips to the animation library — Nod, Shrug, Point, Think, Turn, Jog, and a sitting-idle loop — retargeted onto the universal avatar rig alongside the existing 100+. Also fixed two silent no-ops: the 'sit' gesture's clip was missing from the manifest (AnimationManager couldn't find it, so avatars silently failed to sit), and the agent 'fidget' slot pointed at a clip that never existed (now maps to a real idle loop). Both are covered by new regression tests so they can't quietly break again.</description>
 		</item>
 		<item>
 			<title>BNB Chain hub: three uniquely-BNB demos in one place</title>
@@ -317,6 +333,14 @@
 			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Turn an avatar or on-chain agent you own into a holder-only interactive 3D embed. Visitors must prove a real, server-verified on-chain balance — a signed wallet challenge plus a live Solana RPC read, never a number the browser reports — before the live scene renders; below the bar they see a designed locked teaser with a connect-wallet button. Defaults to gating on $THREE, but accepts any SPL token at runtime for other communities. New create_gated_embed MCP tool, plus a REST API and a paste-anywhere &lt;three-d&gt; embed snippet.</description>
+		</item>
+		<item>
+			<title>Trending, bonding curve, launches, and whales join pump.fun search under the versioned API</title>
+			<link>https://three.ws/docs/api-reference</link>
+			<guid isPermaLink="false">2026-07-08:Trending, bonding curve, launches, and whales join pump.fun search under the versioned API</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>GET /api/v1/pump/search shipped alone at first — now it has the rest of the family: GET /api/v1/pump/trending (momentum-ranked hot tokens), /curve (bonding-curve % to graduation, SOL in the curve, tokens remaining), /launches (every coin launched through three.ws, joined with the launching agent), and /whales (which wallets moved how much SOL, facts only — no invented bullish/bearish signal). All five are free, keyless, and discoverable via GET /api/v1. None of them fork an upstream implementation: trending/curve/whales share their engines with the free Crypto Data API's pump.fun endpoints, launches shares its query with the /launches page.</description>
 		</item>
 		<item>
 			<title>Verify a 3D model's authenticity — free, on-chain content credentials</title>

@@ -1385,7 +1385,8 @@ its sibling already uses.
 
 ### Search
 
-Text search by name, symbol, or mint —
+Text search by name, symbol, or mint, shared with the site's command-palette
+search (`/api/pump/search`) via one implementation
 (`api/_lib/pump-search.js` `searchPumpTokens`) — Birdeye first when
 `BIRDEYE_API_KEY` is configured, falling back to pump.fun's public frontend
 search when Birdeye is unconfigured, rate-limited, or down.
@@ -1446,7 +1447,7 @@ curl -s 'https://three.ws/api/v1/pump/search?q=three.ws'
 Momentum-ranked "what's hot right now" — fuses windowed volume, buy pressure, a
 volume-spike signal, and price change across pump.fun, DexScreener, and
 (best-effort) GMGN smart money into one 0–100 score. Same engine as
-[`GET /api/crypto/trending`](crypto-api.md#get-apicryptotrending--trending--hot-tokens)
+[`GET /api/crypto/trending`](crypto-api.md)
 (`api/_lib/crypto-trending.js` `composeTrending`), capped slimmer here (25 vs
 50) to keep this door fast.
 
@@ -1511,7 +1512,7 @@ curl -s 'https://three.ws/api/v1/pump/trending?window=1h&limit=10'
 Bonding-curve / graduation status for one pump.fun mint — % to graduation, SOL
 in the curve, tokens remaining, market cap, and whether it has already migrated
 to an AMM (Raydium / PumpSwap). Same engine as
-[`GET /api/crypto/bonding`](crypto-api.md#get-apicryptobonding--bonding-curve--graduation-status)
+[`GET /api/crypto/bonding`](crypto-api.md)
 (`api/_lib/pump-bonding.js` `getBondingStatus`).
 
 ```
@@ -1642,7 +1643,7 @@ oracle that otherwise sits behind the paid `GET /api/x402/pump-agent-audit`
 (`"mode":"whale_activity"`) — the invented "bullish/bearish signal +
 confidence" the paid oracle scores is deliberately dropped here, and the same
 scan engine backs the free
-[`GET /api/crypto/whales`](crypto-api.md#get-apicryptowhales--whale--large-buy-activity)
+[`GET /api/crypto/whales`](crypto-api.md)
 (`api/_lib/pump-whale-scan.js` `scanTokenWhales` / `scanMarketWhales`).
 
 ```
