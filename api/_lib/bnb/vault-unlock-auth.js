@@ -13,6 +13,13 @@
 
 import { hashMessage, recoverMessageAddress, recoverPublicKey } from 'viem';
 import { getRedis } from '../redis.js';
+import { buildVaultUnlockMessage, parseVaultUnlockMessage, generateUnlockNonce } from './vault-unlock-message.js';
+
+// Re-exported for backward compatibility — every prior caller of this module
+// imported the message builder/parser from here. The real implementation now
+// lives in `vault-unlock-message.js` (prompt 12), a dependency-free module the
+// vault UI can safely import client-side (see that file's docstring for why).
+export { buildVaultUnlockMessage, parseVaultUnlockMessage, generateUnlockNonce };
 
 export const UNLOCK_MESSAGE_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
 const CLOCK_SKEW_MS = 2 * 60 * 1000; // tolerate a buyer's clock running up to 2 min fast
@@ -53,43 +60,6 @@ export class VaultUnlockAuthError extends Error {
 }
 
 /**
- * Build the canonical unlock-request message. Exported so the vault UI
- * (prompt 12) and this module's tests construct byte-identical text.
- * @param {{ objectId:string, buyer:string, network:string, nonce:string, issuedAt:string }} p
- */
-export function buildVaultUnlockMessage({ objectId, buyer, network, nonce, issuedAt }) {
-	return [
-		'three.ws vault unlock request',
-		'',
-		`Object: ${objectId}`,
-		`Buyer: ${buyer}`,
-		`Network: ${network}`,
-		`Nonce: ${nonce}`,
-		`Issued At: ${issuedAt}`,
-	].join('\n');
-}
-
-/** Parse the canonical unlock message back into its fields. Throws if the shape doesn't match. */
-export function parseVaultUnlockMessage(message) {
-	const lines = String(message || '').split('\n');
-	const field = (label) => {
-		const line = lines.find((l) => l.startsWith(`${label}: `));
-		if (!line) throw new VaultUnlockAuthError(`unlock message is missing "${label}:"`, { code: 'bad_message' });
-		return line.slice(label.length + 2).trim();
-	};
-	if (lines[0] !== 'three.ws vault unlock request') {
-		throw new VaultUnlockAuthError('unlock message has the wrong preamble', { code: 'bad_message' });
-	}
-	return {
-		objectId: field('Object'),
-		buyer: field('Buyer'),
-		network: field('Network'),
-		nonce: field('Nonce'),
-		issuedAt: field('Issued At'),
-	};
-}
-
-/**
  * Verify a buyer's unlock-request signature end-to-end: message shape,
  * field cross-check against the caller's stated `objectId`/`buyer`/
  * `network`, signature recovery + address match, freshness window, and a
@@ -105,7 +75,12 @@ export async function verifyVaultUnlockAuth({ objectId, buyer, network, message,
 	if (typeof message !== 'string' || !message || typeof signature !== 'string' || !signature) {
 		throw new VaultUnlockAuthError('message and signature are required', { code: 'bad_message' });
 	}
-	const parsed = parseVaultUnlockMessage(message);
+	let parsed;
+	try {
+		parsed = parseVaultUnlockMessage(message);
+	} catch (err) {
+		throw new VaultUnlockAuthError(err.message, { code: err.code || 'bad_message', cause: err });
+	}
 
 	if (parsed.objectId.toLowerCase() !== String(objectId).toLowerCase()) {
 		throw new VaultUnlockAuthError('message objectId does not match the request body', { code: 'field_mismatch' });

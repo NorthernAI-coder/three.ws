@@ -16,7 +16,7 @@
  */
 
 import { createLogger } from './shared/log.js';
-import { enterStagger, updateValue, liveDot, setLiveDot } from './ui-juice.js';
+import { enterStagger, liveDot, setLiveDot } from './ui-juice.js';
 import { ensureX402 } from './shared/x402-loader.js';
 
 const log = createLogger('creations');
@@ -477,13 +477,6 @@ async function loadLeaderboards() {
 }
 
 // ── publish ──────────────────────────────────────────────────────────────────
-
-const LICENSE_HINTS = {
-	'remix-royalty': true,
-	'remix-cc': false,
-	'remix-nc': false,
-	'all-rights': false,
-};
 
 function wirePublishForm() {
 	const form = $('cr-publish-form');

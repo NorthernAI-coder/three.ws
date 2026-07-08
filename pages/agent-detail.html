@@ -772,6 +772,18 @@
 					</div>
 				</section>
 
+				<!-- 3D Creations — every GLB this agent minted as a tokenized NFT
+				     (api/v1/tokenized/launches?agent_id=), with remix badges linking
+				     into the /creations gallery lineage viewer. Hidden until
+				     renderMintedCreations() confirms this agent has at least one mint. -->
+				<section class="ad-card" id="ad-creations-card" hidden>
+					<div class="ad-card-head">
+						<span class="ad-bullet"></span>
+						<h2>3D CREATIONS</h2>
+					</div>
+					<div id="ad-creations-body" class="ad-muted"></div>
+				</section>
+
 				<!-- Agent Genome — verifiable lineage (parents + children). Hidden
 				     until renderLineage() confirms this agent has descent or offspring. -->
 				<section class="ad-card" id="ad-lineage-card" hidden>
