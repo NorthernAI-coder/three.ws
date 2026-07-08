@@ -477,6 +477,85 @@ Returns `holder`, `media` (`glb_url`, `image_url`, `viewer_url`, `viewer_live`),
 
 ---
 
+### `create_gated_embed`
+
+Turn an avatar or on-chain agent **you own** into a holder-only interactive 3D embed. Visitors must prove — with a real, server-verified Solana SPL token balance, never a client-reported number — they hold at least `min_amount` of `mint` before the live scene renders; below the bar they see a designed locked teaser with a connect-wallet CTA. `mint` defaults to `$THREE` but accepts any SPL mint at runtime (a community can gate with its own token). Requires `avatars:write` scope.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "asset_id":   { "type": "string", "description": "\"avatar:<uuid>\" or \"<chainId>:<agentId>\" — an asset you own." },
+    "mint":       { "type": "string", "description": "SPL mint holders must have a balance of. Defaults to $THREE." },
+    "min_amount": { "type": "number", "exclusiveMinimum": 0, "description": "Minimum balance a visitor must hold to unlock." }
+  },
+  "required": ["asset_id", "min_amount"],
+  "additionalProperties": false
+}
+```
+
+The `structuredContent` returns `gate_id`, `asset_id`, `gate` (`mint`, `min_amount`, `chain`), and `embed_snippet` — a ready-to-paste `<script>` + `<three-d>` tag. See [Token-gated 3D embeds](./token-gated-3d-embeds.md) for the full verification flow, the anti-abuse token/rate-limit design, and how visitors unlock the embed.
+
+---
+
+### `crypto_data`
+
+Call any endpoint in the free [Crypto Data API](./api-reference.md) (the same aggregator behind `GET /api/v1/x/*`: DEX pairs, CoinGecko/DefiLlama market data, Jupiter Solana prices and swap quotes, direct Solana RPC reads) as an MCP tool call. The tool description is generated from the live provider registry at call time, so it always lists exactly the provider/endpoint pairs registered on this deployment — nothing hand-enumerated to drift out of date.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "provider": { "type": "string", "description": "Registered provider id, e.g. \"coingecko\", \"dexscreener\", \"jupiter\", \"solana\", \"defillama\"." },
+    "endpoint": { "type": "string", "description": "Endpoint id under that provider, e.g. \"price\", \"token\", \"quote\"." },
+    "params":   { "type": "object", "description": "Endpoint-specific query params.", "additionalProperties": true }
+  },
+  "required": ["provider", "endpoint"],
+  "additionalProperties": false
+}
+```
+
+An unknown `provider`/`endpoint` pair returns an error result listing every valid pair. A registered endpoint marked free runs within the same per-IP quota the REST free lane enforces — no wallet needed. An endpoint with no free tier, or a free quota you've exhausted, returns a JSON-RPC `-32402` error naming the exact REST URL and USDC price to pay via [x402](./x402.md) — never a second, MCP-only payment flow.
+
+```bash
+# Equivalent to: GET /api/v1/x/dexscreener/token?addresses=FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump
+curl -s https://three.ws/api/mcp -H 'content-type: application/json' -d '{
+  "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+  "params": { "name": "crypto_data", "arguments": {
+    "provider": "dexscreener", "endpoint": "token",
+    "params": { "addresses": "FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump" }
+  } }
+}'
+```
+
+---
+
+### `token_snapshot`
+
+One-call snapshot for a Solana token mint. Fans out to whichever free crypto-data providers are registered on this deployment (DexScreener pairs, Jupiter price, Solana RPC supply) and merges what answers into one object — a provider that's unregistered, unconfigured, or errors is recorded in `skipped`/`failed` rather than failing the whole call. For pump.fun-specific bonding-curve/launch data, use `pump_snapshot` instead; this tool covers general market data.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "mint": { "type": "string", "description": "Base58 Solana token mint address." }
+  },
+  "required": ["mint"],
+  "additionalProperties": false
+}
+```
+
+```bash
+curl -s https://three.ws/api/mcp -H 'content-type: application/json' -d '{
+  "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+  "params": { "name": "token_snapshot", "arguments": { "mint": "FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump" } }
+}'
+```
+
+Returns `{ mint, sources: [...], dexscreener?, jupiter?, solana?, skipped: [...], failed: [...] }` — `sources` lists which providers actually answered.
+
+---
+
 ## Rate limits
 
 | Scope            | Limit                    |
