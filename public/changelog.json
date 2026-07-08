@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-08T06:19:49.862Z",
+	"generated_at": "2026-07-08T06:27:11.377Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -112,6 +112,16 @@
 			"title": "glTF / GLB Viewer",
 			"summary": "Paste any public glTF/GLB URL and preview it inline — the lightweight, unauthenticated model viewer every 3D Studio tool's shared asset link opens.",
 			"link": "/viewer",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "launch",
+			"title": "Minted 3D Assets",
+			"summary": "Live public gallery of every generated 3D avatar minted as a Metaplex Core NFT through three.ws — interactive viewer, baked provenance, and enforced creator royalties on every card.",
+			"link": "/minted",
 			"tags": [
 				"launch"
 			]
@@ -328,6 +338,17 @@
 		{
 			"date": "2026-07-08",
 			"type": "update",
+			"title": "Gasless on-chain move sender for BNB Chain worlds — built, no browser toggle yet",
+			"summary": "Added the library that will let a plain empty wallet walk around a three.ws world writing its position to BNB Chain every block with zero gas: builds WorldMoves.sol move/join/leave/checkpoint calls, routes them through MegaFuel's gas sponsorship with an automatic self-paid fallback, and coalesces a fast-moving player's updates to at most one in-flight transaction so the chain never gets spammed. Proven with 20 real, sequentially-mined transactions against a live-forked BSC Testnet. No player-facing toggle yet — that lands with the on-chain presence mode.",
+			"link": null,
+			"tags": [
+				"feature",
+				"sdk"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
 			"title": "Give your agent a 3D body in one call — the new Embodiment endpoint",
 			"summary": "Any AI agent can now buy itself a real presence in a single USDC payment: POST a name plus a text description (or a reference photo) to the new Embodiment endpoint and get back a rigged, animated, talking 3D avatar, a durable persona id that reloads in any future session, and a one-tag embed snippet for any website. It's the same free generate-and-rig chain that powers the 3D Studio, packaged as one paid call — no separate rigging step, no account. Generation failures never settle, so a buyer is only ever charged for a finished body.",
 			"link": "/docs/embody",
@@ -479,6 +500,17 @@
 			"link": "/restyle",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
+			"title": "scene-mcp can now build a whole 3D world in one call — no browser required",
+			"summary": "The scene-mcp server (compose_scene, get_scene, list_scenes) gains two tools: build_world runs the entire diorama pipeline server-side from one sentence — compose the plan, forge every object on the free text→ 3D lane, and merge the result into one glTF binary with named, selectable nodes plus ground and mood-tuned lighting — for agents with no browser to drive the progressive /diorama flow. export_scene does the merge step alone for a diorama you've already forged objects for. Both degrade gracefully: a single object that fails to forge is skipped and reported, never a hard failure — the rest of the world still exports and opens cleanly in Scene Studio. `npx -y @three-ws/scene-mcp` picks up both automatically.",
+			"link": "/diorama",
+			"tags": [
+				"feature",
+				"sdk"
 			]
 		},
 		{

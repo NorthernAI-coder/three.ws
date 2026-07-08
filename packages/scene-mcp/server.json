@@ -2,7 +2,7 @@
 	"$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
 	"name": "io.github.nirholas/scene-mcp",
 	"title": "three.ws Scenes",
-	"description": "Compose a placed 3D diorama from one sentence, then browse the saved scene gallery.",
+	"description": "Compose a placed 3D diorama from one sentence, build and export a complete forged world in one call, then browse the saved scene gallery.",
 	"websiteUrl": "https://three.ws",
 	"icons": [
 		{
@@ -18,12 +18,12 @@
 		"source": "github",
 		"subfolder": "packages/scene-mcp"
 	},
-	"version": "0.1.1",
+	"version": "0.2.0",
 	"packages": [
 		{
 			"registryType": "npm",
 			"identifier": "@three-ws/scene-mcp",
-			"version": "0.1.1",
+			"version": "0.2.0",
 			"runtimeHint": "npx",
 			"transport": {
 				"type": "stdio"

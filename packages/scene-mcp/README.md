@@ -16,7 +16,7 @@
 
 ---
 
-> A [Model Context Protocol](https://modelcontextprotocol.io) server that gives any AI assistant the three.ws **diorama** pipeline over stdio. Describe a world in a sentence and `compose_scene` returns a placed plan — mood, palette, ground, and a set of single-object forge prompts — ready to build into an orbitable 3D scene. Browse saved worlds with `get_scene` and `list_scenes`.
+> A [Model Context Protocol](https://modelcontextprotocol.io) server that gives any AI assistant the three.ws **diorama** pipeline over stdio. Describe a world in a sentence and `compose_scene` returns a placed plan — mood, palette, ground, and a set of single-object forge prompts — ready to build into an orbitable 3D scene. `build_world` collapses the whole pipeline (compose → forge every object → merge) into one call for agents with no browser to drive it. `export_scene` merges an already-forged diorama into one glTF 2.0 binary — every object a named, selectable node, plus ground and mood-tuned lighting — ready to open in Scene Studio. Browse saved worlds with `get_scene` and `list_scenes`.
 
 This is the companion to the three.ws avatar one-liner: avatars give you a *character*; scenes give you a *world*. No API key, no signer, no payment — every call hits the public `/api/diorama` endpoint.
 
@@ -64,14 +64,20 @@ npx -y @modelcontextprotocol/inspector npx @three-ws/scene-mcp
 | Tool            | Type        | What it does                                                                                                       |
 | --------------- | ----------- | ----------------------------------------------------------------------------------------------------------------- |
 | `compose_scene` | generative  | One sentence → a diorama plan: title, mood, palette, ground, and 2–8 placed single-object forge prompts.           |
+| `build_world`   | generative  | One sentence → a fully forged, exported 3D world in one call: compose → forge every object (free lane) → merge into one GLB. No browser needed; can take a couple of minutes. |
+| `export_scene`  | generative  | Merge an already-forged diorama (objects with real `glbUrl`s) into one glTF 2.0 binary — named, selectable nodes plus ground and mood-tuned lighting — ready for Scene Studio. |
 | `get_scene`     | read-only   | Fetch a saved world by id (with GLB URLs) and its orbitable viewer URL.                                            |
 | `list_scenes`   | read-only   | Browse the recent or featured diorama gallery.                                                                     |
 
-`compose_scene` returns only the *plan* — no meshes are forged and nothing is saved. Forge each object via `/api/forge`, then `POST /api/diorama {action:"save"}` to mint a shareable permalink at `https://three.ws/diorama?id=…`.
+`compose_scene` returns only the *plan* — no meshes are forged and nothing is saved. Forge each object via `/api/forge`, then either call `export_scene` yourself or `POST /api/diorama {action:"save"}` to mint a shareable permalink at `https://three.ws/diorama?id=…`. `build_world` does the compose-forge-export sequence for you in a single tool call. Both `build_world` and `export_scene` degrade gracefully on partial failure: objects that never forge are skipped and named in the response's `skipped` array — the rest of the world still exports.
 
 ### Input parameters
 
 **`compose_scene`** — `prompt` (required, 3–1024 chars: one sentence describing the world).
+
+**`build_world`** — `prompt` (required, 3–1024 chars: one sentence describing the world).
+
+**`export_scene`** — `diorama` (required: the diorama object returned by `compose_scene`/`get_scene`, with each object to include carrying `status:"ready"` and a real `glbUrl`).
 
 **`get_scene`** — `id` (required: the diorama id returned at save time).
 
@@ -96,6 +102,21 @@ npx -y @modelcontextprotocol/inspector npx @three-ws/scene-mcp
   },
   "object_count": 1,
   "viewer_base": "https://three.ws/diorama"
+}
+```
+
+```jsonc
+// build_world — the whole pipeline in one call
+> { "prompt": "a neon alley with a food cart and two streetlights" }
+{
+  "ok": true,
+  "diorama": { "title": "Neon Alley", "mood": "night", /* ...forged objects with real glbUrl values... */ },
+  "object_count": 4,
+  "ready_count": 4,
+  "glb_url": "https://storage.googleapis.com/.../scene-neon-alley.glb",
+  "scene_studio_url": "https://three.ws/scene?model=https%3A%2F%2Fstorage.googleapis.com%2F...%2Fscene-neon-alley.glb",
+  "exported_count": 4,
+  "skipped": []
 }
 ```
 

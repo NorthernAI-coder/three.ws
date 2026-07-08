@@ -95,6 +95,14 @@
 			<description>Paste any public glTF/GLB URL and preview it inline — the lightweight, unauthenticated model viewer every 3D Studio tool's shared asset link opens.</description>
 		</item>
 		<item>
+			<title>Minted 3D Assets</title>
+			<link>https://three.ws/minted</link>
+			<guid isPermaLink="false">2026-07-08:Minted 3D Assets</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Live public gallery of every generated 3D avatar minted as a Metaplex Core NFT through three.ws — interactive viewer, baked provenance, and enforced creator royalties on every card.</description>
+		</item>
+		<item>
 			<title>Restyle Studio — material presets, AI restyle &amp; variants</title>
 			<link>https://three.ws/restyle</link>
 			<guid isPermaLink="false">2026-07-08:Restyle Studio — material presets, AI restyle &amp; variants</guid>
@@ -255,6 +263,14 @@
 			<description>New GET /api/v1/pump/search finds any Solana pump.fun / meme token by name, symbol, or mint — free, keyless, no account. It's the same Birdeye-first, pump.fun-fallback search that already powers the site's command palette, now registered under the versioned, cataloged /api/v1 surface so agents can discover it via GET /api/v1 alongside the platform's other free pump.fun reads (trending, bonding-curve progress, launches, whale activity).</description>
 		</item>
 		<item>
+			<title>Gasless on-chain move sender for BNB Chain worlds — built, no browser toggle yet</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-08:Gasless on-chain move sender for BNB Chain worlds — built, no browser toggle yet</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Added the library that will let a plain empty wallet walk around a three.ws world writing its position to BNB Chain every block with zero gas: builds WorldMoves.sol move/join/leave/checkpoint calls, routes them through MegaFuel's gas sponsorship with an automatic self-paid fallback, and coalesces a fast-moving player's updates to at most one in-flight transaction so the chain never gets spammed. Proven with 20 real, sequentially-mined transactions against a live-forked BSC Testnet. No player-facing toggle yet — that lands with the on-chain presence mode.</description>
+		</item>
+		<item>
 			<title>Give your agent a 3D body in one call — the new Embodiment endpoint</title>
 			<link>https://three.ws/docs/embody</link>
 			<guid isPermaLink="false">2026-07-08:Give your agent a 3D body in one call — the new Embodiment endpoint</guid>
@@ -373,6 +389,14 @@
 			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Restyle Studio (/restyle) now takes a plain-language instruction — &quot;make it chrome&quot;, &quot;worn copper&quot;, &quot;cyberpunk neon&quot; — and asks IBM Granite for a real PBR material plus a generated seamless texture, applied live to any GLB. Seeded colorway variants can now be saved as real, separately downloadable models instead of just a browser preview: one click mints all N as durable, glTF-validated GLBs. Every AI restyle and every saved variant is recorded in an immutable parent → child version lineage — the same versioning refine_model uses — so you can click back to any earlier look without losing your place; the original is never touched. The restyle_material MCP tool exposes the same engine to agents.</description>
+		</item>
+		<item>
+			<title>scene-mcp can now build a whole 3D world in one call — no browser required</title>
+			<link>https://three.ws/diorama</link>
+			<guid isPermaLink="false">2026-07-08:scene-mcp can now build a whole 3D world in one call — no browser required</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The scene-mcp server (compose_scene, get_scene, list_scenes) gains two tools: build_world runs the entire diorama pipeline server-side from one sentence — compose the plan, forge every object on the free text→ 3D lane, and merge the result into one glTF binary with named, selectable nodes plus ground and mood-tuned lighting — for agents with no browser to drive the progressive /diorama flow. export_scene does the merge step alone for a diorama you've already forged objects for. Both degrade gracefully: a single object that fails to forge is skipped and reported, never a hard failure — the rest of the world still exports and opens cleanly in Scene Studio. `npx -y @three-ws/scene-mcp` picks up both automatically.</description>
 		</item>
 		<item>
 			<title>Sentiment and narrative intel are now part of the free API</title>
