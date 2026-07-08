@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-07-08",
+			"title": "Restyle Studio can now AI-restyle any model and remembers every version",
+			"summary": "Restyle Studio (/restyle) now takes a plain-language instruction — \"make it chrome\", \"worn copper\", \"cyberpunk neon\" — and asks IBM Granite for a real PBR material plus a generated seamless texture, applied live to any GLB. Seeded colorway variants can now be saved as real, separately downloadable models instead of just a browser preview: one click mints all N as durable, glTF-validated GLBs. Every AI restyle and every saved variant is recorded in an immutable parent \u2192 child version lineage \u2014 the same versioning refine_model uses \u2014 so you can click back to any earlier look without losing your place; the original is never touched. The restyle_material MCP tool exposes the same engine to agents.",
+			"tags": [
+				"feature"
+			],
+			"link": "/restyle"
+		},
+		{
+			"date": "2026-07-08",
 			"title": "Bigger motion library, and two dead animation gestures fixed",
 			"summary": "Added 7 new baked clips to the animation library — Nod, Shrug, Point, Think, Turn, Jog, and a sitting-idle loop — retargeted onto the universal avatar rig alongside the existing 100+. Also fixed two silent no-ops: the 'sit' gesture's clip was missing from the manifest (AnimationManager couldn't find it, so avatars silently failed to sit), and the agent 'fidget' slot pointed at a clip that never existed (now maps to a real idle loop). Both are covered by new regression tests so they can't quietly break again.",
 			"tags": [
