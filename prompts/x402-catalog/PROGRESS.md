@@ -613,6 +613,127 @@ shipped speech package files themselves — they were correct as found.
 
 ---
 
+## 2026-07-08 — Prompt 18: Storefront cleanup — found already shipped by a concurrent
+agent; verified end-to-end, then found and fixed a real production bug it exposed
+
+**This work order (`18-storefront-cleanup.md`) was already fully implemented** by a
+concurrent agent earlier in this session — every code change carries the literal marker
+`the 2026-07-08 storefront cleanup (prompt 18)` in its comments, and the paired changelog
+entry ("Cleaned up the x402 storefront listing", tags `improvement`) is already committed
+on `HEAD` and confirmed present on `threews/main` (`git show threews/main:data/changelog.json`
+contains it). My job this session was to verify the shipped work for real rather than redo
+it — and that verification surfaced a genuine, unrelated-looking but directly-caused
+production bug, which I root-caused and fixed.
+
+**Inventory (task 1) — every resource declaring bazaar discovery**, from
+`grep -rl declareHttpDiscovery\|declareMcpDiscovery api/`:
+`api/_lib/x402/bazaar-helpers.js` (the helper itself), `api/_mcp/dispatch.js` (MCP tool
+discovery), `api/_mcpibm/catalog.js`, `api/v1/ai/{asr,image,tts}.js`, `api/wk.js` (root
+`.well-known/x402.json` handler — now derives its static resource list from
+`api/_lib/service-catalog/` per prompt 21's unified catalog rather than per-file literals).
+
+**Verified disposition, per file, against the prompt's decision table:**
+
+| Endpoint | Decision | Verified state (code inspected directly) |
+|---|---|---|
+| `dance-tip` | delist, keep working | `api/x402/dance-tip.js` line 1: `INTERNAL-USE ONLY`; `discoverable: false`; not in `api/_lib/service-catalog/services/`. `/club` loads 200, `GET /api/x402/dance-tip` → 402 (challenge still live). |
+| `three-intel` | delist, keep working | same pattern; `/play` loads 200; `GET /api/x402/three-intel` → 402. |
+| `crypto-intel` | delist, keep working | same pattern; `/agent-exchange` loads 200; `GET /api/x402/crypto-intel` → 402. |
+| `revenue-vision` (`api/insights/`) | remove entirely | file **does not exist** — fully deleted. Zero references anywhere in `api/`, `docs/`, `data/` (only historical mentions remain in `prompts/x402-overhaul/*.md`, which document the earlier state and are correctly left as-is). |
+| `tutor` | delist (real consumer found), keep working | `api/x402/tutor.js` line 1: `INTERNAL-USE ONLY`; `discoverable: false`. Kept per the prompt's own conditional ("if something internal genuinely consumes tutor, delist instead of delete") — `public/tutor.html` + the `/play` Schoolmarm NPC are the real consumers. |
+| `pump-agent-audit` | delist | `discoverable: false` on both bazaar blocks in `api/x402/pump-agent-audit.js` (the audit tool + the whale-scoped variant), each with the prompt-18 header. |
+| `symbol-availability` | de-decorate (drop fake oracle signal) | Confirmed in the route: response schema no longer includes a `signal` enum; `availability_ratio` plus a plain-language `headline` replace it; descriptor's `useCase`/`description` call it a "pre-launch ticker collision check" — no "bullish/bearish/oracle" language anywhere. Paired `data/changelog.json` entry present (`"Symbol-availability check sold honestly — a collision checker, not a market oracle"`). |
+| `fact-check` | keep + rewrite, RE-LISTED | Was previously delisted by the sibling overhaul campaign's prompt 20 (its own guess, superseded here per its own header comment); descriptor now lives at `api/_lib/service-catalog/services/fact-check.js` with a uniqueness-first description ("Real-Time Fact Checker — submit a claim and receive a sourced verdict... with cited sources and a SHA-256 attestation you can audit"). |
+| `mint-to-mesh` / `mint-to-mesh-batch` | keep + rewrite, RE-LISTED | Same re-listing pattern; descriptors present with real, uniqueness-first copy ("pass any Solana SPL token mint, get back a binary glTF cube themed from that token's own on-chain Metaplex metadata"). |
+| `model-check`, `mcp`, `onchain-identity-verify`, `agent-reputation`, `skill-marketplace` | keep + rewrite | All have live, non-empty, uniqueness-first descriptors in `api/_lib/service-catalog/services/`. `skill-marketplace` (the empty-description offender the mandate called out by name) now reads "Skill Marketplace — list active skill listings with prices across all three.ws agents. Filter by skill name to find the cheapest provider..." — no longer empty. |
+| `forge`, `vanity`/`vanity-premium`/`vanity-verifiable`, `pump-launch` | out of this prompt's scope (owned by overhaul's 17/18/19) | Spot-checked anyway — all have real, detailed, uniqueness-first descriptions. Not touched here, per the two campaigns' de-confliction note. |
+
+**Tests/audits re-run, all green:**
+```
+npm run audit:x402-catalog
+  ✓ audit-x402-catalog: all 65 x402 endpoints are documented
+npx vitest run tests/service-catalog.test.js tests/api/x402-discovery-parity.test.js \
+  tests/api/x402-dev-toolkit.test.js tests/x402-builder-code-attribution.test.js
+  Test Files  4 passed (4)   Tests  49 passed (49)
+```
+`tests/api/x402-discovery-parity.test.js`'s `EXCLUSIONS` map documents every de-listed
+route with its prompt-18 reasoning; a comment confirms `fact-check`, `mint-to-mesh`, and
+`mint-to-mesh-batch` were deliberately re-listed. No stale/orphaned test assertions found
+(grepped for `bullish`/`bearish` across `tests/` — the only hits are unrelated trading-signal
+suites like `agent-sniper-signal-flip-exit.test.js`, nothing referencing
+`symbol-availability`'s removed field). Docs (`docs/api-reference.md`, `docs/x402-endpoints.md`)
+have no dangling `revenue-vision` references; `docs/x402-endpoints.md` still lists `/api/x402/tutor`
+correctly, since the route file still exists (kept, not deleted) and the audit script's job is
+to confirm every route file is documented regardless of discoverability.
+
+**The bug this verification found:** exercising the DoD's "confirm unchanged behavior" step
+against **live production** (`https://three.ws`) rather than just the local dev proxy —
+`GET /api/x402/dance-tip`, `three-intel`, `mint-to-mesh`, `symbol-availability` all correctly
+402'd, but `POST /api/x402/fact-check` and `POST /api/x402/tutor` both **500'd** on every
+call, GET or POST, 3ms round-trip (too fast to be the search/LLM chain — a boot-time failure,
+not a runtime one). Root-caused via `gcloud logging read` against the `three-ws-api` Cloud
+Run service's `stderr` log stream (not guessed):
+
+```
+[api] POST /api/x402/fact-check failed: Error [ERR_MODULE_NOT_FOUND]:
+  Cannot find module '/app/agents/fact-checker/src/llm-verdict.js' imported from /app/api/x402/fact-check.js
+[api] POST /api/x402/tutor failed: Error [ERR_MODULE_NOT_FOUND]:
+  Cannot find module '/app/agents/tutor/src/teach.js' imported from /app/api/x402/tutor.js
+```
+
+**Root cause:** `.gcloudignore` (the Cloud Build upload allowlist consumed by
+`npm run deploy:gcp` → `server/cloudbuild.yaml`) is a deny-by-default allowlist (`/*` then
+selective `!/dir/` re-includes) and had **no entry for `/agents/` at all**. Every deployed
+revision of `three-ws-api` has therefore been missing the `agents/` directory entirely —
+`api/x402/fact-check.js` and `api/x402/tutor.js` both import real logic from
+`../../agents/fact-checker/src/*.js` and `../../agents/tutor/src/*.js` via relative paths,
+so both routes have been 500ing on every single call in production, unconditionally, since
+whenever those imports were first wired (pre-dates this prompt — it's not a regression from
+today's re-listing, but today's re-listing of `fact-check` as a keeper product is exactly
+what makes shipping it broken unacceptable). Grepping the same import pattern
+(`from '../../agents/`) across `api/` found **two more silently-broken routes with the same
+cause**: `api/agents/unstoppable-status.js` and `api/agents/endpoint-shopper-run.js` (plus
+`api/tutor/session.js`, a second consumer of the tutor agent code) — confirmed 500 on prod
+(`GET /api/agents/unstoppable-status` → 500, `POST /api/agents/endpoint-shopper-run` → 500,
+`GET /api/tutor/session` → 500).
+
+**Fixed:** added `!/agents/` to `.gcloudignore`'s re-include list (492K total, no
+`node_modules`, trivially cheap to include — comment explains the root cause inline for the
+next person who edits this file). This is a one-line, low-risk config fix with no code
+change; `agents/` was already committed and correct, only the deploy packaging was wrong.
+
+**Not deployed by me.** Same rule this campaign's other agents have followed for
+infra fixes found mid-session (see the `api/_lib/redis.js` timeout fix above): this shared
+worktree currently has 25+ files modified by concurrent agents' unrelated in-flight work
+(`git status --short` — Material Studio API docs, a new BNB-latency page, vehicle physics,
+wallet-connect changes, etc.), and `npm run deploy:gcp` would bundle all of that uncommitted
+state into a production release, well outside this prompt's authority. The `.gcloudignore`
+fix is committed to `main`/`threews` on its own isolated commit (`.gcloudignore` only) so it
+can ship on the next clean `npm run deploy:gcp` run independently of everything else in
+flight. **No changelog entry added for this fix** — following the same precedent as the
+redis.js timeout fix in this file: an infra fix that isn't deployed yet isn't holder-visible,
+so it doesn't belong in the public changelog until it actually ships.
+
+**Owner gap:** run `npm run deploy:gcp` (needs a clean-enough working tree, or a deploy
+scoped to just this commit) to actually fix `fact-check`, `tutor`, `unstoppable-status`,
+`endpoint-shopper-run`, and `tutor/session` in production. Until that deploy ships, all five
+routes continue 500ing on every call — `fact-check` is a "keep + rewrite" listing this exact
+prompt re-lists as a real product, so it is currently being sold as working when it is not.
+
+**Local verification caveat:** this session's local `node_modules` has multiple broken/
+incomplete packages (`@neondatabase/serverless`, `viem` — both missing their `main` entry
+files, `ERR_MODULE_NOT_FOUND` on direct import), almost certainly from a concurrent agent's
+interrupted `npm install` in this shared worktree. This blocked reproducing the fact-check/
+tutor bug via a local Node harness; the real root cause was instead found directly from
+**production** Cloud Run logs (`gcloud logging read`), which is more authoritative than a
+local repro would have been anyway. Not fixed here — it's transient shared-worktree state,
+not a committed regression (`package-lock.json` shows as locally modified but matches
+`HEAD` in intent; re-run `npm ci` when the worktree quiets down).
+
+**Commit:** `.gcloudignore` only (explicit path, verified isolated diff before staging).
+
+---
+
 ## 2026-07-08 — Prompt 17: x402 developer toolkit (echo, debug, verify-receipt)
 
 **Already fully shipped by a concurrent agent before this session started.**
