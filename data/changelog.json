@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-07-08",
+			"title": "The Tour Builder gains templates — starting with a ready-made 3D guided tour of Sperax, our first DeFi partner deployment",
+			"summary": "The Tour Builder now ships Templates: ready-made tours you load into the editor as a starting point instead of hand-picking every stop. The first one is an 8-stop guided walk of Sperax's USDs auto-yield stablecoin — what USDs is, how the auto-yield actually works, minting and redeeming, where the yield comes from, staking SPA for veSPA, farms, and getting started — with real selectors verified against Sperax's live site and narration checked against its published protocol docs. Loading a template swaps the editor's stops, avatar, and chapters in one click; editing, previewing, and exporting work exactly like a hand-built tour, and a banner explains that a partner template's true preview is the exported snippet on the partner's own site. @three-ws/tour's selector-fallback behavior (primary → secondary → page heading/CTA → narrate with no spotlight, never a hard failure) now has dedicated test coverage.",
+			"tags": [
+				"feature"
+			],
+			"link": "/tour-builder"
+		},
+		{
+			"date": "2026-07-08",
 			"title": "A live public gallery for every minted 3D asset — and a fix that had been silently 500ing the launch directory",
 			"summary": "Minted 3D assets now have a home: three.ws/minted shows every generated avatar minted as a Solana NFT through the platform, rendered live in an interactive <model-viewer> card with its network, enforced royalty rate, and a remix badge when it routed a payout to the original creator — the NFT counterpart of the coin /launches feed. Building it surfaced a real bug: the remix-royalty and provenance-ledger columns added to the mint table were live in code but never applied to the production database, so GET /api/v1/tokenized/launches and get_3d_asset_onchain's read-back were quietly returning a server error for any minted asset with those fields. The migration is applied and both are confirmed working.",
 			"tags": [

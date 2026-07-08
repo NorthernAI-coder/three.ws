@@ -463,6 +463,14 @@
 			<description>Any unauthenticated call to the unified /api/v1/x API (CoinGecko, DefiLlama, Jupiter Solana prices/quotes/search) now gets real data with zero setup, up to a per-endpoint quota — no wallet, no key, no signup. curl https://three.ws/api/v1/x/coingecko/price?ids=solana just works. Every response carries rate-limit headers so an agent can see exactly how much free budget is left; once it's used up, the same URL falls through to pay-per-call USDC (x402) or a three.ws API key instead of dead-ending.</description>
 		</item>
 		<item>
+			<title>The Tour Builder gains templates — starting with a ready-made 3D guided tour of Sperax, our first DeFi partner deployment</title>
+			<link>https://three.ws/tour-builder</link>
+			<guid isPermaLink="false">2026-07-08:The Tour Builder gains templates — starting with a ready-made 3D guided tour of Sperax, our first DeFi partner deployment</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The Tour Builder now ships Templates: ready-made tours you load into the editor as a starting point instead of hand-picking every stop. The first one is an 8-stop guided walk of Sperax's USDs auto-yield stablecoin — what USDs is, how the auto-yield actually works, minting and redeeming, where the yield comes from, staking SPA for veSPA, farms, and getting started — with real selectors verified against Sperax's live site and narration checked against its published protocol docs. Loading a template swaps the editor's stops, avatar, and chapters in one click; editing, previewing, and exporting work exactly like a hand-built tour, and a banner explains that a partner template's true preview is the exported snippet on the partner's own site. @three-ws/tour's selector-fallback behavior (primary → secondary → page heading/CTA → narrate with no spotlight, never a hard failure) now has dedicated test coverage.</description>
+		</item>
+		<item>
 			<title>three.ws now speaks BNB Chain's payment protocol (MPP), both ways</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-07-08:three.ws now speaks BNB Chain's payment protocol (MPP), both ways</guid>
