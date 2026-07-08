@@ -1,6 +1,6 @@
 # three.ws Store Submission Tracker
 
-Last updated: 2026-06-25. Re-run prompt 14 near the end to refresh status.
+Last updated: 2026-07-08 (prompt 02 closed out — see row/prerequisite updates below). Re-run prompt 14 near the end to refresh status.
 
 Legend: **not-started** | **blocked** | **ready-to-submit** | **submitted** | **live**
 
@@ -10,7 +10,7 @@ Legend: **not-started** | **blocked** | **ready-to-submit** | **submitted** | **
 
 | Target | Status | Owning prompt | Blocking items | Listing URL |
 |---|---|---|---|---|
-| **Claude Connectors Directory** | blocked | 03 | `[HUMAN: Team/Enterprise org + Owner role required for in-app portal; OR use public form]` · Privacy policy must be deployed with MCP section (§9 of answer sheet) · Reviewer test account not yet provisioned | — |
+| **Claude Connectors Directory** | blocked | 02, 03 | Prompt 02 deliverables complete (`claude-reviewer-guide.md`, `claude-tool-call-evidence.md`, real review-mode entitlement in `mcp-server/src/payments.js`) — 16/16 paid tools return clean `PaymentRequired` unpaid. **New (2026-07-08 re-audit):** live re-test found the production free lane (`forge_free`/`POST /api/forge`) hanging 90–100s+ with no response on 4/4 consecutive attempts — re-verify green immediately before filing; see evidence file §"2026-07-08 re-verification" for the diagnosis (NIM `SUBMIT_TIMEOUT_MS`/fallback-chain latency, not a code defect in the reviewer path itself). `[HUMAN: Team/Enterprise org + Owner role required for in-app portal; OR use public form]` · Privacy policy must be deployed with MCP section (§9 of answer sheet) · `[HUMAN: generate a real `MCP_REVIEW_SECRET` value + decide which vendor credentials (e.g. `REPLICATE_API_TOKEN`) to hand a reviewer for the funded path, then include both in the submission's private reviewer notes — mechanism is built and working, only the actual secret provisioning + credential-sharing decision remains]` | — |
 | **Claude plugin marketplace** | not-started | 10 | Plugin install test not yet run end-to-end; `three-ws-3d` plugin not yet created | — |
 | **Claude Agent Skills pack** | not-started | 11 | 3D-creation skills (`generate-3d-model`, `create-3d-avatar`, `rig-a-model`) not yet added | — |
 | **OpenAI App Directory** | blocked | 04–06 | Package + audit done (`_generated/openai-submission.md`, 7/7 policy PASS; 3 real-model screenshots). **B1:** limiter store over monthly quota → studio generation 429s; **B2:** `/viewer?src=` route 404s (dead link in tool output). Clear both + redeploy before submit. `[HUMAN: OpenAI identity verification + support contact + final submit]` | — |
@@ -30,7 +30,7 @@ Legend: **not-started** | **blocked** | **ready-to-submit** | **submitted** | **
 |---|---|---|---|
 | 01 | Tool annotation & title audit | ✅ complete | `_generated/tool-inventory.md`, `stdio-tools-list.json` |
 | 14 | Cross-store asset kit | ✅ complete | `_generated/assets/`, `listing-copy.md`, `TRACKER.md` |
-| 02 | Claude reviewer access guide | ⬜ not started | `_generated/claude-reviewer-guide.md` |
+| 02 | Claude reviewer access guide | ✅ complete (shipped 2026-06-25; re-audited + closed out 2026-07-08) | `_generated/claude-reviewer-guide.md` + `_generated/claude-tool-call-evidence.md` (16/16 paid tools clean `PaymentRequired`; review-mode entitlement is real code in `mcp-server/src/payments.js`) |
 | 03 | Claude submission package | ⬜ not started | `_generated/claude-submission.md` (exists from earlier run — verify/refresh) |
 | 04 | OpenAI free 3D endpoint | ⬜ not started | `/api/mcp-studio` live endpoint |
 | 05 | OpenAI Apps SDK component | ⬜ not started | GLB viewer component; hero screenshot |
@@ -78,3 +78,5 @@ Legend: **not-started** | **blocked** | **ready-to-submit** | **submitted** | **
 4. **OpenAI identity verification** — complete on `platform.openai.com` before any OpenAI listing can go live.
 5. **mcp-publisher commands** — review and approve the staged publish commands from prompt 13 before running them.
 6. **Smithery/Glama/mcp.so accounts** — create accounts on each directory platform if not already done.
+7. **stdio connector reviewer secret** (prompt 02, `@three-ws/mcp-server`) — the review-mode entitlement mechanism (`MCP_REVIEW_SECRET`/`MCP_REVIEW_MODE`, `mcp-server/src/payments.js`) is built and working; what's left is an owner decision: generate the actual secret value, decide which vendor credentials (`REPLICATE_API_TOKEN` + `REPLICATE_TEXT_TO_AVATAR_MODEL`) to expose to a reviewer (ideally a scoped/capped key, not the raw production one) for the `text_to_avatar` funded path, and paste both into the submission's private reviewer notes. Only needed if/when the npm package is submitted as a local connector (the remote OAuth server at `/api/mcp` is the primary Connectors Directory target — see item 2 and `claude-submission.md` §6).
+8. **Free-lane re-verification before filing** — `forge_free`/`POST /api/forge` hung 90–100s+ with no response on 4/4 live attempts during the 2026-07-08 close-out audit of prompt 02 (backends report `ok` on `/api/forge?health=1`; likely a NIM-timeout/fallback-chain latency issue, not a reviewer-guide defect — see `claude-tool-call-evidence.md` §"2026-07-08 re-verification"). Re-run the free smoke test immediately before submitting either Claude listing and confirm a sub-30s durable GLB response; escalate as a P1 engineering fix if it still hangs.
