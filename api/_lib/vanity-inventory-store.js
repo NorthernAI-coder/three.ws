@@ -271,6 +271,87 @@ export async function reserveAndReveal(address, { paymentId }) {
 }
 
 /**
+ * Instant-inventory fast path: atomically find AND claim one available item
+ * whose actual `address` satisfies a requested prefix/suffix pattern, so the
+ * live-grind endpoints (api/x402/vanity.js, api/x402/pump-launch.js) can
+ * serve a pre-ground key instead of grinding one. Matching runs against the
+ * real address text (case-folded per `ignoreCase`), not the item's own
+ * stored prefix/suffix label — a longer pre-ground item ("Solana…") also
+ * satisfies a shorter request ("So"), which is the whole point of turning
+ * spare inventory into instant delivery for the cheap live-grind tier.
+ *
+ * `maxPriceUsd` is the economics guardrail: the live grinder charges a flat
+ * per-length fee (a few cents), while inventory items can be worth up to $50.
+ * Without this cap, a $0.05 request could accidentally match — and give
+ * away — a rare item that should only ever sell through the priced premium
+ * tier (api/x402/vanity-premium.js). Passing `maxPriceUsd` restricts the
+ * candidate set to items worth no more than what the buyer is already
+ * paying, so instant delivery is strictly a latency win, never a discount.
+ * Omit it (pump-launch's flat-fee upsell) to allow any matching item.
+ *
+ * `FOR UPDATE SKIP LOCKED` inside the id subquery is the same idiom used by
+ * claimRegenJobs() (api/_lib/x402/thumbnail-regen.js): it makes the claim
+ * safe under concurrent callers racing for the same last matching row — one
+ * wins the row, the other's subquery skips the locked row and (if no other
+ * candidate exists) claims nothing, so the same address is never reserved
+ * twice.
+ *
+ * @param {object} opts
+ * @param {string} [opts.prefix]
+ * @param {string} [opts.suffix]
+ * @param {boolean} [opts.ignoreCase]
+ * @param {string} [opts.format='keypair']
+ * @param {number} [opts.maxPriceUsd] optional price ceiling in USD
+ * @param {string} opts.paymentId
+ * @param {string} [opts.purchaser]
+ * @returns {Promise<{ ok:true, item:object } | { ok:false, reason:string }>}
+ */
+export async function claimMatchingPattern({
+	prefix = '',
+	suffix = '',
+	ignoreCase = false,
+	format = 'keypair',
+	maxPriceUsd,
+	paymentId,
+	purchaser,
+}) {
+	if (!paymentId) return { ok: false, reason: 'payment_id_required' };
+	const pfx = String(prefix || '');
+	const sfx = String(suffix || '');
+	if (!pfx && !sfx) return { ok: false, reason: 'no_pattern' };
+
+	let where = sql`status = 'available' AND format = ${format}`;
+	if (pfx) {
+		where = ignoreCase
+			? sql`${where} AND lower(left(address, ${pfx.length})) = ${pfx.toLowerCase()}`
+			: sql`${where} AND left(address, ${pfx.length}) = ${pfx}`;
+	}
+	if (sfx) {
+		where = ignoreCase
+			? sql`${where} AND lower(right(address, ${sfx.length})) = ${sfx.toLowerCase()}`
+			: sql`${where} AND right(address, ${sfx.length}) = ${sfx}`;
+	}
+	if (maxPriceUsd != null) where = sql`${where} AND price_usd <= ${maxPriceUsd}`;
+
+	const rows = await sql`
+		UPDATE vanity_inventory
+		   SET status = 'reserved', payment_id = ${paymentId}, purchaser = ${purchaser || null},
+		       reserved_at = now(), updated_at = now()
+		 WHERE id IN (
+		         SELECT id FROM vanity_inventory
+		          WHERE ${where}
+		          ORDER BY created_at ASC
+		          LIMIT 1
+		          FOR UPDATE SKIP LOCKED
+		       )
+		RETURNING ${PUBLIC_COLS}
+	`;
+	const row = rows[0];
+	if (!row) return { ok: false, reason: 'no_match' };
+	return { ok: true, item: shapePublic(row) };
+}
+
+/**
  * Non-destructive read of the sealed ciphertext for a row reserved by THIS
  * payment. The delivery endpoint calls this AFTER reserve but BEFORE settle to
  * prove it can actually decrypt (e.g. KMS reachable) before charging the buyer —

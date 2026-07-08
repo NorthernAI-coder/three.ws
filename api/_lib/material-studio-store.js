@@ -210,7 +210,7 @@ function hexToFactor(hex, fallback = [0.6, 0.6, 0.6]) {
 // array (buggy client, stale/tampered state) falls back to a fresh lineage
 // rather than corrupting history — mirrors handleRefineModel's contract exactly
 // (api/_mcp-studio/tools.js) so both "kinds" of 3D versioning behave the same.
-function resolveBaseLineage(rootGlbUrl, parentLineage) {
+export function resolveBaseLineage(rootGlbUrl, parentLineage) {
 	const fresh = () => seedLineage({ glbUrl: rootGlbUrl });
 	if (!Array.isArray(parentLineage) || parentLineage.length === 0) return fresh();
 	const rehydrated = parentLineage.map((v, i) => ({
@@ -228,7 +228,7 @@ function resolveBaseLineage(rootGlbUrl, parentLineage) {
 // Branch off an earlier version instead of the lineage's leaf. An out-of-range
 // index falls back to `undefined` (appendVersion then defaults to the leaf)
 // rather than throwing — a stale parent_index should never fail the call.
-function resolveParentIndex(baseLineage, parentIndex) {
+export function resolveParentIndex(baseLineage, parentIndex) {
 	if (!Number.isInteger(parentIndex)) return undefined;
 	try {
 		return branchFrom(baseLineage, parentIndex);

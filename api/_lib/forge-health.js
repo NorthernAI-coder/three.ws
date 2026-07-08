@@ -24,6 +24,7 @@ import { env } from './env.js';
 import { getRedisBurn } from './redis-usage.js';
 import { probeLlmHealth } from './llm-health.js';
 import { readGenerationMetrics } from './forge-events.js';
+import { providersInCooldown } from './provider-health.js';
 
 const PROBE_TIMEOUT_MS = 4_000;
 const CACHE_TTL_MS = 60_000;
@@ -33,6 +34,11 @@ const NVCF_STATUS_URL = 'https://api.nvcf.nvidia.com/v2/nvcf/pexec/status';
 // Valid UUID shape that no real NVCF request will ever have — auth is checked
 // before the id is resolved, so 404 proves the key works.
 const NVCF_PROBE_ID = '00000000-0000-4000-8000-000000000000';
+// Must match NIM_TRELLIS_COOLDOWN_KEY in api/forge.js — the flag its real
+// generation path sets (markProviderCooldown) when an actual text→3D submit to
+// the NVIDIA invoke endpoint fails. See probeNvidia() below for why this probe
+// cross-checks it.
+const NVIDIA_LANE_COOLDOWN_KEY = 'forge-nim-trellis';
 
 function readEnv(name) {
 	if (typeof process !== 'undefined' && process.env?.[name]) return process.env[name];
@@ -101,6 +107,25 @@ async function probeNvidia() {
 	}
 	if (res.status === 429) {
 		return result(id, 'degraded', 'NVIDIA NIM is throttling — the free lane may queue.', { http_status: res.status, latency_ms: latency });
+	}
+	// Auth passing only proves the key works — it says nothing about the actual
+	// generate (invoke) endpoint, which is a separate NVCF route this cheap probe
+	// deliberately never calls (probes here must never spend vendor money). Root
+	// cause of a real incident (live 2026-07-08): the invoke endpoint was
+	// returning 504 "errored" on every real submit while this status-lookup probe
+	// stayed green the whole time, so `?health=1` reported the lane `ok` during a
+	// full outage. Cross-check the SAME cooldown flag the real generation path
+	// (api/forge.js runNvidiaTextLane) sets on a failed submit, so a currently
+	// degraded invoke path shows up here too instead of only surfacing once a
+	// caller's own request has already timed out.
+	const cooling = await providersInCooldown([NVIDIA_LANE_COOLDOWN_KEY]).catch(() => new Map());
+	if (cooling.has(NVIDIA_LANE_COOLDOWN_KEY)) {
+		return result(
+			id,
+			'degraded',
+			'NVIDIA NIM authenticated, but a recent real generation failed and the free lane is cooling down — requests may fail over to a paid lane.',
+			{ latency_ms: latency },
+		);
 	}
 	// 404 (synthetic id not found) or any 2xx means the key authenticated.
 	return result(id, 'ok', 'NVIDIA NIM accepted authentication; the free lane is live.', { latency_ms: latency });

@@ -3799,6 +3799,45 @@ body.deploy-page {
 	color: var(--ink-dim);
 }
 
+/* Gasless BNB Chain registration panel (Review & Deploy step, BSC Testnet
+   only) — visually distinct call-out for the zero-gas path, separate from
+   the primary wallet-connected deploy flow above it. */
+.erc8004-gasless-panel {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-sm);
+	padding: var(--space-md);
+	margin-bottom: var(--space-md);
+	background: var(--accent-soft);
+	border: 1px solid var(--accent);
+	border-radius: var(--radius-md);
+}
+
+.erc8004-gasless-head {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--space-sm);
+}
+
+.erc8004-gasless-badge {
+	flex-shrink: 0;
+	padding: 2px 10px;
+	background: var(--accent);
+	color: var(--surface-1);
+	border-radius: var(--radius-pill);
+	font-size: var(--text-xs);
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.erc8004-gasless-panel .erc8004-h4 {
+	margin: 0 0 4px;
+}
+
+.erc8004-gasless-panel .erc8004-p {
+	margin: 0;
+}
+
 .erc8004-tag {
 	display: inline-block;
 	padding: 2px 8px;

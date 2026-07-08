@@ -512,6 +512,12 @@ URL: https://three.ws/viewer
 
 Paste any public glTF/GLB URL and preview it inline — the lightweight, unauthenticated model viewer every 3D Studio tool's shared asset link opens.
 
+### Spatial MCP — reference renderer
+
+URL: https://three.ws/spatial-mcp
+
+The open standard for returning a live, interactive 3D scene as a first-class MCP tool result, with a framework-free reference renderer that displays any conformant artifact — including ones transformed from other tools.
+
 ### Playground
 
 URL: https://three.ws/playground

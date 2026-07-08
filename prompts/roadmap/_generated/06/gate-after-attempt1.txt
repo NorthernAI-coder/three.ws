@@ -75,3 +75,20 @@ Route audit: 140 auditable page routes, 297 documented in pages.json.
 > 3d-agent@1.5.2 audit:x402-catalog
 > node scripts/audit-x402-catalog.mjs
 
+✓ audit-x402-catalog: all 65 x402 endpoints are documented
+
+> 3d-agent@1.5.2 audit:tokens
+> node scripts/audit-token-drift.mjs
+
+
+✗ design-token drift increased: 5 hardcoded token-hexes (baseline 0).
+
+  pages/bnb.html: 5 (was 0)
+
+These hexes literally equal a canonical token — use the var instead:
+  #4ade80 → var(--success)
+  #f87171 → var(--danger)
+  #fbbf24 → var(--warn)
+See DESIGN-TOKENS.md. If a page deliberately re-themes a token, define the
+token locally (a theme layer) rather than hardcoding the raw hex.
+

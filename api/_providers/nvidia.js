@@ -133,7 +133,17 @@ const INVOKE_RETRY_MAX_MS = 6_000;
 // while NVCF is in this state. Self-adjusting: if NVCF's real failure latency
 // changes, this still bounds the worst case rather than relying on a
 // hand-tuned attempt count matching today's ~32s number.
-const SUBMIT_PHASE_DEADLINE_MS = 55_000;
+//
+// Sized at 30s (under one ~32s degraded-gateway attempt) so THIS failure mode —
+// a single attempt already burning ~32s — bails after exactly one attempt,
+// leaving ~55-60s of the 90s client budget for the FLUX-synthesis +
+// Replicate-submit fallback (api/forge.js: backendId='trellis') to actually
+// complete. A gateway that fails FAST (the common transient blip, a few
+// hundred ms to a couple seconds) still gets its full MAX_INVOKE_ATTEMPTS
+// retries, since each barely moves the elapsed-time needle against this
+// budget; only a slow-failing gateway forfeits retries — which is exactly the
+// case where they aren't worth the client's patience anyway.
+const SUBMIT_PHASE_DEADLINE_MS = 30_000;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Backoff between invoke retries: exponential (base · 2^(n-1), capped) with full
@@ -368,7 +378,7 @@ export function createNvidiaProvider() {
 				// next lane fast. A genuine socket/DNS blip (not a timeout) still gets one
 				// retry, so a single dropped connection doesn't fail the whole free lane.
 				const timedOut = err?.name === 'TimeoutError' || err?.name === 'AbortError';
-				if (!timedOut && attempt < MAX_INVOKE_ATTEMPTS) {
+				if (!timedOut && attempt < MAX_INVOKE_ATTEMPTS && !deadlineExceeded()) {
 					await sleep(invokeRetryDelayMs(attempt));
 					continue;
 				}
@@ -414,6 +424,13 @@ export function createNvidiaProvider() {
 				await res.text().catch(() => {});
 				const retryAfter = res.headers.get('retry-after');
 				lastErr = providerError(res.status, undefined, retryAfter);
+				// Live-verified 2026-07-08: a degraded NVCF gateway answers EVERY attempt
+				// with a fast-but-not-instant 504 (~32s, `nvcf-status: errored`) — each
+				// attempt alone looks like "a normal retryable blip", but three of them
+				// plus backoff blew past every downstream client timeout (see
+				// SUBMIT_PHASE_DEADLINE_MS above). Stop retrying once the overall phase
+				// budget is spent, even if attempts remain.
+				if (deadlineExceeded()) throw lastErr;
 				await sleep(invokeRetryDelayMs(attempt, retryAfter));
 				continue;
 			}

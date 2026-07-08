@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-08T01:17:07.654Z",
+	"generated_at": "2026-07-08T01:20:24.450Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -833,6 +833,16 @@
 					"path": "/viewer",
 					"title": "glTF / GLB Viewer",
 					"description": "Paste any public glTF/GLB URL and preview it inline — the lightweight, unauthenticated model viewer every 3D Studio tool's shared asset link opens.",
+					"added": "2026-07-08",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/spatial-mcp",
+					"title": "Spatial MCP — reference renderer",
+					"description": "The open standard for returning a live, interactive 3D scene as a first-class MCP tool result, with a framework-free reference renderer that displays any conformant artifact — including ones transformed from other tools.",
 					"added": "2026-07-08",
 					"auth": null,
 					"indexable": true,
