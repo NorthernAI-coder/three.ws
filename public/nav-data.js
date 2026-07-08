@@ -146,6 +146,11 @@ export const NAV_GROUPS = [
 						desc: 'Hidden gems — experimental, advanced surfaces most people never find',
 					},
 					{
+						title: 'BNB Chain',
+						href: '/bnb',
+						desc: 'Gasless agent onboarding, an on-chain vault, and a real-time on-chain world — live 0.45s block proof',
+					},
+					{
 						title: 'All pages',
 						href: '/sitemap',
 						desc: 'The full directory — every page on three.ws, filterable',

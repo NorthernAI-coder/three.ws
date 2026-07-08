@@ -13,7 +13,10 @@ async function ensureWarm({ asset, network }) {
 	catch { /* return cached (empty) */ }
 }
 
-async function solanaReputation(asset, network) {
+// Exported so other paid surfaces (e.g. the persona identity/wallet tools) can
+// reuse the SAME ERC-8004-style reputation computation instead of re-deriving
+// it against a second copy of the attestation query.
+export async function solanaReputation(asset, network) {
 	await ensureWarm({ asset, network });
 	const [fb] = await sql`
 		with feedback as (

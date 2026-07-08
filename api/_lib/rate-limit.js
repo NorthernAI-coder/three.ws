@@ -613,6 +613,17 @@ export const limits = {
 	// IPs. recall() embeds one query at a time, so a generous per-minute
 	// ceiling still leaves headroom for interactive memory search.
 	embedUser: (userId) => getLimiter('embed:user', { limit: 120, window: '1 m' }).limit(userId),
+	// Token-gated 3D embeds (api/embed/gate-create.js, api/embed/gate-verify.js).
+	// Create is an authenticated, low-frequency creator action — bound to stop a
+	// compromised session from spraying gates. Verify is called by anonymous
+	// visitors and drives a real Solana RPC read + signature check per attempt,
+	// so it gets both a per-IP flood guard AND a per-wallet ceiling (the wallet
+	// bucket is the one that actually matters — a distributed-IP attacker still
+	// can't brute-force past a single wallet's budget without also owning it).
+	embedGateCreateIp: (ip) => getLimiter('embed:gate:create:ip', { limit: 20, window: '10 m' }).limit(ip),
+	embedGateVerifyIp: (ip) => getLimiter('embed:gate:verify:ip', { limit: 30, window: '5 m' }).limit(ip),
+	embedGateVerifyWallet: (addr) =>
+		getLimiter('embed:gate:verify:wallet', { limit: 10, window: '5 m' }).limit(addr),
 	avatarRollback: (userId) =>
 		getLimiter('avatar:rollback', { limit: 10, window: '1 h' }).limit(userId),
 	// Chat inference spends real money on the host's LLM keys, so these are
@@ -908,6 +919,13 @@ export const limits = {
 		getLimiter('ai:tts:free:ip', { limit: 10, window: '1 d', critical: true }).limit(ip),
 	aiAsrFreeIp: (ip) =>
 		getLimiter('ai:asr:free:ip', { limit: 5, window: '1 d', critical: true }).limit(ip),
+	// Fact Checker (api/x402/fact-check) free daily lane. Same "free tier is the
+	// funnel, x402 is the metered overage" shape as the AI speech routes above —
+	// each free check runs the REAL search+LLM chain (never a degraded fake), so
+	// the quota is tight to bound upstream (search + LLM token) cost. Critical so
+	// a Redis outage fails closed to the paid rail rather than opening the chain.
+	factCheckFreeIp: (ip) =>
+		getLimiter('fact-check:free:ip', { limit: 3, window: '1 d', critical: true }).limit(ip),
 	// NVIDIA Audio2Face-3D (api/a2f) — free upstream but credit-metered, and each
 	// call streams a full speech clip through a bidirectional gRPC stream the
 	// server holds in memory while collecting the blendshape track. Meter per

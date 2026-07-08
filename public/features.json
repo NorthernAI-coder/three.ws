@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-08T00:51:31.590Z",
+	"generated_at": "2026-07-08T00:57:16.867Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -1510,6 +1510,16 @@
 					"path": "/stablecoins",
 					"title": "Stablecoins Market Cap & Peg Health",
 					"description": "Every major stablecoin ranked by circulating market cap, with live peg health, backing mechanism (fiat-backed, crypto-backed, algorithmic), and the chains it lives on. Live from DeFiLlama.",
+					"added": "2026-07-08",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/bnb",
+					"title": "BNB Chain — Three Genuinely-Unique Demos",
+					"description": "The BNB Chain campaign's front door: gasless agent onboarding, an on-chain-gated 3D vault, and a real-time on-chain world, each traced to a capability independently verified live on BNB Chain — plus a live block-time widget proving the ~0.45s block claim on every page load. Cards auto-light-up from coming-soon to live as each track ships.",
 					"added": "2026-07-08",
 					"auth": null,
 					"indexable": true,

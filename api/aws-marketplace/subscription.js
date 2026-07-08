@@ -14,19 +14,18 @@
 //   unsubscribe-success      — customer cancelled or subscription expired
 //   entitlement-updated      — contract product entitlement changed
 
-import { json, wrap } from '../_lib/http.js';
+import { json, wrap, readBody } from '../_lib/http.js';
 import { sql } from '../_lib/db.js';
 import { verifySnsMessage } from '../_lib/aws-marketplace.js';
 import { revokeSubscriptionForCustomer } from '../_lib/aws-marketplace-bridge.js';
 import { env } from '../_lib/env.js';
 
+// Delegates to the shared readBody (api/_lib/http.js), which prefers the
+// pre-parsed req.rawBody/req.body the Cloud Run server already captured —
+// re-reading the raw stream here (as this function used to) hangs forever
+// once Express has drained it.
 async function readRawBody(req) {
-	return new Promise((resolve, reject) => {
-		const chunks = [];
-		req.on('data', (c) => chunks.push(c));
-		req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
-		req.on('error', reject);
-	});
+	return (await readBody(req, 1_000_000)).toString('utf8');
 }
 
 export default wrap(async (req, res) => {

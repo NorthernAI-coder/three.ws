@@ -57,11 +57,6 @@ const EXCLUSIONS = new Map([
 			'agent-facing market read is the free /api/crypto bundle.',
 	],
 	[
-		'/api/x402/fact-check',
-		'Internal: the fact-checker app and the /play Sheriff NPC buy through it. ' +
-			'Me-too LLM wrapper as an agent product; kept only for the in-product flows.',
-	],
-	[
 		'/api/x402/tutor',
 		'Internal: the /tutor page and the /play Schoolmarm NPC buy through it. ' +
 			'Me-too LLM wrapper as an agent product; kept only for the in-product flows.',
@@ -72,21 +67,17 @@ const EXCLUSIONS = new Map([
 			'through it. Agent-facing market intel is the free /api/crypto bundle.',
 	],
 	[
-		'/api/x402/mint-to-mesh',
-		'Internal: the /play foundry NPC sells it. Cube novelty — the real ' +
-			'agent-facing 3D product is Forge (/api/x402/forge).',
-	],
-	[
-		'/api/x402/mint-to-mesh-batch',
-		'Internal: batch sibling of mint-to-mesh, same disposition — the real ' +
-			'agent-facing 3D product is Forge.',
-	],
-	[
 		'/api/x402/pump-agent-audit',
-		'Internal: the /play town NPC sells it. The agent-facing reads are the ' +
-			'free /api/crypto/whales and /api/crypto/security.',
+		'De-listed per the 2026-07-08 storefront cleanup (prompt 18): the paid ' +
+			'"oracle" framing over-claims what a payments-history audit is. The free ' +
+			'/api/crypto/whales surface replaces it as the agent product; the /play ' +
+			'town NPC still buys through this route.',
 	],
 ]);
+// fact-check, mint-to-mesh, and mint-to-mesh-batch were re-listed per the
+// 2026-07-08 storefront cleanup (prompt 18) — they now carry real
+// service-catalog descriptors (api/_lib/service-catalog/services/) and are
+// expected to appear in the discovery doc like any other paid product.
 
 function paidRoutesFromFiles() {
 	const routes = [];

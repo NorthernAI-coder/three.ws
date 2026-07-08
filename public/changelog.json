@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-08T00:51:31.607Z",
+	"generated_at": "2026-07-08T00:57:16.888Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -12,6 +12,16 @@
 			"title": "Blockchain TVL by Chain",
 			"summary": "A leaderboard of every blockchain by total value locked, with each chain's dominance share of on-chain DeFi. Live from DeFiLlama — see where liquidity actually sits across L1s and L2s.",
 			"link": "/chains",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "launch",
+			"title": "BNB Chain — Three Genuinely-Unique Demos",
+			"summary": "The BNB Chain campaign's front door: gasless agent onboarding, an on-chain-gated 3D vault, and a real-time on-chain world, each traced to a capability independently verified live on BNB Chain — plus a live block-time widget proving the ~0.45s block claim on every page load. Cards auto-light-up from coming-soon to live as each track ships.",
+			"link": "/bnb",
 			"tags": [
 				"launch"
 			]
@@ -110,9 +120,39 @@
 		{
 			"date": "2026-07-08",
 			"type": "update",
+			"title": "BNB Chain hub: three uniquely-BNB demos in one place",
+			"summary": "New /bnb landing page tells the whole BNB Chain story: gasless agent onboarding (a zero-balance wallet mints an on-chain identity, no faucet), an on-chain-gated 3D vault backed by Greenfield storage permissions, and a real-time on-chain world riding BNB's ~0.45s blocks — each claim traced to what we independently verified live, never BNB's own roadmap promises. The page embeds a live block-time widget that measures the real average off a public RPC on every load, and each feature card auto-detects whether its track has actually shipped on this deployment, showing an honest \"coming soon\" instead of a dead link until it has.",
+			"link": "/bnb",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
+			"title": "Give your agent a 3D body in one call — the new Embodiment endpoint",
+			"summary": "Any AI agent can now buy itself a real presence in a single USDC payment: POST a name plus a text description (or a reference photo) to the new Embodiment endpoint and get back a rigged, animated, talking 3D avatar, a durable persona id that reloads in any future session, and a one-tag embed snippet for any website. It's the same free generate-and-rig chain that powers the 3D Studio, packaged as one paid call — no separate rigging step, no account. Generation failures never settle, so a buyer is only ever charged for a finished body.",
+			"link": "/docs/embody",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
 			"title": "Markets goes deep — Screener, Categories, Exchanges, Derivatives, Converter, DeFi, Chains, Stablecoins",
 			"summary": "Eight new tools join the Markets suite, all live data and all free. Screener filters the top 250 coins by market cap, volume, and 24h move. Categories ranks every crypto sector so you can see which narrative leads. Exchanges ranks venues by trust score and volume. Derivatives shows perpetual-futures funding, open interest, and volume. Converter turns any crypto into any major fiat at live rates. And a DeFi trio — DeFi TVL by protocol, Chains by total value locked, and Stablecoins with peg health — brings on-chain liquidity into view via DeFiLlama. Every one is cross-linked from the markets table.",
 			"link": "/screener",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
+			"title": "New free API: check if a wallet holds a Binance Account Bound Token (BABT)",
+			"summary": "GET /api/bnb/babt-check?address=0x... tells you whether a BSC address holds a BABT — Binance's non-transferable, KYC-backed on-chain token. It's a real, live signal (1.16M+ holders on BSC mainnet) that developers can use as a free, no-signup uniqueness check for allowlists, anti-sybil gating, or airdrop targeting on BNB Chain.",
+			"link": null,
 			"tags": [
 				"feature"
 			]
@@ -136,6 +176,16 @@
 			"tags": [
 				"fix",
 				"infra"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
+			"title": "The free crypto API goes deeper: CoinGecko, DefiLlama, and two new DeFi price feeds",
+			"summary": "The unified /api/v1/x crypto API grew from 4 to 12 endpoints across CoinGecko and DefiLlama, all free with zero setup. CoinGecko now answers a full per-coin snapshot (price, ATH/ATL, supply, multi-window change), trending coins and hot categories, token price by contract address, the global market snapshot, and OHLC candles — not just spot price and ranked markets. DefiLlama adds every chain ranked by TVL, one protocol's full profile with 30 days of TVL history, and 90 days of historical chain TVL. Two new providers ride DefiLlama's sibling APIs: llama-prices for any chain:address token (covers long-tail tokens CoinGecko and Jupiter don't index) and llama-stablecoins for every tracked stablecoin's peg, price, and circulating supply.",
+			"link": "/docs/api-reference",
+			"tags": [
+				"feature"
 			]
 		},
 		{

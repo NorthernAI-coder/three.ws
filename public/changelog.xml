@@ -15,6 +15,14 @@
 			<description>A leaderboard of every blockchain by total value locked, with each chain's dominance share of on-chain DeFi. Live from DeFiLlama — see where liquidity actually sits across L1s and L2s.</description>
 		</item>
 		<item>
+			<title>BNB Chain — Three Genuinely-Unique Demos</title>
+			<link>https://three.ws/bnb</link>
+			<guid isPermaLink="false">2026-07-08:BNB Chain — Three Genuinely-Unique Demos</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>The BNB Chain campaign's front door: gasless agent onboarding, an on-chain-gated 3D vault, and a real-time on-chain world, each traced to a capability independently verified live on BNB Chain — plus a live block-time widget proving the ~0.45s block claim on every page load. Cards auto-light-up from coming-soon to live as each track ships.</description>
+		</item>
+		<item>
 			<title>Crypto Categories by Market Cap</title>
 			<link>https://three.ws/categories</link>
 			<guid isPermaLink="false">2026-07-08:Crypto Categories by Market Cap</guid>
@@ -87,12 +95,36 @@
 			<description>Any embedded avatar can now hold a real conversation with zero setup: add brain=&quot;free&quot; to an &lt;agent-3d&gt; tag and it routes through three.ws's host-paid free-tier proxy (OpenRouter, Groq, or NVIDIA NIM, whichever is healthy) — no API key, no backend code, no per-token cost to the embedder. Previously the brain attribute required an exact model id and defaulted to a silent avatar; brain=&quot;free&quot; is now a supported alias, and it's honored on both the src= (bare GLB) and body= (ad-hoc agent) embed paths, which is where this fell through before.</description>
 		</item>
 		<item>
+			<title>BNB Chain hub: three uniquely-BNB demos in one place</title>
+			<link>https://three.ws/bnb</link>
+			<guid isPermaLink="false">2026-07-08:BNB Chain hub: three uniquely-BNB demos in one place</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>New /bnb landing page tells the whole BNB Chain story: gasless agent onboarding (a zero-balance wallet mints an on-chain identity, no faucet), an on-chain-gated 3D vault backed by Greenfield storage permissions, and a real-time on-chain world riding BNB's ~0.45s blocks — each claim traced to what we independently verified live, never BNB's own roadmap promises. The page embeds a live block-time widget that measures the real average off a public RPC on every load, and each feature card auto-detects whether its track has actually shipped on this deployment, showing an honest &quot;coming soon&quot; instead of a dead link until it has.</description>
+		</item>
+		<item>
+			<title>Give your agent a 3D body in one call — the new Embodiment endpoint</title>
+			<link>https://three.ws/docs/embody</link>
+			<guid isPermaLink="false">2026-07-08:Give your agent a 3D body in one call — the new Embodiment endpoint</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Any AI agent can now buy itself a real presence in a single USDC payment: POST a name plus a text description (or a reference photo) to the new Embodiment endpoint and get back a rigged, animated, talking 3D avatar, a durable persona id that reloads in any future session, and a one-tag embed snippet for any website. It's the same free generate-and-rig chain that powers the 3D Studio, packaged as one paid call — no separate rigging step, no account. Generation failures never settle, so a buyer is only ever charged for a finished body.</description>
+		</item>
+		<item>
 			<title>Markets goes deep — Screener, Categories, Exchanges, Derivatives, Converter, DeFi, Chains, Stablecoins</title>
 			<link>https://three.ws/screener</link>
 			<guid isPermaLink="false">2026-07-08:Markets goes deep — Screener, Categories, Exchanges, Derivatives, Converter, DeFi, Chains, Stablecoins</guid>
 			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Eight new tools join the Markets suite, all live data and all free. Screener filters the top 250 coins by market cap, volume, and 24h move. Categories ranks every crypto sector so you can see which narrative leads. Exchanges ranks venues by trust score and volume. Derivatives shows perpetual-futures funding, open interest, and volume. Converter turns any crypto into any major fiat at live rates. And a DeFi trio — DeFi TVL by protocol, Chains by total value locked, and Stablecoins with peg health — brings on-chain liquidity into view via DeFiLlama. Every one is cross-linked from the markets table.</description>
+		</item>
+		<item>
+			<title>New free API: check if a wallet holds a Binance Account Bound Token (BABT)</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-08:New free API: check if a wallet holds a Binance Account Bound Token (BABT)</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>GET /api/bnb/babt-check?address=0x... tells you whether a BSC address holds a BABT — Binance's non-transferable, KYC-backed on-chain token. It's a real, live signal (1.16M+ holders on BSC mainnet) that developers can use as a free, no-signup uniqueness check for allowlists, anti-sybil gating, or airdrop targeting on BNB Chain.</description>
 		</item>
 		<item>
 			<title>New shared DeFi utility library: one source of truth for chain and token constants across EVM and Solana</title>
@@ -109,6 +141,14 @@
 			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>Hardened the pay-per-call x402 API surface — every /api/x402/* and /api/okx/3d/* endpoint — so it degrades gracefully instead of failing when the shared Redis cache is unreachable. Previously a missing cache configuration could take these paid endpoints offline; they now serve normally on a safe per-instance fallback, with on-chain payment safety unchanged (each payment authorization is still single-use, so no double-charge is possible).</description>
+		</item>
+		<item>
+			<title>The free crypto API goes deeper: CoinGecko, DefiLlama, and two new DeFi price feeds</title>
+			<link>https://three.ws/docs/api-reference</link>
+			<guid isPermaLink="false">2026-07-08:The free crypto API goes deeper: CoinGecko, DefiLlama, and two new DeFi price feeds</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The unified /api/v1/x crypto API grew from 4 to 12 endpoints across CoinGecko and DefiLlama, all free with zero setup. CoinGecko now answers a full per-coin snapshot (price, ATH/ATL, supply, multi-window change), trending coins and hot categories, token price by contract address, the global market snapshot, and OHLC candles — not just spot price and ranked markets. DefiLlama adds every chain ranked by TVL, one protocol's full profile with 30 days of TVL history, and 90 days of historical chain TVL. Two new providers ride DefiLlama's sibling APIs: llama-prices for any chain:address token (covers long-tail tokens CoinGecko and Jupiter don't index) and llama-stablecoins for every tracked stablecoin's peg, price, and circulating supply.</description>
 		</item>
 		<item>
 			<title>The three.ws crypto API now has a real free tier</title>

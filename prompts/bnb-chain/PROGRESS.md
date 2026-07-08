@@ -181,3 +181,62 @@ BscScan-visible tx; the faucet's reCAPTCHA remains the blocker — same gap prom
 hit if it wants a real broadcast rather than a read-only RPC probe.
 
 **Status: DONE.** `isSponsorable`/`sendGasless` are ready for prompt 03/15 to import.
+
+---
+
+## 2026-07-08 — Prompt 20: BABT verification spike — VERDICT: REAL, SHIPPED
+
+**Truth-before-code gate: PASSED.** BABT (Binance Account Bound Token) is real, live on
+BSC mainnet AND testnet, and third-party-queryable today via a single free `eth_call`.
+Full research writeup with sources: `docs/bnb-babt-findings.md`.
+
+**Contract identity — real `eth_getCode` + `name()` probes, not taken on faith:**
+- Mainnet `0x2B09d47D550061f995A3b5C6F0Fd58005215D7c8` — bytecode present (3622 bytes),
+  `name()` = `"Binance Account Bound Token"`, `totalSupply()` = 1,164,243 (matches
+  BscScan's 1.16M+ holder count). Verified contract, 1.4M+ transactions.
+- Testnet `0x984E6a7b9cb73cB7884c9ca9b1Ee625546F9D0E3` — also has real bytecode,
+  `name()` = same string, `totalSupply()` = 1,252. **A real testnet deployment exists**
+  (contrary to 00-CONTEXT's working assumption) — real mints, but developer test
+  accounts, not KYC'd Binance users, so it's useful for integration testing only.
+- Both addresses sourced from Binance's own docs (`developers.binance.com/docs/babt/apis-spec`),
+  never invented.
+
+**Real holder proof — found by scanning live `Transfer` (mint) logs on the mainnet
+contract, then reading the resulting address back through the real interface:**
+```
+mint found in blocks 108689374–108694374 → holder 0x04d1c36842430a169d132ada68006e6bb9e3808b
+balanceOf(holder) = 1
+tokenIdOf(holder) = 1316815
+balanceOf(0x…dEaD burn address) = 0   (sanity check)
+```
+Interface: BEP-721-extending soulbound token — `balanceOf(address)`, `tokenIdOf(address)`,
+`ownerOf(uint256)`, `totalSupply()`, all free public `view` reads, no API key/Binance
+relationship needed to *read*. Non-transferable; Binance can revoke + re-mint to a new
+wallet (rotates `tokenId` — don't treat it as a stable identity anchor, per Binance's own
+integration warning).
+
+**Shipped** (gate passed → build half executed):
+- `api/_lib/bnb/babt.js` — `hasBabt(address, network?, opts?)`, mainnet-default,
+  typed `BabtCheckError` on a real read failure, tokenIdOf failure never downgrades a
+  confirmed `balanceOf>0` holder to a false negative.
+- `GET /api/bnb/babt-check?address=&network=` — free, rate-limited (`limits.publicIp`),
+  400 on bad input/unknown network, 502 `contract_unreachable` on RPC failure, honest
+  `note` field distinguishing the real mainnet KYC signal from the testnet
+  developer-only caveat.
+- `tests/bnb-babt.test.js` (10 tests, +1 live-RPC-gated) — lib-level, mocked client for
+  determinism, live test re-proving the exact holder above against the real contract
+  (`BNB_LIVE_RPC=1` → 10/10 passed, confirms `holdsBabt:true`, `tokenId` populated).
+- `tests/bnb-babt-check-endpoint.test.js` (13 tests) — endpoint validation, success,
+  upstream-failure, and rate-limit paths, mocked `hasBabt`/`limits` (kept in its own
+  file — `vi.mock` hoisting would otherwise shadow the real `hasBabt` the lib suite
+  exercises directly).
+- `docs/bnb-babt-findings.md` — full verdict, live probe output, interface, limitations
+  (KYC-not-permanent-identity, mainnet-primary, single-issuer trust), and an honest
+  comparison vs. Gitcoin Passport / World ID / Coinbase attestations.
+- `00-CONTEXT.md` refuted-list line updated to reflect the settled verdict.
+
+**Gap for future prompts:** no gap — the read path needs nothing further (no key, no
+funded wallet, no policy). If a future prompt wants to *gate* a three.ws feature (mint,
+allowlist, etc.) on `hasBabt`, `api/_lib/bnb/babt.js` is ready to import directly.
+
+**Status: DONE.** Open question closed; `hasBabt`/`/api/bnb/babt-check` ready to import.
