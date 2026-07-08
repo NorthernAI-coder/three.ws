@@ -88,7 +88,7 @@
 			.ca-live-pill { display: inline-flex; align-items: center; gap: 0.55ch; font: var(--weight-semibold) var(--text-2xs) / 1 var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em; padding: 0.5em 0.85em; border-radius: var(--radius-pill); background: var(--surface-2); border: 1px solid var(--stroke); color: var(--ink-dim); }
 			.ca-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-faint); flex: none; }
 			.ca-dot--live { background: var(--success); box-shadow: 0 0 0 0 var(--success); animation: ca-pulse 2s infinite; }
-			.ca-dot--err { background: #f87171; }
+			.ca-dot--err { background: var(--danger); }
 			@keyframes ca-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--success) 55%, transparent); } 70% { box-shadow: 0 0 0 6px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
 			@media (prefers-reduced-motion: reduce) { .ca-dot--live { animation: none; } }
 
