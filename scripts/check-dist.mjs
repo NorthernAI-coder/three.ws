@@ -49,6 +49,49 @@ for (const { rel, min } of distLibChecks) {
 	}
 }
 
+// Known high-traffic static pages, checked directly against server/index.mjs's
+// resolveStatic() resolution (directory → index.html fallback). A deploy with
+// `npm run build` skipped (or run from a stale checkout) ships an incomplete
+// dist/ with no error — that's exactly how /dashboard and /pump-dashboard
+// 404'd in production on 2026-07-08 while check:dist reported green, because
+// this check only ever looked at the agent-3d embed bundle. Not a full sweep
+// of data/pages.json's 300 entries: most of those (docs/*, tutorials/*,
+// .well-known/*, sitemap.xml) are server-rendered at request time by api/**
+// handlers, not static build output, so a naive "every registered path must
+// have a dist/ file" check false-flags them. This list is the pages actually
+// known to be pure static Vite build output — extend it when another one
+// breaks the same way, rather than trying to infer static-vs-dynamic from
+// data/pages.json alone.
+const criticalStaticPages = ['/', '/dashboard', '/pump-dashboard', '/dashboard-next', '/create', '/discover'];
+
+function resolvesToFile(pagePath) {
+	// vercel.json rewrites "/" -> "/home.html" (server/index.mjs's phase1Routes,
+	// exact literal src, no /? suffix) rather than serving dist/index.html.
+	const candidates =
+		pagePath === '/'
+			? ['home.html']
+			: [pagePath, `${pagePath}/index.html`, `${pagePath}.html`];
+	for (const rel of candidates) {
+		const abs = resolve(root, 'dist', rel.replace(/^\//, ''));
+		try {
+			const st = statSync(abs);
+			if (st.isFile()) return true;
+			if (st.isDirectory() && existsSync(resolve(abs, 'index.html'))) return true;
+		} catch {
+			// try next candidate
+		}
+	}
+	return false;
+}
+
+const missingPages = criticalStaticPages.filter((p) => !resolvesToFile(p));
+if (missingPages.length) {
+	console.error(`[check-dist] ${missingPages.length} critical static page(s) missing from dist/ (did \`npm run build\` run?):`);
+	for (const p of missingPages) console.error(`[check-dist]   MISSING PAGE: ${p}`);
+	ok = false;
+}
+
 if (!ok) process.exit(1);
 console.log('[check-dist] dist-lib mirror OK');
+console.log(`[check-dist] all ${criticalStaticPages.length} critical static pages present`);
 console.log('[check-dist] OK — dist/agent-3d/latest/ ready for deploy');
