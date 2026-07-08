@@ -355,3 +355,43 @@ affordance there, not a new route, or update `TRACKS[0].primary.href` in `src/bn
 lands somewhere else.
 
 **Status: DONE.**
+
+## 2026-07-08 — Prompt 07: Greenfield read client — SHIPPED, verified live
+
+**Outcome: `api/_lib/bnb/greenfield.js` + `tests/bnb-greenfield-read.test.js` done.** The
+read layer Track B's vault (upload 09, unlock 11) composes: bucket/object metadata,
+permission derivation, SP byte download, all read-only against Greenfield testnet.
+
+**Open-source decision:** `@bnb-chain/greenfield-js-sdk` (2.2.2) is a heavy
+protobuf/tendermint/cosmos dependency tree; every read we need is a plain HTTPS call. Per
+00-CONTEXT's "wrap the minimal REST yourself" default (same bundle-lean rationale as
+`erc8004-chains.js`), the module calls the live endpoints directly with `fetch` rather than
+bloating the serverless bundle: chain metadata via the Greenfield grpc-gateway REST
+(`/greenfield/storage/head_bucket/{b}`, `/head_object/{b}/{o}`), object bytes via the SP
+S3-style virtual-hosted gateway.
+
+- **Exports:** `headBucket`, `getObjectMeta`, `getObjectPermissions`, `listObjects`,
+  `downloadObject`, `greenfieldNetwork`, `GreenfieldError`, `VISIBILITY`.
+- **Permissions:** the public REST gateway does NOT expose `verify_permission`
+  (returns grpc code 12 "Not Implemented", confirmed live), so `getObjectPermissions`
+  derives read access from on-chain ObjectInfo (`PUBLIC_READ` → anyone; else owner-only) and
+  documents that fine-grained policy/group grants resolve via a `downloadObject` auth-probe.
+- **States:** not_found (chain codes 1100/1101), forbidden (SP 403 — the vault's LOCKED
+  signal, typed not thrown-500), unavailable (SP 5xx → SP failover → typed 503), bad_request
+  (malformed name, rejected before any network call), pending (async mirror lag surfaced).
+
+**Tests:** `tests/bnb-greenfield-read.test.js` — **17/17 passed**, all with an injected
+`fetchImpl` (offline, deterministic), synthetic bucket/object names only. Covers meta shape,
+not_found mapping, owner/public/denied permission derivation, download bytes + forbidden +
+not_found + SP-failover + all-SPs-down, and XML/JSON list parsing.
+
+**Live proof (real Greenfield testnet grpc-gateway, through the module):**
+- `headBucket('three-ws-synthetic-probe-bucket')` → `GreenfieldError not_found` "codespace
+  storage code 1100: No such bucket" — real chain response.
+- `getObjectMeta(..., 'model.glb')` → `GreenfieldError not_found` "codespace storage code
+  1101: No such object" — real chain response.
+  These prove the read wire is live end-to-end. Reading a SPECIFIC public object's metadata /
+  proving the forbidden download on a real private object both need an object to exist first,
+  which is prompt 09's funded upload (same tBNB-faucet blocker noted in prompts 01/02).
+
+**Status: DONE (code + tests, live-wire proven).** Upload (09) + unlock (11) can import it.
