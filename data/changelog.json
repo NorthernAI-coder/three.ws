@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-07-08",
+			"title": "Real-time on-chain 3D world live on BNB Chain testnet",
+			"summary": "The on-chain presence layer in Agora's Play mode is now proven end-to-end with two independent players walking the same world at once: each wallet's real moves land on a BNB Chain smart contract and show up as a live ghost marker in the other player's browser, at BSC's real ~0.45-second block cadence — the fastest EVM chain we've verified, and the only one where a plain wallet can send those moves gas-free. New guide at /docs/bnb-world.md walks through why this only works on BNB Chain, how it's built, and how to reproduce the proof yourself. Full public rollout is pending a funded BSC testnet deployer key on our side — the code, contract, and two-wallet proof are already complete.",
+			"tags": [
+				"feature",
+				"docs"
+			],
+			"link": "/agora"
+		},
+		{
+			"date": "2026-07-08",
 			"title": "Draw a sketch or speak your prompt in the Forge",
 			"summary": "Two new ways to start a 3D creation, both live at /forge and /create/prompt. Draw it: click \"Or draw it instead\" in the Forge's photo tab to open an in-browser drawing canvas — sketch with your mouse, finger, or stylus, and the drawing feeds the same reconstruction pipeline as an uploaded photo. Say it: click the mic next to any prompt box and describe what you want out loud; the transcript drops into the field, ready to edit before you generate. Voice uses your browser's built-in speech recognition where available, with a free NVIDIA Riva fallback for browsers without one — nothing is ever written to disk. Multi-photo reconstruction (up to 4 angles of the same object) and photo-to-avatar (the /scan selfie flow) were already live; this closes out the last two on-ramps into generation.",
 			"tags": [

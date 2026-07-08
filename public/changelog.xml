@@ -407,6 +407,14 @@
 			<description>Hardened the pay-per-call x402 API surface — every /api/x402/* and /api/okx/3d/* endpoint — so it degrades gracefully instead of failing when the shared Redis cache is unreachable. Previously a missing cache configuration could take these paid endpoints offline; they now serve normally on a safe per-instance fallback, with on-chain payment safety unchanged (each payment authorization is still single-use, so no double-charge is possible).</description>
 		</item>
 		<item>
+			<title>Real-time on-chain 3D world live on BNB Chain testnet</title>
+			<link>https://three.ws/agora</link>
+			<guid isPermaLink="false">2026-07-08:Real-time on-chain 3D world live on BNB Chain testnet</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The on-chain presence layer in Agora's Play mode is now proven end-to-end with two independent players walking the same world at once: each wallet's real moves land on a BNB Chain smart contract and show up as a live ghost marker in the other player's browser, at BSC's real ~0.45-second block cadence — the fastest EVM chain we've verified, and the only one where a plain wallet can send those moves gas-free. New guide at /docs/bnb-world.md walks through why this only works on BNB Chain, how it's built, and how to reproduce the proof yourself. Full public rollout is pending a funded BSC testnet deployer key on our side — the code, contract, and two-wallet proof are already complete.</description>
+		</item>
+		<item>
 			<title>Register your agent identity on BNB Chain with zero gas</title>
 			<link>https://three.ws/deploy</link>
 			<guid isPermaLink="false">2026-07-08:Register your agent identity on BNB Chain with zero gas</guid>
