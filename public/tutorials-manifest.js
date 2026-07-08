@@ -160,6 +160,16 @@
 			previewModel: '/avatars/realistic-female.glb',
 			ctaPrimary: { label: 'Open the Tour Builder', href: '/tour-builder' },
 		},
+		{
+			slug: 'sperax-tour',
+			tier: 'easy',
+			title: 'Load a ready-made 3D tour for a DeFi protocol (Sperax)',
+			blurb: 'The Tour Builder\'s first template: an 8-stop guided tour of Sperax\'s USDs auto-yield stablecoin, ready to load, edit, and export as a one-tag snippet in minutes.',
+			builds: 'A partner-ready 3D guided tour, exported as a one-tag snippet',
+			time: '5 min',
+			previewModel: '/avatars/realistic-female.glb',
+			ctaPrimary: { label: 'Open the Tour Builder', href: '/tour-builder' },
+		},
 
 		/* ────────────────────────── MIDDLE ────────────────────────── */
 		{
