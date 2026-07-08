@@ -3,6 +3,25 @@
 	"entries": [
 		{
 			"date": "2026-07-08",
+			"title": "Bigger motion library, and two dead animation gestures fixed",
+			"summary": "Added 7 new baked clips to the animation library — Nod, Shrug, Point, Think, Turn, Jog, and a sitting-idle loop — retargeted onto the universal avatar rig alongside the existing 100+. Also fixed two silent no-ops: the 'sit' gesture's clip was missing from the manifest (AnimationManager couldn't find it, so avatars silently failed to sit), and the agent 'fidget' slot pointed at a clip that never existed (now maps to a real idle loop). Both are covered by new regression tests so they can't quietly break again.",
+			"tags": [
+				"feature",
+				"fix"
+			],
+			"link": "/animations"
+		},
+		{
+			"date": "2026-07-08",
+			"title": "Trending, bonding curve, launches, and whales join pump.fun search under the versioned API",
+			"summary": "GET /api/v1/pump/search shipped alone at first — now it has the rest of the family: GET /api/v1/pump/trending (momentum-ranked hot tokens), /curve (bonding-curve % to graduation, SOL in the curve, tokens remaining), /launches (every coin launched through three.ws, joined with the launching agent), and /whales (which wallets moved how much SOL, facts only — no invented bullish/bearish signal). All five are free, keyless, and discoverable via GET /api/v1. None of them fork an upstream implementation: trending/curve/whales share their engines with the free Crypto Data API's pump.fun endpoints, launches shares its query with the /launches page.",
+			"tags": [
+				"feature"
+			],
+			"link": "/docs/api-reference"
+		},
+		{
+			"date": "2026-07-08",
 			"title": "Fact Check now has a free daily lane and a public accuracy benchmark",
 			"summary": "Try the Fact Checker without a wallet: 3 free checks a day per IP now run the exact same real search-and-LLM chain as the paid $0.10 USDC checks — never a degraded response — with a lane field on every result so you always know which one you got. A new /fact-check page publishes the accuracy claim instead of just asserting it: a 40-claim benchmark (10 per verdict class, time-stable and non-partisan) scored against the live chain, the claim set and scoring code both linked for anyone to check, plus a live 'try one free check' box right on the page.",
 			"tags": [

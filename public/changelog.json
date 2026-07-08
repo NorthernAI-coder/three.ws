@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-08T01:17:07.672Z",
+	"generated_at": "2026-07-08T01:20:24.466Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -109,6 +109,16 @@
 		{
 			"date": "2026-07-08",
 			"type": "launch",
+			"title": "Spatial MCP — reference renderer",
+			"summary": "The open standard for returning a live, interactive 3D scene as a first-class MCP tool result, with a framework-free reference renderer that displays any conformant artifact — including ones transformed from other tools.",
+			"link": "/spatial-mcp",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "launch",
 			"title": "Stablecoins Market Cap & Peg Health",
 			"summary": "Every major stablecoin ranked by circulating market cap, with live peg health, backing mechanism (fiat-backed, crypto-backed, algorithmic), and the chains it lives on. Live from DeFiLlama.",
 			"link": "/stablecoins",
@@ -167,6 +177,17 @@
 			"tags": [
 				"feature",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
+			"title": "Bigger motion library, and two dead animation gestures fixed",
+			"summary": "Added 7 new baked clips to the animation library — Nod, Shrug, Point, Think, Turn, Jog, and a sitting-idle loop — retargeted onto the universal avatar rig alongside the existing 100+. Also fixed two silent no-ops: the 'sit' gesture's clip was missing from the manifest (AnimationManager couldn't find it, so avatars silently failed to sit), and the agent 'fidget' slot pointed at a clip that never existed (now maps to a real idle loop). Both are covered by new regression tests so they can't quietly break again.",
+			"link": "/animations",
+			"tags": [
+				"feature",
+				"fix"
 			]
 		},
 		{
@@ -401,6 +422,16 @@
 			"title": "Token-gated 3D embeds — holder-only interactive scenes",
 			"summary": "Turn an avatar or on-chain agent you own into a holder-only interactive 3D embed. Visitors must prove a real, server-verified on-chain balance — a signed wallet challenge plus a live Solana RPC read, never a number the browser reports — before the live scene renders; below the bar they see a designed locked teaser with a connect-wallet button. Defaults to gating on $THREE, but accepts any SPL token at runtime for other communities. New create_gated_embed MCP tool, plus a REST API and a paste-anywhere <three-d> embed snippet.",
 			"link": "/docs/token-gated-3d-embeds",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
+			"title": "Trending, bonding curve, launches, and whales join pump.fun search under the versioned API",
+			"summary": "GET /api/v1/pump/search shipped alone at first — now it has the rest of the family: GET /api/v1/pump/trending (momentum-ranked hot tokens), /curve (bonding-curve % to graduation, SOL in the curve, tokens remaining), /launches (every coin launched through three.ws, joined with the launching agent), and /whales (which wallets moved how much SOL, facts only — no invented bullish/bearish signal). All five are free, keyless, and discoverable via GET /api/v1. None of them fork an upstream implementation: trending/curve/whales share their engines with the free Crypto Data API's pump.fun endpoints, launches shares its query with the /launches page.",
+			"link": "/docs/api-reference",
 			"tags": [
 				"feature"
 			]

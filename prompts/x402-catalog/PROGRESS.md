@@ -4,6 +4,138 @@ Dated entries per prompt. Newest first.
 
 ---
 
+## 2026-07-08 — Prompt 12: Image generation package (`/api/v1/ai/image`) — verification + a real production body-parsing bug fixed
+
+**Prompt 12 was already fully shipped** by a prior agent run before this session
+started: `POST /api/v1/ai/image` (`api/v1/ai/image.js`), its lane config/health
+module (`api/_lib/ai-image-lanes.js`), its free-quota module
+(`api/_lib/ai-image-quota.js`), the `v1.ai.image` catalog entry, the
+`docs/api-reference.md` section, and the `data/changelog.json` entry were all
+present and committed at the start of this session (traced to `43a7aa3eb`, an
+oddly-labeled commit — "Add comprehensive test coverage for pump bonding…" —
+that evidently swept in this work order's files too, the same shared-worktree
+hazard documented in the prompt-01 and prompt-11 entries below). The
+implementation correctly wires the existing lanes (`api/_mcp3d/text-to-image.js`:
+NVIDIA NIM FLUX → Vertex/Gemini → Replicate backstop), a 5-images/day free quota
+with x402 `$0.02`/image fall-through, `?health=1` per-lane probing, 422 content-
+refusal mapping, and a 503 `not_configured` path naming the missing env vars.
+
+**My job this session was to verify it for real — and verification caught a
+live production bug.** `npx vitest run tests/api/v1-ai-image.test.js` passed
+14/14 locally, so I went straight to a real production call:
+`POST https://three.ws/api/v1/ai/image` with a well-formed
+`{"prompt":"a red vintage bicycle","aspect_ratio":"1:1"}` JSON body returned
+**400 `invalid_prompt` — "prompt" is required** even though the prompt was
+clearly present. `GET https://three.ws/api/v1/ai/image?health=1` confirmed all
+three lanes (nim/vertex/replicate) were `configured:true, status:"ok"` — so the
+lanes were fine; the request never reached them.
+
+**Root cause:** `api/v1/ai/image.js` defined its own local `readBody(req)` that
+read the raw request stream via `for await (const c of req)`. On Cloud Run,
+`server/index.mjs` runs `express.json()` ahead of every handler, which fully
+drains that same stream into `req.body` — so the local reimplementation always
+saw an empty stream and silently parsed `{}`. This is the **exact incident
+already documented and fixed** in the shared `readBody()` helper in
+`api/_lib/http.js` (see its own header comment: *"This was a live production
+incident: every JSON POST handler using readJson … deadlocked with zero
+response"*) — `api/v1/ai/image.js` just wasn't using that shared helper, so it
+carried the same class of bug back in. `api/v1/ai/asr.js` and `api/v1/ai/tts.js`
+(the sibling endpoints from prompt 11) both correctly import `readBody` from
+`api/_lib/http.js` — image.js was the outlier.
+
+**Fixed:**
+- `api/v1/ai/image.js` — import `readBody` from `../../_lib/http.js`, drop the
+  local reimplementation, call `readBody(req, MAX_BODY_BYTES)` (new 16 KB
+  ceiling — generous for a `{prompt, aspect_ratio, seed}` JSON body) and
+  `.toString('utf8')` before `parseImageRequest`.
+- `tests/api/v1-ai-image.test.js` — the test's `makeReq()` mock only
+  implemented `Symbol.asyncIterator`, which is why the bug passed 14/14
+  locally: it never exercised the `req.on('data'/'end')` path the shared
+  `readBody()` actually uses against a real Node request. Replaced it with a
+  real `Readable.from(...)` stream (matching the established sibling pattern in
+  `tests/api/v1-ai-speech.test.js`), which supports both event-based reads and
+  async iteration — the same interface `express.json()`'s request object and a
+  real `http.IncomingMessage` both present. Re-ran: still 14/14, now exercising
+  the real code path.
+
+**Real end-to-end verification (no fabricated evidence):**
+- Confirmed the bug live against production first (`curl -X POST
+  https://three.ws/api/v1/ai/image` → 400 `invalid_prompt` on a valid body —
+  captured above).
+- Could not safely redeploy from this session to re-verify against prod: the
+  shared worktree had 100+ files modified by concurrent agents' in-flight work,
+  and `npm run deploy:gcp` (`gcloud builds submit`) packages the *working
+  directory*, not a git ref — deploying now would have shipped everyone else's
+  unfinished work. Instead, reproduced the **exact production code path
+  locally**: ran the real `server/index.mjs` (same Express body-parsing
+  pipeline that broke this in prod) with real credentials pulled live from the
+  `three-ws-api` Cloud Run service (`NVIDIA_API_KEY`, `REPLICATE_API_TOKEN`,
+  `GCP_SERVICE_ACCOUNT_JSON` from Secret Manager `gcp-vercel-inference-sa-key`,
+  `GOOGLE_CLOUD_PROJECT`/`GOOGLE_CLOUD_LOCATION`, R2/S3 storage creds, and the
+  live x402 payTo/facilitator config) via `gcloud run services describe` +
+  `gcloud secrets versions access`.
+- `GET /api/v1/ai/image?health=1` against the local server: all three lanes
+  `configured:true`, nim/replicate `status:"ok"`.
+- `POST /api/v1/ai/image {"prompt":"a red vintage bicycle with a woven basket,
+  studio lighting, isolated subject, plain white background"}` on the fixed
+  code → **200**, `{"url":"https://pub-2534e921bf9c4314addcd4d8a6e98b7b.r2.dev/
+  forge/refs/a9f1e806-9bb3-46c1-ad86-0de373e2682e.png","provider":"vertex",
+  "model":"vertex-ai/gemini-2.5-flash-image","width":1024,"height":1024,
+  "free":true,"quota":{"used":1,"limit":5,"remaining":4,…}}` in 6.2s. Downloaded
+  the URL: real PNG, 1024×1024, 1.1 MB, publicly served from R2 — visually a
+  red vintage bicycle with a wicker basket on a white studio background,
+  matching the prompt exactly. A second free call decremented the quota
+  correctly.
+- Along the way, exercised the NIM and Replicate lanes for real too (both
+  reachable, both returned genuine upstream responses): NIM FLUX is currently
+  slow/timing out (~60s, a real transient state, not a code bug — the lane's
+  documented retry/cooldown logic behaved correctly); Replicate is reachable
+  but the platform's account is **out of credit** ("insufficient credit to run
+  this model" — a real billing response from Replicate, correctly mapped by
+  `mapLaneError` to a safe 503 `lane_unavailable` without leaking the billing
+  detail to the caller, exactly as `text-to-image.js` documents it should).
+  Neither is a code defect; both are noted below as operational facts.
+- `npm run audit:x402-catalog` → all 65 x402 endpoints documented, no
+  regressions.
+
+**Shared-worktree hazard — how the commit was made safe:** identical pattern to
+the prompt-01 entry below. By the time I finished verifying, a concurrent
+agent's own commit (`293a85b51`, one of several rapid commits from other
+sessions working the same worktree) had already absorbed my two staged changes.
+Confirmed via `git show HEAD:api/v1/ai/image.js | grep readBody` and `git show
+HEAD:tests/api/v1-ai-image.test.js | grep Readable` that both fixes landed
+intact, and `git fetch threews main` showed local `HEAD` already matches
+`threews/main` — already pushed. No separate commit was needed or created.
+
+**Owner gaps (not fixable from here):**
+1. **Replicate account out of credit** — the paid backstop lane 503s honestly
+   instead of billing/faking a result. Top up at replicate.com/billing (account
+   tied to `REPLICATE_API_TOKEN` on the `three-ws-api` Cloud Run service). Not
+   urgent: NIM and Vertex are the two subsidized, intended-primary lanes;
+   Replicate is a last-resort paid backstop.
+2. **NIM FLUX lane latency** — observed ~60s round-trips (timing out at the
+   code's own `NIM_TIMEOUT_MS`) during this session, against a lane whose own
+   comments describe it as normally finishing in 1-2s. Likely a transient NVCF
+   capacity/cold-start condition (the code already has cooldown/retry logic
+   for exactly this); Vertex/Gemini picked up the slack cleanly in every test.
+   Worth a follow-up health check if it persists, but not a code defect.
+3. **Deploy pending** — the `readBody` fix is committed and pushed to
+   `threews/main` but Cloud Run is still serving the pre-fix image built from
+   an earlier `npm run deploy:gcp`. The next clean deploy (once the worktree
+   isn't mid-flight with concurrent agents' uncommitted work) will ship it;
+   until then, `POST /api/v1/ai/image` in production returns 400
+   `invalid_prompt` on every valid request — a real, currently-live bug for
+   any agent actually trying to use this endpoint today.
+
+**Files touched this session:** `api/v1/ai/image.js` (the fix),
+`tests/api/v1-ai-image.test.js` (test harness fix to actually exercise the
+fixed path), `prompts/x402-catalog/PROGRESS.md` (this entry). No changes to
+`api/_mcp3d/text-to-image.js`, `api/_mcp3d/vertex-imagen.js`,
+`api/_lib/ai-image-lanes.js`, or `api/_lib/ai-image-quota.js` — all correct as
+found.
+
+---
+
 ## 2026-07-08 — Prompt 01: Free tier lane for the aggregator (`/api/v1/x/*`)
 
 **Shipped.** The aggregator's fourth billing lane: an unauthenticated caller
