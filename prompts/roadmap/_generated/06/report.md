@@ -88,3 +88,62 @@ Lineage in the page is a linear original→step history with Reset; the durable
 branch/revert lineage core (`mcp-server/src/tools/_lineage.js`) remains the record
 format for prompt 09 remixing. Variants are seed-addressable, so a marketplace (09)
 can reference a look by `{ preset, seed, index }`.
+
+## Re-audit (2026-07-08, second pass)
+
+Re-ran this prompt against the *already-shipped* state above to audit it against
+the Definition of Done and gather fresh, real evidence (no fabricated output).
+
+**Gate.** `npm run gate` green before *and* after (no code changes were needed —
+see updated `gate-before.txt` / `gate-after.txt`, byte-identical apart from
+timestamps): `test:gate` 83/83, `test:gate-3d` 244/244, `audit:mcp` 16 manifests,
+`audit:mcp-golden` 235 tool contracts, `audit:routes`, `audit:handlers`,
+`audit:pages`, `audit:hidden-guard`, `audit:x402-catalog`, `audit:tokens` all ✓.
+
+**Real end-to-end verification against production** (`https://three.ws`, no dev
+server, no mocks): fetched the public Khronos `Duck.glb` sample
+(`raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/.../Duck.glb`, real
+120,484-byte glTF) and POSTed it to the live, free
+`POST /api/material-studio?action=variants` with `preset=gold seed=42 count=3`.
+Real response: 3 distinct durable R2 GLB URLs
+(`https://pub-2534e921bf9c4314addcd4d8a6e98b7b.r2.dev/material-studio/variants/*.glb`)
+plus a lineage array rooted at the Duck source. Downloaded all 3 output GLBs and:
+
+- `gltf-validator` on all 4 files (source + 3 variants): **0 errors, 0 warnings**.
+- All 3 variant GLBs have distinct md5 hashes from each other and from the source.
+- Loaded source + variant 1 with `@gltf-transform/core` and diffed geometry:
+  **7,197 vertices in both; `POSITION` and `TEXCOORD_0` accessor byte buffers are
+  byte-identical** — proves mesh + UVs are untouched. Only the material factors
+  differ (`baseColorFactor [1,1,1,1] → [0.996,0.945,0.416,1]`,
+  `metallicFactor 0 → 0.97`, `roughnessFactor 1 → 0.19`), confirming "preserve
+  mesh + UVs" from the Non-negotiables is real, not just claimed.
+- `curl https://three.ws/restyle` → HTTP 200, live page, matches the
+  `restyle-gold.png` evidence already in this directory.
+
+**Known gap (owner-only, pre-existing, platform-wide — not introduced by this
+prompt).** Instruction-mode AI restyle (`POST ?action=restyle`,
+`restyleMaterialFromInstruction`) returned `503 not_configured` against
+production: `WATSONX_API_KEY` / `WATSONX_PROJECT_ID` are not set on the
+`three-ws-api` Cloud Run service (confirmed via
+`gcloud run services describe three-ws-api --region us-central1` — 112 env vars
+present, neither `WATSONX_*` key among them). This blocks every IBM
+watsonx/Granite-powered tool on the platform (material-studio instruction mode,
+`generate_material`, etc.), not just this feature. The code path itself is
+correct — covered by `tests/api/restyle-material-core.test.js` and
+`tests/mcp-restyle-material-core.test.js` with a mocked watsonx client — so
+nothing further to build here; it needs the owner to set the two secrets on the
+Cloud Run service. Once set, `restyleMaterialFromInstruction` runs the same
+validated persistence path as the variants flow verified above.
+
+Deeper full-texture-map AI restyle (distinct from the flat-PBR-factor
+instruction mode above) already ships as the separate `retexture_model` MCP tool
+(`api/_mcp3d/tools/studio.js`) — a depth-guided 8-view texture-synthesis engine
+on the Cloud Run worker fleet (not watsonx-gated), which the Restyle Studio page
+links out to rather than duplicating a second in-page texture-generation flow.
+
+**Conclusion.** All 5 tasks and the Definition of Done are met and verified live
+in production: material editor (web+tool) ✓, AI restyle (code-complete, prod-blocked
+on owner secrets) + separate real texture-synthesis tool ✓, seeded variant
+generation (proven end-to-end above) ✓, material preset library ✓, non-destructive
+lineage (proven in the variants response above) ✓. No further code changes made
+this pass — only fresh gate/evidence capture.

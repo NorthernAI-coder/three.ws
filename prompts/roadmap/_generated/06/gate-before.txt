@@ -13,8 +13,8 @@
 
  Test Files  7 passed (7)
       Tests  83 passed (83)
-   Start at  00:47:29
-   Duration  2.99s (transform 2.12s, setup 0ms, import 4.11s, tests 2.85s, environment 2ms)
+   Start at  07:11:34
+   Duration  2.66s (transform 866ms, setup 0ms, import 2.05s, tests 2.64s, environment 1ms)
 
 [test-gate] ✓ all critical-path tests passed
 
@@ -27,8 +27,8 @@
 
  Test Files  4 passed (4)
       Tests  244 passed (244)
-   Start at  00:47:33
-   Duration  665ms (transform 286ms, setup 0ms, import 805ms, tests 370ms, environment 3ms)
+   Start at  07:11:37
+   Duration  376ms (transform 177ms, setup 0ms, import 489ms, tests 210ms, environment 1ms)
 
 
 > 3d-agent@1.5.2 audit:mcp
@@ -39,13 +39,13 @@
 > 3d-agent@1.5.2 audit:mcp-golden
 > node scripts/audit-mcp-golden.mjs
 
-[audit:mcp-golden] 223 hosted MCP tool contracts match the golden fixture
+[audit:mcp-golden] 235 hosted MCP tool contracts match the golden fixture
 
 > 3d-agent@1.5.2 audit:routes
 > node scripts/verify-routes.mjs
 
-Route verify — 293 catalog pages, 1058 main routes, 1 post-filesystem routes.
-  modeled dist files: 1505 · canonical-covered: 293 · literal page routes checked for shadows: 443
+Route verify — 301 catalog pages, 1069 main routes, 1 post-filesystem routes.
+  modeled dist files: 1532 · canonical-covered: 301 · literal page routes checked for shadows: 454
   filesystem boundary (handle:filesystem) present: yes
 
 ℹ 1 advisory note(s):
@@ -56,12 +56,12 @@ Route verify — 293 catalog pages, 1058 main routes, 1 post-filesystem routes.
 > 3d-agent@1.5.2 audit:handlers
 > node scripts/audit-empty-handlers.mjs
 
-✓ audit-empty-handlers: all API handlers export a body (1571 checked)
+✓ audit-empty-handlers: all API handlers export a body (1632 checked)
 
 > 3d-agent@1.5.2 audit:pages
 > node scripts/audit-page-index.mjs
 
-Route audit: 140 auditable page routes, 293 documented in pages.json.
+Route audit: 142 auditable page routes, 301 documented in pages.json.
 ✓ Every auditable page route is documented.
 
 ℹ 6 manifest page(s) have no `added` date (omitted from /changelog). Fine for legacy pages; add dates as you touch them.
@@ -69,16 +69,15 @@ Route audit: 140 auditable page routes, 293 documented in pages.json.
 > 3d-agent@1.5.2 audit:hidden-guard
 > node scripts/audit-hidden-guard.mjs
 
-✓ audit-hidden-guard: all 258 pages resolve the [hidden] guard
+✓ audit-hidden-guard: all 265 pages resolve the [hidden] guard
 
 > 3d-agent@1.5.2 audit:x402-catalog
 > node scripts/audit-x402-catalog.mjs
 
+✓ audit-x402-catalog: all 65 x402 endpoints are documented
 
-✗ 1 x402 endpoint(s) missing from docs/x402-endpoints.md:
+> 3d-agent@1.5.2 audit:tokens
+> node scripts/audit-token-drift.mjs
 
-  /api/x402/embody
-
-Every api/x402/*.js endpoint must be listed in the catalog (docs/x402-endpoints.md).
-Add a row with its slug, default price, and what it returns — see the existing tables.
-
+✓ token drift unchanged: 0 hardcoded token-hex(es) (baseline 0).
+EXIT:0
