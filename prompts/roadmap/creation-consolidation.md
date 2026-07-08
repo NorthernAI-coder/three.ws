@@ -1,7 +1,38 @@
 # Creation Surface Consolidation — Audit & Plan
 
-**Status:** Audit complete, consolidation not started
+**Status:** Phase 1 (additive hub) shipped 2026-07-08. Phase 2 not started — see note below.
 **Audited:** 2026-06-12
+
+---
+
+## Progress note — 2026-07-08
+
+**Phase 1 (§4, step 1–3: rebuild `/create` as the intent hub) is shipped.** `pages/create.html`
+now opens with a "What do you want to create?" section — four intent cards (Build an AI agent →
+`/create-agent`, Make a 3D avatar → same-page anchor, Generate a 3D model → `/forge`, Launch a
+token world → `/launchpad`, with a footnote pointing at `/play` for live worlds) — one question
+deep, matching §3.1 exactly. The page's original content (hero "Customize a base avatar" editor
+card + the full secondary grid: describe-to-3D, template picker, selfie scan, talking video,
+Cosmos, GLB upload, Avatar Studio) is **untouched and still fully wired** — it now lives under the
+"Make a 3D avatar" anchor as that intent's answer, exactly as §3.1 specifies ("The current
+template-picker content of `/create` survives as the 'From scratch / templates' path"). No JS
+handlers, IDs, or existing behavior were changed — only new markup/CSS was added above it.
+`data/pages.json`'s `/create` entry and the page's meta/OG/JSON-LD were updated to describe the
+hub instead of the stale "agent wizard" copy that predated this pass. A changelog entry was added
+(`data/changelog.json`, tag `improvement`, dated 2026-07-08, title "/create is now the front door
+for everything you can build").
+
+**Phase 2 (§4 steps 4–10: kill duplicates per clusters C1–C6, plus all 301 redirects in the
+redirect table) is deliberately NOT done.** Nothing was deleted, merged, or redirected — every
+page named in §1/§2 (`/scan`, `/create/selfie`, `/agent/new`, `/create/character`,
+`/create-character`, `/avatar-edit`, `/import/rpm`, `/embed.html`, `/create-prompt`,
+`/create-review`, `/avatar-studio-demo`, `/avatar-embed`, `/bulk-launch`, etc.) is exactly as it
+was before this pass, still live, still linked from wherever it was linked from. `vercel.json` was
+not touched. This phase touches live production routes with real traffic and hard-to-reverse
+redirects — it needs a dedicated pass with explicit owner review of the C1–C5 merge decisions
+(especially the open decisions in §5: which photo→avatar implementation wins, what happens to
+`/start`, where `/pose` lives) before any code changes. A future session should pick up Phase 2
+here, not assume this consolidation is fully executed.
 **Problem:** 28 creation-related surfaces (18 nav-linked, 10 orphaned) presented as a flat menu of peer options. Users can't tell which tools are products, which are steps, and which are duplicates. The platform has no creation funnel — it has a pile of doors.
 
 **Goal:** One front door (`/create` hub organized by user intent), one canonical surface per capability, every tool's "done" state handing off to the next stage of the pipeline: **avatar → agent → deploy (embed / world / token)**.
