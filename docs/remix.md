@@ -14,10 +14,25 @@ free OpenAI 3D Studio app.
 | Surface | Auth | What it does |
 |---|---|---|
 | `POST /api/forge-iterate` | `x-forge-client` | Conversational iteration, ownership-preserving (see below) |
-| `GET /api/remix-feed` | none (free) | Browse remixable assets with provenance + royalty terms |
+| `GET /api/remix-feed` | none (free) | Browse remixable assets with provenance + royalty terms; supports `category`, `q`, `sort` |
 | `POST /api/remix-feed` `{action:'publish'}` | `x-forge-client` | Opt your own finished model into the bazaar, set license/royalty/payout wallet |
 | `GET /api/remix-feed?action=lineage&root=<id>` | none (free) | Reconstruct a model's full refinement thread |
+| `GET /api/remix-feed?action=trending` | none (free) | The most-remixed published assets, platform-wide |
+| `GET /api/creations-leaderboard` | none (free) | Top creators by remix count + real on-chain royalty earned |
 | `POST /api/x402/remix-asset` | x402 ($0.25 USDC) | Pay to remix a source; a royalty routes to its creator on-chain |
+
+## The Creator Gallery — [/creations](https://three.ws/creations)
+
+The discovery + remix front door (roadmap prompt 09): search, filter, and sort
+the bazaar with a live `<model-viewer>` preview per card, a **Trending
+remixes** strip and a **Top creators** leaderboard, a one-click "Remix — $0.25"
+action wired to the same `window.X402.pay()` flow as Forge Studio, a lineage
+viewer per card, and a publish form for opting your own creation in without
+leaving the page. It reuses every endpoint on this page — no parallel data
+store — and links out to `/minted` (tokenized mints) and an agent's `/agents/:id`
+profile, which now surfaces a **3D Creations** card (every asset that agent has
+minted as an NFT, via `GET /api/v1/tokenized/launches?agent_id=`) when the
+creator behind a listing is an on-chain-identified agent.
 
 Provenance is stored on the existing `forge_creations` rows — no parallel store:
 `parent_creation_id`, `refine_instruction`, `lineage_index`, `remixable`,
