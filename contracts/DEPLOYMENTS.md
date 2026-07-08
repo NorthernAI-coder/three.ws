@@ -409,6 +409,21 @@ one real `buy()`; and paste the BSC tx hash plus the resulting
 GreenfieldScan once the cross-chain ack settles) per
 `prompts/bnb-chain/10-vault-contract.md`'s definition of done.
 
+**Prompt 11 (vault unlock API) local-anvil proof, 2026-07-08 — mocked-hubs
+deploy script added:** [`script/DeployGreenfieldVaultMocked.s.sol`](script/DeployGreenfieldVaultMocked.s.sol)
+deploys `MockCrossChain`/`MockPermissionHub`/`MockGnfdAccessControl` (the
+same mocks `test/GreenfieldVault.t.sol`'s 34-test suite already validates)
+plus a real `GreenfieldVault` wired to them, on a local anvil chain — LOCAL
+TEST-ONLY, never point it at a real network. Used to prove `api/vault/*`
+(list/status/unlock) against a genuinely deployed contract + real
+transactions before a funded deployer key exists; full run log in
+`prompts/bnb-chain/PROGRESS.md`'s prompt 11 entry. One real bug was caught
+and fixed by this run: `getVaultLogs()` resolved its default `toBlock` via
+viem's `getBlockNumber()`, which memoizes for several seconds by default —
+two calls made back-to-back (e.g. right after a `buy()`/settlement tx, the
+exact shape of a real poll) could read a stale `toBlock` and silently miss
+the newest events. Fixed with `cacheTime: 0` on that one call.
+
 ## Notes
 
 - Addresses are authoritative in [`src/erc8004/abi.js`](../src/erc8004/abi.js) (`REGISTRY_DEPLOYMENTS`).

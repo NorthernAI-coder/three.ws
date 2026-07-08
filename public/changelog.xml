@@ -199,6 +199,14 @@
 			<description>New /bnb landing page tells the whole BNB Chain story: gasless agent onboarding (a zero-balance wallet mints an on-chain identity, no faucet), an on-chain-gated 3D vault backed by Greenfield storage permissions, and a real-time on-chain world riding BNB's ~0.45s blocks — each claim traced to what we independently verified live, never BNB's own roadmap promises. The page embeds a live block-time widget that measures the real average off a public RPC on every load, and each feature card auto-detects whether its track has actually shipped on this deployment, showing an honest &quot;coming soon&quot; instead of a dead link until it has.</description>
 		</item>
 		<item>
+			<title>BNB vault unlock API: pay, get gated, decrypt — built, blocked on funding</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-08:BNB vault unlock API: pay, get gated, decrypt — built, blocked on funding</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The BNB Greenfield 3D vault now has its buyer-facing API: browse what's listed, check whether a purchase and its cross-chain storage-permission grant have settled, and — once both are confirmed on-chain — unlock a one-time-use, per-buyer encryption key for the model. A buyer proves control of their wallet with a signed message, which doubles as the key the vault re-wraps the content key to, so a captured response is useless to anyone but that buyer. Proven end-to-end against a real locally-deployed copy of the vault contract (real transactions, real event logs, real pending-then-granted state transitions) — full public rollout is pending the same funded BSC testnet deployer key blocking the rest of this track.</description>
+		</item>
+		<item>
 			<title>Cleaned up the x402 storefront listing</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-07-08:Cleaned up the x402 storefront listing</guid>
