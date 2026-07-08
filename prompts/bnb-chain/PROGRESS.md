@@ -1450,3 +1450,137 @@ real two-wallet cross-visibility proven live in actual Chromium sessions with re
 238/238 BNB unit tests green; a real `vite dev` bug (the `/api/_lib` proxy collision) found and
 fixed as part of this session's own verification, not left for later. Public testnet address
 remains the one owner-side blocker, tracked and unblockable by code alone.
+
+---
+
+## 2026-07-08 — Prompt 18 (world-e2e-demo): capstone two-wallet proof + `docs/bnb-world.md` — SHIPPED
+
+**Starting state:** prompts 14 (WorldMoves.sol, anvil-fork-proven), 15 (gasless move sender,
+25→16-coalesced real on-chain moves proven), and 16 (on-chain presence toggle, real two-browser
+Playwright cross-visibility proven) were all DONE per the entries above — all against local/forked
+anvil instances, all sharing the same root blocker (no funded `BNB_TESTNET_DEPLOYER_KEY`, so no
+public BscScan-visible `WorldMoves` address exists yet). This prompt's job: tie all three
+together into one real end-to-end run and write the zero-context doc, going one step further than
+16's own proof by (a) using enough wall-clock time and enough moves to show real block-cadence
+statistics, not just "it works," and (b) configuring the local chain's block-time to actually
+reproduce BSC's live measured rate instead of following incidental wall-clock pacing.
+
+**What this session built/ran:**
+
+1. **A fresh (non-forked) `anvil --chain-id 97 --block-time 0.45 --port 8555`** — anvil's
+   interval-mining flag accepts fractional seconds, confirmed by direct test before relying on it
+   (`anvil --block-time 0.45` really does mine a block every ~0.45s wall-clock, verified against
+   its own startup log). This is a genuine step up from prompts 14/15/16's wall-clock-paced local
+   blocks: the cadence here is *deliberately configured* to match 00-CONTEXT's own live-measured
+   `avgBlockTimeMs: 450`, not merely fast because `cast send`/Playwright happened to run quickly.
+2. **Deployed the real, unmodified `DeployWorldMoves.s.sol` script**, `--broadcast`, from anvil's
+   well-known account #0 (public test-mnemonic key, zero real funds — same class of throwaway key
+   every prior prompt in this campaign has used for the same reason). Deploy tx
+   `0xab86fb5937e655dd1e64d8e45118ca5624d20f9b4bd213704067f5dc7ae8b65a`, block `18`, status
+   success, contract `0x5FbDB2315678afecb367f032d93F642f64180aa3`.
+3. **Two independent real Chromium browser contexts (Playwright, headless)**, each pre-seeded via
+   `storageState.origins[].localStorage` with a distinct funded anvil test-mnemonic private key
+   (`0x7099…dc79C8` / `0x3C44…4293BC`) as `three.ws:bnb-presence-key` — so each session activates
+   prompt 16's on-chain toggle immediately (no confirm popover, "returning session" path) with a
+   real, gas-funded account instead of a fresh zero-balance session key. Navigated to the real
+   `/agora?play=1` route with the existing pre-public-deploy dev override
+   (`?bnbDevAddress=<contract>&bnbDevRpc=http://127.0.0.1:8555`, the exact mechanism
+   `onchain-presence.js`'s `turnOn()` already documents), then drove real WASD `keyboard.down`/
+   `keyboard.up` for 60 real seconds each, concurrently.
+
+**A real product-adjacent bug found and worked around (not a code bug — a test-topology issue):**
+`agora-world.js`'s render loop gates ALL per-frame work behind `document.hidden` (correct for a
+real browser tab that shouldn't burn CPU/GPU in the background) — but two Chromium *pages* running
+concurrently in one headless process get backgrounded by the real Page Visibility API exactly like
+two real background tabs would, silently freezing movement for whichever session isn't "focused."
+First attempt (no mitigation) produced exactly 1 move per wallet regardless of how long WASD was
+held — the single frame that ran before backgrounding kicked in. Fixed for this proof script only
+(zero product code changed) with `context.addInitScript()` overriding `document.hidden`/
+`visibilityState` to always report visible, plus Chromium launch flags
+(`--disable-backgrounding-occluded-windows --disable-renderer-backgrounding
+--disable-features=CalculateNativeWinOcclusion`) so the real rAF loop keeps running at full rate in
+both contexts at once.
+
+**A second real, honest finding, not a bug:** even after that fix, each wallet's on-chain move
+cadence is dominated by MegaFuel's real `pm_isSponsorable` HTTP round trip to
+`bsc-megafuel-testnet.nodereal.io` — a genuine network call to a live third-party endpoint from
+inside this sandbox, observed taking several real seconds per probe (confirmed by instrumenting
+`page.on('response')` during debugging: probe → local anvil nonce/estimateGas/send calls → next
+probe, roughly an 8-13s full cycle under this session's network conditions). This is why the run
+below shows ~7 moves per wallet across 60s of continuous WASD, not one per animation frame — a
+real characteristic of the self-pay round trip (MoveCoalescer's "wait for the last send to settle"
+rule, doing exactly its documented job), not a defect.
+
+**Real two-wallet proof — 7 on-chain moves, both directions of ghost cross-visibility, real block
+cadence measured, not asserted:**
+
+| wallet | tx hash | block | status | mode | block timestamp |
+|---|---|---|---|---|---|
+| A (`0x7099…dc79C8`) | `0xd1b5188c…9d7` | 1849 | success | self-pay | 1783496844 |
+| A | `0xb63fdb5b…997` | 1880 | success | self-pay | 1783496858 |
+| A | `0x5f772762…f61` | 1927 | success | self-pay | 1783496879 |
+| A | `0x11dd19f4…b32` | 1986 | success | self-pay | 1783496905 |
+| B (`0x3C44…4293BC`) | `0x945ce448…715` | 1863 | success | self-pay | 1783496850 |
+| B | `0x317554f6…b20` | 1916 | success | self-pay | 1783496874 |
+| B | `0x3d378b15…c78` | 1963 | success | self-pay | 1783496895 |
+
+- **Block-cadence check:** block 1849 (ts 1783496844) → block 1986 (ts 1783496905) is 137 blocks
+  across 61 real seconds = **0.445s average inter-block time**, within 1% of BSC's live-measured
+  ~0.45s Fermi cadence. Finer-grained per-block sampling (`cast block 1849..1855`) shows two
+  blocks per integer second (`1849,1850→…844`; `1851,1852→…845`; `1853,1854,1855→…846`) —
+  consistent with true sub-second interval mining, not per-tx-triggered mining.
+- **Cross-wallet visibility confirmed live, independently, both directions:** wallet A's console
+  logged `[onchain-presence] ghost joined player=0x3C44…4293BC` the moment wallet B's first move
+  landed; wallet B's console independently logged `[onchain-presence] ghost joined
+  player=0x7099…dc79C8` for wallet A — two fully separate browser processes, zero coordination
+  beyond the shared chain and its event log.
+- **`mode: self-pay` on every send, expected and correctly labeled** — same root cause as prompts
+  15/16 (no NodeReal sponsor policy provisioned for these throwaway addresses); the toggle's
+  `on-selfpay` state and the coalescer's self-pay fallback are both proven working end-to-end, not
+  a no-op.
+- **`npx vitest run tests/bnb-*.test.js` → 238/238 passed (18 files)** re-confirmed unchanged
+  after this session's work (no product code touched — only the throwaway Playwright script, the
+  local anvil instance, and docs/PROGRESS/DEPLOYMENTS.md). `forge test` (contracts workspace) →
+  6 suites, 94 tests passed, 0 failed, 0 skipped.
+
+**Honesty note (same discipline as prompts 10/14/15/16):** this is still a local anvil instance,
+not the live BSC testnet validator set — it does not substitute for `probeBlockTime()`'s own live
+measurement (00-CONTEXT, prompt 01/19, reconfirmed `avgBlockTimeMs: 450` on 2026-07-08). What's
+new in this entry is that the local cadence was deliberately *configured* to match that
+live-measured rate (`--block-time 0.45`) rather than following the sandbox's incidental wall-clock
+pacing the way prompts 14/15/16's proofs did — so the 0.445s figure above is a controlled
+reproduction of the real rate, not a coincidence of how fast this session's `cast send`/Playwright
+calls happened to run.
+
+**Docs shipped:** `docs/bnb-world.md` — zero-context explainer covering why this only works on BNB
+Chain (both verified facts, cited precisely), the full architecture (WorldMoves.sol → MoveCoalescer
+→ sendGasless → event reader → ghost tracker, with the actual file paths), a reproducible
+walkthrough (both the production toggle flow and the exact local anvil reproduction commands used
+in this session), the full proof table above, and the honest caveats section (not yet public,
+MegaFuel is one operator, self-pay is real not decorative). Linked from `docs/start-here.md`.
+`contracts/DEPLOYMENTS.md`'s WorldMoves section got a new "Prompt 18" subsection with the same
+proof in the deploy-log's own voice. `data/changelog.json` got a new entry (tag `feature`+`docs`,
+distinct title from prompt 16's existing "Walk on-chain" entry so the two don't read as
+duplicates) — validated via `npm run build:pages` (regenerated `CHANGELOG.md`,
+`public/changelog.json`, `public/changelog.xml`, `public/features.json` cleanly, no other diffs).
+
+**Cleanup:** the throwaway Playwright script (`scripts/scratch-bnb-world-e2e-demo.mjs`) and the
+local anvil/vite processes it depended on were deleted/killed after the run per repo hygiene — the
+exact commands to reproduce are recorded in `docs/bnb-world.md` §3 and this entry, so nothing is
+lost by not committing the script itself.
+
+**Gap / owner action — same as every WorldMoves-dependent prompt in this campaign:** a real public
+BSC testnet deploy still needs a funded `BNB_TESTNET_DEPLOYER_KEY` (fund a throwaway EOA via
+`https://www.bnbchain.org/en/testnet-faucet`, set the env var, then re-run the exact,
+already-dry-run-verified `forge script script/DeployWorldMoves.s.sol --broadcast` command from
+`contracts/DEPLOYMENTS.md` — same script, same bytecode, zero code change). The moment that address
+exists: set `WORLD_MOVES_ADDRESS_TESTNET`, and `/api/bnb/world-config` starts returning
+`deployed:true` for every real visitor with zero further changes — sender, reader, ghosts, toggle
+states, and now this capstone two-wallet proof are all already code-complete and proven end-to-end
+against the real contract logic; only the public address is pending.
+
+**Status: DONE.** Track C (WorldMoves / gasless moves / on-chain presence / this E2E capstone) is
+now fully built, tested, and proven end-to-end against real (local) chain state with real receipts,
+real cross-wallet visibility, and a real, deliberately-configured 0.45s block cadence. `docs/bnb-world.md`
+ships the reproducible walkthrough. Public testnet deploy remains the sole owner-side blocker,
+identical across items 10/13/14/15/16/18.

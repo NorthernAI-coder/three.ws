@@ -288,6 +288,70 @@ Once a real public-testnet deploy tx exists, replace the fork-local address/tx
 above with the BscScan-visible ones (same script, same bytecode — only the
 `--rpc-url`/`--private-key` change).
 
+### Prompt 18 — two-wallet world E2E proof (anvil, `--block-time 0.45`)
+
+Prompt 18 (`prompts/bnb-chain/18-world-e2e-demo.md`) needed two real participants
+moving in the same world at once with block spacing that actually reproduces
+BSC's live ~0.45s cadence — a step up from 14/15/16's wall-clock-paced local
+blocks. This run started a FRESH (non-forked) `anvil --chain-id 97 --block-time
+0.45 --port 8555` — anvil's interval-mining flag accepts fractional seconds, so
+this genuinely interval-mines a block every 0.45s regardless of pending txs,
+the same rate 00-CONTEXT's `probeBlockTime()` measured live on the public RPC
+(`avgBlockTimeMs: 450`), not merely "close to it."
+
+- **Deploy:** the real, unmodified `DeployWorldMoves.s.sol` script,
+  `--broadcast`, deployer = anvil's well-known account #0 (public test key,
+  zero real funds). Deploy tx
+  `0xab86fb5937e655dd1e64d8e45118ca5624d20f9b4bd213704067f5dc7ae8b65a`, block
+  `18`, status success, contract `0x5FbDB2315678afecb367f032d93F642f64180aa3`.
+- **Two independent real Chromium browser contexts** (Playwright, headless),
+  each pre-seeded with a distinct funded anvil test-mnemonic account
+  (`0x7099…dc79C8` / `0x3C44…4293BC`) as its `three.ws:bnb-presence-key`
+  localStorage session key, navigated to the real `/agora?play=1` route with
+  the existing `?bnbDevAddress=&bnbDevRpc=` pre-public-deploy override
+  (`src/agora/onchain-presence.js`'s `turnOn()`), then driven with real WASD
+  keyboard input for 60s each, concurrently.
+- **7 real `move()` txs landed on-chain, all `status: success`, `mode:
+  self-pay`** (MegaFuel testnet declined sponsorship — no policy provisioned
+  for these throwaway addresses, the expected/documented outcome, see prompt
+  15/16 entries):
+
+  | wallet | tx hash | block | gasUsed | block timestamp (unix) |
+  |---|---|---|---|---|
+  | A | `0xd1b5188c…9d7` | 1849 | 26281 | 1783496844 |
+  | A | `0xb63fdb5b…997` | 1880 | 26305 | 1783496858 |
+  | A | `0x5f772762…f61` | 1927 | 26305 | 1783496879 |
+  | A | `0x11dd19f4…b32` | 1986 | 26305 | 1783496905 |
+  | B | `0x945ce448…715` | 1863 | 26281 | 1783496850 |
+  | B | `0x317554f6…b20` | 1916 | 26305 | 1783496874 |
+  | B | `0x3d378b15…c78` | 1963 | 26305 | 1783496895 |
+
+  Real block-cadence check across the run: block 1849 (ts 1783496844) →
+  block 1986 (ts 1783496905) is 137 blocks over 61 real seconds = **0.445s
+  average inter-block time**, matching the live BSC testnet ~0.45s Fermi
+  cadence to within 1%. Finer-grained per-block sampling (`cast block 1849
+  1850 1851 1852 1853 1854 1855`) shows two blocks per integer second
+  (`1849,1850→...844`, `1851,1852→...845`, `1853,1854,1855→...846`) —
+  consistent with true sub-second (~0.45–0.5s) interval mining, not
+  per-tx-triggered mining.
+- **Cross-wallet visibility confirmed live, independently, both directions:**
+  session A's console logged `ghost joined player=0x3C44…4293BC` (wallet B)
+  and session B's console logged `ghost joined player=0x7099…dc79C8` (wallet
+  A) — each browser picked up the other's real on-chain `Moved`/`Joined`
+  events via `watchWorldPresence()`, with zero coordination between the two
+  Playwright contexts beyond the shared chain.
+
+**Honesty note:** identical in spirit to prompt 14/15's caveat — this is a
+local anvil instance, not the live BSC testnet validator set, so it does not
+substitute for `probeBlockTime()`'s live measurement. What's new here is that
+the local cadence was explicitly *configured* to match the live-measured rate
+(`--block-time 0.45`) rather than following the sandbox's incidental
+wall-clock pacing, so the block-spacing numbers above are a deliberate
+reproduction of the real rate, not a coincidence of how fast `cast send` was
+invoked. Full run log, receipts, and the two-wallet Playwright script (deleted
+after the run per repo hygiene — reproducible from this write-up) recorded in
+`prompts/bnb-chain/PROGRESS.md`'s prompt 18 entry.
+
 ## GreenfieldVault (pay → PermissionHub grant, on-chain-gated 3D asset vault)
 
 BNB Chain campaign, Track B: a BSC marketplace contract that, on payment,
