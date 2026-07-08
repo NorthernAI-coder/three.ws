@@ -454,6 +454,10 @@ All bundle responses ship `access-control-allow-origin: *` and `cross-origin-res
 
 ## Changelog
 
+### 2026-07-08 (embed v1 sibling runtime, not an `<agent-3d>` version bump)
+
+- Added **[Token Gating](#token-gating)**: server-verified on-chain SPL-balance gating for the embed v1 asset resolver (`/api/embed/resolve`, `<three-d>`) — gate config, the `gate-verify` SIWS flow, resolver locked/unlocked responses, short-lived access tokens, anti-abuse rate limits, and the widget's locked-state UI contract.
+
 ### v0.2 (2026-04-18)
 
 - Added **Delegations (optional, v0.2+)** section: delegation discovery (manifest + metadata paths), host `permissions` / `permissions-bearer` attributes, five post-message types following the `host.*` / `embed.*` naming convention (`host.permissions.query`, `embed.permissions.query`, `host.permissions.redeem`, `embed.permissions.redeemed`, `embed.permissions.error`), Claude artifact and LobeHub host profiles, and security requirements.
@@ -732,6 +736,56 @@ When `interactive`, LobeHub's wallet bridge calls `host.getSigner()` and returns
 **Bearer token handling** — hosts MUST NOT set `permissions="relayer"` without a valid, owner-provided `permissions-bearer` value. If the attribute is absent or empty when `permissions="relayer"` is requested, the embed MUST silently fall back to `permissions="readonly"`.
 
 > **Future work (out of scope for v0.2):** multi-delegation chaining, session key delegation, and WebAuthn-gated redemption are explicitly deferred.
+
+## Token Gating
+
+> Scope note: this section specifies the **embed v1 asset resolver** (`GET /api/embed/resolve`, the `<three-d>`/`<three-agent>`/`<three-ws>` custom element in [public/embed/v1.js](../public/embed/v1.js) — see `/embed/v1/preview`) rather than the `<agent-3d>` element versioned above. It's the sibling embed runtime for avatars and on-chain agents resolved by `asset_id` (`"avatar:<uuid>"` or `"<chainId>:<agentId>"`); it lives in this spec for discoverability since it's the same embed-protocol family. A step-by-step guide is [docs/token-gated-3d-embeds.md](../docs/token-gated-3d-embeds.md).
+
+An embed asset MAY carry a **gate**: a requirement that a visitor hold at least `min_amount` of an SPL token (`mint`) on `chain` before the resolver hands back the real `glbUrl`. Gating is enforced entirely server-side — the resolver never trusts a client-reported balance — and applies to the *live interactive scene*, not a download link.
+
+### Gate config
+
+```json
+{ "mint": "FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump", "min_amount": 5000, "chain": "solana" }
+```
+
+| Field        | Required | Notes                                                                                     |
+| ------------ | -------- | ------------------------------------------------------------------------------------------ |
+| `mint`       | no       | SPL token mint. Defaults to `$THREE` — the coin-agnostic-plumbing exception in CLAUDE.md; three.ws never markets or defaults to any other mint. |
+| `min_amount` | yes      | Minimum balance, positive number.                                                         |
+| `chain`      | no       | Only `"solana"` is supported today.                                                       |
+
+Persisted in `embed_gates` (one active row per `asset_id`; a creator changing the requirement revokes the old row and inserts a new one — see [api/_lib/migrations/20260708120000_embed_gates.sql](../api/_lib/migrations/20260708120000_embed_gates.sql)). Created via `POST /api/embed/gate-create` or the `create_gated_embed` MCP tool ([api/_mcp/tools/embed.js](../api/_mcp/tools/embed.js)) — both require the caller to own the underlying asset (avatar `owner_id`, or a linked EVM wallet matching the on-chain agent's `owner`).
+
+### Verification flow (`POST /api/embed/gate-verify`)
+
+Two-phase SIWS (Sign-In-With-Solana) challenge, the same shape [api/scene/gate-check.js](../api/scene/gate-check.js) uses for token-gated chat scenes:
+
+1. **Phase 1** — `{ assetId, walletAddress }` → `{ message, chain, gate }`. Issues a one-time nonce embedded in a human-readable message for the wallet to sign. Nothing is granted yet.
+2. **Phase 2** — `{ assetId, walletAddress, signature, message }` → `{ allowed, ... }`. Verifies the ed25519 signature, burns the nonce, then reads the wallet's **real** on-chain SPL balance via Solana RPC (multi-provider failover). On success, mints a short-lived signed access token; on failure, `{ allowed: false, reason, amount, minAmount }` (still `200` — never an opaque error).
+
+### Resolver behavior (`GET /api/embed/resolve?id=<assetId>&gate_token=<token>`)
+
+- **Ungated asset** — unchanged: `{ glbUrl, name, poster, kind, ... }`, cached at the edge.
+- **Gated, no/invalid/expired `gate_token`** — `200` with a locked payload, never the glbUrl:
+  ```json
+  { "gated": true, "locked": true, "name": "...", "poster": "...", "gate": { "gateId": "...", "mint": "...", "symbol": "$THREE", "minAmount": 5000, "chain": "solana" } }
+  ```
+- **Gated, valid `gate_token`** — the full ungated payload plus `{ "gated": true, "unlocked": true }`. Response is `Cache-Control: private, no-store` — never shared across visitors.
+
+### Access tokens
+
+A successful phase-2 check mints a compact HMAC-signed token (`api/_lib/embed-gate-token.js`, format `eg1.<payload>.<sig>`, 10-minute TTL) binding `{ gateId, assetId, wallet, mint, minAmount, amount }`. The resolver accepts it in place of re-running the chain read on every fetch, and rejects it once `exp` passes or the asset's active gate has changed (a superseded `gateId` never verifies again). The widget re-runs the verify flow on expiry — visitors are never left "unlocked" past the token's lifetime on a stale check.
+
+### Anti-abuse
+
+- `POST /api/embed/gate-create` — per-IP rate limit (authenticated, low-frequency creator action).
+- `POST /api/embed/gate-verify` — per-IP **and** per-wallet rate limits (the wallet bucket is the one that actually bounds a determined attacker, since IPs are cheap to rotate but a signing key is not).
+- Nonces are one-time (`embed_gate_nonces`, burned on use) and short-lived (10 minutes).
+
+### Locked/unlocked UI
+
+The `<three-d>` element renders a designed locked state in place of the 3D scene: a blurred poster teaser, "Hold {min_amount} {symbol} to unlock", and a real `<button>` "Connect wallet" CTA (keyboard-operable, `:focus-visible` ring, `aria-live` status region for errors). On unlock it fades into the live interactive scene (`prefers-reduced-motion` respected — the fade is disabled, not the state change). No wallet detected renders a "Get a wallet" link to https://phantom.app instead of a dead button.
 
 ## See also
 

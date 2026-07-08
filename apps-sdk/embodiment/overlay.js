@@ -174,9 +174,37 @@ export function mountOverlay(container, opts = {}) {
 		}
 	}
 
+	/**
+	 * Render the chain-state badge cluster from a mapChainStateToVisuals() result
+	 * (apps-sdk/embodiment/chain-visuals.js) — the same object EmbodimentStage's
+	 * setChainState() returns, so a caller drives both from one identity read.
+	 * Pass `null` to hide the cluster (no wallet binding requested for this
+	 * persona) — a designed absence, not an error state.
+	 * @param {{aura:object, cosmetic:object, muted:boolean, nameplate:(string|null)}|null} visuals
+	 */
+	function setIdentity(visuals) {
+		if (!visuals) {
+			els.identity.hidden = true;
+			return;
+		}
+		els.identity.hidden = false;
+		root.style.setProperty('--emb-aura', visuals.aura.color);
+		root.style.setProperty('--emb-cosmetic', visuals.cosmetic.color);
+		els.idAura.title = `Reputation: ${visuals.aura.label}`;
+		els.idBadge.textContent = `${visuals.cosmetic.glyph} ${visuals.cosmetic.label}`;
+		if (visuals.nameplate) {
+			els.idName.hidden = false;
+			els.idName.textContent = visuals.nameplate;
+		} else {
+			els.idName.hidden = true;
+		}
+		els.idMuted.hidden = !visuals.muted;
+		els.identity.classList.toggle('emb__identity--muted', !!visuals.muted);
+	}
+
 	function destroy() {
 		root.remove();
 	}
 
-	return { setName, setState, destroy, el: root };
+	return { setName, setState, setIdentity, destroy, el: root };
 }

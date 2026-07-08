@@ -391,6 +391,38 @@
 		"duration": 1.8333333730697632
 	},
 	{
+		"name": "nod",
+		"url": "/animations/clips/nod.json",
+		"label": "Nod",
+		"icon": "🙂",
+		"loop": false,
+		"duration": 1.7333333492279053
+	},
+	{
+		"name": "shrug",
+		"url": "/animations/clips/shrug.json",
+		"label": "Shrug",
+		"icon": "🤷",
+		"loop": false,
+		"duration": 2
+	},
+	{
+		"name": "point",
+		"url": "/animations/clips/point.json",
+		"label": "Point",
+		"icon": "👉",
+		"loop": false,
+		"duration": 2.7666666507720947
+	},
+	{
+		"name": "think",
+		"url": "/animations/clips/think.json",
+		"label": "Think",
+		"icon": "🤔",
+		"loop": false,
+		"duration": 2.933333396911621
+	},
+	{
 		"name": "rumba",
 		"url": "/animations/clips/rumba.json",
 		"label": "Rumba",
@@ -421,6 +453,14 @@
 		"icon": "😂",
 		"loop": false,
 		"duration": 8.333333015441895
+	},
+	{
+		"name": "sitloop",
+		"url": "/animations/clips/sitloop.json",
+		"label": "Sitting Idle",
+		"icon": "🪑",
+		"loop": true,
+		"duration": 4.300000190734863
 	},
 	{
 		"name": "taunt",
@@ -461,6 +501,22 @@
 		"icon": "🚶",
 		"loop": true,
 		"duration": 0.9666666388511658
+	},
+	{
+		"name": "turn",
+		"url": "/animations/clips/turn.json",
+		"label": "Turn",
+		"icon": "🔄",
+		"loop": false,
+		"duration": 1.6333333253860474
+	},
+	{
+		"name": "jog",
+		"url": "/animations/clips/jog.json",
+		"label": "Jog",
+		"icon": "🏃",
+		"loop": true,
+		"duration": 0.8333333134651184
 	},
 	{
 		"name": "dodge",
@@ -821,5 +877,13 @@
 		"icon": "🕯️",
 		"loop": false,
 		"duration": 4.416666507720947
+	},
+	{
+		"name": "sitidle",
+		"url": "/animations/clips/sitidle.json",
+		"label": "Sit Idle",
+		"icon": "🪑",
+		"loop": true,
+		"duration": 1
 	}
 ]

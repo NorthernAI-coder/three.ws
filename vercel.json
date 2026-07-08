@@ -1372,6 +1372,26 @@
 			"dest": "/embed/v1/preview.html"
 		},
 		{
+			"src": "/embed/v1/gated/?",
+			"headers": {
+				"content-security-policy": "frame-ancestors *; base-uri 'self'; object-src 'none'; report-uri /api/client-errors",
+				"x-content-type-options": "nosniff",
+				"referrer-policy": "strict-origin-when-cross-origin",
+				"cross-origin-resource-policy": "cross-origin"
+			},
+			"dest": "/embed/v1/gated.html"
+		},
+		{
+			"src": "/embed/v1/gated.html",
+			"headers": {
+				"content-security-policy": "frame-ancestors *; base-uri 'self'; object-src 'none'; report-uri /api/client-errors",
+				"x-content-type-options": "nosniff",
+				"referrer-policy": "strict-origin-when-cross-origin",
+				"cross-origin-resource-policy": "cross-origin"
+			},
+			"dest": "/embed/v1/gated.html"
+		},
+		{
 			"src": "/api/embed/resolve",
 			"headers": {
 				"access-control-allow-origin": "*",

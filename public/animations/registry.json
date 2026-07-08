@@ -36,21 +36,15 @@
         { "name": "header",    "label": "Header",     "icon": "⚽", "loop": false, "clip": "public/animations/clips/header.json",    "source_fbx": "public/animations/Header Soccerball.fbx",         "agent_slots": [] },
         { "name": "av-listening-music", "label": "Listening To Music", "icon": "🎧", "loop": true, "clip": "public/animations/clips/av-listening-music.json", "source_fbx": "public/animations/Listening To Music.fbx", "agent_slots": [] },
         { "name": "av-leaning-wall",    "label": "Leaning On Wall",    "icon": "🧱", "loop": true, "clip": "public/animations/clips/av-leaning-wall.json",    "source_fbx": "public/animations/Leaning On A Wall.fbx",  "agent_slots": [] },
-        { "name": "av-rap-dance",       "label": "Rap Dancing",        "icon": "🎤", "loop": true, "clip": "public/animations/clips/av-rap-dance.json",       "source_fbx": "public/animations/RapDancing.fbx",         "agent_slots": [] }
-      ]
-    },
-
-    "orphaned_fbx": {
-      "description": "FBX files that exist in public/animations/ but are NOT listed in scripts/animations.config.json. They have never been built into clips and are unreachable by the runtime. Add them to animations.config.json and run build-animations.mjs to activate them.",
-      "pipeline": null,
-      "status": "orphaned — not built, not in manifest",
-      "items": [
-        { "name": "Cover To Stand",   "source_fbx": "public/animations/Cover To Stand.fbx" },
-        { "name": "Goalkeeper Scoop", "source_fbx": "public/animations/Goalkeeper Scoop.fbx" },
-        { "name": "Jumping Down",     "source_fbx": "public/animations/Jumping Down.fbx" },
-        { "name": "Jumping Down 1",   "source_fbx": "public/animations/Jumping Down (1).fbx" },
-        { "name": "Jumping Down 2",   "source_fbx": "public/animations/Jumping Down (2).fbx" },
-        { "name": "Removing Driver",  "source_fbx": "public/animations/Removing Driver.fbx" }
+        { "name": "av-rap-dance",       "label": "Rap Dancing",        "icon": "🎤", "loop": true, "clip": "public/animations/clips/av-rap-dance.json",       "source_fbx": "public/animations/RapDancing.fbx",         "agent_slots": [] },
+        { "name": "nod",       "label": "Nod",         "icon": "🙂", "loop": false, "clip": "public/animations/clips/nod.json",     "source_fbx": "animation-sources/mx-nodding-head-yes-c9c91f89b96c.fbx",              "agent_slots": [] },
+        { "name": "shrug",     "label": "Shrug",       "icon": "🤷", "loop": false, "clip": "public/animations/clips/shrug.json",   "source_fbx": "animation-sources/mx-shoulder-shrug-c9c69537b96c.fbx",                "agent_slots": [] },
+        { "name": "point",     "label": "Point",       "icon": "👉", "loop": false, "clip": "public/animations/clips/point.json",   "source_fbx": "animation-sources/mx-pointing-with-arm-bent-c9c6947cb96c.fbx",        "agent_slots": [] },
+        { "name": "think",     "label": "Think",       "icon": "🤔", "loop": false, "clip": "public/animations/clips/think.json",   "source_fbx": "animation-sources/mx-thoughtfully-nodding-head-yes-c9c91939b96c.fbx", "agent_slots": [] },
+        { "name": "turn",      "label": "Turn",        "icon": "🔄", "loop": false, "clip": "public/animations/clips/turn.json",    "source_fbx": "animation-sources/mx-standing-180-left-turn-c9c96eaeb96c.fbx",        "agent_slots": [] },
+        { "name": "jog",       "label": "Jog",         "icon": "🏃", "loop": true,  "clip": "public/animations/clips/jog.json",     "source_fbx": "animation-sources/mx-jog-forward-c9d59296b96c-31.fbx",                "agent_slots": [] },
+        { "name": "sitloop",   "label": "Sitting Idle","icon": "🪑", "loop": true,  "clip": "public/animations/clips/sitloop.json", "source_fbx": "animation-sources/mx-sitting-with-breathing-idle-c9ccab1bb96c.fbx",   "agent_slots": [] },
+        { "name": "sitidle",   "label": "Sit Idle",    "icon": "🪑", "loop": true,  "clip": "public/animations/clips/sitidle.json", "source_fbx": null, "agent_slots": [], "note": "Hand-authored 2-key pose, no FBX source (commit 7a22e5993). Merged into manifest.json by build-animations.mjs from scripts/animations-extra-clips.json (previously orphaned — see known_issues history)." }
       ]
     },
 
@@ -198,23 +192,13 @@
       "celebrate": { "default_clip": "celebrate", "status": "active" },
       "concern":   { "default_clip": "defeated",  "status": "active" },
       "bow":       { "default_clip": "sitclap",   "status": "active" },
-      "point":     { "default_clip": "reaction",  "status": "active — note: maps to 'reaction'" },
-      "shrug":     { "default_clip": "defeated",  "status": "active — note: maps to 'defeated'" },
-      "fidget":    { "default_clip": "Fidget",    "status": "broken — no clip named 'Fidget' exists in manifest" }
+      "point":     { "default_clip": "reaction",  "status": "active — note: maps to 'reaction'. Dedicated 'point' clip now exists in the clips collection but DEFAULT_ANIMATION_MAP keeps the existing binding (behavior-change gate — see roadmap prompt 03)." },
+      "shrug":     { "default_clip": "defeated",  "status": "active — note: maps to 'defeated'. Dedicated 'shrug' clip now exists in the clips collection but DEFAULT_ANIMATION_MAP keeps the existing binding." },
+      "fidget":    { "default_clip": "av-waiting","status": "fixed 2026-07-08 — was 'Fidget' (no such clip, silent no-op); see resolved known_issues entry below" }
     }
   },
 
   "known_issues": [
-    {
-      "id": "broken-fidget-slot",
-      "description": "The 'fidget' agent slot maps to 'Fidget' but no clip by that name exists in manifest.json. The slot silently falls through to a partial-name search on the embedded GLB model. Fix: either add a Fidget FBX to animations.config.json and rebuild, or remap the slot to an existing clip.",
-      "affected_file": "src/runtime/animation-slots.js"
-    },
-    {
-      "id": "orphaned-source-fbx",
-      "description": "6 FBX files in public/animations/ are never built into clips. See the 'orphaned_fbx' collection. Fix: add entries to scripts/animations.config.json and run build-animations.mjs.",
-      "affected_file": "scripts/animations.config.json"
-    },
     {
       "id": "unused-agent-hint-targets",
       "description": "Several animationHint values emitted by skills ('gesture', 'inspect', 'present', 'sign', 'curiosity', 'patience') have no matching clip or slot. They silently no-op on Avaturn models. Fix: either map them to existing clips in DEFAULT_ANIMATION_MAP or build dedicated clips.",
@@ -224,6 +208,24 @@
       "id": "wave-slot-mismatch",
       "description": "The 'wave' slot maps to 'reaction' clip, not the 'wave' clip. The 'wave' clip (from Standing Cover Turn.fbx) is in the manifest but unreachable by any agent slot or hint. Intentional or oversight?",
       "affected_file": "src/runtime/animation-slots.js"
+    }
+  ],
+
+  "resolved_issues": [
+    {
+      "id": "orphaned-source-fbx",
+      "resolved": "2026-07 (before roadmap prompt 03)",
+      "description": "The 6 FBX files formerly listed under 'orphaned_fbx' (Cover To Stand, Goalkeeper Scoop, 3x Jumping Down, Removing Driver) are now in scripts/animations.config.json as coverstand/goalkeeper/jumpdown/jumpdown2/jumpdown3/removing and built into the manifest."
+    },
+    {
+      "id": "broken-fidget-slot",
+      "resolved": "2026-07-08 (roadmap prompt 03)",
+      "description": "DEFAULT_ANIMATION_MAP.fidget now points at the real 'av-waiting' clip instead of the never-baked 'Fidget'. Covered by tests/animation-slots.test.js, which asserts every slot's default clip exists in manifest.json."
+    },
+    {
+      "id": "sitidle-unreachable-via-manifest",
+      "resolved": "2026-07-08 (roadmap prompt 03)",
+      "description": "The 'sitidle' hand-authored pose clip existed as a file but was missing from manifest.json, so AnimationManager.crossfadeTo('sitidle')/canPlay('sitidle') silently failed for the state machine's 'sit' gesture (src/animation-state-machine.js) — a dead path with no console warning. build-animations.mjs now merges scripts/animations-extra-clips.json into every curated manifest rebuild so hand-authored clips survive future rebuilds. Covered by tests/embodiment-emotion.test.js's full-GESTURES manifest check."
     }
   ]
 }

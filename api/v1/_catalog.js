@@ -184,11 +184,73 @@ export const CATALOG = [
 		auth: 'public',
 		summary:
 			'Free text search over Solana pump.fun / meme tokens by name, symbol, or mint (Birdeye-first, ' +
-			'pump.fun-fallback). The one pump.fun read with no /api/crypto/* equivalent — trending, ' +
-			'bonding-curve progress, launches, and whale activity already ship there. No key; 60/min per IP.',
+			'pump.fun-fallback). Pairs with trending/curve/launches/whales below to round out the free ' +
+			'pump.fun family under /api/v1. No key; 60/min per IP.',
 		params: {
 			q: 'string — token name, symbol, or mint to search for (required)',
 			limit: 'number 1–20 (default 8)',
+		},
+	},
+	{
+		id: 'v1.pump.trending',
+		method: 'GET',
+		path: '/api/v1/pump/trending',
+		auth: 'public',
+		summary:
+			'Free, momentum-ranked "what\'s hot right now" feed for Solana tokens — fuses windowed volume, ' +
+			'buy pressure, a volume-spike signal, and price change across pump.fun, DexScreener, and ' +
+			'(best-effort) GMGN smart money into one 0–100 score. Same engine as GET /api/crypto/trending, ' +
+			'capped slimmer for this door. No key; 60/min per IP.',
+		params: {
+			window: 'string — "5m" | "1h" | "24h" (default "1h") — trade window the score measures',
+			limit: 'number 1–25 (default 20)',
+			source: 'string — "pumpfun" | "all" (default "all") — "pumpfun" restricts to the pump.fun board',
+		},
+	},
+	{
+		id: 'v1.pump.curve',
+		method: 'GET',
+		path: '/api/v1/pump/curve',
+		auth: 'public',
+		summary:
+			'Free bonding-curve / graduation status for a pump.fun mint — % to graduation, SOL in the ' +
+			'curve, tokens remaining, market cap, and whether it has migrated to an AMM (Raydium / ' +
+			'PumpSwap). Same engine as GET /api/crypto/bonding. No key; 60/min per IP.',
+		params: {
+			mint: 'string — base58 Solana pump.fun mint address (required), e.g. FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump ($THREE)',
+		},
+	},
+	{
+		id: 'v1.pump.launches',
+		method: 'GET',
+		path: '/api/v1/pump/launches',
+		auth: 'public',
+		summary:
+			'Free, paginated feed of every coin launched THROUGH three.ws (not a generic pump.fun-wide ' +
+			'feed — the platform\'s own launch directory), joined with the launching agent. Same query as ' +
+			'the /launches page. No key; 60/min per IP.',
+		params: {
+			limit: 'number 1–100 (default 24)',
+			offset: 'number (default 0)',
+			network: 'string — "mainnet" | "devnet" (default "mainnet")',
+			agent_id: 'string — uuid, restrict to one launching agent (optional)',
+			min_tier: 'string — "prime" | "strong" | "lean" | "watch" | "avoid", oracle conviction floor (optional)',
+		},
+	},
+	{
+		id: 'v1.pump.whales',
+		method: 'GET',
+		path: '/api/v1/pump/whales',
+		auth: 'public',
+		summary:
+			'Free whale / large-buy detection across pump.fun — facts only (which wallets moved how much ' +
+			'SOL, and when), no invented bullish/bearish signal. The read version of the whale-activity ' +
+			'oracle behind the paid /api/x402/pump-agent-audit; same scan engine as GET /api/crypto/whales. ' +
+			'No key; 60/min per IP.',
+		params: {
+			mint: 'string — base58 Solana mint; omit for market-wide top whale wallets, or scope to one token (optional)',
+			limit: 'number 1–25 (default 5)',
+			minSol: 'number — single-buy SOL threshold to qualify as a whale (default 5)',
 		},
 	},
 ];

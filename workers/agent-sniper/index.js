@@ -9,6 +9,7 @@
 //   SNIPER_MODE=live      — real trades from agent wallets
 //   SNIPER_GLOBAL_KILL=1  — halt new buys; positions still managed/exited
 
+import http from 'node:http';
 import { connectPumpFunFeed } from '../../api/_lib/pumpfun-ws-feed.js';
 import { loadConfig } from './config.js';
 import { log } from './log.js';
@@ -39,6 +40,23 @@ import { startLauncherWatch } from './launcher.js';
 import { startMarketMakerWatch } from './market-maker.js';
 
 const BOOT_AT = new Date().toISOString();
+
+// Cloud Run services must answer a startup/health probe on $PORT (agent-sniper
+// runs with ingress:internal, but the health check still applies). This worker
+// is a background daemon — its real work is the feed loop, not HTTP — so bind a
+// tiny liveness endpoint only when PORT is set (matches workers/agora-citizens).
+// Locally (no PORT) nothing listens.
+const _live = { mode: null, network: null };
+function startHealthServer() {
+	const port = Number(process.env.PORT);
+	if (!Number.isFinite(port) || port <= 0) return;
+	http
+		.createServer((req, res) => {
+			res.writeHead(200, { 'content-type': 'application/json' });
+			res.end(JSON.stringify({ ok: true, worker: 'agent-sniper', bootAt: BOOT_AT, ..._live }));
+		})
+		.listen(port, () => log.info('health server listening', { port }));
+}
 
 // ── global buy throttle (sliding 60s window) ─────────────────────────────────
 function makeThrottle(maxPerMin) {
@@ -82,6 +100,9 @@ function makeQueue(concurrency, maxDepth, onError) {
 async function main() {
 	const cfg = loadConfig();
 	log.info('boot', { network: cfg.network, mode: cfg.mode, globalKill: cfg.globalKill, pollMs: cfg.pollMs });
+	_live.mode = cfg.mode;
+	_live.network = cfg.network;
+	startHealthServer();
 	if (cfg.announceLifecycle) alertBoot({ network: cfg.network, mode: cfg.mode, globalKill: cfg.globalKill });
 	screenPush(`Sniper online — ${cfg.network} / ${cfg.mode} mode`, 'activity');
 

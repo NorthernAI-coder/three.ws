@@ -71,6 +71,55 @@ typically 30–90s; rigging 30–90s; texture jobs 2–5 min). When a job finish
 `generation_status` returns a `text/html` resource — display it as an inline 3D
 artifact.
 
+## Embodied on-chain identity
+
+Every persona minted with `create_agent_persona` (see the
+[free studio's embodiment tools](./mcp-studio.md#embodiment--a-living-agent-body)
+— the persona lifecycle is shared, only the identity layer below is paid-track)
+carries a real, deterministic Solana wallet: the **avatar IS the wallet**. The
+same `persona_id` always re-derives the same address — no private key is ever
+stored anywhere, and none is ever returned in a tool response or written to a
+log (see [`api/_lib/persona-wallet.js`](../api/_lib/persona-wallet.js) for the
+derivation scheme).
+
+| Tool                                              | What it does                                                                                                                                       |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `persona_identity(persona_id, network?)`           | Read-only: wallet address, live SOL/USDC balance, ERC-8004-style reputation, token holdings, a resolved SNS nameplate, and the visual tiers below.    |
+| `persona_tip(persona_id, to, usdc, session_id?, memo?, network?, confirm?)`  | Send a small USDC tip from the persona's own wallet. Real, irreversible on-chain settlement.                                       |
+| `persona_send(persona_id, to, usdc, session_id?, memo?, network?, confirm?)` | The general-purpose USDC send from the persona's own wallet. Same guardrails as `persona_tip`.                                     |
+
+**Guardrails** (env-tunable — `PERSONA_MAX_TIP_USDC`, `PERSONA_MAX_SESSION_USDC`, `PERSONA_CONFIRM_ABOVE_USDC`):
+
+- **Per-call cap** — $1 USDC by default. An amount over the cap is rejected
+  with `over_call_cap` before any signature is built.
+- **Per-session cap** — $5 USDC cumulative by default, tracked durably
+  (Postgres in production, a local JSON ledger in dev) against the caller's
+  `session_id` (or a persona+UTC-day bucket when omitted).
+- **Confirmation threshold** — $0.25 USDC by default. Above it, the call must
+  carry `confirm: true` or it returns `confirmation_required`.
+
+Settlement rides the same MEV-aware execution engine every other outbound
+transfer on the platform uses — no mocked transfer, ever. USDC is the only
+settlement asset; any other mint is out of scope for these tools.
+
+**Visual binding.** `persona_identity`'s response (and the live
+`GET /api/mcp3d/persona-identity?id=…` feed the embodiment embed polls when
+opened with `?wallet=1`) includes a `visual` block —
+`reputation_tier`, `holdings_tier`, `muted`, `verified_name` — that the shared
+`EmbodimentStage` (`apps-sdk/embodiment/chain-visuals.js`) maps onto the body:
+an aura ring colored + intensity-scaled by reputation tier, a cosmetic badge
+for the holdings tier, a dimmed "muted" look under a low/zero balance, and a
+nameplate for a verified `.sol` name. Every tier — including unranked / none /
+unmuted — has a designed mapping, so a fresh, unfunded persona still renders a
+real (not blank) identity.
+
+**Identity card.** `persona_identity` also returns an `identity_card` block
+(`api/_lib/persona-identity-card.js`) — a pure, verifiable projection of the
+same data, in the same spirit as `agent_hire`'s provenance block
+(`mcp-server/src/lib/agent-commerce.js#buildProvenance`): wallet, balance,
+reputation tier, holdings tier, verified name, muted flag, and a fetch
+timestamp.
+
 ## Quality tiers & generation paths
 
 `text_to_3d` / `image_to_3d` take three optional axes (see

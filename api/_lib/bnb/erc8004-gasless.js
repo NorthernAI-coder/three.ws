@@ -83,7 +83,22 @@ function registryAddressFor(network) {
 	return dep.identityRegistry.toLowerCase();
 }
 
-/** Existing agentId for `address` on `registry`, or null when it holds none. */
+/**
+ * Whether `address` already holds an agent on `registry`, and its id when
+ * resolvable.
+ *
+ * `balanceOf` is the reliable signal (standard ERC-721, confirmed live
+ * against the real BSC testnet Identity Registry 2026-07-08). `tokenId` is a
+ * best-effort enrichment: `tokenOfOwnerByIndex` requires ERC721Enumerable
+ * storage, and the live testnet deployment declares the function in its ABI
+ * but REVERTS on it (confirmed live, same date — no enumerable mapping
+ * wired). A registry that doesn't support enumeration must not be treated as
+ * "not registered" — that would let a held address slip through into a
+ * duplicate mint attempt — so a revert here still reports `registered: true`,
+ * just with `agentId: null`.
+ *
+ * @returns {Promise<{ registered: boolean, agentId: string|null }>}
+ */
 async function alreadyRegisteredAgentId(publicClient, registry, address) {
 	const balance = await publicClient.readContract({
 		address: registry,
@@ -91,14 +106,18 @@ async function alreadyRegisteredAgentId(publicClient, registry, address) {
 		functionName: 'balanceOf',
 		args: [address],
 	});
-	if (!balance || balance === 0n) return null;
-	const tokenId = await publicClient.readContract({
-		address: registry,
-		abi: READ_ABI,
-		functionName: 'tokenOfOwnerByIndex',
-		args: [address, 0n],
-	});
-	return tokenId.toString();
+	if (!balance || balance === 0n) return { registered: false, agentId: null };
+	try {
+		const tokenId = await publicClient.readContract({
+			address: registry,
+			abi: READ_ABI,
+			functionName: 'tokenOfOwnerByIndex',
+			args: [address, 0n],
+		});
+		return { registered: true, agentId: tokenId.toString() };
+	} catch {
+		return { registered: true, agentId: null };
+	}
 }
 
 /**
@@ -129,10 +148,23 @@ async function waitAndDecode(publicClient, { hash, registry, from, to, data, val
 		}
 		throw new RegisterRelayError(reason, { code: 'tx_reverted', status: 422 });
 	}
-	const log = receipt.logs.find(
-		(l) => l.address?.toLowerCase() === registry && (l.topics?.[0] === REGISTERED_TOPIC || l.topics?.[0] === TRANSFER_TOPIC),
-	);
-	const agentId = log ? BigInt(log.topics[1]).toString() : null;
+	// `Registered(uint256 indexed agentId, string agentURI, address indexed owner)`
+	// puts agentId at topics[1] — preferred, and what the live registry always
+	// emits alongside Transfer on a mint. `Transfer(address indexed from,
+	// address indexed to, uint256 indexed tokenId)` puts tokenId at topics[3],
+	// NOT topics[1] (that's `from`) — a real mint emits both events in the same
+	// receipt with Transfer logged first, so blindly taking the first
+	// Registered-or-Transfer match and reading topics[1] silently decodes
+	// Transfer's `from` (0x0 on every mint) as the agentId. Caught live against
+	// the real BSC testnet registry 2026-07-08 (see PROGRESS.md) — matching
+	// each topic layout to its own event is load-bearing, not cosmetic.
+	const registeredLog = receipt.logs.find((l) => l.address?.toLowerCase() === registry && l.topics?.[0] === REGISTERED_TOPIC);
+	const transferLog = receipt.logs.find((l) => l.address?.toLowerCase() === registry && l.topics?.[0] === TRANSFER_TOPIC);
+	const agentId = registeredLog
+		? BigInt(registeredLog.topics[1]).toString()
+		: transferLog?.topics?.[3]
+			? BigInt(transferLog.topics[3]).toString()
+			: null;
 	return { pending: false, agentId, hash, blockNumber: Number(receipt.blockNumber) };
 }
 
@@ -180,10 +212,12 @@ export async function relayGaslessRegistration({ signedRegisterTx, network, publ
 	const publicClient = injectedClient || getPublicClient(net);
 
 	// Never double-mint — an address that already owns an agent gets its
-	// existing agentId back instead of a broadcast attempt.
-	const existingAgentId = await alreadyRegisteredAgentId(publicClient, registry, from).catch(() => null);
-	if (existingAgentId !== null) {
-		return { alreadyRegistered: true, agentId: existingAgentId, address: from, network: net };
+	// existing agentId back (when resolvable) instead of a broadcast attempt.
+	// A failed *read* (RPC hiccup) must not block a legitimate first mint, so
+	// only a successful `registered: true` short-circuits.
+	const existing = await alreadyRegisteredAgentId(publicClient, registry, from).catch(() => ({ registered: false, agentId: null }));
+	if (existing.registered) {
+		return { alreadyRegistered: true, agentId: existing.agentId, address: from, network: net };
 	}
 
 	const gasPrice = parsed.gasPrice ?? 0n;

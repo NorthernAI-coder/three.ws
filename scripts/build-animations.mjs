@@ -25,23 +25,43 @@ import { liftHipsUpright } from './upright-hips.mjs';
 // three's loaders + exporter touch a handful of DOM globals; stub them out for node.
 globalThis.self = globalThis;
 globalThis.window = globalThis;
-// FBXLoader loads embedded textures by creating an <img> and attaching load
-// handlers. Mixamo MotionPack FBX (exported with the T-pose character mesh)
-// carry such textures; without an addEventListener the loader throws
-// "image.addEventListener is not a function" and the whole clip is dropped.
-// We never use the texture — only the animation tracks — so a no-op image
-// element that never "loads" lets retargeting proceed.
-const stubImage = () => ({
-	addEventListener() {},
-	removeEventListener() {},
-	setAttribute() {},
-	style: {},
-});
+// FBXLoader and GLTFLoader both load embedded/referenced textures by creating
+// an <img>, wiring 'load'/'error' listeners, then setting .src. We never use
+// pixel data here — only skeleton bones (reference rig) and animation tracks
+// (clip sources) — but GLTFLoader's parse() (unlike FBXLoader's synchronous
+// animation extraction) awaits every texture's load promise before resolving
+// the whole scene. A stub whose addEventListener is a no-op NEVER fires that
+// promise, so GLTFLoader.parse() hangs forever with no error and no timeout —
+// the process just idles until Node's event loop drains and exits silently.
+// FakeImage is a real EventTarget: addEventListener actually registers
+// listeners, and assigning .src schedules an async synthetic 'load' event
+// (next macrotask, matching a real browser's async decode) so both loaders'
+// promise chains resolve instead of stalling.
+class FakeImage extends EventTarget {
+	constructor() {
+		super();
+		this._src = '';
+		this.style = {};
+		this.complete = false;
+		this.naturalWidth = 1;
+		this.naturalHeight = 1;
+	}
+	get src() { return this._src; }
+	set src(value) {
+		this._src = value;
+		setTimeout(() => {
+			this.complete = true;
+			this.onload?.({ target: this });
+			this.dispatchEvent(new Event('load'));
+		}, 0);
+	}
+	setAttribute() {}
+}
 globalThis.document = {
-	createElementNS: () => stubImage(),
-	createElement: () => stubImage(),
+	createElementNS: () => new FakeImage(),
+	createElement: () => new FakeImage(),
 };
-globalThis.Image = class { addEventListener() {} removeEventListener() {} };
+globalThis.Image = FakeImage;
 globalThis.Blob = Blob;
 
 // GLTFExporter calls FileReader.readAsDataURL on Blob-wrapped texture/binary

@@ -66,6 +66,15 @@
   a.btn:focus-visible, button.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .hidden { display: none !important; }
   #ar-btn { display: none; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+    font-size: 11.5px; font-weight: 700; letter-spacing: .01em;
+    border-radius: 999px; padding: 4px 10px; border: 1px solid transparent; white-space: nowrap;
+  }
+  .badge.verified { color: #b6f2c8; background: rgba(52,199,109,.13); border-color: rgba(52,199,109,.34); }
+  .badge.tampered { color: #ffc2c2; background: rgba(255,86,86,.13); border-color: rgba(255,86,86,.36); }
+  .badge.unknown  { color: #9aa3b2; background: rgba(255,255,255,.05); border-color: rgba(255,255,255,.12); }
+  .badge:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 </style>
 </head>
 <body>
@@ -73,6 +82,7 @@
   <header class="bar">
     <a class="brand" href="https://three.ws"><span class="dot" aria-hidden="true"></span>three.ws</a>
     <span id="title" class="title"></span>
+    <a id="badge" class="badge hidden" target="_blank" rel="noopener noreferrer" aria-label="Provenance verification"></a>
   </header>
 
   <div class="stage">
@@ -149,6 +159,27 @@
     fail('The 3D model could not be displayed. You can still download the GLB file.');
   });
   arBtn.addEventListener('click', function () { try { mv.activateAR(); } catch (e) {} });
+
+  // Provenance badge — ask the free verify endpoint whether this model carries a
+  // genuine, untampered three.ws content credential. Designed verified / tampered
+  // / unverified states; silent (badge stays hidden) if the check can't run.
+  (function checkProvenance() {
+    var badge = document.getElementById('badge');
+    fetch('/api/provenance?src=' + encodeURIComponent(src), { headers: { accept: 'application/json' } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d || !d.status) return;
+        var label = d.status === 'verified' ? '✓ ' + (d.badge || 'Verified · three.ws')
+          : d.status === 'tampered' ? '⚠ Tampered' : 'Unverified';
+        badge.textContent = label;
+        badge.classList.add(d.status);
+        badge.classList.remove('hidden');
+        if (d.anchor && d.anchor.explorerUrl) { badge.href = d.anchor.explorerUrl; }
+        else { badge.removeAttribute('href'); badge.style.cursor = 'default'; }
+        if (d.reason) badge.title = d.reason;
+      })
+      .catch(function () {});
+  })();
 
   // If model-viewer itself never upgrades (script blocked), don't spin forever.
   setTimeout(function () {

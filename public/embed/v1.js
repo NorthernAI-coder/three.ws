@@ -438,6 +438,11 @@
 				return;
 			}
 			self.__clearLocked();
+			if (resolved && resolved.gated && cachedGate) {
+				// Re-verified from a still-valid cached session — keep the auto-revert
+				// timer aligned with however much of the token's life is actually left.
+				self.__scheduleGateExpiry(agentSpec, (cachedGate.exp - Date.now()) / 1000);
+			}
 			src = resolved.glbUrl;
 			nameAttr = nameAttr || resolved.name;
 			posterAttr = posterAttr || resolved.poster;
@@ -559,6 +564,27 @@
 		}
 	};
 
+	// Anti-abuse: re-verification on expiry. Access tokens are short-lived
+	// (api/_lib/embed-gate-token.js), so a visitor who keeps a gated embed open
+	// past the token's lifetime is automatically dropped back to the locked
+	// state — never silently kept unlocked on a stale check.
+	ThreeWsAgentElement.prototype.__scheduleGateExpiry = function (assetId, expiresInSec) {
+		var self = this;
+		if (this.__gateExpiryTimer) {
+			clearTimeout(this.__gateExpiryTimer);
+			this.__gateExpiryTimer = null;
+		}
+		var ms = Math.max(0, Number(expiresInSec) || 0) * 1000;
+		if (!ms) return;
+		this.__gateExpiryTimer = setTimeout(function () {
+			self.__gateExpiryTimer = null;
+			if (!self.isConnected || self.getAttribute('agent') !== assetId) return;
+			clearCachedGateToken(assetId);
+			self.__booted = false;
+			self.__bootIfReady();
+		}, ms);
+	};
+
 	ThreeWsAgentElement.prototype.__renderLocked = function (resolved, assetId) {
 		var self = this;
 		this.__clearLocked();
@@ -612,8 +638,8 @@
 		if (!this.hasAttribute('hide-chrome') && gate.mint) {
 			var mintEl = document.createElement('p');
 			mintEl.className = 'gate-mint';
-			mintEl.textContent = gate.mint === symbol ? '' : gate.mint;
-			if (mintEl.textContent) el.appendChild(mintEl);
+			mintEl.textContent = gate.mint;
+			el.appendChild(mintEl);
 		}
 
 		var busy = false;
@@ -642,6 +668,7 @@
 			verifyGateOwnership(assetId)
 				.then(function (result) {
 					saveGateToken(assetId, result.accessToken, result.expiresIn);
+					self.__scheduleGateExpiry(assetId, result.expiresIn);
 					self.__booted = true; // already true, but keep intent explicit
 					return self.__boot();
 				})
@@ -669,6 +696,10 @@
 
 	ThreeWsAgentElement.prototype.disconnectedCallback = function () {
 		if (visibilityObserver) visibilityObserver.unobserve(this);
+		if (this.__gateExpiryTimer) {
+			clearTimeout(this.__gateExpiryTimer);
+			this.__gateExpiryTimer = null;
+		}
 	};
 
 	// Register all three aliases on the same class

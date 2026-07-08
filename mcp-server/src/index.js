@@ -38,6 +38,7 @@ import { buildForgeFreeTool } from './tools/forge-free.js';
 import { buildRigMeshTool } from './tools/rig-mesh.js';
 import { buildForgeAvatarTool } from './tools/forge-avatar.js';
 import { buildRefineModelTool } from './tools/refine-model.js';
+import { buildRestyleMaterialTool } from './tools/restyle-material.js';
 import { buildSentimentPulseTool } from './tools/sentiment-pulse.js';
 import { buildEnsSnsResolveTool } from './tools/ens-sns-resolve.js';
 import { buildAgentDelegateActionTool } from './tools/agent-delegate-action.js';
@@ -68,6 +69,9 @@ const SERVER_INSTRUCTIONS =
 	'humanoid gate (forge_avatar), ' +
 	'conversational refinement that iterates on a model by describing a change ("make it metallic", ' +
 	'"bigger helmet") with a revertable/branchable version lineage (refine_model), ' +
+	're-skinning an existing GLB WITHOUT regenerating its mesh — AI PBR restyle from an instruction ' +
+	'("make it chrome", "wooden", "cyberpunk neon") or seeded, reproducible colorway variant fan-out from a ' +
+	'PBR preset (restyle_material), ' +
 	'ENS + SNS name resolution ' +
 	'(ens_sns_resolve), agent-to-agent delegation (agent_delegate_action), token sentiment pulse ' +
 	'(sentiment_pulse), pose generation (get_pose_seed), Solana token snapshots (pump_snapshot), ' +
@@ -98,6 +102,7 @@ const TOOL_BUILDERS = [
 	buildRigMeshTool,
 	buildForgeAvatarTool,
 	buildRefineModelTool,
+	buildRestyleMaterialTool,
 	buildEnsSnsResolveTool,
 	buildAgentDelegateActionTool,
 	buildAgentHireDiscoverTool,

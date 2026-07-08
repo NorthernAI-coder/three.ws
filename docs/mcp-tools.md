@@ -29,6 +29,14 @@ A free, non-crypto MCP server for the ChatGPT App Directory and any MCP client. 
 exposes **only** 3D generation/inspection — no account, no payment, no token. See
 [3D Studio MCP](mcp-studio.md).
 
+## Material Studio (hosted, free) — `/api/material-studio`
+
+A free, rate-limited (not x402) REST endpoint backing the [Material Studio](/material-studio)
+web page: live PBR material editing, AI restyle, and seeded colorway variants for
+any GLB. Not an MCP tool itself — the paid `restyle_material` tool above (and the
+web page) both call it as a thin client, so the free and paid surfaces share one
+implementation. See [`api/_lib/material-studio-store.js`](../api/_lib/material-studio-store.js).
+
 ## Paid 3D Studio — `/api/mcp-3d`
 
 Generation tools price by tier (identical to `POST /api/x402/forge`); mesh-editing
@@ -68,12 +76,15 @@ generation lane**; the rest are paid and quote their price in the
 | `mesh_forge` | paid | Text/image → 3D mesh via a Granite-directed model chain. |
 | `rig_mesh` | paid | Auto-rig a GLB into an animation-ready model. |
 | `forge_avatar` | paid | One call: text → rigged avatar (mesh + auto-rig, humanoid-gated). |
+| `refine_model` | paid | Conversational iteration — describe a change ("make it metallic", "bigger helmet") on a prior model; anchored re-generation with a revertable/branchable version lineage. |
+| `restyle_material` | paid | Re-skin a GLB without regenerating its mesh — AI PBR restyle from an instruction ("make it chrome", "wooden", "cyberpunk neon") or seeded, reproducible colorway variant fan-out from a PBR preset. See [Material Studio](/material-studio). |
 | `get_pose_seed` | paid | Pose generation. |
 | `ens_sns_resolve` | paid | ENS + SNS name resolution. |
 | `pump_snapshot` | free (no signer) | Live Solana token snapshot (price, volume, metadata). |
 | `sentiment_pulse` | paid | Token sentiment pulse. |
 | `agent_reputation` | paid | ERC-8004 agent reputation read. |
 | `vanity_grinder` | paid | Solana vanity address mining. |
+| `vanity_premium` | free | Browse the premium pre-ground vanity address inventory. |
 | `aixbt_intel` / `aixbt_projects` | paid | Market narrative intel feed / momentum-ranked project scans. |
 | `agenc_list_tasks` / `agenc_get_task` / `agenc_get_agent` | paid | [AgenC](agenc.md) coordination reads. |
 | `agent_delegate_action` | paid | Agent-to-agent delegation. |

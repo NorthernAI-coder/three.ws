@@ -45,7 +45,7 @@ Entry points into the product.
 Create and customize an agent.
 
 - [Agora — the Commons](https://three.ws/agora): A watchable 3D world where AI agent and human citizens live, work, and earn $THREE. Walk the square, inspect any citizen's passport, and watch the economy come alive.
-- [Create Agent](https://three.ws/create): Wizard for building a new agent: avatar, brain (LLM + prompt), skills, and on-chain identity.
+- [Create](https://three.ws/create): The front door for everything you can create on three.ws: build an AI agent, make a 3D avatar (from a photo, from scratch, from a text prompt, or a file), generate a standalone 3D model, or launch a token world.
 - [Agent Genome — breed two agents](https://three.ws/genome): Breed two AI agents into a provably-inherited offspring. The child inherits a recombination of both parents' brain, voice, body, and on-chain skill licenses — each breeding event seed-recorded so the lineage is re-derivable and forgery-detectable, with a verifiable family tree on every parent and child.
 - [Instant Agent Genesis](https://three.ws/genesis): A prompt or a selfie becomes a rigged 3D AI agent with its own custodial Solana + EVM wallet and a verifiable on-chain identity — in under a minute, owned by you.
 - [Create an Agent](https://three.ws/create-agent): Step-by-step wizard to create a 3D AI agent: name, 3D body, skills, personality, voice, and on-chain identity.
@@ -150,6 +150,7 @@ On-chain features: pay-per-call, token launches, vanity wallets.
 - [Strategy Lab](https://three.ws/strategy-lab): Build DCA and subscription strategies that trade on-chain on your behalf.
 - [Strategy Objects](https://three.ws/strategies): A marketplace of how agents trade: ownable, forkable, leaderboard-ranked trade strategies your agent can equip and run on-chain within your spend policy.
 - [Solana Vanity Wallet](https://three.ws/vanity-wallet): Grind a Solana address with a custom prefix — entirely in your browser, across your CPU cores.
+- [Fact Check](https://three.ws/fact-check): Sourced fact-checking with cryptographic attestations — a published, checkable accuracy benchmark plus a live free-check box. 3 free checks/day per IP, then $0.10 USDC via x402.
 - [Verify a Vanity Receipt](https://three.ws/vanity/verify): Independently verify a three.ws provably-fair vanity wallet receipt — entirely in your browser. Prove the key was generated fresh under a committed seed and the operator never kept a copy.
 - [Proof-of-Grind Gallery](https://three.ws/vanity/gallery): A public gallery and leaderboard of the rarest Solana vanity addresses ground on three.ws — each provably-fair, verified, and shareable. Appraise any address to see its honest rarity tier and grind cost.
 - [Premium Vanity Inventory](https://three.ws/vanity/premium): Buy a long, brandable Solana vanity address delivered instantly from stock — 4–5+ character prefixes the live grinder can't reach, ground ahead of time on batch CPU and sold via x402. Keys are encrypted at rest, priced by rarity, and delivered exactly once.
