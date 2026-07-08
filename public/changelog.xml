@@ -159,6 +159,14 @@
 			<description>Any embedded avatar can now hold a real conversation with zero setup: add brain=&quot;free&quot; to an &lt;agent-3d&gt; tag and it routes through three.ws's host-paid free-tier proxy (OpenRouter, Groq, or NVIDIA NIM, whichever is healthy) — no API key, no backend code, no per-token cost to the embedder. Previously the brain attribute required an exact model id and defaulted to a silent avatar; brain=&quot;free&quot; is now a supported alias, and it's honored on both the src= (bare GLB) and body= (ad-hoc agent) embed paths, which is where this fell through before.</description>
 		</item>
 		<item>
+			<title>A live public gallery for every minted 3D asset — and a fix that had been silently 500ing the launch directory</title>
+			<link>https://three.ws/minted</link>
+			<guid isPermaLink="false">2026-07-08:A live public gallery for every minted 3D asset — and a fix that had been silently 500ing the launch directory</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Minted 3D assets now have a home: three.ws/minted shows every generated avatar minted as a Solana NFT through the platform, rendered live in an interactive &lt;model-viewer&gt; card with its network, enforced royalty rate, and a remix badge when it routed a payout to the original creator — the NFT counterpart of the coin /launches feed. Building it surfaced a real bug: the remix-royalty and provenance-ledger columns added to the mint table were live in code but never applied to the production database, so GET /api/v1/tokenized/launches and get_3d_asset_onchain's read-back were quietly returning a server error for any minted asset with those fields. The migration is applied and both are confirmed working.</description>
+		</item>
+		<item>
 			<title>Agent mood now shapes body language, not just facial expression</title>
 			<link>https://three.ws/tutorials/emotion-from-data</link>
 			<guid isPermaLink="false">2026-07-08:Agent mood now shapes body language, not just facial expression</guid>

@@ -479,7 +479,7 @@ Resolve a Solana mint address to its **live 3D asset**: current holder, the inte
 
 Returns `holder`, `media` (`glb_url`, `image_url`, `viewer_url`, `viewer_live`), `provenance`, `provenance_ledger` (the mint's signed `agent_actions` entry, or `null`), `royalty` (`basis_points`, `percent`, `recipient`, `enforced_onchain`, `cap_basis_points`), `remix_royalty` (the settlement routed to the parent creator, or `null`), and, for platform mints, `minted_through_threews` + `tx_signature`.
 
-**Browsing every mint:** `GET /api/v1/tokenized/launches?limit=24&offset=0&network=mainnet&agent_id=<uuid>` is the free, public, paginated directory of every 3D asset minted through three.ws — the NFT counterpart to `GET /api/v1/pump/launches`. No auth, no payment; 60 requests/min per IP.
+**Browsing every mint:** `GET /api/v1/tokenized/launches?limit=24&offset=0&network=mainnet&agent_id=<uuid>` is the free, public, paginated directory of every 3D asset minted through three.ws — the NFT counterpart to `GET /api/v1/pump/launches`. No auth, no payment; 60 requests/min per IP. The same directory renders as a live public gallery at [three.ws/minted](https://three.ws/minted) — a `<model-viewer>` card per mint with its royalty terms, network, and remix badge, the NFT counterpart of [/launches](https://three.ws/launches).
 
 ---
 

@@ -195,8 +195,9 @@ async function loadFeed(reset) {
 		});
 		const res = await fetch(`/api/v1/tokenized/launches?${params}`, { headers: { accept: 'application/json' } });
 		if (!res.ok) throw new Error(`launches ${res.status}`);
-		const data = await res.json();
-		const launches = Array.isArray(data.launches) ? data.launches : [];
+		// The /api/v1 gateway wraps every response in { data: <payload> }.
+		const { data } = await res.json();
+		const launches = Array.isArray(data?.launches) ? data.launches : [];
 		state.items = reset ? launches : state.items.concat(launches);
 		state.hasMore = Boolean(data.has_more);
 		state.offset += launches.length;
