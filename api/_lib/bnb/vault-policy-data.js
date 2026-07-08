@@ -50,7 +50,11 @@ import { getObjectMeta, GreenfieldError } from './greenfield.js';
 // greenfield-write.js's docstring). `createRequire` sidesteps that risk here.
 const require = createRequire(import.meta.url);
 const { Policy } = require('@bnb-chain/greenfield-cosmos-types/greenfield/permission/types.js');
-const { ActionType, Effect, PrincipalType } = require('@bnb-chain/greenfield-cosmos-types/greenfield/permission/common.js');
+const {
+	ActionType,
+	Effect,
+	PrincipalType,
+} = require('@bnb-chain/greenfield-cosmos-types/greenfield/permission/common.js');
 const { ResourceType } = require('@bnb-chain/greenfield-cosmos-types/greenfield/resource/types.js');
 
 /** Typed error. `code` ∈ object_not_found | greenfield_unavailable | bad_input. */
@@ -72,25 +76,33 @@ export class VaultPolicyDataError extends Error {
  * @returns {Promise<{ policyDataHex:`0x${string}`, resourceId:string }>}
  */
 export async function buildBuyPolicyData({ bucket, object, buyer, network }) {
-	if (!bucket || !object) throw new VaultPolicyDataError('bucket and object are required', { code: 'bad_input' });
-	if (!buyer || typeof buyer !== 'string') throw new VaultPolicyDataError('buyer address is required', { code: 'bad_input' });
+	if (!bucket || !object)
+		throw new VaultPolicyDataError('bucket and object are required', { code: 'bad_input' });
+	if (!buyer || typeof buyer !== 'string')
+		throw new VaultPolicyDataError('buyer address is required', { code: 'bad_input' });
 
 	let meta;
 	try {
 		meta = await getObjectMeta(bucket, object, { network });
 	} catch (err) {
 		if (err instanceof GreenfieldError) {
-			throw new VaultPolicyDataError(`could not read this object's real Greenfield metadata: ${err.message}`, {
-				code: err.code === 'not_found' ? 'object_not_found' : 'greenfield_unavailable',
-				cause: err,
-			});
+			throw new VaultPolicyDataError(
+				`could not read this object's real Greenfield metadata: ${err.message}`,
+				{
+					code: err.code === 'not_found' ? 'object_not_found' : 'greenfield_unavailable',
+					cause: err,
+				},
+			);
 		}
 		throw err;
 	}
 
 	const resourceId = String(meta.id ?? meta.Id ?? '');
 	if (!resourceId || resourceId === '0') {
-		throw new VaultPolicyDataError('object metadata has no resolvable Greenfield resource id yet', { code: 'object_not_found' });
+		throw new VaultPolicyDataError(
+			'object metadata has no resolvable Greenfield resource id yet',
+			{ code: 'object_not_found' },
+		);
 	}
 
 	const policyMsg = Policy.fromPartial({
@@ -98,7 +110,9 @@ export async function buildBuyPolicyData({ bucket, object, buyer, network }) {
 		principal: { type: PrincipalType.PRINCIPAL_TYPE_GNFD_ACCOUNT, value: buyer },
 		resourceType: ResourceType.RESOURCE_TYPE_OBJECT,
 		resourceId,
-		statements: [{ effect: Effect.EFFECT_ALLOW, actions: [ActionType.ACTION_GET_OBJECT], resources: [] }],
+		statements: [
+			{ effect: Effect.EFFECT_ALLOW, actions: [ActionType.ACTION_GET_OBJECT], resources: [] },
+		],
 	});
 	const bytes = Policy.encode(policyMsg).finish();
 

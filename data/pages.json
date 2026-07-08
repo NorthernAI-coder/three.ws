@@ -1291,6 +1291,14 @@
 					"added": "2026-07-08"
 				},
 				{
+					"path": "/vault",
+					"title": "Vault — Buy & Unlock Encrypted 3D Models on BNB Chain",
+					"description": "Browse encrypted 3D listings, buy access with a real BSC testnet transaction, watch the cross-chain Greenfield permission grant settle, then unlock and view the model — decrypted entirely client-side, the raw key never leaves your browser.",
+					"priority": 0.7,
+					"changefreq": "daily",
+					"added": "2026-07-08"
+				},
+				{
 					"path": "/constellation",
 					"title": "watsonx Constellation",
 					"description": "Live Solana tokens in a 3D galaxy, positioned in semantic space by IBM Granite embeddings on watsonx.ai. Click a star for a live IBM Granite analysis.",

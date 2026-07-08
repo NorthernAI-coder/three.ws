@@ -151,6 +151,11 @@ export const NAV_GROUPS = [
 						desc: 'Gasless agent onboarding, an on-chain vault, and a real-time on-chain world — live 0.45s block proof',
 					},
 					{
+						title: 'Vault',
+						href: '/vault',
+						desc: 'Buy encrypted 3D models gated by a real on-chain BNB Chain purchase — unlock and view in 3D',
+					},
+					{
 						title: 'All pages',
 						href: '/sitemap',
 						desc: 'The full directory — every page on three.ws, filterable',

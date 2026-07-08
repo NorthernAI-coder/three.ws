@@ -21,7 +21,9 @@ import { buildBuyPolicyData, VaultPolicyDataError } from '../_lib/bnb/vault-poli
 import { GreenfieldError } from '../_lib/bnb/greenfield.js';
 
 function normalizeNetwork(raw) {
-	const v = String(raw || '').trim().toLowerCase();
+	const v = String(raw || '')
+		.trim()
+		.toLowerCase();
 	if (v === '' || v === 'testnet' || v === '97' || v === 'bsctestnet') return 'testnet';
 	if (v === 'mainnet' || v === '56' || v === 'bscmainnet') return 'mainnet';
 	return null;
@@ -41,7 +43,12 @@ export default wrap(async (req, res) => {
 	const params = new URL(req.url, `http://${req.headers?.host || 'x'}`).searchParams;
 	const network = normalizeNetwork(params.get('network'));
 	if (network === null) {
-		return error(res, 400, 'bad_request', `unknown network "${params.get('network')}" — use "testnet" or "mainnet"`);
+		return error(
+			res,
+			400,
+			'bad_request',
+			`unknown network "${params.get('network')}" — use "testnet" or "mainnet"`,
+		);
 	}
 	const objectId = params.get('objectId');
 	if (!isBytes32(objectId)) {
@@ -56,22 +63,48 @@ export default wrap(async (req, res) => {
 	try {
 		ref = await resolveObjectRef(objectId, { network });
 	} catch (err) {
-		return error(res, 503, 'storage_unavailable', `could not resolve vault object refs: ${err.message}`);
+		return error(
+			res,
+			503,
+			'storage_unavailable',
+			`could not resolve vault object refs: ${err.message}`,
+		);
 	}
 	if (!ref) {
-		return error(res, 404, 'not_listed', 'this objectId is not resolvable to a listed Greenfield object');
+		return error(
+			res,
+			404,
+			'not_listed',
+			'this objectId is not resolvable to a listed Greenfield object',
+		);
 	}
 
 	try {
-		const { policyDataHex, resourceId } = await buildBuyPolicyData({ bucket: ref.bucket, object: ref.glbObject, buyer, network });
-		return json(res, 200, { objectId, buyer, network, policyData: policyDataHex, resourceId }, { 'cache-control': 'no-store' });
+		const { policyDataHex, resourceId } = await buildBuyPolicyData({
+			bucket: ref.bucket,
+			object: ref.glbObject,
+			buyer,
+			network,
+		});
+		return json(
+			res,
+			200,
+			{ objectId, buyer, network, policyData: policyDataHex, resourceId },
+			{ 'cache-control': 'no-store' },
+		);
 	} catch (err) {
 		if (err instanceof VaultPolicyDataError) {
-			const status = err.code === 'object_not_found' ? 404 : err.code === 'bad_input' ? 400 : 503;
+			const status =
+				err.code === 'object_not_found' ? 404 : err.code === 'bad_input' ? 400 : 503;
 			return error(res, status, err.code, err.message);
 		}
 		if (err instanceof GreenfieldError) {
-			return error(res, err.code === 'not_found' ? 404 : 503, `greenfield_${err.code}`, err.message);
+			return error(
+				res,
+				err.code === 'not_found' ? 404 : 503,
+				`greenfield_${err.code}`,
+				err.message,
+			);
 		}
 		throw err;
 	}
