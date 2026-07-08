@@ -336,3 +336,10 @@ scripts/mixamo-upload-state.json
 
 # local prompt-pack workspace (never commit)
 _prompts/
+
+# persona-store's local/dev/test fallback (used whenever DATABASE_URL is
+# unset — writes real records to disk so "reload the same persona id" works
+# on a laptop with zero cloud config). Production uses Postgres, not this;
+# these files are transient local test data and must never be committed.
+.data/
+
