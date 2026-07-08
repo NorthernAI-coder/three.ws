@@ -137,3 +137,120 @@ are not this prompt's concern. The free-tier *engine* built here is already
 generic (reads `endpoint.free` off any descriptor), so every endpoint those
 prompts add just needs the `free: { perMin, perDay }` field — no further
 engine work required for them to get the free lane.
+
+---
+
+## 2026-07-08 — Prompt 11: Speech package — verification + a critical infra fix
+
+**Prompt 11 (`11-speech-package.md`) was already fully shipped** by a prior agent
+run before this session started: commit `3b2cb4421` *"feat: speech package — ASR
++ TTS as agent products over x402"* is an ancestor of both local `main` and
+`threews/main` (confirmed via `git merge-base --is-ancestor`). It delivers
+exactly what the work order asked for:
+
+- `POST /api/v1/ai/tts` — 10 free calls/day/IP (≤500 chars) → `$0.005` USDC/call
+  x402 fall-through. `GET ?voices=1` lists voices free.
+- `POST /api/v1/ai/asr` — 5 free clips/day/IP (≤60s) → `$0.01` USDC/clip x402
+  fall-through. Accepts base64 JSON or raw `audio/*` bytes.
+- Shared core `api/_lib/ai-speech.js` — free and paid lanes run the *same*
+  synthesis/recognition code and return the *same* JSON shape (`tier: "free" |
+  "paid"`), reusing `tts-nvidia.js` / `asr-nvidia.js` (no duplication, no new NIM
+  wiring).
+- Free-quota limiters `aiTtsFreeIp` / `aiAsrFreeIp` in `api/_lib/rate-limit.js`
+  (critical, fail-closed → 402 on a Redis outage, matching the platform's
+  money-moving-bucket convention).
+- Bazaar discovery on both endpoints, uniqueness-first descriptions ("the only
+  ASR lane in the x402 ecosystem"), `docs/api-reference.md` section with runnable
+  curls, `data/changelog.json` entry, `api/healthz.js` speech block, and
+  `tests/api/v1-ai-speech.test.js` (17 tests, fixtures the NIM boundary with
+  captured response shapes per the prompt's own rule).
+
+**My job this session was to verify it for real, not redo it.** Did:
+
+- `npx vitest run tests/api/v1-ai-speech.test.js` → **17/17 passed.**
+- `npm run audit:x402-catalog` → 1 pre-existing failure, unrelated to speech
+  (`/api/x402/embody` missing from `docs/x402-endpoints.md` — a different,
+  in-flight concurrent agent's endpoint; the audit only scans `api/x402/*.js`,
+  and the speech routes are native `api/v1/ai/*.js`, out of that audit's scope
+  entirely). Left untouched — not this work order's file.
+- Live production probes against `https://three.ws`:
+  - `GET /healthz` and `GET /api/v1/ai/tts` → `configured: true` (NVIDIA_API_KEY
+    is set in prod).
+  - `GET /api/v1/ai/asr` → `configured: false` — `NVIDIA_ASR_FUNCTION_ID` is
+    **not** set in prod (owner env gap below; TTS lane is live, ASR lane is
+    honestly 503-gated exactly as designed).
+  - `GET /api/v1/ai/tts?voices=1` → real voice catalog, 11 voices, `nvidia: true`.
+
+**Real synthesis call attempted, and that's where I found a live production bug**
+(not introduced by this work order — it affects the whole `/api/v1/*` POST
+surface): `POST /api/v1/ai/tts` with a real payload **hung with zero bytes
+returned** for 40–55s+ on every attempt (3/3 repeats, plus one background call
+that never returned at all across the whole session). Isolated the cause
+methodically:
+
+- `GET /api/v1/ai/tts` (no rate limiter call) → 53ms. Fine.
+- `POST /api/tts/speak` (legacy route, same NVIDIA lane, an *already-warm*
+  critical limiter bucket `tts:speak:ip`) → 170ms, clean `429
+  rate_limiter_unavailable`. Fine — proves the fail-closed path works when it
+  actually gets to run.
+- `POST /api/v1/ai/tts`, `POST /api/v1/ai/text-to-3d`, `POST /api/v1/sentiment`
+  (three unrelated `/api/v1/*` POST routes, three different handlers, three
+  different rate-limit buckets) **all hung identically** — proving this is not
+  a speech-package bug, it's every fresh-bucket POST route hitting the
+  platform's shared Redis client.
+- Root cause: `api/_lib/redis.js` wraps every Upstash command with an
+  auth-failure circuit breaker (fast-fails on WRONGPASS), but had **no
+  client-side timeout** for a plain network stall. A stalled command never
+  throws, so `await rl.limit(id)` in `resilientLimiter` (rate-limit.js) just
+  hangs forever — the carefully-designed fail-closed/fail-open fallback logic
+  never gets to run because the promise it's awaiting never settles. This
+  explains the exact split observed: buckets whose breaker had already tripped
+  (from real WRONGPASS traffic) failed fast; brand-new buckets (`ai:tts:free:ip`,
+  `v1:free:day`, sentiment's own limiter — all first-touched by this session)
+  hit a live network stall with no escape hatch.
+
+**Fixed** `api/_lib/redis.js`: every command (and pipeline `.exec()`) now races
+against a bounded timeout (`REDIS_COMMAND_TIMEOUT_MS`, default 5000ms, env
+override) via a new `raceCommand()` helper. A timeout rejects with a plain
+`RedisCommandTimeoutError` — deliberately **not** tagged as an auth error, so it
+never trips the permanent auth breaker (a network stall is worth retrying next
+request; a bad token is not) — and flows into the exact fail-closed/fail-open
+paths every consumer (`resilientLimiter`, `cache.js`, `usage.js`) already has
+built for generic errors. This is a platform-wide reliability fix, not scoped to
+speech, but it directly blocked verifying this work order's own DoD (a real
+synthesis call), so it shipped in this session.
+
+**Tests after the fix — all green, no regressions:**
+```
+tests/redis-auth-breaker.test.js + block-store-redis.test.js +
+api/redis-usage.test.js + api/v1-ai-speech.test.js  → 4 files, 38 tests passed
+tests/rpc-rate-limit.test.js + api/http-rate-limited.test.js → 2 files, 14 tests passed
+```
+
+**Owner gaps (not fixable from here):**
+
+1. **`NVIDIA_ASR_FUNCTION_ID` unset in prod** — `/api/v1/ai/asr` correctly
+   503s `not_configured` instead of faking a response. Set it on the Cloud Run
+   `three-ws-api` service (`gcloud run services update three-ws-api --region
+   us-central1 --update-env-vars NVIDIA_ASR_FUNCTION_ID=<id>`); discover the
+   live id with `node scripts/verify-nvidia-asr.mjs --list`.
+2. **The `api/_lib/redis.js` timeout fix needs a production deploy** to take
+   effect (`npm run deploy:gcp`, frontend rebuild first if touched — it wasn't
+   here). **Did not deploy it myself this session**: the shared worktree
+   currently has 100+ files modified by other concurrent agents' in-flight
+   work (per `git status`), and `npm run deploy:gcp` would bundle all of that
+   uncommitted state into a production release — well outside this work
+   order's authority. The fix is committed to `main`/`threews` on its own
+   commit so it can be deployed independently the next time a clean deploy
+   runs.
+3. Until that deploy ships, **any `/api/v1/*` POST route touching a
+   never-before-used rate-limit bucket in a given warm instance can hang for
+   the Upstash client's full internal retry ceiling** (observed well past 55s
+   in this session before the client I used gave up) instead of returning the
+   intended fail-closed 402/503/429. This is a live, user-facing reliability
+   gap on production right now, not unique to `/api/v1/ai/tts` — flagging as
+   the highest-priority deploy once picked up.
+
+**Files touched this session:** `api/_lib/redis.js` (the fix),
+`prompts/x402-catalog/PROGRESS.md` (this entry). No changes to the already-
+shipped speech package files themselves — they were correct as found.
