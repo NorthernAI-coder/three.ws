@@ -13,6 +13,9 @@ import {
 import { renderLock, lockStateFromAccess } from '../three-lock.js';
 import { payForHighGeneration } from './forge-pay.js';
 import { initWalletButton, getConnectedWalletAddress } from '../wallet.js';
+import { openSketchCanvas } from './sketch-canvas.js';
+import { mountPromptDictation } from '../voice/prompt-dictation.js';
+import { showToast } from '../ui-helpers.js';
 ensureStateKitStyles();
 //
 // Drives /api/forge. Three paths share one polling loop:
@@ -55,6 +58,11 @@ const els = {
 	sketchGrid: document.getElementById('sketch-grid'),
 	sketchFileInput: document.getElementById('sketch-file-input'),
 	sketchPrompt: document.getElementById('sketch-prompt'),
+	drawViewBtn: document.getElementById('draw-view-btn'),
+	drawSketchBtn: document.getElementById('draw-sketch-btn'),
+	promptDictateSlot: document.getElementById('prompt-dictate-slot'),
+	imagePromptDictateSlot: document.getElementById('image-prompt-dictate-slot'),
+	sketchPromptDictateSlot: document.getElementById('sketch-prompt-dictate-slot'),
 	states: {
 		empty: document.getElementById('state-empty'),
 		generating: document.getElementById('state-generating'),
@@ -2214,6 +2222,35 @@ els.viewer.addEventListener('load', () => {
 buildSlots();
 buildViewsPips();
 updateViewsCounter();
+
+// Draw → 3D: an in-browser drawing canvas (sketch-canvas.js) as an alternative
+// to uploading a photo. The exported PNG rides the SAME upload + reconstruction
+// path as an uploaded reference photo — no new generation surface, just a new
+// way to produce the reference image. Live today (uses whichever engine the
+// image pane already resolves to); does not depend on the TripoSG-scribble
+// lane the dedicated Sketch tab gates on.
+els.drawViewBtn?.addEventListener('click', async () => {
+	const target = firstFreeSlot();
+	if (target < 0) {
+		showToast('All 4 views are full — remove one first.', { type: 'info' });
+		return;
+	}
+	const file = await openSketchCanvas();
+	if (file) uploadToSlot(target, file);
+});
+
+els.drawSketchBtn?.addEventListener('click', async () => {
+	const file = await openSketchCanvas();
+	if (file) uploadSketch(file);
+});
+
+// Voice → prompt: dictate any of the three prompt fields instead of typing.
+// Renders nothing when this browser can neither use native SpeechRecognition
+// nor capture for the Riva ASR fallback (see prompt-dictation.js) — no dead
+// button ships when voice input truly isn't available.
+mountPromptDictation(els.promptDictateSlot, els.prompt);
+mountPromptDictation(els.imagePromptDictateSlot, els.imagePrompt);
+mountPromptDictation(els.sketchPromptDictateSlot, els.sketchPrompt);
 
 els.modeSwitch.addEventListener('click', (e) => {
 	const btn = e.target.closest('button[data-mode]');

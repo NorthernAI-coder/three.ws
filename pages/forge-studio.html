@@ -1036,6 +1036,53 @@
 				text-align: center;
 			}
 
+			/* "Draw instead" CTA — opens the in-browser sketch canvas (src/forge-studio/
+			   sketch-canvas.js) as an alternative to uploading a photo/drawing. Lives
+			   under the views counter / sketch grid in both the image and sketch panes. */
+			.draw-cta-row {
+				display: flex;
+				justify-content: center;
+				margin-top: var(--space-sm);
+			}
+			.draw-cta {
+				display: inline-flex;
+				align-items: center;
+				gap: 0.4rem;
+				background: transparent;
+				border: 1px dashed var(--stroke-strong);
+				color: var(--ink-dim);
+				border-radius: var(--radius-sm, 8px);
+				padding: 0.4rem 0.8rem;
+				font-size: var(--text-xs);
+				cursor: pointer;
+				transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+			}
+			.draw-cta svg {
+				width: 14px;
+				height: 14px;
+			}
+			.draw-cta:hover {
+				border-color: var(--accent);
+				color: var(--ink);
+				background: var(--surface-1, rgba(255, 255, 255, 0.04));
+			}
+			.draw-cta:focus-visible {
+				outline: 2px solid var(--accent);
+				outline-offset: 2px;
+			}
+
+			/* Voice dictation mic slot — mounted by src/voice/prompt-dictation.js next
+			   to each prompt textarea. Empty <span> until JS decides the browser can
+			   dictate (native SpeechRecognition or the free Riva ASR lane); otherwise
+			   stays empty so no dead button ships. */
+			.pd-slot {
+				display: inline-flex;
+				align-items: center;
+			}
+			.pd-slot:empty {
+				display: none;
+			}
+
 			/* Live multi-view counter — turns four anonymous empty boxes into a
 			   legible "0 of 4" progress with pips, and teaches that more views ⇒
 			   sharper mesh. Updated by src/forge.js as slots fill. */
@@ -3179,6 +3226,7 @@
 						</button>
 						<span class="prompt-coach" id="prompt-coach" data-grade="tip" aria-live="polite"></span>
 						<span class="prompt-count" id="prompt-count">0 / 1000</span>
+						<span class="pd-slot" id="prompt-dictate-slot"></span>
 					</div>
 				</div>
 
@@ -3194,6 +3242,12 @@
 						<span class="vc-text" id="views-counter-text"
 							><strong>0</strong> of 4 views</span
 						>
+					</div>
+					<div class="draw-cta-row">
+						<button type="button" class="draw-cta" id="draw-view-btn">
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+							Or draw it instead
+						</button>
 					</div>
 					<input
 						type="file"
@@ -3211,6 +3265,7 @@
 						maxlength="1000"
 						placeholder="Optional guidance — e.g. “matte plastic, neutral pose, no background”"
 					></textarea>
+					<span class="pd-slot" id="image-prompt-dictate-slot"></span>
 					<p class="views-hint">
 						Add 1–4 views of the <strong>same</strong> object (front · back · left ·
 						right). Drag to drop, click to browse, paste from the clipboard
@@ -3226,6 +3281,12 @@
 						id="sketch-grid"
 						aria-label="Your sketch — add one drawing"
 					></div>
+					<div class="draw-cta-row">
+						<button type="button" class="draw-cta" id="draw-sketch-btn">
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+							Draw here instead
+						</button>
+					</div>
 					<input
 						type="file"
 						id="sketch-file-input"
@@ -3242,6 +3303,7 @@
 						aria-required="true"
 						placeholder="What is it? — e.g. “a cartoon rocket with two tail fins”"
 					></textarea>
+					<span class="pd-slot" id="sketch-prompt-dictate-slot"></span>
 					<p class="views-hint">
 						Drop one drawing — dark strokes on a light background work best — and say
 						what it depicts<span class="req-tag" id="sketch-req-tag">Required</span>.
