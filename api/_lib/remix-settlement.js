@@ -26,7 +26,11 @@ const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 // dedicated REMIX_ROYALTY_PAYOUT_KEY is preferred; the shared club treasury
 // secret is the fallback (same wallet the vanity bounty market pays from). Both
 // are validated to decode to 64 bytes so a misconfig fails loud, never on-chain.
-function resolvePayoutKeyBase58() {
+// Exported so other real-royalty settlement flows (e.g. a tokenized-3D remix
+// mint, api/_lib/tokenize-3d.js) reuse the SAME payout wallet resolution
+// instead of re-deriving it — one source of truth for "who pays creator
+// royalties on this platform."
+export function resolvePayoutKeyBase58() {
 	const dedicated = process.env.REMIX_ROYALTY_PAYOUT_KEY;
 	if (dedicated && dedicated.trim()) {
 		const s = dedicated.trim();

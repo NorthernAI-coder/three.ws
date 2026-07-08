@@ -119,7 +119,11 @@ async function checkOne(endpoint, bypassToken, claim) {
 	const res = await fetch(endpoint, {
 		method: 'POST',
 		headers,
-		body: JSON.stringify({ claim, strictness: 'normal' }),
+		// 'medium' matches parseFactCheckBody's own default in api/x402/fact-check.js —
+		// spelled out explicitly rather than relying on an unrecognized value falling
+		// through to it (the endpoint only accepts high|medium|low; anything else,
+		// including the previous 'normal' here, silently resolves to 'medium' anyway).
+		body: JSON.stringify({ claim, strictness: 'medium' }),
 		signal: AbortSignal.timeout(60_000),
 	});
 	if (res.status === 402) {

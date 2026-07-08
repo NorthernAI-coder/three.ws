@@ -1,0 +1,64 @@
+{
+  "generated_at": "2026-07-08T01:46:16.570Z",
+  "endpoint": "in-process:api/x402/fact-check.js#_checkClaim (real chain, no HTTP/x402 payment layer — see prompts/x402-catalog/PROGRESS.md for why)",
+  "fixture_version": "1.0.0",
+  "claim_count": 40,
+  "total": 40,
+  "correct": 8,
+  "errors": 3,
+  "accuracy_pct": 20,
+  "by_class": {
+    "supported": {
+      "total": 10,
+      "correct": 0,
+      "accuracy_pct": 0
+    },
+    "contradicted": {
+      "total": 10,
+      "correct": 0,
+      "accuracy_pct": 0
+    },
+    "mixed": {
+      "total": 10,
+      "correct": 8,
+      "accuracy_pct": 80
+    },
+    "insufficient": {
+      "total": 10,
+      "correct": 0,
+      "accuracy_pct": 0
+    }
+  },
+  "by_difficulty": {
+    "easy": {
+      "total": 13,
+      "correct": 0,
+      "accuracy_pct": 0
+    },
+    "medium": {
+      "total": 20,
+      "correct": 5,
+      "accuracy_pct": 25
+    },
+    "hard": {
+      "total": 7,
+      "correct": 3,
+      "accuracy_pct": 42.9
+    }
+  },
+  "confusion": {
+    "supported": {
+      "mixed": 10
+    },
+    "contradicted": {
+      "mixed": 9
+    },
+    "mixed": {
+      "mixed": 8,
+      "contradicted": 1
+    },
+    "insufficient": {
+      "mixed": 9
+    }
+  }
+}

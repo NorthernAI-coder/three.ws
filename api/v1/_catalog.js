@@ -238,6 +238,23 @@ export const CATALOG = [
 		},
 	},
 	{
+		id: 'v1.tokenized.launches',
+		method: 'GET',
+		path: '/api/v1/tokenized/launches',
+		auth: 'public',
+		summary:
+			'Free, paginated feed of every generated 3D asset minted as a Metaplex Core NFT THROUGH ' +
+			'three.ws — the NFT analogue of GET /api/v1/pump/launches. Each entry carries baked ' +
+			'provenance, royalty terms, remix lineage (parent_mint), and — for a remix — the real ' +
+			'royalty settlement routed to the source creator. No key; 60/min per IP.',
+		params: {
+			limit: 'number 1–100 (default 24)',
+			offset: 'number (default 0)',
+			network: 'string — "mainnet" | "devnet" (default "mainnet")',
+			agent_id: 'string — uuid, restrict to one creating agent (optional)',
+		},
+	},
+	{
 		id: 'v1.pump.whales',
 		method: 'GET',
 		path: '/api/v1/pump/whales',

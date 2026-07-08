@@ -7,14 +7,21 @@ server grinds (or delivers from stock) a brand-new keypair that matches.
 
 | Endpoint | What it is | Chars | Price | Pick it when |
 | --- | --- | --- | --- | --- |
-| [`/api/x402/vanity`](#tier-1--live-grinder) | Live grind, fresh keypair per request | ≤3 | $0.01–$0.50 | You want a custom address **now**, cheaply. |
+| [`/api/x402/vanity`](#tier-1--live-grinder) | Live grind, or **instant delivery** when a match is already in stock | ≤3 (grind or instant) · 4–5 (instant only) | $0.01–$0.50 (≤3) · $2.50–$10 (4–5) | You want a custom address **now** and don't care whether it was just ground or pulled from the shelf. |
 | [`/api/x402/vanity-verifiable`](#tier-2--provably-fair-grinder) | Live grind **+ signed proof** it was ground fresh | ≤3 | $0.02–$0.40 | You need to **prove** no copy was kept (commit–reveal receipt). |
-| [`/api/x402/vanity-premium`](#tier-3--premium-inventory) | Buy a **pre-ground** long address from stock | 4–5+ | $1–$50 | You want a rarer prefix too slow to grind on demand. |
+| [`/api/x402/vanity-premium`](#tier-3--premium-inventory) | Browse and buy a **specific pre-ground** long address from stock | 4–5+ | $1–$50 | You want to pick an exact rarer prefix from the catalog rather than "any match". |
 
 All three are **keyless**: no API key, no signup. The Solana rail is the platform
 default; Base mainnet is offered when a facilitator can settle it. The live 402
 challenge always quotes the exact price for the pattern you asked for — read it,
 don't hardcode.
+
+Tier 1 and tier 3 **share one warehouse** — the `vanity_inventory` table,
+pre-ground on batch spot CPU (`workers/vanity-grinder`) and auto-replenished
+when stock runs low (`api/cron/vanity-inventory-replenish`, hourly). Tier 1 is
+"give me anything that matches, right now"; tier 3 is "let me pick this exact
+address from the catalog." [Pump Launcher](pump-launcher.md) draws from the
+same warehouse for instant vanity mint addresses.
 
 ## Which agent uses this, and why us
 
@@ -38,17 +45,24 @@ once, over TLS, and never stored.
 
 ## Tier 1 — live grinder
 
-`GET /api/x402/vanity?prefix=<base58>&suffix=<base58>` grinds a brand-new Solana
-Ed25519 keypair in a Rust/WASM engine (~25k keypairs/sec) under a 45-second
-budget and returns it. Settlement runs **only after a successful grind**, so an
-exhausted budget (rare) costs nothing and can be retried.
+`GET /api/x402/vanity?prefix=<base58>&suffix=<base58>` first checks whether a
+pre-ground address already matching your pattern is sitting in the premium
+inventory. A hit is claimed atomically and delivered **instantly** — no grind
+wait — at the exact same price as a live grind would have cost. A miss falls
+straight through to grinding a brand-new Solana Ed25519 keypair in a Rust/WASM
+engine (~25k keypairs/sec) under a 45-second budget. Either way the response's
+`source` field says which path served you: `"inventory"` or `"ground"`.
+Settlement runs **only after** a successful instant claim or grind, so a lost
+race or an exhausted budget (rare) costs nothing and can be retried.
 
 ### Formats
 
 - **`format=keypair`** (default) — returns the public `address` plus its secret
   key in two forms: `secretKeyBase58` (import into Phantom / Solflare) and
-  `secretKey` (a 64-byte int array — save as a Solana CLI keypair JSON). Combined
-  pattern capped at **3 Base58 chars**.
+  `secretKey` (a 64-byte int array — save as a Solana CLI keypair JSON). Live
+  grinding covers up to **3 Base58 chars**; **4–5 chars are offered too, but
+  served ONLY from inventory** (see [Price ladder](#price-ladder)) — the server
+  never attempts to grind that long live.
 - **`format=mnemonic`** — returns a **BIP-39 seed phrase** (`strength=128` → 12
   words, default; `strength=256` → 24 words) whose derived key at
   `m/44'/501'/0'/0'` (Phantom's default path) lands on the vanity address.
@@ -59,20 +73,27 @@ exhausted budget (rare) costs nothing and can be retried.
 
 Difficulty-tiered by combined prefix+suffix length (USDC, 6 decimals):
 
-| Combined length | `keypair` | `mnemonic` |
-| --- | --- | --- |
-| 1 char | $0.01 | $0.05 |
-| 2 chars | $0.05 | $0.50 |
-| 3 chars | $0.25 | — (capped at 2) |
+| Combined length | `keypair` | `mnemonic` | Fulfilled by |
+| --- | --- | --- | --- |
+| 1 char | $0.01 | $0.05 | instant if in stock, else ground |
+| 2 chars | $0.05 | $0.50 | instant if in stock, else ground |
+| 3 chars | $0.25 | — (capped at 2) | instant if in stock, else ground |
+| 4 chars | $2.50 | — (not offered) | **inventory only** |
+| 5 chars | $10.00 | — (not offered) | **inventory only** |
 
-Ops can override with `X402_PRICE_VANITY=<atomics>` for the base tier; the live
-402 quotes the exact tier for the requested pattern.
+4–5 char patterns are quoted **only when a matching address is actually in
+stock** — request one that isn't and you get a `404 not_in_stock` explaining
+the grindable range instead of a 402 you could never redeem. Check
+`GET /api/x402/vanity-premium?prefix=…` to see what's currently available.
+Ops can override any tier: `X402_PRICE_VANITY_4` / `X402_PRICE_VANITY_5` (USDC
+atomics) for the inventory-only band; the live 402 always quotes the exact
+tier for the requested pattern.
 
 ### Inputs
 
 | Param | Notes |
 | --- | --- |
-| `prefix` | Base58 chars the address must start with. Combined with `suffix`, ≤3 (keypair) or ≤2 (mnemonic). |
+| `prefix` | Base58 chars the address must start with. Combined with `suffix`, ≤5 (keypair — 4–5 inventory-only) or ≤2 (mnemonic). |
 | `suffix` | Base58 chars the address must end with. |
 | `ignoreCase` | `1`/`true` matches the pattern case-insensitively (faster, less specific). |
 | `format` | `keypair` (default) or `mnemonic`. |
@@ -101,13 +122,17 @@ curl "https://three.ws/api/x402/vanity?prefix=So"
   "expectedAttempts": 3364,
   "network": "solana",
   "explorerUrl": "https://solscan.io/account/SoV3...",
+  "source": "ground",                // or "inventory" — instant delivery from stock, same price
   "certificate": { /* signed proof-of-grind, contains no secret */ },
   "verifyUrl": "https://three.ws/vanity/verify"
 }
 ```
 
-Longer than 3 chars? Grind it in the browser at [`/vanity`](https://three.ws/vanity)
-or buy it from [premium inventory](#tier-3--premium-inventory).
+Longer than 3 chars? A 4–5 char pattern is served if (and only if) it's in
+stock — same endpoint, premium price, `source: "inventory"`. Out of stock gets
+a `404 not_in_stock`; grind it yourself in the browser at
+[`/vanity`](https://three.ws/vanity), or browse what IS available at
+[premium inventory](#tier-3--premium-inventory).
 
 ### Security model
 
@@ -164,6 +189,21 @@ brandable addresses ground ahead of time on batch CPU and held encrypted.
 > not by you. For anything of value, use a bought address as a **token mint
 > address** or **sweep assets to a wallet you generated yourself** — do not use it
 > as a long-term treasury. Every listing and delivery says this plainly.
+
+**Restocking.** `api/cron/vanity-inventory-replenish` runs hourly, checks
+available stock against a low-water mark (`VANITY_INVENTORY_LOW_WATERMARK`,
+default 25), and fires the `workers/vanity-grinder` Cloud Run Job (via the
+Cloud Run Admin API) when it's running low — plus sweeps any ciphertext past
+its retention window. Trigger a batch manually any time with
+`scripts/gcp/vanity-grind-deploy.sh --run` or `node
+workers/vanity-grinder/grind.mjs` (see its
+[README](../workers/vanity-grinder/README.md)).
+
+**Pump Launcher upsell.** `POST /api/x402/pump-launch` with a `vanityPrefix` /
+`vanitySuffix` checks this same inventory before grinding a mint address live —
+a hit skips the grind entirely (`vanity_source: "inventory"` in the response),
+a miss grinds as before (`vanity_source: "ground"`). Same one-shot claim, same
+atomicity, no separate purchase step. See [pump-launcher.md](pump-launcher.md).
 
 ---
 

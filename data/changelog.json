@@ -3,6 +3,26 @@
 	"entries": [
 		{
 			"date": "2026-07-08",
+			"title": "Fact Check's accuracy benchmark has a real published score, and the search+AI chain got more reliable",
+			"summary": "The 40-claim fact-check accuracy benchmark has now actually been run against the real search-and-LLM chain, and /fact-check shows the genuine result instead of the \"not yet run\" placeholder. Running it for real surfaced and fixed two chain bugs along the way: a request-formatting bug was silently rejecting every fact-check call on the Groq lane, and the search step had no fallback beyond a narrow instant-answer API, so most claims returned zero sources. Both are fixed — search now also checks Wikipedia's full-text index, a free source that needs no API key — and the published score will keep improving as the platform's search coverage does. The benchmark, its scoring code, and every claim in the suite stay public for anyone to check.",
+			"tags": [
+				"improvement",
+				"fix"
+			],
+			"link": "/fact-check"
+		},
+		{
+			"date": "2026-07-08",
+			"title": "Vanity addresses now go up to 5 characters, and the shelf restocks itself",
+			"summary": "GET /api/x402/vanity now offers 4- and 5-character Solana vanity prefixes/suffixes ($2.50 and $10) on top of the existing 1-3 char live-grind tiers — those longer patterns are served only when a matching pre-ground address is actually in stock, so you never pay for one that isn't there (a 404 tells you honestly when it's out of stock). Behind the scenes, an hourly job now watches the pre-ground warehouse and automatically kicks off a fresh grinding batch on spot compute whenever stock runs low, so instant delivery keeps working without anyone manually restocking it.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/vanity"
+		},
+		{
+			"date": "2026-07-08",
 			"title": "Crypto API now has a home page and a real OpenAPI spec",
 			"summary": "The free /api/v1/x crypto aggregator (CoinGecko, DefiLlama, Jupiter, DexScreener, Solana RPC) has a public storefront at three.ws/crypto-api with a live endpoint table, and every endpoint now shows up in the OpenAPI 3.1 spec at three.ws/openapi.json. Also fixed a bug where the discovery endpoint (GET /api/v1/x) 404'd in production.",
 			"tags": [

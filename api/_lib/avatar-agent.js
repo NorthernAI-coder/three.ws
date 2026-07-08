@@ -5,6 +5,7 @@
 
 import { sql } from './db.js';
 import { withDbRetry } from './db-retry.js';
+import { writeAssetProvenance } from './asset-provenance.js';
 
 // Claim an existing agent that has no avatar yet, or create a default one, then
 // ensure that agent has a custodial Solana wallet. Idempotent and safe to retry
@@ -12,7 +13,14 @@ import { withDbRetry } from './db-retry.js';
 // so a transient DB blip never leaves an avatar without its agent. Never throws
 // — callers run it fire-and-forget via queueMicrotask. Returns the agent id (or
 // null if provisioning could not complete).
-export async function provisionAvatarAgent({ userId, avatarId, avatarName }) {
+//
+// @param {object} p
+// @param {object} [p.provenance] generation provenance to record on the ledger
+//   once the agent resolves — { prompt, generationModel, generationProvider,
+//   parentAvatarId }. Omitted for a plain upload with no generation metadata;
+//   still records creator + timestamp when provided with all-null fields, since
+//   authorship alone is meaningful provenance. Best-effort, never blocks.
+export async function provisionAvatarAgent({ userId, avatarId, avatarName, provenance }) {
 	try {
 		const agentId = await withDbRetry(async () => {
 			const linked = await sql`
@@ -58,6 +66,26 @@ export async function provisionAvatarAgent({ userId, avatarId, avatarName }) {
 			await getOrCreateAgentSolanaWallet(agentId).catch((e) =>
 				console.warn('[avatar-agent] solana wallet provision failed', agentId, e?.message),
 			);
+
+			// Signed provenance on generation (Prompt 08, task 1): a durable,
+			// append-only ledger record of authorship — creator (the agent),
+			// prompt, generation model/provider, and parent lineage (a fork).
+			// Best-effort and fire-and-forget-safe: writeAssetProvenance never
+			// throws, so a signing/DB hiccup here can never break avatar creation.
+			writeAssetProvenance({
+				agentId,
+				type: 'avatar.generated',
+				payload: {
+					avatar_id: avatarId,
+					avatar_name: avatarName || null,
+					prompt: provenance?.prompt ?? null,
+					generation_model: provenance?.generationModel ?? null,
+					generation_provider: provenance?.generationProvider ?? null,
+					parent_avatar_id: provenance?.parentAvatarId ?? null,
+					created_at: new Date().toISOString(),
+				},
+				sourceSkill: 'avatar-agent',
+			}).catch(() => {});
 		}
 		return agentId;
 	} catch (err) {

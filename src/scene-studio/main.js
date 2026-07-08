@@ -13,7 +13,6 @@ document.documentElement.setAttribute('data-theme', 'dark');
 import * as THREE from 'three';
 
 import { Editor } from './vendor/js/Editor.js';
-import { AddObjectCommand } from './vendor/js/commands/AddObjectCommand.js';
 import { AddScriptCommand } from './vendor/js/commands/AddScriptCommand.js';
 import { takeSceneHandoff } from '../shared/scene-handoff.js';
 import { Viewport } from './vendor/js/Viewport.js';
@@ -27,6 +26,9 @@ import { AnimationResizer } from './vendor/js/AnimationResizer.js';
 import { Animation } from './vendor/js/Animation.js';
 
 import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
+
+import { addGltfBufferToScene as sharedAddGltfBufferToScene } from './loader.js';
+import { mountStudioActions } from './actions.js';
 
 window.URL = window.URL || window.webkitURL;
 window.BlobBuilder = window.BlobBuilder || window.WebKitBlobBuilder || window.MozBlobBuilder;
@@ -66,6 +68,10 @@ container.appendChild(animation.dom);
 
 const animationResizer = new AnimationResizer(editor);
 container.appendChild(animationResizer.dom);
+
+// Layered quality-of-life bar — Import from Forge / Export presets / Share —
+// sibling to the vendored chrome, never touching vendor/**. See actions.js.
+mountStudioActions(editor, container);
 
 editor.signals.animationPanelChanged.add(function (height) {
 	const visible = height !== false;
@@ -150,37 +156,10 @@ editor.storage.init(function () {
 // add-or-replace import dialog, since a deep-link arrival has an unambiguous
 // intent: add this model to the scene. The query is then stripped from the
 // address bar so a reload doesn't import a duplicate — autosave already
-// persists the object.
+// persists the object. The decoder-wired loader itself lives in the sibling
+// loader.js module, shared with actions.js's "Import from Forge" affordance.
 async function addGltfBufferToScene(contents, label) {
-	// Same decoder wiring as the vendored Loader's createGLTFLoader.
-	const [{ GLTFLoader }, { DRACOLoader }, { KTX2Loader }, { MeshoptDecoder }] = await Promise.all([
-		import('three/addons/loaders/GLTFLoader.js'),
-		import('three/addons/loaders/DRACOLoader.js'),
-		import('three/addons/loaders/KTX2Loader.js'),
-		import('three/addons/libs/meshopt_decoder.module.js'),
-	]);
-	const dracoLoader = new DRACOLoader();
-	dracoLoader.setDecoderPath('/scene-studio/draco/gltf/');
-	const ktx2Loader = new KTX2Loader();
-	ktx2Loader.setTranscoderPath('/scene-studio/basis/');
-	editor.signals.rendererDetectKTX2Support.dispatch(ktx2Loader);
-	const loader = new GLTFLoader();
-	loader.setDRACOLoader(dracoLoader);
-	loader.setKTX2Loader(ktx2Loader);
-	loader.setMeshoptDecoder(MeshoptDecoder);
-
-	try {
-		const result = await loader.parseAsync(contents, '');
-		const object = result.scene;
-		if (label) object.name = label;
-		object.animations.push(...result.animations);
-		editor.execute(new AddObjectCommand(editor, object));
-		editor.selectByUuid(object.uuid);
-		return object;
-	} finally {
-		dracoLoader.dispose();
-		ktx2Loader.dispose();
-	}
+	return sharedAddGltfBufferToScene(editor, contents, label);
 }
 
 async function importModelFromQuery() {

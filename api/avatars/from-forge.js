@@ -158,9 +158,21 @@ export default wrap(async (req, res) => {
 		},
 	});
 
-	// First-class like a normal upload: provision the agent + custodial wallet.
+	// First-class like a normal upload: provision the agent + custodial wallet,
+	// and record signed generation provenance on the agent_actions ledger once
+	// it resolves (creator, prompt, generation model, timestamp).
 	queueMicrotask(() =>
-		provisionAvatarAgent({ userId: auth.userId, avatarId: avatar.id, avatarName: avatar.name }),
+		provisionAvatarAgent({
+			userId: auth.userId,
+			avatarId: avatar.id,
+			avatarName: avatar.name,
+			provenance: {
+				prompt: sourcePrompt,
+				generationModel: 'chat-forge-avatar',
+				generationProvider: null,
+				parentAvatarId: null,
+			},
+		}),
 	);
 
 	// Auto-rig if the forged mesh arrived static (e.g. a mesh_forge save) so the

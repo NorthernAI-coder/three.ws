@@ -10,6 +10,17 @@
  *   POST /api/diorama  { action:'save', diorama, clientKey? } → { id, url }
  *       Persists a fully-forged world so it gets a permalink + gallery slot.
  *
+ *   POST /api/diorama  { action:'export', diorama }       → { glbUrl, sceneStudioUrl, … }
+ *       Merges an already-forged diorama's objects + ground + lights into ONE
+ *       GLB (api/_lib/scene-graph-compose.js) and uploads it — a single file
+ *       with named, selectable nodes that opens cleanly in Scene Studio
+ *       (/scene) or any glTF viewer. 503 when object storage isn't configured.
+ *
+ *   POST /api/diorama  { action:'build', prompt }         → { diorama, glbUrl?, … }
+ *       Headless one-shot: compose the plan, forge every object on the free
+ *       lane, then export the merged GLB — all server-side, for callers with
+ *       no browser to drive the progressive client flow (MCP tools, agents).
+ *
  *   GET  /api/diorama?id=<uuid>                          → { diorama }
  *   GET  /api/diorama?list=recent|featured&limit=<n>     → { dioramas:[card] }
  *
@@ -21,6 +32,12 @@ import { cors, json, method, readJson, wrap, rateLimited } from './_lib/http.js'
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { llmComplete, llmConfigured } from './_lib/llm.js';
 import { saveDiorama, getDiorama, listDioramas, bumpViews, dioramaStoreEnabled } from './_lib/diorama-store.js';
+import {
+	exportDioramaGlb,
+	dioramaExportStoreEnabled,
+	composePlanFromPrompt,
+	forgeDioramaObjects,
+} from './_lib/diorama-build.js';
 import {
 	normalizeDiorama,
 	MIN_OBJECTS,
@@ -63,7 +80,12 @@ export default wrap(async (req, res) => {
 
 	if (body.action === 'compose') return handleCompose(req, res, body);
 	if (body.action === 'save') return handleSave(req, res, body);
-	return json(res, 400, { error: 'unknown_action', message: 'action must be "compose" or "save".' });
+	if (body.action === 'export') return handleExport(req, res, body);
+	if (body.action === 'build') return handleBuild(req, res, body);
+	return json(res, 400, {
+		error: 'unknown_action',
+		message: 'action must be "compose", "save", "export", or "build".',
+	});
 });
 
 async function handleGet(req, res) {
@@ -199,6 +221,124 @@ async function handleSave(req, res, body) {
 		createdAt: saved.createdAt,
 		url: `${SITE}/diorama?id=${saved.id}`,
 	});
+}
+
+// Merge an already-forged diorama into one exportable GLB — the "Export +
+// editability" leg of compositional scene generation: a single file with
+// every object as a named, selectable node, ready for Scene Studio or any
+// other glTF-aware app. Degrades cleanly (designed 503) when object storage
+// isn't configured, and never fails whole-hog on a partial forge: whatever
+// objects are 'ready' get merged, the rest come back in `skipped`.
+async function handleExport(req, res, body) {
+	if (!dioramaExportStoreEnabled()) {
+		return json(res, 503, {
+			error: 'export_unavailable',
+			message: 'Scene export is not configured on this deployment.',
+		});
+	}
+	const exportRl = await limits.dioramaExportIp(clientIp(req));
+	if (!exportRl.success) {
+		return rateLimited(res, exportRl, 'Exporting too fast. Try again in a moment.');
+	}
+
+	const { ok, diorama, errors } = normalizeDiorama(body.diorama);
+	if (!ok) {
+		return json(res, 400, { error: 'invalid_diorama', message: errors.join(', ') });
+	}
+
+	let result;
+	try {
+		result = await exportDioramaGlb(diorama);
+	} catch (err) {
+		if (err?.code === 'nothing_to_export') {
+			return json(res, 400, { error: 'nothing_to_export', message: err.message });
+		}
+		console.error('[diorama] export failed:', err?.message);
+		return json(res, 502, {
+			error: 'export_failed',
+			message: 'Could not merge this world into a scene. Try again in a moment.',
+		});
+	}
+	// dioramaExportStoreEnabled() already gated this, but exportDioramaGlb also
+	// self-checks storage config — keep the belt-and-suspenders 503 in case the
+	// two checks ever diverge (e.g. a future env alias one reads and the other doesn't).
+	if (!result) {
+		return json(res, 503, {
+			error: 'export_unavailable',
+			message: 'Scene export is not configured on this deployment.',
+		});
+	}
+
+	return json(res, 200, {
+		glbUrl: result.glbUrl,
+		sceneStudioUrl: `${SITE}/scene?model=${encodeURIComponent(result.glbUrl)}&name=${encodeURIComponent(diorama.title || 'Diorama')}`,
+		title: diorama.title,
+		objectCount: diorama.objects.length,
+		exportedCount: result.exportedCount,
+		skipped: result.skipped,
+	});
+}
+
+// Headless one-shot world build: compose → forge every object → export — the
+// full pipeline in a single call, for callers with no browser to drive the
+// progressive client flow (MCP tools, autonomous agents). Real LLM inference
+// plus N real free-lane forges, so it carries compose's fail-closed rate-limit
+// posture. A forge failure on some objects never fails the whole build — the
+// diorama returned reflects exactly what forged, and `skipped` names the rest.
+async function handleBuild(req, res, body) {
+	const prompt = String(body.prompt ?? '').slice(0, MAX_PROMPT_LEN).trim();
+	if (prompt.length < 3) {
+		return json(res, 400, { error: 'prompt_required', message: 'Describe your world in a sentence.' });
+	}
+
+	const ip = clientIp(req);
+	const rl = await limits.dioramaBuildIp(ip);
+	if (!rl.success) {
+		return rateLimited(res, rl, 'World builder limit reached. Try again shortly.');
+	}
+	const globalRl = await limits.dioramaBuildGlobal();
+	if (!globalRl.success) {
+		return rateLimited(res, globalRl, 'The world builder is at capacity. Try again shortly.');
+	}
+
+	let plan;
+	try {
+		plan = await composePlanFromPrompt(prompt);
+	} catch (err) {
+		const status = err?.code === 'composer_unavailable' ? 503 : err?.code === 'prompt_required' ? 400 : 502;
+		return json(res, status, { error: err?.code || 'compose_failed', message: err.message });
+	}
+
+	const forged = await forgeDioramaObjects(plan, {
+		clientKey: typeof body.clientKey === 'string' ? body.clientKey.slice(0, 128) : undefined,
+	});
+	const readyCount = forged.objects.filter((o) => o.status === 'ready').length;
+
+	const response = {
+		diorama: forged,
+		objectCount: forged.objects.length,
+		readyCount,
+		viewerUrl: `${SITE}/diorama`,
+	};
+
+	if (readyCount > 0) {
+		try {
+			const exported = await exportDioramaGlb(forged);
+			if (exported) {
+				response.glbUrl = exported.glbUrl;
+				response.sceneStudioUrl = `${SITE}/scene?model=${encodeURIComponent(exported.glbUrl)}&name=${encodeURIComponent(forged.title || 'Diorama')}`;
+				response.exportedCount = exported.exportedCount;
+				response.skipped = exported.skipped;
+			} else {
+				response.exportNote = 'Scene export is not configured on this deployment; the diorama objects still forged individually.';
+			}
+		} catch (err) {
+			console.error('[diorama] build export step failed:', err?.message);
+			response.exportNote = 'The world forged but could not be merged into a single scene file. Try action:"export" again.';
+		}
+	}
+
+	return json(res, 200, response);
 }
 
 // Extract the first balanced top-level JSON object from a model response that

@@ -55,8 +55,22 @@ import {
 	deriveIdempotencyKey,
 	TOKENIZE_3D_ROYALTY_CAP_BPS,
 } from './tokenize-3d-metadata.js';
+import { agentIdForAvatar, writeAssetProvenance } from './asset-provenance.js';
+import { computeRemixSplit } from './remix-royalty.js';
+import { resolvePayoutKeyBase58 } from './remix-settlement.js';
+import { transferSolanaUSDC } from './solana-transfer.js';
+import { SOLANA_USDC_MINT } from '../payments/_config.js';
+import { priceFor } from './pump-pricing.js';
 
 export { TOKENIZE_3D_ROYALTY_CAP_BPS };
+
+/** The x402 price of one mint call, in USDC atomics — single source of truth
+ * (api/_lib/pump-pricing.js), reused so the remix-royalty split on a mint
+ * never drifts from what the caller was actually charged. */
+function mintPriceAtomics() {
+	const usd = priceFor('mint_3d_asset')?.amount_usdc;
+	return usd > 0 ? BigInt(Math.round(usd * 1_000_000)) : 0n;
+}
 
 /** Networks we mint on. Devnet is the default; mainnet is explicit. */
 export const TOKENIZE_3D_NETWORKS = /** @type {const} */ (['mainnet', 'devnet']);
@@ -347,6 +361,11 @@ function defaultDeps() {
  * @param {string} [input.generationModel]
  * @param {string} [input.generationProvider]
  * @param {string} [input.idempotencyKey]  override the derived key
+ * @param {bigint|number} [input.mintFeeAtomicsCollected]  the mint fee ACTUALLY
+ *   collected for this call (USDC atomics) — used only to split a remix
+ *   royalty when parentMint is set. Omit/0 for an OAuth-bypassed call (no fee
+ *   was collected, so nothing is split) — never assume the advertised price
+ *   was paid.
  * @param {object} [deps]                  injected dependencies (testing)
  * @returns {Promise<object>} mint result
  */
@@ -403,7 +422,8 @@ export async function mintTokenized3dAsset(input, deps = defaultDeps()) {
 	if (!claimed) {
 		const [existing] = await deps.sql`
 			select id, status, mint, network, name, glb_url, image_url, viewer_url,
-			       metadata_uri, royalty_bps, royalty_recipient, tx_signature
+			       metadata_uri, royalty_bps, royalty_recipient, tx_signature,
+			       provenance_ledger, remix_royalty
 			from tokenized_3d_assets
 			where idempotency_key = ${idempotencyKey} and network = ${network}
 		`;
@@ -497,12 +517,75 @@ export async function mintTokenized3dAsset(input, deps = defaultDeps()) {
 			          metadata_uri, royalty_bps, royalty_recipient, tx_signature
 		`;
 
+		// 5. Signed provenance on the agent_actions ledger (Prompt 08, task 1) —
+		// independently verifiable via query_action/list_agent_actions, alongside
+		// the provenance already baked into the NFT metadata itself. Best-effort:
+		// only fires when the source avatar has a provisioned agent, and never
+		// blocks or fails the mint that already succeeded on-chain.
+		let provenanceLedger = null;
+		const provenanceAgentId = await agentIdForAvatar(src.sourceAvatarId).catch(() => null);
+		if (provenanceAgentId) {
+			const ledgerResult = await writeAssetProvenance({
+				agentId: provenanceAgentId,
+				type: 'tokenize_3d.mint',
+				payload: {
+					mint,
+					network,
+					name: src.name,
+					prompt: provenance.prompt,
+					generation_model: provenance.generationModel,
+					generation_provider: provenance.generationProvider,
+					parent_mint: provenance.parentMint,
+					glb_url: media.glbUrl,
+					viewer_url: viewerUrl,
+					royalty_bps: royaltyBps,
+					creator_wallet: ownerWallet,
+					minted_at: createdAt,
+				},
+				sourceSkill: 'tokenize-3d',
+			}).catch(() => null);
+			if (ledgerResult?.recorded) {
+				provenanceLedger = {
+					action_id: ledgerResult.action_id,
+					signed: ledgerResult.signed,
+					signer_address: ledgerResult.signer_address,
+					digest: ledgerResult.digest,
+				};
+			}
+		}
+
+		// 6. Remix royalty on the mint fee (Prompt 08, task 4) — when this mint
+		// names a parent (a remix/derivative), route the parent creator's
+		// royalty slice out of the fee actually collected for THIS mint call, a
+		// real second USDC transfer, same rails as api/_lib/remix-settlement.js.
+		// Mainnet only (the payout wallet is a real mainnet treasury); a devnet
+		// remix mint still records durable parent→child lineage but settles
+		// nothing. An OAuth-bypassed mint (feeAtomicsCollected=0) has nothing to
+		// split — honestly reported, never a fabricated payout.
+		let remixRoyalty = null;
+		if (provenance.parentMint) {
+			remixRoyalty = await settleTokenizeRemixRoyalty({
+				sql: deps.sql,
+				parentMint: provenance.parentMint,
+				network,
+				feeAtomics: input.mintFeeAtomicsCollected ?? 0n,
+			});
+		}
+
+		if (provenanceLedger || remixRoyalty) {
+			await deps
+				.sql`update tokenized_3d_assets set provenance_ledger = ${provenanceLedger ? JSON.stringify(provenanceLedger) : null}::jsonb, remix_royalty = ${remixRoyalty ? JSON.stringify(remixRoyalty) : null}::jsonb, updated_at = now() where id = ${rowId}`
+				.catch((err) => console.warn('[tokenize-3d] provenance/royalty persist failed:', err?.message));
+		}
+
 		return formatMintResult(row, {
 			idempotent: false,
 			capped,
 			requestedBps,
 			royaltyBps,
 			metadataIpfs,
+			provenanceLedger,
+			remixRoyalty,
 		});
 	} catch (err) {
 		// Clean failure at the boundary: mark the row failed so the key can retry,
@@ -514,7 +597,96 @@ export async function mintTokenized3dAsset(input, deps = defaultDeps()) {
 	}
 }
 
-function formatMintResult(row, { idempotent, capped, requestedBps, royaltyBps, metadataIpfs = null }) {
+// ── Remix royalty on a mint ─────────────────────────────────────────────────
+
+/**
+ * When a mint names a `parent_mint` (it's a derivative of another creator's
+ * tokenized 3D asset), route that creator's royalty slice out of THIS mint's
+ * x402 fee — a real second USDC transfer, same split math + payout wallet as
+ * the forge_creations remix bazaar (api/_lib/remix-royalty.js +
+ * api/_lib/remix-settlement.js). Every non-paying outcome is reported with an
+ * honest reason (never a fake "pending"): no such parent, the parent has no
+ * royalty wallet, the split falls below the dust floor, the platform payout
+ * wallet isn't configured, the remix crosses networks, or this specific mint
+ * call collected no fee to split (an OAuth-bypassed call, or devnet — the
+ * payout wallet only holds real mainnet funds).
+ *
+ * @param {object} p
+ * @param {Function} p.sql          tagged-template SQL client (injectable for tests)
+ * @param {string} p.parentMint     the asset this mint derives from
+ * @param {string} p.network        this mint's network — must match the parent's
+ * @param {bigint} p.feeAtomics     the mint fee actually collected for THIS call
+ * @returns {Promise<object>} settlement summary — always defined, `paid` tells the story
+ */
+export async function settleTokenizeRemixRoyalty({ sql: sqlClient, parentMint, network, feeAtomics }) {
+	const fee = typeof feeAtomics === 'bigint' ? feeAtomics : BigInt(feeAtomics || 0);
+
+	if (network !== 'mainnet') {
+		return { paid: false, reason: 'devnet_not_settled', parent_mint: parentMint };
+	}
+	if (fee <= 0n) {
+		return { paid: false, reason: 'no_fee_collected', parent_mint: parentMint };
+	}
+
+	const [parent] = await sqlClient`
+		select mint, royalty_bps, royalty_recipient, owner_wallet
+		from tokenized_3d_assets
+		where mint = ${parentMint} and network = ${network} and status = 'minted'
+		limit 1
+	`;
+	if (!parent) {
+		return { paid: false, reason: 'parent_not_found', parent_mint: parentMint };
+	}
+
+	const creatorWallet = parent.royalty_recipient || parent.owner_wallet;
+	const split = computeRemixSplit({ priceAtomics: fee, royaltyBps: parent.royalty_bps });
+	const summary = {
+		parent_mint: parentMint,
+		royalty_bps: split.royaltyBps,
+		requested_bps: split.requestedBps,
+		capped: split.capped,
+		dust: split.dust,
+		creator_usd: split.creatorUsd,
+		platform_usd: split.platformUsd,
+		creator_atomics: split.creatorAtomics.toString(),
+		platform_atomics: split.platformAtomics.toString(),
+	};
+
+	if (!creatorWallet) {
+		return { ...summary, paid: false, reason: 'no_creator_wallet' };
+	}
+	if (split.creatorAtomics <= 0n) {
+		return { ...summary, paid: false, reason: split.dust ? 'below_dust_floor' : 'zero_royalty' };
+	}
+	const fromWallet = resolvePayoutKeyBase58();
+	if (!fromWallet) {
+		return { ...summary, paid: false, reason: 'payout_unconfigured' };
+	}
+
+	try {
+		const sig = await transferSolanaUSDC({
+			fromWallet,
+			toAddress: creatorWallet,
+			amount: split.creatorAtomics,
+			mint: SOLANA_USDC_MINT,
+		});
+		return {
+			...summary,
+			paid: true,
+			creator_wallet: creatorWallet,
+			creator_tx: sig,
+			explorer_tx_url: explorerTxUrl(sig, network),
+			settled_at: new Date().toISOString(),
+		};
+	} catch (err) {
+		return { ...summary, paid: false, reason: 'royalty_transfer_failed', error: err?.message || 'transfer failed' };
+	}
+}
+
+function formatMintResult(
+	row,
+	{ idempotent, capped, requestedBps, royaltyBps, metadataIpfs = null, provenanceLedger, remixRoyalty },
+) {
 	return {
 		status: 'minted',
 		idempotent: Boolean(idempotent),
@@ -527,6 +699,12 @@ function formatMintResult(row, { idempotent, capped, requestedBps, royaltyBps, m
 		viewer_url: row.viewer_url,
 		metadata_uri: row.metadata_uri,
 		metadata_ipfs: metadataIpfs,
+		// Signed agent_actions-ledger provenance for this mint (Prompt 08, task 1)
+		// — null when the source avatar has no provisioned agent to sign as.
+		provenance_ledger: provenanceLedger ?? row.provenance_ledger ?? null,
+		// Real remix-royalty settlement out of this mint's fee (Prompt 08, task 4)
+		// — null when this mint has no parent_mint (not a remix).
+		remix_royalty: remixRoyalty ?? row.remix_royalty ?? null,
 		royalty: {
 			basis_points: row.royalty_bps ?? royaltyBps,
 			percent: (row.royalty_bps ?? royaltyBps) / 100,
@@ -565,7 +743,8 @@ export async function readTokenized3dAsset({ mint, network: preferredNetwork }) 
 	// truth for provenance, and it tells us which network to read.
 	const [record] = await sql`
 		select mint, network, owner_wallet, name, glb_url, image_url, viewer_url,
-		       metadata_uri, royalty_bps, royalty_recipient, provenance, tx_signature, created_at
+		       metadata_uri, royalty_bps, royalty_recipient, provenance, tx_signature, created_at,
+		       provenance_ledger, remix_royalty
 		from tokenized_3d_assets
 		where mint = ${mint} and status = 'minted'
 		limit 1
@@ -641,6 +820,10 @@ export async function readTokenized3dAsset({ mint, network: preferredNetwork }) 
 			media_kind: '3d/gltf-binary',
 		},
 		provenance,
+		// The signed agent_actions-ledger record for this mint (if the source
+		// avatar had a provisioned agent to sign as) — independently verifiable
+		// via query_action/list_agent_actions, alongside the metadata provenance.
+		provenance_ledger: record?.provenance_ledger || null,
 		royalty: {
 			// The enforced on-chain terms are authoritative; fall back to the record.
 			basis_points: onchainRoyalty?.basis_points ?? record?.royalty_bps ?? null,
@@ -653,6 +836,9 @@ export async function readTokenized3dAsset({ mint, network: preferredNetwork }) 
 			enforced_onchain: Boolean(onchainRoyalty),
 			creators: onchainRoyalty?.creators || null,
 		},
+		// The real remix-royalty settlement this mint routed to its parent's
+		// creator (only present when this mint named a parent_mint).
+		remix_royalty: record?.remix_royalty || null,
 		metadata_uri: metadataUri,
 		minted_through_threews: Boolean(record),
 		tx_signature: record?.tx_signature || null,
