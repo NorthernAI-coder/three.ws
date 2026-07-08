@@ -22,6 +22,13 @@
 			"schemaHash": "8282c22b2dc6"
 		},
 		{
+			"name": "refine_model",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": "ref:GEN_ANNOTATIONS",
+			"schemaHash": "599e4482de20"
+		},
+		{
 			"name": "rig_mesh",
 			"descHead": "dynamic",
 			"descHash": "dynamic",
@@ -332,6 +339,32 @@
 			"descHash": "5c3aa420b75e",
 			"annotations": "ref:ATTESTATION_READ_ANNOTATIONS",
 			"schemaHash": "72791cf29a31"
+		}
+	],
+	"api/_mcp/tools/tokenize.js": [
+		{
+			"name": "get_3d_asset_onchain",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": true,
+				"destructiveHint": false,
+				"idempotentHint": false,
+				"openWorldHint": true
+			},
+			"schemaHash": "5ea0c045e5b1"
+		},
+		{
+			"name": "mint_3d_asset",
+			"descHead": "dynamic",
+			"descHash": "dynamic",
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"idempotentHint": true,
+				"openWorldHint": true
+			},
+			"schemaHash": "7cd1c2bd0152"
 		}
 	],
 	"api/_mcp/tools/trader.js": [
