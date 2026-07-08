@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-08T06:28:20.185Z",
+	"generated_at": "2026-07-08T06:41:32.906Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -196,6 +196,17 @@
 			"tags": [
 				"feature",
 				"sdk"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
+			"title": "A live public gallery for every minted 3D asset — and a fix that had been silently 500ing the launch directory",
+			"summary": "Minted 3D assets now have a home: three.ws/minted shows every generated avatar minted as a Solana NFT through the platform, rendered live in an interactive <model-viewer> card with its network, enforced royalty rate, and a remix badge when it routed a payout to the original creator — the NFT counterpart of the coin /launches feed. Building it surfaced a real bug: the remix-royalty and provenance-ledger columns added to the mint table were live in code but never applied to the production database, so GET /api/v1/tokenized/launches and get_3d_asset_onchain's read-back were quietly returning a server error for any minted asset with those fields. The migration is applied and both are confirmed working.",
+			"link": "/minted",
+			"tags": [
+				"feature",
+				"fix"
 			]
 		},
 		{
