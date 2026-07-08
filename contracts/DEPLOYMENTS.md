@@ -424,6 +424,22 @@ two calls made back-to-back (e.g. right after a `buy()`/settlement tx, the
 exact shape of a real poll) could read a stale `toBlock` and silently miss
 the newest events. Fixed with `cacheTime: 0` on that one call.
 
+**Prompt 13 (vault-e2e-proof) capstone chain run, 2026-07-08 — same mocked-hubs script, full
+list→buy→settle→unlock→decrypt chain proven together:** re-deployed the identical
+`DeployGreenfieldVaultMocked.s.sol` (same deterministic addresses:
+`GreenfieldVault 0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9`,
+`MockPermissionHub 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512`) against a fresh anvil chain, then ran
+a real GLB (from the free forge lane) through `encryptGlb` → `list()` → `buy()` →
+`settleCreatePolicy()` → the REAL exported `api/vault/{list,status,unlock,download}.js` handlers →
+client-side `unwrapKey`/`decryptGlb` → a byte-identical sha256 match against the original GLB. Full
+proof (every tx hash, every HTTP response, the real "Query failed with (6): No such bucket" finding
+from testing `download.js` against live Greenfield testnet infra with a throwaway operator key) is in
+`prompts/bnb-chain/PROGRESS.md`'s prompt 13 entry. One real bug caught and fixed by this run:
+`settleCreatePolicy(saleId, status)`'s second argument is `STATUS_SUCCESS = 0` (not `1`) per
+`GreenfieldVault.sol`'s own constant — passing `1` silently drives the contract's `Failed` branch and
+clears `saleIdOf`, with `waitForTransactionReceipt` still resolving normally (a successful receipt
+is not the same as the contract's OWN state machine landing where the caller assumed).
+
 ## Notes
 
 - Addresses are authoritative in [`src/erc8004/abi.js`](../src/erc8004/abi.js) (`REGISTRY_DEPLOYMENTS`).
