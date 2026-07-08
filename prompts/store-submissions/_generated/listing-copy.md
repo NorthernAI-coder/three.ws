@@ -153,7 +153,7 @@ Expected output: `0`
 |---|---|---|
 | Claude Connectors | No screenshot required (MCP connector, not app) | icon.svg, icon-512x512.png |
 | Claude plugin marketplace | No screenshot required | icon.svg |
-| OpenAI App Directory | 1200×800 or 1400×900 PNG; 3–5 required | screenshot-viewer, screenshot-create, screenshot-studio, screenshot-validation |
+| OpenAI App Directory | 1200×800 or 1400×900 PNG; 3–5 required | screenshot-embodiment-hero, screenshot-viewer, screenshot-create, screenshot-studio, screenshot-validation |
 | OpenAI GPT Store | 256×256 icon; no screenshots required | icon-256x256.png |
 | Smithery / Glama / mcp.so | Logo/icon 256×256 or 512×512 | icon-256x256.png or icon-512x512.png |
 | PulseMCP | Logo + screenshot optional | icon-512x512.png, screenshot-studio |
@@ -174,8 +174,10 @@ Expected output: `0`
 | `assets/screenshot-discover.png` | 1400×900 | OpenAI Apps — discover/marketplace |
 | `assets/screenshot-landing.png` | 1400×900 | OpenAI Apps — landing page |
 | `assets/og-image.png` | ~1200×630 | Open Graph / social sharing |
+| `assets/screenshot-embodiment-hero.png` | 1400×900 | OpenAI Apps — hero: real embodied avatar rendering inline, idle pose (cropped from `_generated/embodiment/01-idle.png`, prompt 07's own capture) |
 
-**Note:** The hero screenshot showing a **real generated 3D model rendering inline**
-(required by prompts 05/07) does not yet exist — this will be added when prompt 05
-(OpenAI Apps SDK component) and prompt 07 (embodied avatar) are complete. Placeholder:
-use `screenshot-studio.png` until then.
+The hero screenshot showing a **real generated 3D model rendering inline** now
+exists — prompt 07 (embodied avatar) shipped and its real captured evidence
+(`_generated/embodiment/01-idle.png`) is cropped to spec as
+`assets/screenshot-embodiment-hero.png`, listed first in the OpenAI App
+Directory row above.
