@@ -611,3 +611,92 @@ as the standard flow's first transaction; pointing the token at the full agent-c
 still needs a follow-up `setAgentURI` call this gasless path doesn't perform (documented
 in docs/erc8004.md "Known limits" — an explicit scope cut, not an oversight, to keep the
 relay to one signed transaction). Ready for prompt 04 (mpp-server-adapter) to build on.
+
+---
+
+## 2026-07-08 — Prompt 04 (mpp-server-adapter): independently re-verified + real HTTP-layer proof added — DONE, one interop gap flagged for prompt 05
+
+**Starting state:** this prompt's deliverable — `api/_lib/bnb/mpp-server.js`,
+`api/_lib/bnb/mpp-buyer.js` (prompt 05), `docs/bnb-payments.md` + `specs/x402-mpp-bridge.md`
+(prompt 06), and the additive MPP wiring in `api/x402/three-intel.js` — was already SHIPPED
+and PUSHED to `threews/main` by a concurrent agent in this worktree before this session
+started (commit `818db3304` landed it; the "Prompts 04 + 05 + 06" PROGRESS entry above
+documents it). Re-read every changed file line-by-line against the prompt spec rather than
+trusting the entry as-is, then closed the one verification gap the existing entry had: all
+its proof was library-direct (unit tests with an injected facilitator client) — no HTTP-layer
+proof against the actual running server existed yet, which this campaign's DoD requires
+(mirroring prompts 02/03's multi-layer pattern).
+
+**Independent checks run:**
+- `node_modules/@bnb-chain/mpp` is a real installed dependency (`^0.2.0` in `package.json`,
+  `dist/` present) — not a fabricated import.
+- `npx vitest run tests/bnb-mpp-server.test.js tests/bnb-mpp-buyer.test.js
+  tests/api/three-intel.test.js` → **35/35 passed**, confirming the existing x402 path on the
+  pilot endpoint is untouched (additive-only claim holds).
+- `docs/bnb-payments.md` (157 lines) + `specs/x402-mpp-bridge.md` (107 lines) both exist,
+  linked from `docs/start-here.md`, no TODO/placeholder/not-implemented strings.
+- `data/changelog.json` has both the feature entry and the docs entry, dated 2026-07-08,
+  holder-readable, correct tags.
+
+**New real proof — HTTP layer, live process, no mocks (the gap this session closed):**
+Ran the actual `server/index.mjs` (the real production Express app — not a reimplementation)
+locally on port 8091 with synthetic `X402_PAY_TO_BSC` / `MPP_ASSET_ADDRESS_BSC` env vars, then
+drove it with a real EIP-3009 credential signed by a synthetic viem account via
+`@bnb-chain/mpp/b402`'s own `buildEip3009Payment`/`encodeXPayment` (the same primitives
+prompt 05's buyer uses) — cryptographically real signatures, zero mocks:
+
+1. **First presentation** of a correctly-priced credential → server ran `computeThreeIntel()`
+   (proving the live DexScreener business logic executed) then attempted settlement:
+   `503 {"error":"mpp_not_configured","message":"MPP credential verified but on-chain
+   settlement is unconfigured — set B402_BASE_URL / B402_CLIENT_ID / B402_ACCESS_TOKEN /
+   B402_PRIVATE_KEY"}` — verify succeeded, settle correctly fails closed (never a fabricated
+   receipt), matching the documented owner-credential blocker exactly.
+2. **Replay of the identical credential** → `409 {"error":"replay","message":"this payment
+   credential was already used"}` — proves the Redis-or-local-fallback nonce guard is live
+   and reserves on verify (not just on successful settle), so a captured credential can't be
+   replayed even while settlement is unconfigured.
+3. **Tampered offer** (same signer, amount changed to `999999`) → `400
+   {"error":"offer_mismatch","message":"payment amount does not match this resource"}` —
+   pin-to-requirements runs before signature recovery matters.
+4. **No-payment GET** → `X-Accept-Payment-MPP: /api/x402/three-intel` response header present
+   regardless of the underlying x402 fallback's own health (confirmed even when the x402
+   networks 500'd on unrelated local sandbox config, proving the MPP advertisement is
+   architecturally decoupled from the x402 path's own settleability gates).
+
+**Interop gap found for prompt 05 (real, code-verified, not proof-by-absence):** attempted to
+self-serve-pay the pilot endpoint with prompt 05's own `mppFetch()` buyer
+(`api/_lib/bnb/mpp-buyer.js`) pointed at the running local server. `mppFetch` only attempts
+payment when the initial unpaid response is `status === 402` and its JSON body's `accepts[]`
+array contains a BNB (`eip155:56`/`97`) entry (`selectRequirement`). Reading
+`api/x402/three-intel.js`'s handler confirms the unpaid-request branch calls the untouched
+`x402Handler` (`networks: ['solana', 'base']`) and only adds `X-Accept-Payment-MPP` as a
+side-channel header — the 402 body's `accepts[]` never contains an MPP/eip3009 BNB entry, only
+whatever of solana/base is configured. This matches prompt 04's own spec text ("advertise MPP
+support in the endpoint's response headers / discovery metadata" — a header, not a merged
+accept), so it is NOT a defect against this prompt's DoD. But it does mean: **our own
+`mppFetch()` cannot cold-discover-and-pay our own MPP-enabled endpoints today** — a caller has
+to already know the route accepts MPP (e.g. from the header, from `docs/bnb-payments.md`, or
+by calling `mppRequirements()`/`mppChallenge()` directly) and can't drive the generic
+402-body-parsing auto-discovery path prompt 05 built for third-party MPP servers. Prompt 05
+(or a follow-up polish prompt) should either (a) document this as the expected two-step
+discovery flow, or (b) have `three-intel.js` merge an MPP accept into the unpaid `accepts[]`
+array so first-contact auto-discovery works end-to-end against our own pilot — low effort,
+same shape as the existing `buildAccept(NETWORK_BSC_MAINNET, ...)` entry already in
+`x402-paid-endpoint.js`, just for the `eip3009`/b402 scheme instead of the `direct` contract
+scheme. Did not make this change myself: it touches the shared `x402-paid-endpoint.js` 402-body
+construction path used by every paid route, and the prompt's own spec text explicitly chose
+the header-only design — changing it is a product decision for whoever owns prompt 05/06's
+follow-up, not a silent scope-creep edit here.
+
+**No code changes made this session** — the shipped implementation is correct, tested, and
+matches its spec; this entry is independent re-verification plus the missing HTTP-layer proof
+layer. `git status` confirms zero working-tree changes from this session (verification only,
+via a locally-run server process + scratch scripts deleted after use, never committed).
+
+**Gap for the owner (unchanged from the existing entry):** real on-chain b402 settlement
+still needs `B402_BASE_URL`/`B402_CLIENT_ID`/`B402_ACCESS_TOKEN`/`B402_PRIVATE_KEY` (Binance
+OnchainPay merchant console). Everything else — challenge, verify, pin, replay-guard,
+fail-closed settle — is proven live end-to-end today, at both the library and HTTP layers.
+
+**Status: DONE (re-verified).** No new commit from this entry beyond this PROGRESS append —
+the code was already on `threews/main`.
