@@ -382,7 +382,11 @@ async function openLineage(rootId) {
 		});
 		const data = await res.json().catch(() => ({}));
 		if (!res.ok) throw new Error(data?.message || `lineage returned ${res.status}`);
-		const lineage = Array.isArray(data.lineage) ? data.lineage : [];
+		// The API always includes the root creation itself as the first row (the
+		// base case of its recursive walk) — only rows AFTER it are actual
+		// remixes/refinements, so a root-only result means no remixes yet.
+		const full = Array.isArray(data.lineage) ? data.lineage : [];
+		const lineage = full.filter((node) => node.id !== rootId);
 		if (!lineage.length) {
 			chain.innerHTML = `<li class="cr-lineage-item"><span class="cr-lineage-body">No remixes yet — be the first to build on this one.</span></li>`;
 			return;
