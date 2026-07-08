@@ -361,20 +361,54 @@ export function readBody(req, limit) {
 		}
 		return Promise.resolve(buf);
 	}
+	// Neither req.rawBody nor req.body was populated by a prior middleware. If
+	// the request stream has *already* ended (Node sets `req.complete = true`
+	// once all body bytes have been received, independent of who — if anyone —
+	// read them), attaching 'data'/'end' listeners now is too late: those events
+	// already fired once and Node's Readable never re-emits 'end' for a
+	// listener added after the stream closed. That is exactly the "already-
+	// drained stream" hazard the req.rawBody fast-path above exists to avoid;
+	// this is the same failure mode reached a different way (a body-parser ran,
+	// drained the stream, but — unlike the Cloud Run server's parsers — didn't
+	// capture rawBody/body for us, e.g. a proxy/middleware upstream of this
+	// handler in some deployment). Resolving empty here (rather than hanging
+	// forever on events that can never fire) turns a silent request timeout
+	// into a normal "empty/invalid body" response the caller can see and retry.
+	if (req.complete) return Promise.resolve(Buffer.alloc(0));
 	return new Promise((resolve, reject) => {
 		const chunks = [];
 		let total = 0;
+		let settled = false;
+		// Defense in depth for the same hazard when `req.complete` isn't set yet
+		// at the time we start listening but the stream never delivers 'data'/
+		// 'end' for some other reason (a stalled proxy, a client that never
+		// sends the promised body). Without this, such a request pins a Cloud
+		// Run concurrency slot for the full request timeout instead of failing
+		// fast with a diagnosable error.
+		const timeoutMs = Number(process.env.READ_BODY_TIMEOUT_MS) || 15_000;
+		const timer = setTimeout(() => {
+			if (settled) return;
+			settled = true;
+			reject(Object.assign(new Error('timed out reading request body'), { status: 408 }));
+		}, timeoutMs);
+		if (typeof timer.unref === 'function') timer.unref();
+		const finish = (fn, arg) => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timer);
+			fn(arg);
+		};
 		req.on('data', (c) => {
 			total += c.length;
 			if (total > limit) {
-				reject(Object.assign(new Error('payload too large'), { status: 413 }));
+				finish(reject, Object.assign(new Error('payload too large'), { status: 413 }));
 				req.destroy();
 				return;
 			}
 			chunks.push(c);
 		});
-		req.on('end', () => resolve(Buffer.concat(chunks)));
-		req.on('error', reject);
+		req.on('end', () => finish(resolve, Buffer.concat(chunks)));
+		req.on('error', (err) => finish(reject, err));
 	});
 }
 
