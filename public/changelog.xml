@@ -279,6 +279,14 @@
 			<description>Eight new tools join the Markets suite, all live data and all free. Screener filters the top 250 coins by market cap, volume, and 24h move. Categories ranks every crypto sector so you can see which narrative leads. Exchanges ranks venues by trust score and volume. Derivatives shows perpetual-futures funding, open interest, and volume. Converter turns any crypto into any major fiat at live rates. And a DeFi trio — DeFi TVL by protocol, Chains by total value locked, and Stablecoins with peg health — brings on-chain liquidity into view via DeFiLlama. Every one is cross-linked from the markets table.</description>
 		</item>
 		<item>
+			<title>Minted 3D assets now carry a second, independently-signed provenance record — and remixing one pays the original creator on the spot</title>
+			<link>https://three.ws/docs/mcp</link>
+			<guid isPermaLink="false">2026-07-08:Minted 3D assets now carry a second, independently-signed provenance record — and remixing one pays the original creator on the spot</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Every 3D avatar generated on three.ws now gets a signed authorship record on the platform's append-only agent_actions ledger the moment it's created — the same cryptographically-verifiable trail @three-ws/provenance-mcp reads, now written automatically instead of only on request. Minting a generated GLB as a Solana NFT (mint_3d_asset) links its own signed ledger entry alongside the provenance already baked into the NFT metadata. And when a mint names another creator's asset as its parent (a remix), the original creator's royalty share now settles immediately as a real on-chain USDC transfer out of the mint fee — not just a royalty term for a future resale. Every minted 3D asset is also now listed in a public launch directory at GET /api/v1/tokenized/launches, the NFT counterpart to the existing coin-launch feed.</description>
+		</item>
+		<item>
 			<title>New free API: check if a wallet holds a Binance Account Bound Token (BABT)</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-07-08:New free API: check if a wallet holds a Binance Account Bound Token (BABT)</guid>

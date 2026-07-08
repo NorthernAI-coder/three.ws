@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-08T01:51:28.549Z",
+	"generated_at": "2026-07-08T01:57:47.376Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -353,6 +353,17 @@
 			"link": "/screener",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"type": "update",
+			"title": "Minted 3D assets now carry a second, independently-signed provenance record — and remixing one pays the original creator on the spot",
+			"summary": "Every 3D avatar generated on three.ws now gets a signed authorship record on the platform's append-only agent_actions ledger the moment it's created — the same cryptographically-verifiable trail @three-ws/provenance-mcp reads, now written automatically instead of only on request. Minting a generated GLB as a Solana NFT (mint_3d_asset) links its own signed ledger entry alongside the provenance already baked into the NFT metadata. And when a mint names another creator's asset as its parent (a remix), the original creator's royalty share now settles immediately as a real on-chain USDC transfer out of the mint fee — not just a royalty term for a future resale. Every minted 3D asset is also now listed in a public launch directory at GET /api/v1/tokenized/launches, the NFT counterpart to the existing coin-launch feed.",
+			"link": "/docs/mcp",
+			"tags": [
+				"feature",
+				"improvement"
 			]
 		},
 		{

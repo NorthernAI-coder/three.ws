@@ -234,8 +234,11 @@ const CSS = `
 .tws-sa-menu button:hover, .tws-sa-menu button:focus-visible { background: rgba(255,255,255,0.08); outline: none; }
 .tws-sa-menu button span { display: block; margin-top: 2px; font-weight: 400; font-size: 11px; color: #9a9aa8; }
 @media (prefers-reduced-motion: reduce) { .tws-sa-btn { transition: none; } }
+/* Narrow viewports: stay pinned top-right (never bottom — that corner is
+   reserved for the site-wide "Getting started" launcher pill on every page,
+   see public/getting-started.js) and shrink to fit under the vendor menubar. */
 @media (max-width: 640px) {
-	.tws-sa-bar { top: auto; bottom: 12px; left: 12px; right: 12px; justify-content: flex-end; }
-	.tws-sa-btn span, .tws-sa-btn { font-size: 11.5px; padding: 8px 10px; }
+	.tws-sa-bar { flex-wrap: wrap; justify-content: flex-end; max-width: calc(100% - 16px); }
+	.tws-sa-btn { font-size: 11px; padding: 6px 8px; }
 }
 `;

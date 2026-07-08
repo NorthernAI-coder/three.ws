@@ -109,7 +109,7 @@ export async function composeSceneGlb(dioramaInput) {
 	};
 
 	const scene = doc.createScene(diorama.title || 'Diorama');
-	doc.setDefaultScene(scene);
+	root.setDefaultScene(scene);
 
 	scene.addChild(buildGroundNode(doc, buffer, diorama));
 	for (const light of buildLightNodes(doc, diorama)) scene.addChild(light);
@@ -136,6 +136,14 @@ export async function composeSceneGlb(dioramaInput) {
 			if (!mergedRoots.length) {
 				skipped.push({ id: obj.id, label: obj.label, reason: 'merge_failed' });
 				continue;
+			}
+			// mergeDocuments copies every one of the source's own Scene entries into
+			// the target root too. We only want its nodes (already re-parented into
+			// `raw` below) — an empty leftover Scene fails glTF validation
+			// (EMPTY_ENTITY) and is otherwise dead weight, so drop it right away.
+			if (objScene) {
+				const mergedScene = map.get(objScene);
+				if (mergedScene) mergedScene.dispose();
 			}
 
 			const raw = doc.createNode(`${obj.label} (source)`);

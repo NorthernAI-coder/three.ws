@@ -205,18 +205,78 @@ upgradeability — `move()` never writes storage; `checkpoint()` is the only
 opt-in storage-writing call. Full design rationale in the contract NatSpec.
 
 **Status: built, compiled, and fully unit-tested locally (19/19 `forge test`
-passing). NOT deployed to BSC testnet.** A `forge script ... -vvvv` dry-run
-against the live BSC testnet RPC (`https://data-seed-prebsc-1-s1.bnbchain.org:8545`)
-simulated successfully end-to-end (constructor executes, `COORD_MIN`/`COORD_MAX`
-read back correctly, ~566k gas estimated for the deploy tx at 0.1 gwei ≈
-0.0000566 BNB) — the RPC, script, and bytecode are all deploy-ready. The only
-missing piece is a funded deployer key: neither `DEPLOYER_PK` nor
-`BNB_TESTNET_DEPLOYER_KEY` is present in this environment (checked `.env`,
-`.env.local`, and shell env; no secret values were read, only key presence).
-Same funding blocker as campaign items 13 and 18 — owner-only to unblock (fund
-a deployer EOA via the tBNB faucet, then run the broadcast command below).
+passing). Public BSC testnet broadcast is BLOCKED on a funded deployer key**
+(same root cause as campaign items 10/13/18 — no `DEPLOYER_PK` or
+`BNB_TESTNET_DEPLOYER_KEY` in this environment; checked `.env`, `contracts/.env`,
+`cast wallet list`, and shell env, no secret values read, only key presence;
+the public tBNB faucet is reCAPTCHA-gated with no programmatic path). A
+`forge script ... -vvvv` dry-run against the LIVE BSC testnet RPC
+(`https://data-seed-prebsc-1-s1.bnbchain.org:8545`) simulated successfully
+end-to-end 2026-07-08: constructor executes, `COORD_MIN`/`COORD_MAX` read back
+correctly, 566,068 gas estimated for the deploy tx at 0.1 gwei ≈ 0.0000566068
+BNB — the RPC, script, and bytecode are all deploy-ready.
 
-Deploy (once funded):
+**Real broadcast proof — anvil fork of LIVE BSC testnet state** (per
+00-CONTEXT's decision-default table: "if every faucet fails, finish ALL code +
+tests against a local `anvil --chain-id 97` fork" — the same workaround
+prompts 02/03 used successfully). `anvil --chain-id 97 --fork-url
+https://bsc-testnet.drpc.org` forked real BSC testnet at block `117848403`;
+a fresh throwaway account (`0x5c04D686210421706E842A07e98B51396702e7AE`,
+private key discarded after this run) was funded via `anvil_setBalance`, then
+the REAL, unmodified `script/DeployWorldMoves.s.sol` was run with
+`--broadcast` against the fork — same script, same bytecode that would run
+against the public RPC, only the RPC endpoint differs:
+
+```
+$ forge script script/DeployWorldMoves.s.sol:DeployWorldMoves \
+    --rpc-url http://127.0.0.1:8555 --private-key $THROWAWAY_PK --broadcast -vvvv
+[353991] → new WorldMoves@0x71Ddcb9865632Ca3c4325dE0E4a92Cc0065c8aaE
+ONCHAIN EXECUTION COMPLETE & SUCCESSFUL.
+```
+
+- **Deploy tx:** `0x508db193ef6594c350751063657db3f9f831cb45ce590ea55f2c3759730b0710`,
+  block `117848404`, status `success`.
+- **Deployed address (fork-local):** `0x71Ddcb9865632Ca3c4325dE0E4a92Cc0065c8aaE`.
+- **10 real `move()` transactions fired back-to-back** via `cast send`
+  through the real deployed contract (not a reimplementation), each mined
+  into its own block, receipts fetched independently and one full log decoded
+  to confirm the exact `Moved` event shape:
+
+  | # | tx hash | block | timestamp | gasUsed | status |
+  |---|---|---|---|---|---|
+  | 1 | `0xae6a706c…4a0` | 117848405 | 1783475882 | 26293 | success |
+  | 2 | `0xd557c5d9…d9` | 117848406 | 1783475883 | 26293 | success |
+  | 3 | `0x111b513d…a7` | 117848407 | 1783475884 | 26293 | success |
+  | 4 | `0x9985f6e2…f8` | 117848408 | 1783475884 | 26293 | success |
+  | 5 | `0x808f4586…f2` | 117848409 | 1783475885 | 26293 | success |
+  | 6 | `0x39203f83…5d` | 117848410 | 1783475885 | 26293 | success |
+  | 7 | `0x3a58b91b…d7` | 117848411 | 1783475885 | 26293 | success |
+  | 8 | `0x878e042f…e8` | 117848412 | 1783475886 | 26305 | success |
+  | 9 | `0xe7e9c934…be` | 117848413 | 1783475887 | 26305 | success |
+  | 10 | `0x0b66bc4b…42` | 117848414 | 1783475888 | 26305 | success |
+
+  One block minted per transaction (matches `move()`'s design goal of
+  supporting one call per block); `gasUsed` is the full transaction-level
+  cost (21,000 base intrinsic gas + calldata + 3-topic log), consistent with
+  the `forge test` unit measurement below of ~4,800 gas of *internal
+  execution* alone. Decoded log for tx `0xae6a706c…4a0` confirms the exact
+  `Moved(worldId=1, player=0x5c04d686…702e7ae, x=10, y=-5, z=3, facing=36,
+  blockNumber=117848405, timestamp=1783475882)` shape — every field matches
+  the call args and block metadata exactly, byte-for-byte decoded from the
+  real receipt, not asserted from memory.
+
+  **Honesty note on block spacing:** these 10 blocks were mined by anvil's
+  local auto-miner (one block per submitted tx, timestamps following the
+  sandbox's real wall-clock as `cast send` calls executed sequentially) — this
+  proves the `move()` call flow, gas cost, and event shape against real
+  forked BSC-testnet EVM state, but it is NOT a measurement of BSC's live
+  0.45s block-production cadence (a local fork doesn't run BSC's validator
+  set). The 0.45s claim itself is separately, already, live-proven by
+  `probeBlockTime()` against the public RPC (prompt 01/19 entries above,
+  reconfirmed `avgBlockTimeMs: 450` on 2026-07-08) — this WorldMoves proof and
+  that block-time proof are complementary, not duplicative.
+
+Deploy (once funded, real public broadcast):
 ```
 forge script script/DeployWorldMoves.s.sol:DeployWorldMoves \
   --rpc-url https://data-seed-prebsc-1-s1.bnbchain.org:8545 \
@@ -224,10 +284,9 @@ forge script script/DeployWorldMoves.s.sol:DeployWorldMoves \
   --broadcast
 ```
 
-After a real deploy, replace this status block with the address, deploy tx
-hash, and a BscScan link, and paste ~10 real `move()` tx block numbers/
-timestamps here as live proof of sub-second block spacing (per
-`prompts/bnb-chain/14-world-moves-contract.md`'s definition of done).
+Once a real public-testnet deploy tx exists, replace the fork-local address/tx
+above with the BscScan-visible ones (same script, same bytecode — only the
+`--rpc-url`/`--private-key` change).
 
 ## GreenfieldVault (pay → PermissionHub grant, on-chain-gated 3D asset vault)
 

@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-07-08",
+			"title": "Minted 3D assets now carry a second, independently-signed provenance record — and remixing one pays the original creator on the spot",
+			"summary": "Every 3D avatar generated on three.ws now gets a signed authorship record on the platform's append-only agent_actions ledger the moment it's created — the same cryptographically-verifiable trail @three-ws/provenance-mcp reads, now written automatically instead of only on request. Minting a generated GLB as a Solana NFT (mint_3d_asset) links its own signed ledger entry alongside the provenance already baked into the NFT metadata. And when a mint names another creator's asset as its parent (a remix), the original creator's royalty share now settles immediately as a real on-chain USDC transfer out of the mint fee — not just a royalty term for a future resale. Every minted 3D asset is also now listed in a public launch directory at GET /api/v1/tokenized/launches, the NFT counterpart to the existing coin-launch feed.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/docs/mcp"
+		},
+		{
+			"date": "2026-07-08",
 			"title": "Fact Check's accuracy benchmark has a real published score, and the search+AI chain got more reliable",
 			"summary": "The 40-claim fact-check accuracy benchmark has now actually been run against the real search-and-LLM chain, and /fact-check shows the genuine result instead of the \"not yet run\" placeholder. Running it for real surfaced and fixed two chain bugs along the way: a request-formatting bug was silently rejecting every fact-check call on the Groq lane, and the search step had no fallback beyond a narrow instant-answer API, so most claims returned zero sources. Both are fixed — search now also checks Wikipedia's full-text index, a free source that needs no API key — and the published score will keep improving as the platform's search coverage does. The benchmark, its scoring code, and every claim in the suite stay public for anyone to check.",
 			"tags": [
