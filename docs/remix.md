@@ -13,6 +13,7 @@ free OpenAI 3D Studio app.
 
 | Surface | Auth | What it does |
 |---|---|---|
+| `POST /api/forge-iterate` | `x-forge-client` | Conversational iteration, ownership-preserving (see below) |
 | `GET /api/remix-feed` | none (free) | Browse remixable assets with provenance + royalty terms |
 | `POST /api/remix-feed` `{action:'publish'}` | `x-forge-client` | Opt your own finished model into the bazaar, set license/royalty/payout wallet |
 | `GET /api/remix-feed?action=lineage&root=<id>` | none (free) | Reconstruct a model's full refinement thread |
@@ -21,6 +22,38 @@ free OpenAI 3D Studio app.
 Provenance is stored on the existing `forge_creations` rows — no parallel store:
 `parent_creation_id`, `refine_instruction`, `lineage_index`, `remixable`,
 `remix_royalty_bps`, `creator_wallet_solana`, `remix_settlement_ref`.
+
+## In the browser — Forge Studio
+
+[/forge-studio](https://three.ws/forge-studio) wires both halves of this doc
+into the UI directly, so nothing here is API-only:
+
+- **Iterate panel** (below every result) — a text box: describe a change
+  ("make it metallic", "bigger helmet", "add wings") and Apply regenerates a
+  new version anchored to the one on screen. A version-strip renders once a
+  second version exists — click any earlier chip to revert the viewer to it
+  instantly (no network call, the GLB is already known) or Apply again from
+  that point to branch a new line of versions off it. The viewer cross-fades
+  between versions, never a pop or a frozen frame.
+- **Remix economy panel** — publish the model on screen as remixable (license,
+  royalty rate up to 20%, payout wallet), and browse everyone else's
+  published, remixable models with provenance + royalty terms shown before
+  you commit. "Remix — $0.25" opens the real x402 payment widget
+  (`window.X402.pay`); on settlement the panel shows the paid-fee receipt and,
+  when a royalty routed, the creator's on-chain settlement receipt inline —
+  both link out to Solscan.
+
+The Iterate panel calls `POST /api/forge-iterate`, not the free
+`/api/mcp-studio` `refine_model` tool. The two run the exact same
+`composeRefinement` + version-lineage core
+(`mcp-server/src/tools/_lineage.js`, so wording behaves identically
+everywhere), but `/api/mcp-studio` is a server-to-server call with no
+forwarded client identity — its results can't be attributed to a browser
+session, so they can never be published to the bazaar. `/api/forge-iterate`
+forwards this browser's `x-forge-client` header through to `/api/forge`, so
+an iteration is a normal owned creation: gallery-listed, downloadable, and
+eligible to publish as remixable. It carries no payment surface of its own —
+iteration itself stays free.
 
 ## Publish a model as remixable
 
