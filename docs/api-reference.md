@@ -2334,6 +2334,61 @@ live). Cached 15 s — no API key required.
 
 ---
 
+### Liquidations
+
+```
+GET /api/coin/liquidations
+```
+
+Powers the "liquidations pulse" strip on `/coins`. Proxies the standalone
+[`services/liquidation-collector`](../services/liquidation-collector) service
+— a long-running process that subscribes to the **public** futures
+liquidation WebSocket streams of Binance, Bybit, and OKX and keeps a rolling
+4-hour in-memory window. This endpoint has no fallback data: when
+`LIQUIDATION_COLLECTOR_URL` is unset or the collector is unreachable, it
+returns `503 { "error": "collector_offline" }` rather than fabricated numbers.
+
+**Response** (200)
+
+```json
+{
+	"liquidations": [
+		{
+			"exchange": "Binance",
+			"price": 0,
+			"qty": 0,
+			"severity": "SMALL|MEDIUM|LARGE|MEGA",
+			"side": "LONG|SHORT",
+			"symbol": "BTC",
+			"time": 0,
+			"value": 0
+		}
+	],
+	"summary": {
+		"dominantSide": "LONG PAIN|SHORT SQUEEZE|BALANCED",
+		"largeCount": 0,
+		"longCount": 0,
+		"longValue": 0,
+		"megaCount": 0,
+		"shortCount": 0,
+		"shortValue": 0,
+		"totalCount": 0,
+		"totalValue": 0
+	},
+	"symbolStats": [{ "count": 0, "longValue": 0, "shortValue": 0, "symbol": "BTC" }],
+	"timestamp": "2026-07-08T12:00:00.000Z"
+}
+```
+
+`liquidations` is the 50 most recent events (newest first) across 18 tracked
+majors. `side` is the side that got liquidated — a forced-sell of a long is
+`LONG`, a forced-buy-back of a short is `SHORT`. `summary.dominantSide` is
+`LONG PAIN` when long liquidations exceed short by 1.5x, `SHORT SQUEEZE` for
+the inverse, `BALANCED` otherwise. Cached 15 s (`s-maxage=15,
+stale-while-revalidate=60`). No API key required.
+
+---
+
 ### Market tools (categories, exchanges, derivatives, rates, DeFi)
 
 Read-only, key-free proxies powering the `/categories`, `/exchanges`,

@@ -3,6 +3,24 @@
 	"entries": [
 		{
 			"date": "2026-07-08",
+			"title": "Live liquidations pulse on the markets page — real-time long/short pain across Binance, Bybit, and OKX",
+			"summary": "A new standalone collector subscribes to the public futures liquidation WebSocket streams of Binance, Bybit, and OKX, classifies each liquidation by size, and keeps a rolling 4-hour window. /coins now shows a live strip under the global stats bar: a LONG PAIN / SHORT SQUEEZE / BALANCED badge, 1h long-vs-short liquidated USD bars, and the three largest recent liquidations — each linking to its coin page. It polls every 30 seconds, pauses when the tab isn't visible, and quietly shows an offline line (never fake numbers) if the collector is unreachable.",
+			"tags": [
+				"feature"
+			],
+			"link": "/coins"
+		},
+		{
+			"date": "2026-07-08",
+			"title": "Gasless on-chain move sender for BNB Chain worlds — built, no browser toggle yet",
+			"summary": "Added the library that will let a plain empty wallet walk around a three.ws world writing its position to BNB Chain every block with zero gas: builds WorldMoves.sol move/join/leave/checkpoint calls, routes them through MegaFuel's gas sponsorship with an automatic self-paid fallback, and coalesces a fast-moving player's updates to at most one in-flight transaction so the chain never gets spammed. Proven with 20 real, sequentially-mined transactions against a live-forked BSC Testnet. No player-facing toggle yet — that lands with the on-chain presence mode.",
+			"tags": [
+				"feature",
+				"sdk"
+			]
+		},
+		{
+			"date": "2026-07-08",
 			"title": "scene-mcp can now build a whole 3D world in one call — no browser required",
 			"summary": "The scene-mcp server (compose_scene, get_scene, list_scenes) gains two tools: build_world runs the entire diorama pipeline server-side from one sentence — compose the plan, forge every object on the free text→ 3D lane, and merge the result into one glTF binary with named, selectable nodes plus ground and mood-tuned lighting — for agents with no browser to drive the progressive /diorama flow. export_scene does the merge step alone for a diorama you've already forged objects for. Both degrade gracefully: a single object that fails to forge is skipped and reported, never a hard failure — the rest of the world still exports and opens cleanly in Scene Studio. `npx -y @three-ws/scene-mcp` picks up both automatically.",
 			"tags": [

@@ -36,6 +36,7 @@ import {
 	nearestInteractable, chooseAvatarSource, guestName, findOpenSpawn,
 } from './player-logic.js';
 import { injectPlayerCss } from './player-mode.css.js';
+import { mountOnchainPresence } from './onchain-presence.js';
 import { log } from '../shared/log.js';
 
 const BOUNDS = CITY_HALF - 20; // matches the spectator PAN_BOUNDS — one world edge
@@ -354,6 +355,11 @@ export async function mountPlayerMode(ctx) {
 	root.append(bubbles, prompt, presence, chat, stickZone, actions);
 	document.body.appendChild(root);
 
+	// On-chain (BNB) presence — OFF by default, opt-in toggle (prompt 16).
+	// Purely additive: with it OFF, zero BNB code runs and this whole layer is
+	// dormant scaffolding (a docked toggle button + an empty THREE.Group).
+	const onchain = mountOnchainPresence({ scene, hudRoot: root, network: 'bscTestnet' });
+
 	// ── Identity + avatar ──────────────────────────────────────────────────────
 	const params = new URLSearchParams(location.search);
 	const getStored = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
@@ -561,6 +567,7 @@ export async function mountPlayerMode(ctx) {
 			motion: player.motion,
 		});
 		remotes.tick(dt, camera, window.innerWidth, window.innerHeight);
+		onchain.update(dt, player.position, player.rig.rotation.y);
 		proximityAccum += dt;
 		if (proximityAccum >= 1 / PROXIMITY_HZ) {
 			proximityAccum = 0;
@@ -576,6 +583,7 @@ export async function mountPlayerMode(ctx) {
 		try { stickManager?.destroy(); } catch { /* already gone */ }
 		try { net.destroy(); } catch { /* already gone */ }
 		remotes.dispose();
+		onchain.dispose();
 		if (promptTarget) population.highlight(null);
 		player.dispose();
 		root.remove();

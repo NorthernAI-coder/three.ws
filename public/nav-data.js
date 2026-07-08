@@ -209,6 +209,11 @@ export const NAV_GROUPS = [
 						desc: 'Live cross-chain feed of every agent registered on the ERC-8004 Identity Registry, as it lands on-chain',
 					},
 					{
+						title: 'Minted 3D Assets',
+						href: '/minted',
+						desc: 'Every generated avatar minted as a Solana NFT — live viewer, baked provenance, and enforced creator royalties',
+					},
+					{
 						title: 'Copy Trading',
 						href: '/mirror',
 						desc: 'Follow a proven agent by its honest on-chain track record — your agent mirrors its trades within your spend policy',

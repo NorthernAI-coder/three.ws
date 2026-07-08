@@ -483,6 +483,11 @@ export const limits = {
 		getLimiter('material-studio:restyle', { limit: 40, window: '1 h' }).limit(key),
 	materialStudioUpload: (key) =>
 		getLimiter('material-studio:upload', { limit: 120, window: '1 h' }).limit(key),
+	// BNB vault upload (api/bnb/vault-upload.js) — encrypts + writes a real
+	// Greenfield tx + SP PUT per call, the heaviest write in the BNB vault
+	// track. Tight per-IP ceiling; a seller listing dozens of items per hour is
+	// already an outlier, and each call carries real Greenfield gas cost.
+	bnbVaultUploadIp: (ip) => getLimiter('bnb:vault:upload:ip', { limit: 20, window: '1 h' }).limit(ip),
 	// Status polling is the highest-frequency call in the generation flow (every
 	// active job polls every few seconds, plus the /forge health pill). It only
 	// guards against pathological poll floods, so it is enforced per instance

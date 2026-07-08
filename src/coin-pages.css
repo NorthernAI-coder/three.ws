@@ -1523,3 +1523,198 @@ html.cv-page,
 	height: 3px;
 	border-radius: 2px;
 }
+
+/* ── Liquidations pulse strip (/coins) ─────────────────────────────────────
+   Real-time long/short liquidation pain across Binance, Bybit, and OKX,
+   fed by api/coin/liquidations.js. Optional enrichment above the markets
+   table — degrades to a quiet single line when the collector is offline,
+   never fabricated numbers. */
+
+.cv-liq {
+	background: var(--cv-surface);
+	border: 1px solid var(--cv-border);
+	border-radius: var(--cv-radius-lg);
+	box-shadow: var(--cv-shadow-card);
+	padding: 1rem 1.25rem;
+	margin: 0 0 1.5rem;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 1.25rem;
+	transition: box-shadow 0.2s, border-color 0.2s, opacity 0.25s;
+}
+.cv-liq:hover {
+	box-shadow: var(--cv-shadow-card-hover);
+	border-color: var(--cv-border-hover);
+}
+.cv-liq[hidden] {
+	display: none;
+}
+
+.cv-liq-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.375rem;
+	font-size: 0.6875rem;
+	font-weight: 700;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	padding: 0.3rem 0.625rem;
+	border-radius: 999px;
+	border: 1px solid var(--cv-border);
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+.cv-liq-badge.pain {
+	color: var(--cv-red);
+	background: var(--cv-red-soft);
+	border-color: color-mix(in srgb, var(--cv-red) 35%, var(--cv-border));
+}
+.cv-liq-badge.squeeze {
+	color: var(--cv-green);
+	background: var(--cv-green-soft);
+	border-color: color-mix(in srgb, var(--cv-green) 35%, var(--cv-border));
+}
+.cv-liq-badge.balanced {
+	color: var(--cv-text-2);
+	background: var(--cv-surface-2);
+}
+
+.cv-liq-bars {
+	display: flex;
+	flex-direction: column;
+	gap: 0.3rem;
+	min-width: 160px;
+	flex: 1 1 200px;
+	max-width: 280px;
+}
+.cv-liq-bar-row {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	font-size: 0.75rem;
+}
+.cv-liq-bar-row .lbl {
+	width: 3.75rem;
+	flex-shrink: 0;
+	white-space: nowrap;
+	color: var(--cv-text-3);
+	font-weight: 600;
+	text-transform: uppercase;
+	font-size: 0.625rem;
+	letter-spacing: 0.04em;
+}
+.cv-liq-bar-track {
+	flex: 1;
+	height: 6px;
+	border-radius: 999px;
+	background: var(--cv-surface-3);
+	overflow: hidden;
+}
+.cv-liq-bar-fill {
+	height: 100%;
+	border-radius: 999px;
+	transition: width 0.4s ease;
+}
+.cv-liq-bar-fill.long {
+	background: var(--cv-red);
+}
+.cv-liq-bar-fill.short {
+	background: var(--cv-green);
+}
+.cv-liq-bar-row .amt {
+	font-family: var(--cv-font-mono);
+	color: var(--cv-text-2);
+	white-space: nowrap;
+	min-width: 3.5rem;
+	text-align: right;
+}
+
+.cv-liq-top {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	flex: 2 1 320px;
+}
+.cv-liq-item {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.375rem;
+	font-size: 0.75rem;
+	padding: 0.3rem 0.625rem;
+	border-radius: var(--cv-radius);
+	background: var(--cv-surface-2);
+	border: 1px solid var(--cv-border);
+	color: var(--cv-text);
+	text-decoration: none;
+	transition: border-color 0.15s, background 0.15s, transform 0.15s;
+}
+a.cv-liq-item:hover,
+a.cv-liq-item:focus-visible {
+	border-color: var(--cv-border-hover);
+	background: var(--cv-surface-3);
+	transform: translateY(-1px);
+}
+a.cv-liq-item:focus-visible {
+	outline: 2px solid var(--cv-accent);
+	outline-offset: 1px;
+}
+.cv-liq-item .sym {
+	font-weight: 700;
+}
+.cv-liq-item .side {
+	font-size: 0.625rem;
+	font-weight: 700;
+	letter-spacing: 0.03em;
+	text-transform: uppercase;
+	padding: 0.05rem 0.3rem;
+	border-radius: 3px;
+}
+.cv-liq-item .side.long {
+	color: var(--cv-red);
+	background: var(--cv-red-soft);
+}
+.cv-liq-item .side.short {
+	color: var(--cv-green);
+	background: var(--cv-green-soft);
+}
+.cv-liq-item .bucket {
+	color: var(--cv-text-3);
+	font-size: 0.6875rem;
+}
+.cv-liq-item .usd {
+	font-family: var(--cv-font-mono);
+	font-weight: 600;
+}
+
+.cv-liq-offline {
+	color: var(--cv-text-3);
+	font-size: 0.8125rem;
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+.cv-liq-offline .dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--cv-text-3);
+	flex-shrink: 0;
+}
+
+.cv-liq-skel {
+	display: flex;
+	gap: 1rem;
+	align-items: center;
+	width: 100%;
+}
+
+@media (max-width: 640px) {
+	.cv-liq {
+		flex-direction: column;
+		align-items: stretch;
+	}
+	.cv-liq-bars {
+		max-width: none;
+	}
+}

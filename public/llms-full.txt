@@ -606,6 +606,12 @@ URL: https://three.ws/launches
 
 Live public feed of every coin launched by a three.ws agent — market caps, graduation status, and the agent behind each launch.
 
+### Minted 3D Assets
+
+URL: https://three.ws/minted
+
+Live public gallery of every generated 3D avatar minted as a Metaplex Core NFT through three.ws — interactive viewer, baked provenance, and enforced creator royalties on every card.
+
 ### Live Trading Theater
 
 URL: https://three.ws/theater

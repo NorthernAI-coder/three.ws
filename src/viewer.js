@@ -18,6 +18,7 @@ import {
 	PointsMaterial,
 	Scene,
 	SkeletonHelper,
+	Spherical,
 	Vector3,
 	WebGLRenderer,
 	LinearToneMapping,
@@ -68,6 +69,49 @@ BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree;
 Mesh.prototype.raycast = acceleratedRaycast;
 
 Cache.enabled = true;
+
+// Canvas focus ring + reduced-motion opt-out, injected once per document.
+// The viewer's <canvas> is appended directly into arbitrary host pages (forge,
+// avatar-page, embeds, kiosks) with no guaranteed shared stylesheet, so this
+// mirrors the pattern used by the SDK's <three-ws-viewer> (avatar-sdk/src/viewer.js):
+// a tiny scoped <style> tag rather than assuming a page-level CSS file loaded.
+// `var(--accent, …)` matches the site's existing focus-visible token
+// (see src/character-creator.css, src/exchanges.css) with a safe fallback for
+// pages that don't define it.
+const VIEWER_A11Y_STYLE_ID = 'tws-viewer-canvas-a11y';
+function ensureViewerA11yStyles() {
+	if (typeof document === 'undefined' || document.getElementById(VIEWER_A11Y_STYLE_ID)) return;
+	const style = document.createElement('style');
+	style.id = VIEWER_A11Y_STYLE_ID;
+	style.textContent = `
+		canvas.tws-viewer-canvas { outline: none; touch-action: none; }
+		canvas.tws-viewer-canvas:focus-visible { outline: 2px solid var(--accent, #6ee7b7); outline-offset: -2px; }
+		@media (prefers-reduced-motion: reduce) {
+			canvas.tws-viewer-canvas { scroll-behavior: auto; }
+		}
+	`;
+	document.head.appendChild(style);
+}
+
+function viewerPrefersReducedMotion() {
+	return typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+// Low-power heuristic: coarse pointer (touch) + few cores/little memory almost
+// always means an entry-level phone/tablet. `deviceMemory` is Chromium-only
+// and absent on iOS/Firefox, so it only ever *adds* signal, never gates alone.
+// The touch requirement means desktop — mouse or trackpad, any core count —
+// never matches, so default desktop behavior is unchanged. Mirrors
+// avatar-sdk/src/viewer.js's identical heuristic for the lightweight SDK
+// component, kept as a local copy since the two are separate bundles.
+function viewerLooksLowPower() {
+	if (typeof navigator === 'undefined' || typeof matchMedia === 'undefined') return false;
+	const touch = matchMedia('(pointer: coarse)').matches;
+	if (!touch) return false;
+	const fewCores = typeof navigator.hardwareConcurrency === 'number' && navigator.hardwareConcurrency <= 4;
+	const lowMem = typeof navigator.deviceMemory === 'number' && navigator.deviceMemory <= 4;
+	return fewCores || lowMem;
+}
 
 // Draw a small gold coin sprite on a canvas for the pump.fun trade shower, so the
 // effect is self-contained (no external image asset to 404). A fresh texture is
@@ -218,12 +262,20 @@ export class Viewer {
 		};
 		this.defaultCamera.add(this.audioListener);
 
-		this.renderer = window.renderer = new WebGLRenderer({ antialias: true, alpha: true });
+		// Quality auto-degrade: a touch device with few cores/little memory
+		// (entry-level phone/tablet) skips MSAA — the single biggest GPU cost on
+		// weak mobile GPUs — in exchange for a stable frame rate. Gated on a
+		// coarse pointer, so desktop (mouse/trackpad) never matches — default
+		// desktop behavior is unchanged.
+		this._lowPower = viewerLooksLowPower();
+		this.renderer = window.renderer = new WebGLRenderer({ antialias: !this._lowPower, alpha: true });
 		this.renderer.setClearColor(0x000000, 1);
 		// DPR cap: kiosk/embed modes default to 1.5 (saves ~40% fragment work on
 		// retina). Override with options.maxPixelRatio. Standalone tabs default
-		// to 2.0 to preserve sharpness on high-DPI displays.
-		const dprCap = options.maxPixelRatio ?? (options.kiosk ? 1.5 : 2);
+		// to 2.0 to preserve sharpness on high-DPI displays. Low-power devices
+		// are capped at 1.0 regardless of mode — resolution is the second
+		// biggest lever after MSAA on weak mobile GPUs.
+		const dprCap = this._lowPower ? 1 : (options.maxPixelRatio ?? (options.kiosk ? 1.5 : 2));
 		this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, dprCap));
 		this.renderer.setSize(el.clientWidth, el.clientHeight);
 
@@ -236,8 +288,28 @@ export class Viewer {
 		this.controls.screenSpacePanning = true;
 		this._onControlsChange = () => this.invalidate();
 		this.controls.addEventListener('change', this._onControlsChange);
+		// prefers-reduced-motion: OrbitControls damping (inertial drift after
+		// pointer release) is opt-in in three.js and defaults off, so there's
+		// nothing to disable here — this flag only gates the keyboard-orbit
+		// step size below, keeping motion-sensitive users' arrow-key input
+		// snappy/discrete rather than smoothed.
+		this._reducedMotion = viewerPrefersReducedMotion();
 
 		this.el.appendChild(this.renderer.domElement);
+
+		// Accessibility: the canvas is the primary interactive surface but has
+		// no accessible name or keyboard path by default. Make it a reachable,
+		// labeled, orbit/zoom-able control — mirrors the SDK's lightweight
+		// <three-ws-viewer> (avatar-sdk/src/viewer.js) so keyboard behavior is
+		// consistent whichever viewer a page embeds.
+		ensureViewerA11yStyles();
+		const canvasEl = this.renderer.domElement;
+		canvasEl.classList.add('tws-viewer-canvas');
+		canvasEl.tabIndex = 0;
+		canvasEl.setAttribute('role', 'img');
+		canvasEl.setAttribute('aria-label', options.alt || options.title || '3D model viewer. Focus and use arrow keys to orbit, +/- to zoom.');
+		this._onCanvasKeyDown = (e) => this._handleOrbitKeydown(e);
+		canvasEl.addEventListener('keydown', this._onCanvasKeyDown);
 
 		// Post-processing: the CinematicPipeline owns the full post chain (SSAO,
 		// depth-of-field, bloom, colour grade, chromatic aberration, film grain,
@@ -345,7 +417,43 @@ export class Viewer {
 		}
 	}
 
-
+	// Keyboard-only orbit + zoom for users who can't drag a pointer: arrow keys
+	// rotate azimuth/polar around the current OrbitControls target, +/- and
+	// PageUp/PageDown dolly. Scoped to the canvas element's own keydown (only
+	// fires while the canvas has focus) so it never steals arrow-key
+	// scroll/navigation elsewhere on the host page. Step sizes match
+	// avatar-sdk/src/viewer.js's keyboard orbit for a consistent feel across
+	// every three.ws viewer surface; reduced-motion halves the step so users
+	// who asked for less motion get finer, calmer control instead of smoothing.
+	_handleOrbitKeydown(event) {
+		if (!this.controls || !this.activeCamera) return;
+		const stepScale = this._reducedMotion ? 0.5 : 1;
+		const rotateStep = 0.05 * stepScale;
+		const zoomStep = 1.08;
+		const offset = this._tempVec.subVectors(this.activeCamera.position, this.controls.target);
+		const spherical = new Spherical().setFromVector3(offset);
+		let handled = true;
+		switch (event.key) {
+			case 'ArrowLeft': spherical.theta -= rotateStep; break;
+			case 'ArrowRight': spherical.theta += rotateStep; break;
+			case 'ArrowUp': spherical.phi = Math.max(0.05, spherical.phi - rotateStep); break;
+			case 'ArrowDown': spherical.phi = Math.min(Math.PI - 0.05, spherical.phi + rotateStep); break;
+			case '+':
+			case '=':
+			case 'PageUp': spherical.radius /= zoomStep; break;
+			case '-':
+			case '_':
+			case 'PageDown': spherical.radius *= zoomStep; break;
+			default: handled = false;
+		}
+		if (!handled) return;
+		event.preventDefault();
+		event.stopPropagation();
+		const newOffset = new Vector3().setFromSpherical(spherical);
+		this.activeCamera.position.copy(this.controls.target).add(newOffset);
+		this.controls.update();
+		this.invalidate();
+	}
 
 	setCameraTarget(boneName) {
 		if (!this.content) return;
@@ -2164,6 +2272,10 @@ export class Viewer {
 		window.removeEventListener('keydown', this._onKeyDown);
 		if (this._onDblClick && this.renderer?.domElement) {
 			this.renderer.domElement.removeEventListener('dblclick', this._onDblClick);
+		}
+		if (this._onCanvasKeyDown && this.renderer?.domElement) {
+			this.renderer.domElement.removeEventListener('keydown', this._onCanvasKeyDown);
+			this._onCanvasKeyDown = null;
 		}
 		if (this._onMessage) {
 			window.removeEventListener('message', this._onMessage, false);

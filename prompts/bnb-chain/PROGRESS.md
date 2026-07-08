@@ -964,3 +964,128 @@ automated snapshot process before this session issued its own commit — verifie
 via `git show 3599057e8 -- STRUCTURE.md`).
 
 **Status: DONE (docs + spec re-verified accurate, STRUCTURE.md gap closed, tests green).**
+
+---
+
+## 2026-07-08 — Prompt 15 (gasless-move-sender): real anvil-fork self-pay proof added — SHIPPED
+
+**Starting state:** this session found `api/_lib/bnb/world-moves.js`, `src/bnb/move-sender.js`,
+`tests/bnb-world-moves.test.js`, and `tests/bnb-move-sender.test.js` already built UNTRACKED in
+this shared worktree by a concurrent agent (per CLAUDE.md's "concurrent agents share this
+worktree" trap — several other untracked files from unrelated prompts, e.g.
+`api/_lib/bnb/greenfield-write.js`, `api/bnb/world-config.js`, were present too and left
+untouched, not this prompt's scope). Read line-by-line against `15-gasless-move-sender.md`
+rather than trusted as-is — it matched spec closely and correctly:
+
+- `buildMoveTx`/`buildJoinTx`/`buildLeaveTx`/`buildCheckpointTx` — pure calldata encoders
+  against `contracts/src/WorldMoves.sol`'s real ABI (`parseAbi`, hand-checked against
+  `contracts/out/WorldMoves.sol/WorldMoves.json`), with client-side COORD_MIN/MAX + uint16
+  facing + uint32 worldId validation so a bad input fails before ever reaching the network.
+- `worldMovesAddress(network, opts)` — resolves the deployed contract from
+  `WORLD_MOVES_ADDRESS_TESTNET`/`_MAINNET` env (not yet set — public deploy still blocked, see
+  prompt 14's entry) or an explicit `opts.address` override, throwing a typed
+  `WorldMovesError{code:'no_deployment'}` rather than guessing an address. Added the missing
+  `.env.example` documentation for both vars (a concurrent agent had already added it by the
+  time this session went to write it — verified byte-identical, no edit needed).
+- `sendMove`/`sendJoin`/`sendLeave` — thin wrappers that build a tx and hand it to
+  `megafuel.sendGasless()` (prompt 02) unmodified; all sponsored/self-pay/decline logic lives
+  there, exactly as the prompt specifies ("routes through megafuel.sendGasless").
+- `MoveCoalescer` — pure, network-free, at-most-one-in-flight + latest-wins queue with
+  `submit()`/`stats`/`dispose()`. No timers, no network — drives itself off the injected
+  `sendFn`'s promise resolution.
+- `src/bnb/move-sender.js` — the browser entry the prompt calls for: converts engine
+  meters/radians to WorldMoves' contract units (int32 millimeters via `COORD_SCALE=1000`,
+  uint16 centidegrees), dedupes stationary positions, wraps `MoveCoalescer`+`sendMove` behind
+  `createMoveSender({account, worldId, network}).updatePosition(pos, heading)`. Notably
+  isomorphic by design (`world-moves.js` only imports `viem` + `fetch`, no Node-only API), so
+  it runs unmodified in the Vite browser bundle — confirmed by this session's own live probes
+  below that MegaFuel's testnet paymaster sends `access-control-allow-origin: *`, so a direct
+  browser→MegaFuel call needs no server relay hop for the happy path (documented in the
+  module's own header comment as the fallback-if-that-changes design note).
+
+**Tests: 44/44 passing** (`tests/bnb-world-moves.test.js` 26 cases, `tests/bnb-move-sender.test.js`
+18 cases) — `buildMoveTx` calldata decoded byte-for-byte against expected args, coordinate/
+facing/worldId bound rejection, `MoveCoalescer` exercised as pure logic with a controllable
+deferred `sendFn` (burst-of-50-submits → exactly 2 launches, `coalesced: 48`; a failed send
+reported via `onError` without wedging the queue; `dispose()` mid-flight), `sendMove`/`sendJoin`/
+`sendLeave` sponsored + self-pay + MegaFuel-unreachable paths via the same
+`megafuelRpc`/`publicClient` injection pattern `tests/bnb-megafuel.test.js` established, and
+`move-sender.js`'s unit conversion + dedupe + out-of-range-drop + `stop()` behavior. Full run:
+`npx vitest run tests/bnb-world-moves.test.js tests/bnb-move-sender.test.js
+tests/bnb-megafuel.test.js tests/bnb-chains.test.js` → 56 passed, 1 skipped (pre-existing,
+unrelated).
+
+**Live MegaFuel probe (real, unmocked, this session) — sponsorship is currently DECLINED for
+fresh addresses:** re-probed the exact live `pm_isSponsorable` endpoint prompt 03's entry found
+open ("Yolin" default testnet policy sponsoring arbitrary senders) — three independent fresh
+addresses, including a probe against WorldMoves' own target shape and against the real ERC-8004
+registry prompt 03 used, all returned `{"sponsorable":false}` today. This is exactly the
+"sponsor policies are whitelisted... could change without notice" caveat in 00-CONTEXT playing
+out in real time — the self-pay fallback is load-bearing again, not decorative. Also probed a
+contract-CREATION tx (`to: null`, `data: <WorldMoves bytecode>`) against the same endpoint on
+the chance a sponsored deploy could unblock prompt 14's funding gap as a side effect — declined
+too, so that avenue is closed; deploy still needs a funded key.
+
+**REAL testnet proof — anvil fork of live BSC testnet state, same technique prompts 02/03/14
+established (public faucet still reCAPTCHA-gated, no funded `BNB_TESTNET_DEPLOYER_KEY`):**
+`anvil --chain-id 97 --fork-url https://bsc-testnet.drpc.org` forked real testnet state at block
+`117883829`; a fresh throwaway account (`0x45d0Ec5e1d52a1A01A9E45021Eb8cb7C4BcFe64E`, key
+discarded after the run) funded 1 tBNB via `anvil_setBalance`; the REAL, unmodified
+`DeployWorldMoves.s.sol` script deployed a fresh `WorldMoves` instance at
+`0xa96d10a94B9BC4479bfB7649093291c2D106B7dA` (fork-local, NOT a public BscScan-resolvable
+address — same honesty caveat as prompt 14's entry). Then the REAL `sendMove()` export (not a
+reimplementation) was called 20 times in sequence, each one making a genuine, unmocked probe
+against the live public MegaFuel testnet endpoint (declined, per above) before falling through
+to its self-pay branch, which broadcast against the forked EVM state:
+
+| # | tx hash | block | gasUsed | status |
+|---|---|---|---|---|
+| 0 | `0xab42f663…a62e7` | 117883916 | 26281 | success |
+| 1 | `0x1a07d25b…2aee0` | 117883917 | 26293 | success |
+| 5 | `0x08627abf…31ab` | 117883921 | 25909 | success |
+| 10 | `0x93fb79a1…4b5c70` | 117883926 | 25933 | success |
+| 19 | `0x3ad9aa80…6d3fcd0` | 117883935 | 25933 | success |
+
+All 20 mined `status: success`, one per block (`block spacing: [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+1,1,1,1,1]` — every `move()` landed in its own block, no bunching, no reverts). Sender balance
+`0.999999999999564563 → 0.999479599999564563 tBNB` (Δ `0.0005204` tBNB across 20 txs, ≈26 gas ×
+1 gwei per tx) — a REAL gas charge, confirming this is genuinely the self-pay branch (not
+sponsored, matching the live decline above), same discipline as prompt 02's proof. One receipt's
+log independently decoded and checked byte-for-byte against the call args: move #5
+(`worldId=1, player=0x45d0…e64e, x=15, y=0, z=3, facing=180, blockNumber=117883921`) — topics/
+data matched the `Moved` event's exact ABI layout with no manual reinterpretation needed.
+
+**Coalescer live-network demo — inconclusive, not blocking:** attempted a bonus live proof
+(feed `MoveCoalescer.submit()` a burst of 8 positions backed by the real `sendMove()` above,
+confirming latest-wins holds under genuine network latency, not just synthetic promises). The
+anvil fork process crashed mid-run (Rust panic in `execute_with_block_executor`, environment
+resource contention from this heavily concurrent worktree — several other agents' anvil
+instances were observed running simultaneously on other ports during this session). Not
+re-attempted: the prompt's own Tests section only requires the "pure-logic test, no network"
+coverage, which `tests/bnb-world-moves.test.js`'s deferred-promise burst tests already prove
+exhaustively (50-submit burst → exactly 2 launches). The 20-move sequential proof above already
+satisfies the DoD's real-testnet-proof requirement in full.
+
+**Docs/changelog:** per the prompt's own instruction ("Docs deferred to 18"), no new `docs/`
+file this session — `docs/bnb-world-moves.md` (or a section of an existing doc) lands with
+prompt 18's end-to-end demo write-up. Added one `data/changelog.json` entry (`feature`, `sdk`)
+describing the library honestly as shipped-with-no-toggle-yet (the browser toggle is prompt
+16's deliverable) — `npm run build:pages` regenerated `CHANGELOG.md`/`public/changelog.json`/
+`public/changelog.xml` cleanly. No `STRUCTURE.md` change: no new product surface, and prompt 16
+explicitly owns updating the explore/platformer row.
+
+**Gap for prompt 16 (onchain-presence-mode):** everything it needs is ready to import —
+`createMoveSender` from `src/bnb/move-sender.js` and the real MegaFuel-decline finding above
+(build the presence toggle assuming self-pay is the common path today, sponsored is a bonus
+when NodeReal's policy happens to be open). Two blockers inherited unchanged from prompt 14/15:
+(1) no real public-testnet `WorldMoves` address yet — set `WORLD_MOVES_ADDRESS_TESTNET` the
+moment a funded deployer key exists and prompt 16's demo will pick it up with zero code change;
+(2) `api/bnb/world-config.js`, found already-authored (untracked) by a concurrent agent in this
+same session pointing at `src/agora/onchain-presence.js` (which does not exist yet), appears to
+be early prompt-16 scaffolding — left untouched as out of this prompt's scope, flagged here so
+whoever picks up 16 knows it's already partway done.
+
+**Status: DONE (code + tests + real anvil-fork self-pay proof, live MegaFuel-decline finding
+documented). Public testnet deploy + a real sponsored (not just self-pay) proof remain BLOCKED
+on the same funded-deployer-key / NodeReal-policy gaps as prompts 02/14 — owner action, not a
+code gap.**
