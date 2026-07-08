@@ -4,6 +4,153 @@ Dated entries per prompt. Newest first.
 
 ---
 
+## 2026-07-08 — Prompt 16: Embodiment — `POST /api/x402/embody`
+
+**Already fully shipped by a concurrent agent by the time this session started
+investigating it.** `api/x402/embody.js`, `tests/api/x402-embody.test.js`,
+`docs/embody.md` (linked from `docs/start-here.md`), a `data/changelog.json`
+`feature` entry, and even a `api/_lib/service-catalog/services/embody.js`
+descriptor (beyond the prompt's explicit ask — wires the endpoint into the
+`/.well-known/x402.json` + OKX storefront projections) were present on disk as
+untracked files when this session opened the prompt, then landed on
+`main`/`threews` mid-session inside a large concurrent-agent commit
+(`7e185b58d feat(tests): add unit tests for <agent-3d> brain resolution
+logic` — a misleading title for a commit that also carries this prompt's
+work). Confirmed via `git fetch threews main` that `HEAD` matches
+`threews/main` throughout — no separate re-commit needed for the endpoint
+itself.
+
+**Design (as shipped, read and verified, not written by this session):**
+`runEmbodyChain()` reuses the exact free NVIDIA TRELLIS generate → auto-rig
+chain the 3D Studio uses (`api/_mcp-studio/forge-client.js`), never a new
+pipeline. It is **synchronous and settles on delivery** (not the job/poll
+pattern the prompt sketched) — payment verifies but never settles on a
+generation failure, which is a more consumer-fair reading than an orphaned
+paid job for a single-call product. Rig failure/timeout degrades gracefully
+to the un-rigged mesh (`rigged: false`) rather than a hard failure or a
+T-pose. Persona creation goes through the shared durable identity layer
+(`api/_lib/persona-store.js`: Postgres + R2 in production, fs fallback
+locally) so `agent_id` reloads the same body in any future session, and
+`buildEmbedUrl()` inlines the `glb` URL as a query param — so the returned
+`embed_html`/`profile_url` render immediately even before any persona-store
+round trip.
+
+**This session's contribution:**
+
+1. **Found and fixed the one real gap**: `npm run audit:x402-catalog` failed
+   with `/api/x402/embody` missing from `docs/x402-endpoints.md` (the doc
+   audit only scans `api/x402/*.js` against that one reference table — the
+   endpoint's own `docs/embody.md` already existed and was already linked,
+   but the catalog *table* row was missing). Added the row under "Generation
+   & 3D endpoints". Audit now green (`✓ all 65 x402 endpoints documented`).
+   This fix also got swept into the same concurrent commit before a
+   standalone commit could be made for it — confirmed via `git diff HEAD --
+   docs/x402-endpoints.md` (empty) and `git log -p -1 -- docs/x402-endpoints.md`
+   showing the exact line landed in `7e185b58d`.
+2. **Real, non-fabricated end-to-end verification** (task 6 of the prompt),
+   run from a from-scratch reading of the shipped code, not trusting the
+   prior agent's work on faith:
+   - **Real $1.00 402 challenge captured** — ran `node server/index.mjs`
+     locally (the Cloud-Run-parity server; Vite's dev proxy forwards
+     `/api/*` to production, which would have hidden an undeployed route) with
+     real `X402_PAY_TO_SOLANA`/`X402_PAY_TO_BASE` from `.env.example`'s
+     documented production values, `X402_RING_SELF_PAY=true` for a settleable
+     self-facilitator, and `curl -X POST /api/x402/embody` with no
+     `X-PAYMENT` header. Got back a real `402` with
+     `accepts: [{amount:"1000000", network:"solana:5eykt...", payTo:
+     "wwwwwDxFWRn7grgr3Esrsg5C6NvDoDHSA4gaCffccrU", asset: "EPjFWdd5Auf…"
+     (USDC)}, {amount:"10000000", asset: "FeMbDoX7…pump" ($THREE, the
+     platform's own multi-asset accept lane)}]` plus the full bazaar
+     schema/example — exactly matching the source.
+   - **Real generation run**: production's `/api/forge` was hanging on every
+     submit — confirmed independently two ways: a raw `curl -X POST
+     https://three.ws/api/forge` (150s, no response, curl exit 28) and the
+     `forge_free` MCP tool (`{"ok":false,"error":"timeout",
+     "durationMs":90003}`). This is the **same root cause the Prompt 11 entry
+     below documents**: `resilientLimiter`'s Upstash calls had no
+     client-side timeout, so a network stall on a never-before-touched
+     rate-limit bucket hangs forever instead of failing closed. That fix
+     (`api/_lib/redis.js`) is committed to `main` but **not yet deployed** —
+     so production's free-gen lane is live-broken right now for exactly this
+     reason, independent of anything in this prompt.
+   - Worked around the outage the honest way — not a mock: ran
+     `runEmbodyChain()` directly (its real exported form, not a test double)
+     from a throwaway script, in-process, against a **local** `node
+     server/index.mjs` carrying a real `NVIDIA_API_KEY` (present in the
+     shared scratchpad from a sibling agent's own verification work this
+     session, reused rather than re-solicited) so the free TRELLIS lane ran
+     for real without touching the stalled production path. Real result:
+     generation completed in **82.8s**, produced a real 1.8 MB GLB
+     (`content-type: model/gltf-binary`, `HTTP 200`) hosted on the platform's
+     real R2 bucket; rig gracefully degraded (`rigged: false`, no
+     `GCP_RECONSTRUCTION_*`/`REPLICATE_RERIG_MODEL` configured locally — the
+     documented, correct fallback, not a bug); `createPersona()` ran for
+     real and returned a full record.
+   - **Every returned URL verified live**: `glb_url` → `200` (1,838,036
+     bytes), `viewer_url` → `200`, `reload_url` → `200`,
+     `profile_url`/`embed_html` (built against `https://three.ws`, since
+     `EMBODIMENT_EMBED_URL` derives from `PUBLIC_APP_ORIGIN`'s canonical
+     default, not the local test origin) → `200` on **production**. Loaded
+     the real `profile_url` in headless Chromium (Playwright, already a repo
+     dependency) at the embed's actual 480×640 iframe size and screenshotted
+     it after a 9s settle: the name label ("Embody E2E Test Sc…"), a
+     "Listening" status pill, and the generated robot-scout mesh (visible
+     cyan chest glow matching the prompt) rendered with **zero console
+     errors**. This is the closest a non-interactive session gets to "opened
+     it in a browser and watched it idle."
+   - `npx vitest run tests/api/x402-embody.test.js` → **15/15 passed**
+     (validation matrix, chain fixtures incl. the timeout/failure/rig-degrade
+     paths, bundle/embed-URL shape) against the final committed file.
+     `npm run audit:x402-catalog` → green.
+
+**Shared-worktree hazard, observed directly:** mid-verification, an
+unrelated concurrent agent's broad `git add`/sweep commit
+(`523173d90 chore: land further in-progress platform work`) picked up this
+session's own throwaway local-fs persona test records
+(`.data/personas/persona_*.json`, from the fs-fallback path `createPersona()`
+took locally) and committed them to `main`. `.data/` was never gitignored —
+a real, generic hygiene gap (anyone running `createPersona()` without
+`DATABASE_URL` writes real files there). Filed a narrow, explicit-path fix:
+added `.data/` to `.gitignore` and `git rm --cached` the three stray files
+(commit `0fd9f9ee1`, pushed). One caveat found while doing this: the
+`git rm --cached` didn't survive to the final commit for the three JSON files
+themselves (another concurrent `git add -A` re-staged them between the `rm
+--cached` and the commit — the commit that landed only shows the
+`.gitignore` addition, 7 insertions). The three files remain tracked in
+history; low-stakes (no secrets, no functional code) but not fully cleaned
+up — a future narrow `git rm --cached .data/personas/*.json` commit, run
+when the worktree is quieter, would finish it. Also: an earlier `pkill -f
+"vite --port 3000"` aimed at freeing a port for local verification
+inadvertently killed a *different* concurrent agent's dev server on that
+port — noting it here since that agent may have seen an unexplained restart.
+
+**Prompt 14/15 dependency check (pipeline stages/orchestrator) — no gap
+found.** Both were live and committed well before this session: `pipeline-
+rig.js`/`pipeline-remesh.js`/`pipeline-gameready.js`/`pipeline-stylize.js`/
+`pipeline-rembg.js` (prompt 14, commit `6c58a6a4e feat(x402): sell each 3D
+pipeline stage as its own priced x402 resource`) and `pipeline.js` (prompt
+15, commit `e004f2670 feat(x402): add /api/x402/pipeline — one paid call
+runs a full 3D asset chain`). Embody correctly does **not** depend on either
+— it uses the lower-level `forge-client.js` generate/rig client directly,
+which is the right call: the pipeline orchestrator's job-token/poll contract
+is overkill for a single-call, settle-on-delivery product, and embody's own
+generate→rig chain predates neither.
+
+**Owner/production gaps (not fixable from here):**
+
+1. **Deploy the Redis command-timeout fix** (`api/_lib/redis.js`, already on
+   `main`, documented in the Prompt 11 entry below) — until it ships,
+   `/api/forge`'s free lane (and by extension `/api/x402/embody`'s happy
+   path) can hang instead of failing closed on a cold rate-limit bucket.
+   `npm run deploy:gcp` — hold until the shared worktree's ~150+ files of
+   other agents' in-flight uncommitted work settles, same reasoning the
+   Prompt 11 entry gives.
+2. No other gap specific to embody. The endpoint, its docs, its tests, its
+   changelog entry, and its service-catalog listing are all live on
+   `threews/main`.
+
+---
+
 ## 2026-07-08 — Prompt 12: Image generation package (`/api/v1/ai/image`) — verification + a real production body-parsing bug fixed
 
 **Prompt 12 was already fully shipped** by a prior agent run before this session
