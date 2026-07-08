@@ -3,6 +3,31 @@
 	"entries": [
 		{
 			"date": "2026-07-08",
+			"title": "New tool-authoring SDK: define an agent tool once — typed params, permissions, and rate limits included",
+			"summary": "Internal SDK release for developers extending three.ws's 38 MCP servers: @three-ws/tool-sdk lets a tool be declared once with defineTool (Zod parameter schemas, auto-derived JSON Schema, a per-tool permission manifest for network access/rate limits/wallet use) and wired up with defineExecutor (typed handlers, automatic validation, uniform error wrapping) — then adapted into a live MCP server registration with a single toMcpTools() call. Proven by refactoring the naming MCP server's sns_resolve tool onto it with byte-identical behavior.",
+			"tags": [
+				"sdk"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"title": "three.ws now speaks BNB Chain's payment protocol (MPP), both ways",
+			"summary": "Our paid endpoints now accept payments over MPP — BNB Chain's Machine Payments Protocol — in addition to the x402 payments we already take on Solana and Base. Because MPP is x402 v2 under the hood, the same signed-stablecoin credential works; agents from the BNB ecosystem can now pay us on BNB Chain, settling through the Binance OnchainPay facilitator, while every existing Solana/Base payment path is untouched. The $THREE Town Oracle is the first endpoint to accept both. Our own agents can pay any MPP-protected endpoint too, with a hard per-call spending cap that refuses an over-quote before any money moves.",
+			"tags": [
+				"feature",
+				"sdk"
+			]
+		},
+		{
+			"date": "2026-07-08",
+			"title": "New guide: BNB Chain payments (MPP) and gasless sends",
+			"summary": "A zero-context developer guide covering how to pay three.ws endpoints over MPP on BNB Chain, how our agents pay MPP endpoints, and how BNB Chain's block-level gas sponsorship (MegaFuel) lets a plain wallet send a transaction with zero gas — with an honest self-pay fallback for when sponsorship isn't available. Includes a wire-level bridge spec pinning how x402 and MPP map to each other.",
+			"tags": [
+				"docs"
+			]
+		},
+		{
+			"date": "2026-07-08",
 			"title": "Spatial MCP: 3D models are now a native, interactive response type",
 			"summary": "We published an open standard — Spatial MCP — for returning a live, interactive 3D scene as a first-class AI tool result instead of a link in text. Every three.ws 3D tool now emits a conformant artifact (camera, lighting, animation, AR handoff), a public validator checks conformance with actionable errors, and a framework-free reference renderer displays any conformant payload — including ones transformed from other tools. It carries no wallet or token surface, so it works everywhere. Try the reference renderer.",
 			"tags": [
