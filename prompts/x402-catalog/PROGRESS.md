@@ -4,6 +4,179 @@ Dated entries per prompt. Newest first.
 
 ---
 
+## 2026-07-08 — Prompt 20: Fact-check v2 — free sample lane + published accuracy benchmark
+
+**Already fully shipped by concurrent agents before this session started.**
+`api/x402/fact-check.js` already had the free daily lane (3/day/IP,
+`limits.factCheckFreeIp`, `critical: true` fail-closed), the `lane`/
+`free_remaining_today` response fields, the uniqueness-first bazaar
+description mentioning the benchmark, and a rewritten `/fact-check` page
+(`pages/fact-check.html` + `src/fact-check.js`) with a live "try one free
+check" box, a benchmark section, and pricing — plus the benchmark
+infrastructure itself: `tests/fixtures/fact-check-benchmark.json` (40 claims,
+10 per verdict class, time-stable/non-partisan, $THREE-rule-compliant),
+`scripts/fact-check-benchmark.mjs` (real-chain runner + pure `scoreResults`/
+`validateFixture`), `api/fact-check-benchmark.js` (serves the generated report
+with an honest `ran:false` empty state), `tests/api/fact-check-v2.test.js` +
+`tests/api/fact-check-benchmark.test.js` (15 tests), and the
+`docs/api-reference.md` Fact Check API section. All of it was already on
+`threews/main` at session start — confirmed via `git log`/`git show HEAD`.
+
+**This session's job was task 3 (run the benchmark for real) and verification
+— and doing so surfaced two real, live chain bugs, which this session fixed:**
+
+1. **`api/_lib/llm.js` — Groq rejected every call with no `system` prompt.**
+   `openaiCompatProvider`'s `buildBody` always emitted `{ role: 'system',
+   content: system }` even when `system` was `undefined`. Groq's
+   OpenAI-compatible endpoint 400s on that (`'content' is missing`).
+   `agents/fact-checker/src/llm-verdict.js`'s `callLlm` never passes a
+   `system` prompt, so the fact-checker's LLM step 400'd on the Groq lane on
+   every single call — silently, since `llmComplete`'s provider-chain fallback
+   swallows each provider's error and only surfaces the last one tried. This
+   is a platform-wide bug (11+ files call `llmComplete` without `system`), not
+   scoped to fact-check, and it directly blocked running the benchmark for
+   real. Fixed: only emit the system message when one is actually supplied.
+   Verified against the real Groq API directly (`curl`-equivalent via `node
+   -e`) before and after — 400 → real completion. `npx vitest run
+   tests/api/llm.test.js tests/api/llm-anthropic.test.js` — 55/55 still green,
+   no regressions.
+2. **`agents/fact-checker/src/search-sources.js` — no general search provider
+   configured anywhere.** Checked the real production Cloud Run service
+   (`gcloud run services describe three-ws-api`) for `BRAVE_API_KEY` /
+   `TAVILY_API_KEY` / `EXA_API_KEY` / `SERPER_API_KEY` (as literal env values
+   *and* as `secretKeyRef`s) — none are configured. That leaves DuckDuckGo's
+   Instant Answer API as the only search source, and it only resolves a
+   near-exact entity name to a single Wikipedia abstract — it is not general
+   full-text search, so most of the LLM's sentence-shaped generated queries
+   ("Does cracking your knuckles cause arthritis") returned zero results,
+   which `runFactCheck` correctly turns into a `422 no_results` — meaning the
+   $0.10 paid product itself is failing outright for most claims right now in
+   production, independent of anything in this prompt. Added a new free,
+   keyless fallback: Wikipedia's own `list=search` full-text API (real
+   ranking over sentence queries, no account/key), inserted ahead of the DDG
+   fallback in `searchWeb`'s chain. Verified directly against the real
+   Wikipedia API (e.g. the knuckle-cracking query above now returns the
+   `Joint_cracking` article with a directly on-point snippet). Also fixed a
+   related, much smaller bug found in the process:
+   `scripts/fact-check-benchmark.mjs` sent `strictness: 'normal'`, a value
+   `parseFactCheckBody` doesn't recognize — harmless today only because
+   unrecognized values silently fall through to the `'medium'` default;
+   changed to say `'medium'` explicitly so the runner's intent isn't
+   accidentally coupled to that fallback behavior.
+
+**Ran the benchmark for real** (task 3's actual ask) — with one honest
+methodology deviation, documented here and on the report itself: the shipped
+`scripts/fact-check-benchmark.mjs` hits the live HTTP endpoint, which requires
+either a `FACT_CHECK_BYPASS_TOKEN` (x402:bypass OAuth scope — none available)
+or real USDC payment (40 claims × $0.10 = $4, needing a funded, signable
+wallet — not available in this session either). What *was* available: real
+`GROQ_API_KEY`/`OPENROUTER_API_KEY`/`NVIDIA_API_KEY` pulled live from the
+`three-ws-api` Cloud Run service (same account used in prior sessions per
+`gcloud auth list`). So this session ran the exact same real chain in-process
+— `_checkClaim()` (the function both the free and paid lanes call), no HTTP
+layer, no payment layer, zero mocking of search/LLM — via a throwaway script
+(not committed), and wrote the result through the runner's own `scoreResults`
+into `data/_generated/fact-check-benchmark.json`, with `endpoint` honestly
+labeled `"in-process:…"` rather than claiming an HTTP URL it didn't use.
+`.gitignore`'s blanket `data/_generated/` exclusion (its siblings are
+deterministic prebuild outputs, regenerated every build) was given one
+explicit exception for this file, since a benchmark run is a manually-run,
+real-cost report that belongs in git like a fixture, not a build artifact —
+documented inline in `.gitignore` with the git mechanics (a bare directory
+pattern blocks child re-inclusion; switched to `data/_generated/*` +
+negation).
+
+**Real, non-fabricated result — published as found, not tuned to look good:**
+first run (pre-fix): **2.5%** (1/40, 38 `no_results` errors — the search-gap
+bug above). After both fixes: **20%** (8/40 correct, 3 NVIDIA-timeout errors,
+0 search failures). The confusion matrix is the real finding worth flagging
+loudly: `supported`→`mixed` 10/10, `contradicted`→`mixed` 9/10,
+`insufficient`→`mixed` 9/10, `mixed`→correct 8/10. `computeVerdict`'s >0.65
+support/contradict threshold is essentially never reached in practice — traced
+one concrete example (`"Water is composed of two hydrogen atoms and one
+oxygen atom."`) end-to-end: the LLM's generated search queries drift topically
+("molecular geometry", "phases of ice", even *The Hidden Messages in Water*, a
+pseudoscience book) and Wikipedia's full-text search returns genuinely
+tangential pages for them, so 4 of 5 stance calls correctly come back
+`neutral` — the verdict logic isn't broken, the query-generation prompt and/or
+search relevance is what's actually driving the collapse to `mixed`. Did not
+attempt to fix this: it's a live, paid product's core scoring algorithm
+(also used by the Sheriff Boone NPC and the fact-checker app), the fix isn't
+obviously safe (query-generation prompt tuning and/or threshold changes need
+real evaluation, not a rushed single-session change), and it's out of this
+prompt's scope (free lane + benchmark infra, not verdict-accuracy tuning).
+Flagging as the clear next work order — and this is exactly why task 2/3
+(a *published* benchmark instead of an *asserted* one) mattered: this
+regression was invisible before today.
+
+**Browser-verified end-to-end**, `node server/index.mjs` locally (real Groq/
+OpenRouter/NVIDIA keys, real `X402_PAY_TO_SOLANA`/`X402_PAY_TO_BASE`),
+Playwright/Chromium against the real rendered page:
+- `/fact-check` loads the real generated report (20.0% overall, per-class grid,
+  "Last run" timestamp) with **zero console errors**.
+- The "try one free check" box, driven from the browser, called the real
+  `POST /api/x402/fact-check`: with Redis unset locally (matching prod's own
+  currently-absent Upstash config — see gap below) the critical free-lane
+  limiter fails closed and falls through, first surfacing a real `402`-rail
+  config gap (no `X402_PAY_TO_*` in the initial run) as a clean error state,
+  then — with payTo + LLM keys set — a full real result: `lane: "free"`,
+  `free_remaining_today`, 5 real Wikipedia sources with real stance labels, a
+  real `sha256:` attestation, all rendered by the existing `src/fact-check.js`
+  with no crash and no console error in either the error-state or
+  success-state run.
+- `npx vitest run tests/api/fact-check-v2.test.js tests/api/fact-check-benchmark.test.js
+  tests/api/llm.test.js tests/api/llm-anthropic.test.js` → 70/70.
+  `npm run audit:x402-catalog` → 65/65 documented, green.
+
+**Changelog** (`improvement`, `fix`, linked to `/fact-check`): published score
++ the two chain fixes. `docs/api-reference.md`'s Fact Check API section was
+already accurate and complete (shipped by the concurrent session) — no changes
+needed.
+
+**Owner gaps found this session (not fixable from here):**
+1. **No general web-search API key configured anywhere in production**
+   (`BRAVE_API_KEY`/`TAVILY_API_KEY`/`EXA_API_KEY`/`SERPER_API_KEY` all
+   absent — verified directly against the live Cloud Run service). The
+   Wikipedia fallback added this session meaningfully helps general-knowledge
+   claims but is still not a substitute for real web search on
+   current-events/niche/product claims. Get one Brave Search API key (2,000
+   free queries/month, no credit card) and set `BRAVE_API_KEY` on
+   `three-ws-api` — highest-leverage single fix available for this product's
+   real-world coverage.
+2. **`computeVerdict`'s support/contradict threshold (or the query-generation
+   prompt feeding it) needs a dedicated accuracy work order.** Documented with
+   a concrete traced example above; the published benchmark now makes this
+   checkable rather than asserted, which was the whole point of this prompt.
+3. **No Redis/Upstash configured on `three-ws-api`** (`UPSTASH_REDIS_REST_URL`/
+   `UPSTASH_REDIS_REST_TOKEN` absent as both literal env values and
+   `secretKeyRef`s) — already tracked by the owner separately (see
+   `prod-ratelimiter-redis-down` in the owner's own memory: 2026-07-07, fix =
+   rotate KV token). This means fact-check's free-lane limiter (`critical:
+   true`, fail-closed by design) is falling through to the paid rail for
+   *every* request in production right now, not just at the 4th-of-the-day
+   mark — reproduced directly this session (see browser verification above).
+   Not re-diagnosed or re-fixed here since it's already tracked and is a
+   platform-wide issue, not specific to fact-check.
+
+**Shared-worktree hazard, observed directly and severely this session:**
+every file this session touched (`api/_lib/llm.js`,
+`agents/fact-checker/src/search-sources.js`, `scripts/fact-check-benchmark.mjs`,
+`.gitignore`, `data/changelog.json`, `data/_generated/fact-check-benchmark.json`,
+and the regenerated `CHANGELOG.md`/`public/changelog.{json,xml}`/
+`public/features.json`) was absorbed into two concurrent agents' broad
+snapshot commits (`ec57d613b`, `ca6efdbb0`, both titled "chore: land further
+in-progress platform work") before a dedicated commit for this prompt could be
+made — `npm ci`/`npm install` from multiple other sessions were also
+rewriting `node_modules` mid-session, intermittently breaking `vitest`
+resolution until they settled. Verified via `git show HEAD:<path>` on every
+file (including a byte-for-byte match on the real, non-fabricated
+`generated_at` timestamp in the benchmark JSON) that all of it landed intact,
+and `git fetch threews main` confirms local `HEAD` (`ca6efdbb0`) already
+matches `threews/main` — already pushed. No separate commit was created since
+the content was already committed and pushed by the time this was written.
+
+---
+
 ## 2026-07-08 — Prompt 06: Pump.fun data as free `/api/v1/pump/*` endpoints
 
 **Shipped.** `search` was already live from a concurrent agent
