@@ -23,9 +23,11 @@ function el(tag, props = {}, kids = []) {
 	return n;
 }
 
-// Base modal shell shared by the store and the bank — overlay, card, header
-// with a title + close button, and open/close lifecycle (fade + teardown).
-class EconPanel {
+// Base modal shell shared by the store, the bank, and (src/game/quests-ui.js)
+// the Jobs Board — overlay, card, header with a title + close button, and
+// open/close lifecycle (fade + teardown). Exported so sibling panels reuse the
+// exact same shell instead of forking it.
+export class EconPanel {
 	constructor({ title, onClose }) {
 		this._unsubs = [];
 		this._onClose = onClose;

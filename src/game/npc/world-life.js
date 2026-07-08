@@ -2,11 +2,13 @@
 //
 // It owns one deterministic nav graph and hangs everything off it: the ambient
 // crowd and traffic (ambient-life.js), the interactive NPCs from the catalog
-// (npc.js + npc-catalog.js), the W07-gated mobs (mobs.js), and the bit of road
-// geometry that makes the traffic legible. coincommunities.js builds one of these
-// per world on enter, ticks it in the render loop, routes E / tap to it, and
-// disposes it on leave — the same lifecycle the Agent Exchange already uses. The
-// Agent Exchange stays its own special module; this manages everyone else.
+// (npc.js + npc-catalog.js + economy-npcs.js + quest-npcs.js), the quest-zone
+// waypoints the jobs board drives (quest-markers.js), the W07-gated mobs
+// (mobs.js), and the bit of road geometry that makes the traffic legible.
+// coincommunities.js builds one of these per world on enter, ticks it in the
+// render loop, routes E / tap to it, and disposes it on leave — the same
+// lifecycle the Agent Exchange already uses. The Agent Exchange stays its own
+// special module; this manages everyone else.
 
 import {
 	Group, Mesh, RingGeometry, MeshBasicMaterial, MeshStandardMaterial,
@@ -17,6 +19,8 @@ import { AmbientLife } from './ambient-life.js';
 import { Npc } from './npc.js';
 import { npcCatalogFor } from './npc-catalog.js';
 import { economyNpcsFor } from './economy-npcs.js';
+import { questNpcsFor } from './quest-npcs.js';
+import { QuestMarkers } from './quest-markers.js';
 import { MobSystem } from './mobs.js';
 import { log } from '../../shared/log.js';
 
@@ -41,22 +45,29 @@ export class WorldLife {
 
 		this.ambient = new AmbientLife({ scene, nav: this.nav, biome: world?.biome });
 		this.mobs = new MobSystem({ scene, nav: this.nav });
+		// Waypoints for the jobs board's active objectives (W08 hooking W05) —
+		// pure client render of the same quest-zones.js the server already
+		// validates goto/interact against; it drives itself off the 'quests'
+		// snapshot, so it needs only the network handle, not the NPC list.
+		this.questMarkers = new QuestMarkers({ scene, net: this.net });
 
-		// Interactive NPCs from the data-driven catalog: the Agent Exchange roster
-		// (real x402 micro-services) plus the general-store clerks + bank teller
-		// (W04's off-schema cash economy, fronted by the room's own message
-		// channel — no on-chain settlement for cash, only the boutique).
-		this.npcs = [...npcCatalogFor(), ...economyNpcsFor()].map((def) => {
+		// Interactive NPCs from the data-driven catalog: the Agent Exchange
+		// roster (real x402 micro-services), the general-store clerks + bank
+		// teller (W04's off-schema cash economy), and the quest-givers (W08
+		// hooking W05's jobs board — see quest-npcs.js) — fronted by the
+		// room's own message channel, no on-chain settlement for either.
+		this.npcs = [...npcCatalogFor(), ...economyNpcsFor(), ...questNpcsFor()].map((def) => {
 			const npc = new Npc(scene, def);
 			npc.marker = this._npcMarker(def);
 			return npc;
 		});
 
-		// One shared "press E" prompt for whichever NPC you're nearest.
+		// One shared "press E" prompt for whichever NPC — or quest zone —
+		// you're nearest.
 		this.prompt = document.createElement('div');
 		this.prompt.className = 'npc-prompt';
 		document.body.appendChild(this.prompt);
-		this._promptNpc = null;
+		this._promptKey = null;
 
 		this._ray = new Raycaster();
 		this._ndc = new Vector2();
@@ -141,6 +152,21 @@ export class WorldLife {
 		return best;
 	}
 
+	// The single thing the shared "press E" prompt/interact acts on: whichever
+	// of (nearest NPC, nearest in-range quest zone) is actually closer. Quest
+	// zones only ever contend for "interact" kind — a goto waypoint has nothing
+	// to press E on, so it never enters this contest.
+	_nearestInteractable(p) {
+		if (!p) return null;
+		const npc = this._nearestNpc(p);
+		const npcD = npc ? npc.distanceTo(p) : Infinity;
+		const qz = this.questMarkers?.nearestInteractZone(p) || null;
+		const qzD = qz ? Math.hypot(p.x - qz.zone.x, p.z - qz.zone.z) : Infinity;
+		if (!npc && !qz) return null;
+		if (qz && qzD < npcD) return { kind: 'quest', zone: qz.zone, label: qz.label };
+		return npc ? { kind: 'npc', npc } : null;
+	}
+
 	// Tell the ambient crowd how many real players are present so it tapers.
 	setRealPeers(n) { this.ambient?.setRealPeers(n); }
 
@@ -150,6 +176,7 @@ export class WorldLife {
 
 		this.ambient?.update(dt, { player, project });
 		this.mobs?.update(dt);
+		this.questMarkers?.update(dt, { project });
 
 		for (const npc of this.npcs) {
 			npc.tick(dt);
@@ -162,61 +189,84 @@ export class WorldLife {
 		const pulse = 0.22 + 0.1 * (0.5 + 0.5 * Math.sin(this._ringT * 2));
 		for (const npc of this.npcs) if (npc.marker) npc.marker.material.opacity = pulse;
 
-		// Single proximity prompt for the nearest interactive NPC.
-		const near = player ? this._nearestNpc(player) : null;
-		if (near !== this._promptNpc) {
-			this._promptNpc = near;
-			if (near) this.prompt.innerHTML = `<span class="npc-key">E</span> ${near.def.prompt || 'Talk'}`;
+		// Single proximity prompt for whichever interactable — NPC or quest
+		// zone — is nearest right now. Keyed by a stable id so we don't churn
+		// the DOM/innerHTML every frame for the same target.
+		const nearest = player ? this._nearestInteractable(player) : null;
+		const key = nearest ? (nearest.kind === 'npc' ? `npc:${nearest.npc.id}` : `quest:${nearest.zone.id}`) : null;
+		if (key !== this._promptKey) {
+			this._promptKey = key;
+			if (nearest) {
+				const label = nearest.kind === 'npc' ? (nearest.npc.def.prompt || 'Talk') : (nearest.label || `Use ${nearest.zone.label}`);
+				this.prompt.innerHTML = `<span class="npc-key">E</span> ${label}`;
+			}
 		}
-		if (near) {
+		if (nearest) {
 			this.prompt.classList.add('npc-show');
-			this._place(this.prompt, near.pos.x, near.height + 0.9, near.pos.z);
-			near.faceTowards(player); // turn to greet whoever walks up
+			if (nearest.kind === 'npc') {
+				this._place(this.prompt, nearest.npc.pos.x, nearest.npc.height + 0.9, nearest.npc.pos.z);
+				nearest.npc.faceTowards(player); // turn to greet whoever walks up
+			} else {
+				this._place(this.prompt, nearest.zone.x, 1.9, nearest.zone.z);
+			}
 		} else {
 			this.prompt.classList.remove('npc-show');
 		}
 
 		// Walk-up trigger: an NPC with `onApproach` fires it once when the player
 		// enters its range, and re-arms only after the player walks away (1 m of
-		// hysteresis so boundary jitter can't re-fire it).
+		// hysteresis so boundary jitter can't re-fire it). Driven off the nearest
+		// NPC specifically (not the combined prompt target) — a quest zone
+		// winning the shared prompt shouldn't suppress an NPC's own approach line.
+		const nearNpc = player ? this._nearestNpc(player) : null;
 		if (player) {
 			for (const npc of this.npcs) {
 				if (typeof npc.def.onApproach !== 'function') continue;
-				if (npc === near && !npc._approached) {
+				if (npc === nearNpc && !npc._approached) {
 					npc._approached = true;
 					try { npc.def.onApproach({ npc, player, ui: this.ui, net: this.net, world: this.world }); }
 					catch (e) { log.warn('[world-life] npc onApproach failed:', e?.message); }
-				} else if (npc !== near && npc._approached && npc.distanceTo(player) > npc.range + 1) {
+				} else if (npc !== nearNpc && npc._approached && npc.distanceTo(player) > npc.range + 1) {
 					npc._approached = false;
 				}
 			}
 		}
 	}
 
-	// Player pressed E: talk to / open the nearest interactive NPC. Returns true if
-	// one consumed the press, so the caller can stop here.
+	// Player pressed E: talk to / open the nearest NPC, or act at the nearest
+	// in-range quest zone (courier pickup/dropoff, a heist terminal, the vault
+	// door) — whichever is actually closer. The quest path only ever SENDS the
+	// intent; the server re-derives the zone from its own authoritative
+	// position and rules on it, same as every other off-schema action. Returns
+	// true if one consumed the press, so the caller can stop here.
 	interact() {
 		const player = this.getPlayer?.();
 		if (!player) return false;
-		const npc = this._nearestNpc(player);
-		if (!npc) return false;
-		try { npc.interact({ player, ui: this.ui, net: this.net, world: this.world }); }
+		const nearest = this._nearestInteractable(player);
+		if (!nearest) return false;
+		if (nearest.kind === 'quest') {
+			this.net?.questInteract?.();
+			return true;
+		}
+		try { nearest.npc.interact({ player, ui: this.ui, net: this.net, world: this.world }); }
 		catch (e) { log.warn('[world-life] npc interact failed:', e?.message); }
 		return true;
 	}
 
-	// Tap/click an NPC (or its marker ring) while in range — the touch equivalent
-	// of E. Returns true if it consumed the tap.
+	// Tap/click an NPC (or its marker ring), or a quest-zone waypoint ring,
+	// while in range — the touch equivalent of E. Returns true if it consumed
+	// the tap.
 	tryActivateAt(clientX, clientY) {
 		const player = this.getPlayer?.();
 		if (!player) return false;
-		const near = this._nearestNpc(player);
+		const near = this._nearestInteractable(player);
 		if (!near) return false;
 		const el = this.renderer.domElement;
 		const rect = el.getBoundingClientRect();
 		this._ndc.set(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
 		this._ray.setFromCamera(this._ndc, this.camera);
 		const targets = this.npcs.flatMap((n) => (n.marker ? [n.rig, n.marker] : [n.rig]));
+		if (this.questMarkers) targets.push(...this.questMarkers.rayTargets());
 		if (this._ray.intersectObjects(targets, true).length > 0) { this.interact(); return true; }
 		return false;
 	}
@@ -224,6 +274,7 @@ export class WorldLife {
 	dispose() {
 		this.ambient?.dispose();
 		this.mobs?.dispose();
+		this.questMarkers?.dispose();
 		for (const npc of this.npcs) { npc.dispose(); if (npc.marker) { this.scene.remove(npc.marker); npc.marker.geometry.dispose(); } }
 		this.npcs = [];
 		if (this.roadGroup) { this.scene.remove(this.roadGroup); this.roadGroup = null; }

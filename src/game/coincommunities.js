@@ -67,6 +67,7 @@ import { log } from '../shared/log.js';
 import { openAvatarInspector, isAvatarInspectorOpen, closeAvatarInspector } from '../shared/avatar-inspector.js';
 import { createAgentDesk } from './agent-desk.js';
 import { VehicleManager } from './vehicles.js';
+import { CombatSystem } from './combat-system.js';
 
 // localStorage throws in private mode and in third-party iframe contexts where
 // storage is blocked — exactly the `?bg=transparent` embed case (e.g. the IBM
@@ -182,6 +183,13 @@ class RemotePlayer {
 		// Tag mini-game (R08): red glow ring + 🏃 label for the "it" player.
 		this.isIt = !!player.it;
 		if (this.isIt) { this._addGlowRing(); this._addItLabel(); }
+		// Combat (W07): downed peers lie flat (a lightweight ragdoll — no physics
+		// sim, just an honest "you're out" pose) and stop being nameplate-clickable
+		// targets; a wanted peer's nameplate carries their star count.
+		this.isDead = !!player.dead;
+		this.heat = player.heat | 0;
+		if (this.isDead) this._applyDowned(true);
+		this._updateWantedBadge();
 	}
 	setAvatar(url) {
 		if (url === this._avatarUrl) return;
@@ -252,6 +260,23 @@ class RemotePlayer {
 		if (this.isIt) { this._addGlowRing(); this._addItLabel(); }
 		else { this._removeGlowRing(); this._removeItLabel(); }
 	}
+	// Downed pose (W07): tilt the rig onto its side rather than faking a physics
+	// ragdoll no other part of the client has — an honest, cheap "you're out"
+	// read that's unmistakable at a glance and costs nothing to reverse.
+	_applyDowned(down) {
+		this.rig.rotation.x = down ? -Math.PI / 2 : 0;
+		this.rig.position.y = down ? 0.15 : this.rig.position.y;
+		this.rig.traverse((o) => { if (o.material && 'opacity' in o.material) { o.material.transparent = true; o.material.opacity = down ? 0.55 : 1; } });
+	}
+	_updateWantedBadge() {
+		if (this.heat > 0) {
+			this.label.dataset.wanted = '★'.repeat(Math.min(5, this.heat));
+			this.label.classList.add('cc-wanted');
+		} else {
+			delete this.label.dataset.wanted;
+			this.label.classList.remove('cc-wanted');
+		}
+	}
 	apply(player) {
 		this.targetX = player.x; this.targetY = player.y; this.targetZ = player.z; this.targetYaw = player.yaw;
 		if (player.name) { this.name = player.name; this.label.textContent = player.name; }
@@ -265,6 +290,14 @@ class RemotePlayer {
 		if (player.avatar !== this._avatarUrl) this.setAvatar(player.avatar);
 		if (player.cosmetics !== undefined && player.cosmetics !== this._cosWire) this.applyCosmetics(player.cosmetics);
 		if (player.it !== undefined) this._updateItMarker(player.it);
+		if (player.dead !== undefined && !!player.dead !== this.isDead) {
+			this.isDead = !!player.dead;
+			this._applyDowned(this.isDead);
+		}
+		if (player.heat !== undefined && (player.heat | 0) !== this.heat) {
+			this.heat = player.heat | 0;
+			this._updateWantedBadge();
+		}
 		if (player.motion !== this.motion) {
 			this.motion = player.motion;
 			this.anim.crossfadeTo(this.motion === 'walk' || this.motion === 'run' ? CLIP_WALK : CLIP_IDLE, 0.18);
@@ -392,6 +425,7 @@ export class CoinCommunities {
 			onBuy: () => this._openBuy(),
 			onShop: () => this._toggleShop(),
 			onWardrobe: () => this._toggleWardrobe(),
+			onJobs: () => this._toggleQuests(),
 			// Creator-only (R24): set/clear the token threshold for the Holders world.
 			onConfigureGate: () => this._configureGate(),
 			onVoiceToggle: () => this._toggleVoice(),
@@ -1101,6 +1135,15 @@ export class CoinCommunities {
 		this.net.on('xpgain', (g) => this.playSystems?.onXpGain(g));
 		this.net.on('levelup', (l) => this.playSystems?.onLevelup(l));
 		this.net.on('notice', (n) => this.playSystems?.onNotice(n));
+		// Job completion has no generic 'notice' twin (WalkRoom sends only
+		// 'questComplete') — toast it globally so a payout lands even when the
+		// Jobs Board panel isn't open, the same way every other reward does.
+		this.net.on('questComplete', (c) => {
+			if (!c) return;
+			const gold = c.reward?.gold ?? 0;
+			const crew = c.coop && c.crew > 1 ? ` (crew of ${c.crew})` : '';
+			this.ui?.toast?.(`${c.title} complete${crew} — +${gold} cash`, 'success');
+		});
 
 		this.buildHud.root.hidden = false;
 		await this.net.connect();
@@ -1117,6 +1160,32 @@ export class CoinCommunities {
 		// physics boot above has resolved, so it can borrow this._physics straight
 		// away instead of waiting on it itself. Torn down in leave().
 		this.vehicles = new VehicleManager({ host: this });
+		// W07: roaming PvE mobs, lootable tombstones, the danger-zone ground, and
+		// the GTA-style vitals HUD (health/armor/wanted). Built after the connect
+		// above so its net.on(...) subscriptions catch the join-time 'profile'
+		// re-send below. Torn down in leave().
+		// Defensive boundary: W07 is still under active concurrent development in
+		// this shared worktree (CLAUDE.md "known traps") — a bug in it must never
+		// take down the rest of world entry (NPCs, vehicles, economy) for every
+		// player. Fails closed to no combat HUD/mobs rather than an unusable world.
+		try {
+			this.combat = new CombatSystem({
+				scene: this.scene,
+				camera: this.camera,
+				renderer: this.renderer,
+				getPlayer: () => ({ x: this.localPos.x, y: this.localPos.y, z: this.localPos.z, yaw: this.localYaw, height: this.localHeight || 1.6 }),
+				net: this.net,
+				ui: this.ui,
+			});
+		} catch (e) {
+			log.error('[coincommunities] CombatSystem failed to init — continuing without it:', e?.message);
+			this.combat = null;
+		}
+		// playSystems already cached a 'profile' snapshot before combat subscribed;
+		// re-request so the vitals HUD isn't blank until the next server-side change.
+		this.net.requestProfile();
+		// The legacy gold purse HUD folds into WorldHud's unified money readout.
+		this.playSystems?.setGoldVisible(false);
 		// Every town hosts the live Agent Exchange: two NPC agents who pay each
 		// other on-chain via x402. Torn down in leave().
 		this.agentCommerce = new AgentCommerce({
@@ -1185,6 +1254,9 @@ export class CoinCommunities {
 				// wardrobe panels — same panels the HUD buttons drive.
 				openShop: () => this._toggleShop(),
 				openWardrobe: () => this._toggleWardrobe(),
+				// Quest-giver NPCs (W08 hooking W05) call this to open the real Jobs
+				// Board, optionally scrolled straight to the mission that giver offers.
+				openQuests: (highlight) => this._toggleQuests(highlight),
 			},
 			radius: WORLD_RADIUS - 4,
 		});
@@ -1411,6 +1483,7 @@ export class CoinCommunities {
 		if (this.voice) { this.voice.dispose(); this.voice = null; }
 		if (this.net) { this.net.destroy(); this.net = null; }
 		if (this.vehicles) { this.vehicles.dispose(); this.vehicles = null; }
+		if (this.combat) { this.combat.dispose(); this.combat = null; }
 		if (this.playSystems) { this.playSystems.dispose(); this.playSystems = null; }
 		if (this.agentCommerce) { this.agentCommerce.dispose(); this.agentCommerce = null; }
 		if (this.intelKiosk) { this.intelKiosk.dispose(); this.intelKiosk = null; }
@@ -1794,6 +1867,16 @@ export class CoinCommunities {
 			});
 		}
 		this._wardrobe.toggle();
+	}
+
+	// Open/close the Jobs Board (W08 hooking W05). Lazy-imported so the panel
+	// chunk stays out of the initial bundle until a player actually walks up to
+	// a quest-giver or opens Jobs from the HUD. `highlight` scrolls straight to
+	// one mission when a specific giver NPC opened the board.
+	async _toggleQuests(highlight) {
+		if (!this.net) return;
+		const { openQuestsPanel } = await import('./quests-ui.js');
+		openQuestsPanel({ ui: this.ui, net: this.net }, highlight);
 	}
 
 	// Equip `id` durably: send to the server (authoritative validation + persistence)
@@ -2211,7 +2294,7 @@ export class CoinCommunities {
 					// Talk to the nearest townsperson (vendor/quest/flavor); if none is
 					// in range, try the Intel Kiosk, then fall through to the Agent
 					// Exchange.
-					if (!this.worldLife?.interact() && !this.intelKiosk?.interact()) this.agentCommerce?.interact();
+					if (!this.worldLife?.interact() && !this.intelKiosk?.interact() && !this.combat?.interact()) this.agentCommerce?.interact();
 					return;
 				}
 				// F is contextual: enter/exit a nearby vehicle takes priority (the
@@ -2234,6 +2317,14 @@ export class CoinCommunities {
 				if (k === 'c' && !this.buildHud.active && !e.repeat) {
 					e.preventDefault();
 					this._camModes.cycle(this.camera);
+					return;
+				}
+				// X swings/fires the equipped weapon (W07). No-op with bare hands or
+				// while building; the touch equivalent is the Attack button that
+				// appears whenever a weapon is on the active hotbar slot.
+				if (k === 'x' && !this.buildHud.active) {
+					e.preventDefault();
+					this.combat?.attack();
 					return;
 				}
 				// Q — hold to open the emote wheel, release to play the selected clip.
@@ -2301,6 +2392,9 @@ export class CoinCommunities {
 			// Tap the agents (or their exchange ring) to watch a live payment — the
 			// touch-native equivalent of pressing E. Checked before the chart screen.
 			if (this.worldLife?.tryActivateAt(e.clientX, e.clientY)) return;
+			// Tap a nearby tombstone to loot it — the touch-native equivalent of
+			// pressing E on a death-drop (W07).
+			if (this.combat?.tryActivateAt(this._pointerRay(e.clientX, e.clientY))) return;
 			if (this.agentCommerce?.tryActivateAt(this._pointerRay(e.clientX, e.clientY))) return;
 			if (this.intelKiosk?.tryActivateAt(this._pointerRay(e.clientX, e.clientY))) return;
 			// Tap an agent desk screen → open its full 2D watch view.
@@ -3033,6 +3127,7 @@ export class CoinCommunities {
 			this.agentCommerce?.tick(dt);
 			this.intelKiosk?.tick(dt);
 			if (this.worldLife) { this.worldLife.setRealPeers(this.remotes.size); this.worldLife.tick(dt); }
+			this.combat?.tick(dt);
 			// Ordinary move sync is redundant (and would just get rejected by the
 			// server's walking-speed step clamp) while driving — VehicleManager
 			// streams the authoritative transform itself via sendVSync.
