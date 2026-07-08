@@ -1,19 +1,9 @@
 /* Instant Agent Genesis — selfie/prompt → 3D agent → funded wallet → on-chain
-   identity in under a minute. Styling leans on the shared design tokens
-   (public/tokens.css) with safe fallbacks so the page stays portable. */
+   identity in under a minute. Styled entirely on the canonical design tokens
+   (public/tokens.css, loaded platform-wide via style.css) — no local token
+   namespace. Gold comes from the shared --gold-rgb brand channel (B08),
+   used the same way across the rest of the platform via rgb(var(--gold-rgb)). */
 @import './ui-juice.css';
-
-:root {
-	--gx-gap: var(--space-md, 16px);
-	--gx-radius: var(--radius-lg, 14px);
-	--gx-radius-sm: var(--radius-md, 10px);
-	--gx-border: 1px solid rgba(255, 255, 255, 0.08);
-	--gx-border-strong: 1px solid rgba(255, 255, 255, 0.16);
-	--gx-surface: rgba(255, 255, 255, 0.03);
-	--gx-surface-2: rgba(255, 255, 255, 0.05);
-	--gx-gold: rgb(var(--gold-rgb, 255, 215, 0));
-	--gx-max: 1080px;
-}
 
 * {
 	box-sizing: border-box;
@@ -43,9 +33,9 @@ body {
 	top: 0;
 	z-index: 100;
 	padding: var(--space-sm, 10px) var(--space-md, 16px);
-	background: var(--gx-gold);
+	background: rgb(var(--gold-rgb));
 	color: #000;
-	border-radius: 0 0 var(--gx-radius-sm) 0;
+	border-radius: 0 0 var(--radius-md) 0;
 	font-weight: 600;
 }
 .skip-link:focus {
@@ -53,7 +43,7 @@ body {
 }
 
 .gx {
-	max-width: var(--gx-max);
+	max-width: 1080px;
 	margin: 0 auto;
 	padding: clamp(20px, 5vw, 56px) clamp(16px, 4vw, 32px) 96px;
 }
@@ -70,7 +60,7 @@ body {
 	font-size: var(--text-2xs, 11px);
 	letter-spacing: 0.14em;
 	text-transform: uppercase;
-	color: var(--gx-gold);
+	color: rgb(var(--gold-rgb));
 	border: 1px solid rgba(var(--gold-rgb, 255, 215, 0), 0.32);
 	background: rgba(var(--gold-rgb, 255, 215, 0), 0.06);
 	padding: 5px 12px;
@@ -81,8 +71,8 @@ body {
 	width: 6px;
 	height: 6px;
 	border-radius: 999px;
-	background: var(--gx-gold);
-	box-shadow: 0 0 10px var(--gx-gold);
+	background: rgb(var(--gold-rgb));
+	box-shadow: 0 0 10px rgb(var(--gold-rgb));
 	animation: gx-pulse 2.4s ease-in-out infinite;
 }
 .gx-title {
@@ -95,7 +85,7 @@ body {
 }
 .gx-title em {
 	font-style: normal;
-	background: linear-gradient(120deg, var(--gx-gold), #fff7d6 60%, var(--gx-gold));
+	background: linear-gradient(120deg, rgb(var(--gold-rgb)), #fff7d6 60%, rgb(var(--gold-rgb)));
 	-webkit-background-clip: text;
 	background-clip: text;
 	-webkit-text-fill-color: transparent;
@@ -113,9 +103,9 @@ body {
 }
 
 .gx-card {
-	background: var(--gx-surface);
-	border: var(--gx-border);
-	border-radius: var(--gx-radius);
+	background: var(--surface-1);
+	border: 1px solid var(--stroke);
+	border-radius: var(--radius-lg);
 	padding: clamp(16px, 3vw, 28px);
 }
 
@@ -126,11 +116,11 @@ body {
 	justify-content: space-between;
 	gap: 12px;
 	flex-wrap: wrap;
-	margin-bottom: var(--gx-gap);
+	margin-bottom: var(--space-md);
 	padding: 12px 16px;
 	border: 1px solid rgba(var(--gold-rgb, 255, 215, 0), 0.28);
 	background: rgba(var(--gold-rgb, 255, 215, 0), 0.05);
-	border-radius: var(--gx-radius-sm);
+	border-radius: var(--radius-md);
 }
 .gx-auth p {
 	margin: 0;
@@ -143,15 +133,15 @@ body {
 	display: grid;
 	grid-template-columns: repeat(3, 1fr);
 	gap: 8px;
-	margin-bottom: var(--gx-gap);
+	margin-bottom: var(--space-md);
 }
 .gx-tab {
 	appearance: none;
 	cursor: pointer;
 	text-align: left;
-	background: var(--gx-surface);
-	border: var(--gx-border);
-	border-radius: var(--gx-radius-sm);
+	background: var(--surface-1);
+	border: 1px solid var(--stroke);
+	border-radius: var(--radius-md);
 	padding: 14px 16px;
 	color: var(--ink, #e8e8e8);
 	transition:
@@ -160,15 +150,15 @@ body {
 		transform var(--duration-fast, 140ms) var(--ease-standard, ease);
 }
 .gx-tab:hover {
-	background: var(--gx-surface-2);
+	background: var(--surface-2);
 	border-color: rgba(255, 255, 255, 0.2);
 }
 .gx-tab:focus-visible {
-	outline: 2px solid var(--gx-gold);
+	outline: 2px solid rgb(var(--gold-rgb));
 	outline-offset: 2px;
 }
 .gx-tab[aria-selected='true'] {
-	border-color: var(--gx-gold);
+	border-color: rgb(var(--gold-rgb));
 	background: rgba(var(--gold-rgb, 255, 215, 0), 0.08);
 }
 .gx-tab strong {
@@ -189,7 +179,7 @@ body {
 
 /* ── Panels ───────────────────────────────────────────────────────────── */
 .gx-panel {
-	margin-bottom: var(--gx-gap);
+	margin-bottom: var(--space-md);
 }
 .gx-panel[hidden] {
 	display: none;
@@ -213,8 +203,8 @@ input.gx-input,
 select.gx-input {
 	width: 100%;
 	background: var(--surface-1, rgba(255, 255, 255, 0.03));
-	border: var(--gx-border-strong);
-	border-radius: var(--gx-radius-sm);
+	border: 1px solid var(--stroke-strong);
+	border-radius: var(--radius-md);
 	color: var(--ink-bright, #fff);
 	padding: 12px 14px;
 	font: inherit;
@@ -226,19 +216,19 @@ textarea.gx-input {
 }
 .gx-input:focus {
 	outline: none;
-	border-color: var(--gx-gold);
+	border-color: rgb(var(--gold-rgb));
 }
 .gx-input::placeholder {
 	color: var(--ink-faint, rgba(255, 255, 255, 0.4));
 }
 
 .gx-field {
-	margin-bottom: var(--gx-gap);
+	margin-bottom: var(--space-md);
 }
 .gx-row {
 	display: grid;
 	grid-template-columns: 1fr 1fr;
-	gap: var(--gx-gap);
+	gap: var(--space-md);
 }
 
 /* example chips */
@@ -254,22 +244,22 @@ textarea.gx-input {
 	font: inherit;
 	font-size: var(--text-2xs, 11px);
 	color: var(--ink-dim, #aaa);
-	background: var(--gx-surface);
-	border: var(--gx-border);
+	background: var(--surface-1);
+	border: 1px solid var(--stroke);
 	border-radius: var(--radius-pill, 999px);
 	padding: 5px 11px;
 	transition: all var(--duration-fast, 140ms) ease;
 }
 .gx-chip:hover {
 	color: #fff;
-	border-color: var(--gx-gold);
+	border-color: rgb(var(--gold-rgb));
 }
 
 /* selfie dropzone */
 .gx-drop {
 	position: relative;
 	border: 1.5px dashed rgba(255, 255, 255, 0.22);
-	border-radius: var(--gx-radius);
+	border-radius: var(--radius-lg);
 	padding: 28px 16px;
 	text-align: center;
 	cursor: pointer;
@@ -277,7 +267,7 @@ textarea.gx-input {
 }
 .gx-drop:hover,
 .gx-drop.is-drag {
-	border-color: var(--gx-gold);
+	border-color: rgb(var(--gold-rgb));
 	background: rgba(var(--gold-rgb, 255, 215, 0), 0.04);
 }
 .gx-drop input[type='file'] {
@@ -301,8 +291,8 @@ textarea.gx-input {
 	width: 84px;
 	height: 84px;
 	object-fit: cover;
-	border-radius: var(--gx-radius-sm);
-	border: var(--gx-border-strong);
+	border-radius: var(--radius-md);
+	border: 1px solid var(--stroke-strong);
 }
 .gx-privacy {
 	font-size: var(--text-2xs, 11px);
@@ -325,9 +315,9 @@ textarea.gx-input {
 	cursor: pointer;
 	padding: 0;
 	border: 2px solid transparent;
-	border-radius: var(--gx-radius-sm);
+	border-radius: var(--radius-md);
 	overflow: hidden;
-	background: var(--gx-surface);
+	background: var(--surface-1);
 	aspect-ratio: 1;
 	position: relative;
 	transition: border-color var(--duration-fast, 140ms) ease, transform var(--duration-fast, 140ms) ease;
@@ -336,7 +326,7 @@ textarea.gx-input {
 	transform: translateY(-2px);
 }
 .gx-remix-tile[aria-pressed='true'] {
-	border-color: var(--gx-gold);
+	border-color: rgb(var(--gold-rgb));
 }
 .gx-remix-tile img {
 	width: 100%;
@@ -362,7 +352,7 @@ textarea.gx-input {
 /* advanced disclosure */
 .gx-adv {
 	margin-top: 12px;
-	border-top: var(--gx-border);
+	border-top: 1px solid var(--stroke);
 	padding-top: 12px;
 }
 .gx-adv summary {
@@ -384,10 +374,10 @@ textarea.gx-input {
 	cursor: pointer;
 	font: inherit;
 	font-weight: 600;
-	border-radius: var(--gx-radius-sm);
+	border-radius: var(--radius-md);
 	padding: 12px 20px;
-	border: var(--gx-border-strong);
-	background: var(--gx-surface-2);
+	border: 1px solid var(--stroke-strong);
+	background: var(--surface-2);
 	color: var(--ink-bright, #fff);
 	transition: all var(--duration-fast, 140ms) ease;
 	display: inline-flex;
@@ -400,7 +390,7 @@ textarea.gx-input {
 	background: rgba(255, 255, 255, 0.09);
 }
 .gx-btn:focus-visible {
-	outline: 2px solid var(--gx-gold);
+	outline: 2px solid rgb(var(--gold-rgb));
 	outline-offset: 2px;
 }
 .gx-btn:disabled {
@@ -408,14 +398,14 @@ textarea.gx-input {
 	cursor: not-allowed;
 }
 .gx-btn-primary {
-	background: linear-gradient(120deg, var(--gx-gold), #ffe680);
+	background: linear-gradient(120deg, rgb(var(--gold-rgb)), #ffe680);
 	color: #1a1500;
 	border-color: transparent;
 	box-shadow: 0 6px 24px rgba(var(--gold-rgb, 255, 215, 0), 0.18);
 }
 .gx-btn-primary:hover:not(:disabled) {
 	filter: brightness(1.05);
-	background: linear-gradient(120deg, var(--gx-gold), #ffe680);
+	background: linear-gradient(120deg, rgb(var(--gold-rgb)), #ffe680);
 }
 .gx-btn-lg {
 	width: 100%;
@@ -424,7 +414,7 @@ textarea.gx-input {
 }
 .gx-btn-ghost {
 	background: transparent;
-	border-color: var(--gx-border);
+	border-color: 1px solid var(--stroke);
 }
 
 /* explainer strip */
@@ -432,12 +422,12 @@ textarea.gx-input {
 	display: grid;
 	grid-template-columns: repeat(3, 1fr);
 	gap: 10px;
-	margin-top: var(--gx-gap);
+	margin-top: var(--space-md);
 }
 .gx-explain div {
-	background: var(--gx-surface);
-	border: var(--gx-border);
-	border-radius: var(--gx-radius-sm);
+	background: var(--surface-1);
+	border: 1px solid var(--stroke);
+	border-radius: var(--radius-md);
 	padding: 12px;
 	font-size: var(--text-2xs, 11px);
 	color: var(--ink-dim, #999);
@@ -466,13 +456,13 @@ textarea.gx-input {
 	gap: 12px;
 	align-items: flex-start;
 	padding: 14px 16px;
-	border-radius: var(--gx-radius-sm);
-	border: var(--gx-border);
-	background: var(--gx-surface);
+	border-radius: var(--radius-md);
+	border: 1px solid var(--stroke);
+	background: var(--surface-1);
 	transition: border-color var(--duration-base, 220ms) ease, background var(--duration-base, 220ms) ease;
 }
 .gx-step[data-state='active'] {
-	border-color: var(--gx-gold);
+	border-color: rgb(var(--gold-rgb));
 	background: rgba(var(--gold-rgb, 255, 215, 0), 0.05);
 }
 .gx-step[data-state='done'] {
@@ -493,7 +483,7 @@ textarea.gx-input {
 	margin-top: 1px;
 }
 .gx-step[data-state='active'] .gx-step-dot {
-	border-color: var(--gx-gold);
+	border-color: rgb(var(--gold-rgb));
 	border-top-color: transparent;
 	animation: gx-spin 0.8s linear infinite;
 }
@@ -534,16 +524,16 @@ textarea.gx-input {
 	display: block;
 	height: 100%;
 	width: 0;
-	background: linear-gradient(90deg, var(--gx-gold), #ffe680);
+	background: linear-gradient(90deg, rgb(var(--gold-rgb)), #ffe680);
 	border-radius: 999px;
 	transition: width var(--duration-slow, 420ms) var(--ease-out, ease);
 }
 
 .gx-stage-preview {
 	position: relative;
-	border-radius: var(--gx-radius);
+	border-radius: var(--radius-lg);
 	overflow: hidden;
-	border: var(--gx-border);
+	border: 1px solid var(--stroke);
 	background:
 		radial-gradient(120% 90% at 50% 0%, rgba(var(--gold-rgb, 255, 215, 0), 0.07), transparent 60%),
 		var(--panel, #0a0a0a);
@@ -568,7 +558,7 @@ textarea.gx-input {
 	height: 64px;
 	margin: 0 auto 14px;
 	border-radius: 999px;
-	background: radial-gradient(circle at 35% 30%, #fff7d6, var(--gx-gold) 55%, #7a5c00);
+	background: radial-gradient(circle at 35% 30%, #fff7d6, rgb(var(--gold-rgb)) 55%, #7a5c00);
 	box-shadow: 0 0 40px rgba(var(--gold-rgb, 255, 215, 0), 0.4);
 	animation: gx-float 3.2s ease-in-out infinite;
 }
@@ -587,9 +577,9 @@ textarea.gx-input {
 	align-items: start;
 }
 .gx-reveal-viewer {
-	border-radius: var(--gx-radius);
+	border-radius: var(--radius-lg);
 	overflow: hidden;
-	border: var(--gx-border);
+	border: 1px solid var(--stroke);
 	background:
 		radial-gradient(120% 90% at 50% 0%, rgba(var(--gold-rgb, 255, 215, 0), 0.08), transparent 60%),
 		var(--panel, #0a0a0a);
@@ -606,7 +596,7 @@ textarea.gx-input {
 	font-size: var(--text-2xs, 11px);
 	letter-spacing: 0.14em;
 	text-transform: uppercase;
-	color: var(--gx-gold);
+	color: rgb(var(--gold-rgb));
 }
 .gx-agent-name {
 	font-size: clamp(1.6rem, 4vw, 2.2rem);
@@ -621,13 +611,13 @@ textarea.gx-input {
 	margin: 0 0 18px;
 }
 .gx-own b {
-	color: var(--gx-gold);
+	color: rgb(var(--gold-rgb));
 }
 
 .gx-detail {
-	border: var(--gx-border);
-	border-radius: var(--gx-radius-sm);
-	background: var(--gx-surface);
+	border: 1px solid var(--stroke);
+	border-radius: var(--radius-md);
+	background: var(--surface-1);
 	padding: 14px 16px;
 	margin-bottom: 12px;
 }
@@ -648,9 +638,9 @@ textarea.gx-input {
 	justify-content: space-between;
 	gap: 10px;
 	padding: 9px 11px;
-	border-radius: var(--gx-radius-sm);
+	border-radius: var(--radius-md);
 	background: var(--surface-1, rgba(255, 255, 255, 0.03));
-	border: var(--gx-border);
+	border: 1px solid var(--stroke);
 	margin-bottom: 8px;
 }
 .gx-addr:last-child {
@@ -678,8 +668,8 @@ textarea.gx-input {
 	appearance: none;
 	cursor: pointer;
 	flex: 0 0 auto;
-	border: var(--gx-border);
-	background: var(--gx-surface-2);
+	border: 1px solid var(--stroke);
+	background: var(--surface-2);
 	color: var(--ink, #ccc);
 	border-radius: var(--radius-sm, 6px);
 	padding: 5px 9px;
@@ -687,7 +677,7 @@ textarea.gx-input {
 	transition: all var(--duration-fast, 140ms) ease;
 }
 .gx-copy:hover {
-	border-color: var(--gx-gold);
+	border-color: rgb(var(--gold-rgb));
 	color: #fff;
 }
 .gx-copy.is-copied {
@@ -716,7 +706,7 @@ textarea.gx-input {
 .gx-tx {
 	font-family: ui-monospace, 'SF Mono', Menlo, monospace;
 	font-size: var(--text-sm, 12px);
-	color: var(--gx-gold);
+	color: rgb(var(--gold-rgb));
 	text-decoration: none;
 	word-break: break-all;
 }
@@ -742,15 +732,15 @@ textarea.gx-input {
 	gap: 3px;
 	text-decoration: none;
 	padding: 14px 16px;
-	border-radius: var(--gx-radius-sm);
-	border: var(--gx-border);
-	background: var(--gx-surface);
+	border-radius: var(--radius-md);
+	border: 1px solid var(--stroke);
+	background: var(--surface-1);
 	color: var(--ink-bright, #fff);
 	transition: all var(--duration-fast, 140ms) ease;
 }
 .gx-cta:hover {
-	border-color: var(--gx-gold);
-	background: var(--gx-surface-2);
+	border-color: rgb(var(--gold-rgb));
+	background: var(--surface-2);
 	transform: translateY(-2px);
 }
 .gx-cta strong {
@@ -767,9 +757,9 @@ textarea.gx-input {
 
 /* ── Error ────────────────────────────────────────────────────────────── */
 .gx-error {
-	margin-top: var(--gx-gap);
+	margin-top: var(--space-md);
 	padding: 12px 16px;
-	border-radius: var(--gx-radius-sm);
+	border-radius: var(--radius-md);
 	border: 1px solid rgba(248, 113, 113, 0.35);
 	background: rgba(248, 113, 113, 0.07);
 	color: #fca5a5;
