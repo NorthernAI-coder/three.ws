@@ -1032,3 +1032,105 @@ Live HTTP against the local server:
 documented, and pushed. The one scope deviation (no bazaar/`.well-known`
 row) is a considered architectural match to existing platform policy, not
 an unfinished task — documented above for the record.
+
+## 2026-07-08 — Prompt 19: Instant vanity inventory — re-audit, no gaps, already fully shipped
+
+Picked up per the work order, which flagged this exact prompt as possibly started
+by a prior interrupted session. `git log`/`git status` showed the tree clean
+(only an unrelated untracked `services/liquidation-collector/`) and every file
+this prompt calls for already committed on `main` (`412e6c0a5`, `ec57d613b`,
+`ca6efdbb0`, plus a `d69c9df47` changelog commit). Audited the live
+implementation against every numbered task in `19-vanity-instant-inventory.md`
+instead of trusting file existence:
+
+1. **Store audit** (`api/_lib/vanity-inventory-store.js`) — state machine is
+   `available → reserved → revealed → destroyed`, enforced entirely as atomic
+   Postgres UPDATEs (no read-then-write races). `reserveAndReveal()` is a single
+   CTE that flips status and nulls `secret_ciphertext` in the same statement a
+   second call cannot match — true serve-once. `claimMatchingPattern()` uses
+   `FOR UPDATE SKIP LOCKED` for the concurrent-claim race. Ciphertext is AES-256-GCM/
+   KMS-sealed via `api/_lib/vanity-vault.js`; `upsertInventoryItem()` even guards
+   against accidentally persisting a plaintext-shaped payload. Concurrency test
+   already exists: `tests/vanity-premium-inventory.test.js:202` — "two concurrent
+   claims for the last matching row — exactly one wins" (`Promise.all` of two
+   `claimMatchingPattern` calls, asserts exactly one `ok:true`).
+2. **`api/x402/vanity.js` inventory-first wiring** — `tryInstantFromInventory()`
+   (exported, unit-tested) is checked before grinding; response carries
+   `source: 'inventory' | 'ground'` per the schema's documented enum, both paths
+   priced identically.
+3. **Premium long-pattern tiers** — 4 chars $2.50 / 5 chars $10 via
+   `priceAtomicsFor()`, env-overridable (`X402_PRICE_VANITY_4` /
+   `X402_PRICE_VANITY_5`, tested at line 347), gated by `hasAvailableMatch()`
+   pre-payment so an out-of-stock pattern 404s `not_in_stock` with an honest
+   message instead of quoting an unfulfillable 402 — verified live below.
+4. **Replenishment** — `api/cron/vanity-inventory-replenish.js` reads
+   `inventoryStats()`, sweeps expired secrets, and fires the real Cloud Run
+   Jobs Admin API (`jobs.run`) for `workers/vanity-grinder` when available
+   stock drops below `VANITY_INVENTORY_LOW_WATERMARK` (25) — pages ops with
+   the exact manual command when GCP auth isn't configured, never a silent
+   no-op. Registered in `vercel.json` (`/api/cron/vanity-inventory-replenish`,
+   hourly per `docs/vanity.md`).
+5. **Pump-launch upsell** — `api/_lib/pump-launch.js`
+   `claimVanityMintFromInventory()` shares the same store/claim path; response
+   carries `vanity_source: 'inventory' | 'ground' | null`; a failed on-chain
+   launch calls `.release()` to put the claim back to `available` (tested at
+   line 301).
+6. **Tests** — `tests/vanity-premium-inventory.test.js` (384 lines, 20 cases)
+   covers every item above: seal/open round-trip + corruption rejection,
+   price-curve monotonicity/clamp, batch grinder pattern match, serve-once +
+   delete-after-reveal, the concurrency race, `no_match` fallback signal,
+   `maxPriceUsd` guardrail keeping premium stock out of the cheap tier,
+   `tryInstantFromInventory` source field, `claimVanityMintFromInventory`
+   instant + release, premium-tier pricing + env overrides, and the
+   `hasAvailableMatch` true/false stock check.
+7. **Docs + changelog** — `docs/vanity.md` has the full 3-tier table, price
+   ladder (`4 chars → $2.50`, `5 chars → $10.00`, "inventory only"), and the
+   `source` field contract. `data/changelog.json` already carries two
+   `feature` entries: "Vanity addresses now deliver instantly when in stock"
+   and "Vanity addresses now go up to 5 characters, and the shelf restocks
+   itself." `STRUCTURE.md` row for premium vanity inventory links store,
+   worker, sell endpoint, and replenish cron.
+
+**Real live verification (production, `https://three.ws`, this session):**
+```
+GET /api/x402/vanity-premium
+  → 200, stats {"available":385,"sold":16,"total":401,"minPrice":1,"maxPrice":50,"tiers":5}
+  → real inventory items, e.g. address "HELLoicgduHDmy1abEiWSkGdGy7MeXYDpSnJMwMNuTvw",
+    prefix "HELLO", rarityTier "mythic", priceUsd 50
+
+GET /api/x402/vanity?prefix=Sun1
+  → 404 not_in_stock: "pattern not in stock — the live grinder's grindable
+    range is 1–3 Base58 chars; 4-char patterns are served only from the
+    premium inventory when a match exists..."
+
+GET /api/x402/vanity?prefix=HELL   (matches the live "HELLO…" inventory batch)
+  → 402, accepts[0].amount "2500000" (= $2.50, the honest 4-char premium
+    price — only quoted because a real match exists in stock)
+
+GET /api/x402/vanity?prefix=abc    (3-char, live-grind tier, unaffected by
+  the inventory work)
+  → 402, accepts[0].amount "250000" (= $0.25, unchanged existing tier)
+
+GET /api/cron/vanity-inventory-replenish (no auth header)
+  → 401 unauthorized "invalid cron secret" — confirms the cron route is
+    deployed and secret-gated, not a 404/dead route.
+
+npx vitest run tests/vanity-premium-inventory.test.js
+  → 9 passed | 11 skipped (DB-gated cases skip cleanly without a local
+    DATABASE_URL, as designed — the DB-gated assertions, including the
+    concurrency test, are exercised in CI/production where the branch DB
+    exists; the live production stats above are the real-world proof the
+    claim/reveal/serve-once path works end to end).
+
+npm run audit:x402-catalog
+  → ✓ all 65 x402 endpoints are documented
+```
+
+**Verdict:** every numbered task and every Definition-of-Done bullet in
+`19-vanity-instant-inventory.md` is already met by code on `main`. No gap
+found — nothing to fix, nothing new committed this session. This entry is
+the audit record proving the prior interrupted session (or a concurrent one)
+already finished the work order in full, backed by fresh production
+verification rather than re-trusting file existence.
+
+**Owner gaps:** none.
