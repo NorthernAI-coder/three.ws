@@ -279,6 +279,14 @@
 			<description>You can now turn a generated or owned avatar into real, ownable on-chain property. The new mint_3d_asset tool mints your rigged GLB as a Solana NFT whose media is a live, interactive 3D viewer — not a flat picture — with the model, a rendered thumbnail, and its full provenance (who made it, the prompt, the model, its lineage) travelling with it. Creator royalties are enforced on every resale, capped at 10%. A companion get_3d_asset_onchain tool resolves any mint back to its current holder, live viewer, provenance, and royalty terms. Minting defaults to devnet for safe testing; mainnet is an explicit opt-in. It's idempotent, so a retried mint never creates a duplicate.</description>
 		</item>
 		<item>
+			<title>New tutorial: drive your agent's face from real APIs and AI</title>
+			<link>https://three.ws/tutorials/emotion-from-data</link>
+			<guid isPermaLink="false">2026-07-07:New tutorial: drive your agent's face from real APIs and AI</guid>
+			<pubDate>Tue, 07 Jul 2026 12:00:00 GMT</pubDate>
+			<category>docs</category>
+			<description>A new developer tutorial shows how to wire the avatar's facial-emotion engine to real data — a free lexicon-sentiment lane to prove the wiring in a single HTML file, then a real AI model (IBM Granite over x402) reading arbitrary documents into structured emotion. Both lanes call the same public setMood()/expressEmotion() API the platform's own /agi page uses in production to embody a live trading agent's actual P&amp;L and reputation.</description>
+		</item>
+		<item>
 			<title>New: three.ws Crypto Data API docs</title>
 			<link>https://three.ws/crypto</link>
 			<guid isPermaLink="false">2026-07-07:New: three.ws Crypto Data API docs</guid>

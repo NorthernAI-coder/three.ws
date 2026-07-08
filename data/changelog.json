@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-07-07",
+			"title": "New tutorial: drive your agent's face from real APIs and AI",
+			"summary": "A new developer tutorial shows how to wire the avatar's facial-emotion engine to real data — a free lexicon-sentiment lane to prove the wiring in a single HTML file, then a real AI model (IBM Granite over x402) reading arbitrary documents into structured emotion. Both lanes call the same public setMood()/expressEmotion() API the platform's own /agi page uses in production to embody a live trading agent's actual P&L and reputation.",
+			"tags": [
+				"docs",
+				"feature"
+			],
+			"link": "/tutorials/emotion-from-data"
+		},
+		{
+			"date": "2026-07-07",
 			"title": "Fixed the <agent-3d> embed bundle 404ing in production",
 			"summary": "The CDN script that powers the <agent-3d> web component (the drop-in embed used on pages like the crypto demo, and by any third-party site embedding a live avatar) was returning 404 after the move to Cloud Run — the deploy pipeline wasn't building and publishing the bundle into the image. Deploys now build and verify it every time, so the embed loads everywhere it's used.",
 			"tags": [
