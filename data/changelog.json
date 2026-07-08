@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-07-08",
+			"title": "Page agents get personas: one attribute turns your embedded 3D agent into a guide, shop assistant, DeFi advisor, onboarding coach, or support agent",
+			"summary": "@three-ws/page-agent's <page-agent> embed now ships five persona presets — add preset=\"shop-assistant\" (or defi-advisor, onboarding-coach, support, or guide) and the agent resolves a tailored greeting, four tappable suggested-prompt chips with real spoken answers, and a documented tool allowlist for pairing with a chat backend, all from one attribute. A new context attribute folds sanitized host-page state (page name, tier, connected chain, etc.) into the persona's brief for anything you pair it with. Explicit greeting/suggested-prompts/tools attributes still override the preset, and pages with no preset attribute behave exactly as before.",
+			"tags": [
+				"sdk",
+				"feature"
+			],
+			"link": "/integrations"
+		},
+		{
+			"date": "2026-07-08",
 			"title": "Minted 3D assets now carry a second, independently-signed provenance record — and remixing one pays the original creator on the spot",
 			"summary": "Every 3D avatar generated on three.ws now gets a signed authorship record on the platform's append-only agent_actions ledger the moment it's created — the same cryptographically-verifiable trail @three-ws/provenance-mcp reads, now written automatically instead of only on request. Minting a generated GLB as a Solana NFT (mint_3d_asset) links its own signed ledger entry alongside the provenance already baked into the NFT metadata. And when a mint names another creator's asset as its parent (a remix), the original creator's royalty share now settles immediately as a real on-chain USDC transfer out of the mint fee — not just a royalty term for a future resale. Every minted 3D asset is also now listed in a public launch directory at GET /api/v1/tokenized/launches, the NFT counterpart to the existing coin-launch feed.",
 			"tags": [

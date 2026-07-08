@@ -327,6 +327,14 @@
 			<description>A new smart contract grants BNB Greenfield storage read permissions automatically when a buyer pays, via a real cross-chain call to Greenfield's PermissionHub — on-chain access control gating decentralized storage, with no equivalent on Ethereum, Base, or Solana. Fully built and tested (94 passing tests, including reentrancy proofs); testnet deployment is pending a funded deployer wallet.</description>
 		</item>
 		<item>
+			<title>Page agents get personas: one attribute turns your embedded 3D agent into a guide, shop assistant, DeFi advisor, onboarding coach, or support agent</title>
+			<link>https://three.ws/integrations</link>
+			<guid isPermaLink="false">2026-07-08:Page agents get personas: one attribute turns your embedded 3D agent into a guide, shop assistant, DeFi advisor, onboarding coach, or support agent</guid>
+			<pubDate>Wed, 08 Jul 2026 12:00:00 GMT</pubDate>
+			<category>sdk</category>
+			<description>@three-ws/page-agent's &lt;page-agent&gt; embed now ships five persona presets — add preset=&quot;shop-assistant&quot; (or defi-advisor, onboarding-coach, support, or guide) and the agent resolves a tailored greeting, four tappable suggested-prompt chips with real spoken answers, and a documented tool allowlist for pairing with a chat backend, all from one attribute. A new context attribute folds sanitized host-page state (page name, tier, connected chain, etc.) into the persona's brief for anything you pair it with. Explicit greeting/suggested-prompts/tools attributes still override the preset, and pages with no preset attribute behave exactly as before.</description>
+		</item>
+		<item>
 			<title>Paid API endpoints now stay up through a cache-provider outage</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-07-08:Paid API endpoints now stay up through a cache-provider outage</guid>
